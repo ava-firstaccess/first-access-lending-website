@@ -39,7 +39,7 @@ export default function Home() {
       {/* Hero Section */}
       <section className="max-w-7xl mx-auto px-6 pt-12 pb-10">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-5xl md:text-6xl font-bold text-[#003961] leading-tight mb-6">
+          <h1 className="font-heading text-5xl md:text-6xl font-bold text-[#003961] leading-tight mb-6">
             Your Home Has Value.{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0283DB] to-[#0EF0F0]">
               We Give You Access.
@@ -54,7 +54,7 @@ export default function Home() {
 
       {/* Dual Pathway Cards - Primary CTA */}
       <section className="max-w-6xl mx-auto px-6 pb-16">
-        <h2 className="text-3xl font-bold text-center text-[#003961] mb-8">
+        <h2 className="font-heading text-3xl font-bold text-center text-[#003961] mb-8">
           Choose Your Path to Access
         </h2>
         <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
@@ -66,7 +66,7 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                 </svg>
               </div>
-              <h3 className="text-2xl font-bold text-[#003961]">Instant Access</h3>
+              <h3 className="font-heading text-2xl font-bold text-[#003961]">Instant Access</h3>
             </div>
             <p className="text-gray-700 mb-6 leading-relaxed">
               Already know what you need? Jump straight to our application. Quick, streamlined, and built for borrowers who are ready to move.
@@ -104,7 +104,7 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <h3 className="text-2xl font-bold text-[#003961]">Guided Access</h3>
+              <h3 className="font-heading text-2xl font-bold text-[#003961]">Guided Access</h3>
             </div>
             <p className="text-gray-700 mb-6 leading-relaxed">
               Want expert guidance? Schedule a consultation with our lending team. We'll walk you through options and build a solution tailored to you.
@@ -146,19 +146,19 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             <a href="/heloc" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
-              <h3 className="text-xl font-bold text-[#003961] mb-2">HELOC</h3>
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">HELOC</h3>
               <p className="text-gray-700 text-sm">Revolving line of credit. Draw what you need, when you need it.</p>
             </a>
             <a href="/second-mortgages" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
-              <h3 className="text-xl font-bold text-[#003961] mb-2">Second Mortgages</h3>
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Second Mortgages</h3>
               <p className="text-gray-700 text-sm">Fixed-rate lump sum. Predictable payments.</p>
             </a>
             <a href="/refinance" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
-              <h3 className="text-xl font-bold text-[#003961] mb-2">Refinance</h3>
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Refinance</h3>
               <p className="text-gray-700 text-sm">Replace your mortgage and access cash.</p>
             </a>
             <a href="/home-purchase" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
-              <h3 className="text-xl font-bold text-[#003961] mb-2">Home Purchase</h3>
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Home Purchase</h3>
               <p className="text-gray-700 text-sm">Financing for your next property.</p>
             </a>
           </div>
@@ -184,7 +184,7 @@ export default function Home() {
       {/* About Section */}
       <section id="about" className="bg-white py-16">
         <div className="max-w-5xl mx-auto px-6">
-          <h2 className="text-4xl font-bold text-[#003961] mb-6 text-center">
+          <h2 className="font-heading text-4xl font-bold text-[#003961] mb-6 text-center">
             We're Second Lien Specialists
           </h2>
           <div className="max-w-3xl mx-auto">
@@ -201,7 +201,7 @@ export default function Home() {
       {/* Real Google Reviews Section */}
       <section id="reviews" className="py-16 bg-gradient-to-br from-[#FAFAFA] to-gray-100">
         <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-4xl font-bold text-[#003961] mb-4 text-center">
+          <h2 className="font-heading text-4xl font-bold text-[#003961] mb-4 text-center">
             What Our Clients Say
           </h2>
           <p className="text-center text-gray-600 mb-12">Real reviews from real people</p>

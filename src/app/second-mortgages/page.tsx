@@ -13,7 +13,7 @@ export default function SecondMortgagesPage() {
       {/* Hero Section - Second Mortgages Specific, Never Changes */}
       <section className="max-w-7xl mx-auto px-6 py-16">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-5xl md:text-6xl font-bold text-[#003961] leading-tight mb-6">
+          <h1 className="font-heading text-5xl md:text-6xl font-bold text-[#003961] leading-tight mb-6">
             Second Mortgages{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0283DB] to-[#0EF0F0]">
               Fixed-Rate Equity Access
@@ -35,21 +35,21 @@ export default function SecondMortgagesPage() {
       {/* Common Uses */}
       <section className="bg-[#FAFAFA] py-16">
         <div className="max-w-7xl mx-auto px-6">
-          <h2 className="text-3xl font-bold text-[#003961] mb-8 text-center">Common Uses for Second Mortgages</h2>
+          <h2 className="font-heading text-3xl font-bold text-[#003961] mb-8 text-center">Common Uses for Second Mortgages</h2>
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all">
               <div className="text-3xl mb-3">🏠</div>
-              <h3 className="text-xl font-bold text-[#003961] mb-2">Major Renovations</h3>
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Major Renovations</h3>
               <p className="text-gray-700">Complete large projects with one lump sum</p>
             </div>
             <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all">
               <div className="text-3xl mb-3">💰</div>
-              <h3 className="text-xl font-bold text-[#003961] mb-2">Large Purchases</h3>
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Large Purchases</h3>
               <p className="text-gray-700">Fund significant one-time expenses</p>
             </div>
             <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all">
               <div className="text-3xl mb-3">🏢</div>
-              <h3 className="text-xl font-bold text-[#003961] mb-2">Investment Opportunities</h3>
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Investment Opportunities</h3>
               <p className="text-gray-700">Capital for business or real estate investments</p>
             </div>
           </div>

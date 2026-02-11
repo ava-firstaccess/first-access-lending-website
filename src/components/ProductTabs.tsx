@@ -125,7 +125,7 @@ export default function ProductTabs({ currentProduct }: ProductTabsProps) {
         {/* Tab Content - Changes based on active tab */}
         <div className="grid md:grid-cols-2 gap-12">
           <div>
-            <h2 className="text-3xl font-bold text-[#003961] mb-6">{activeProduct.title}</h2>
+            <h2 className="font-heading text-3xl font-bold text-[#003961] mb-6">{activeProduct.title}</h2>
             <p className="text-lg text-gray-700 mb-8 leading-relaxed">
               {activeProduct.description}
             </p>
@@ -138,7 +138,7 @@ export default function ProductTabs({ currentProduct }: ProductTabsProps) {
           </div>
 
           <div className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-8">
-            <h3 className="text-2xl font-bold text-[#003961] mb-6">Key Features</h3>
+            <h3 className="font-heading text-2xl font-bold text-[#003961] mb-6">Key Features</h3>
             <ul className="space-y-4">
               {activeProduct.features.map((feature, idx) => (
                 <li key={idx} className="flex items-start text-gray-700">

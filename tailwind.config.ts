@@ -16,6 +16,10 @@ const config: Config = {
           dark: '#003961',
         },
       },
+      fontFamily: {
+        heading: ['var(--font-roboto-condensed)', 'system-ui', '-apple-system', 'Franklin Gothic', 'sans-serif'],
+        body: ['var(--font-roboto)', 'system-ui', '-apple-system', 'sans-serif'],
+      },
     },
   },
   plugins: [],

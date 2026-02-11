@@ -3,7 +3,7 @@
 export default function DualPathwayCards() {
   return (
     <section className="max-w-6xl mx-auto px-6 py-16">
-      <h2 className="text-3xl font-bold text-center text-[#003961] mb-8">
+      <h2 className="font-heading text-3xl font-bold text-center text-[#003961] mb-8">
         Choose Your Path to Access
       </h2>
       <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
@@ -15,7 +15,7 @@ export default function DualPathwayCards() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
               </svg>
             </div>
-            <h3 className="text-2xl font-bold text-[#003961]">Instant Access</h3>
+            <h3 className="font-heading text-2xl font-bold text-[#003961]">Instant Access</h3>
           </div>
           <p className="text-gray-700 mb-6 leading-relaxed">
             Already know what you need? Jump straight to our application. Quick, streamlined, and built for borrowers who are ready to move.
@@ -53,7 +53,7 @@ export default function DualPathwayCards() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
             </div>
-            <h3 className="text-2xl font-bold text-[#003961]">Guided Access</h3>
+            <h3 className="font-heading text-2xl font-bold text-[#003961]">Guided Access</h3>
           </div>
           <p className="text-gray-700 mb-6 leading-relaxed">
             Want expert guidance? Schedule a consultation with our lending team. We'll walk you through options and build a solution tailored to you.

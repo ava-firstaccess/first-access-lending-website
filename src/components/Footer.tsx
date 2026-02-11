@@ -4,7 +4,7 @@ export default function Footer() {
       {/* Contact Section */}
       <section id="contact" className="bg-[#003961] text-white py-16">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-4xl font-bold mb-6">Ready to Unlock Your Access?</h2>
+          <h2 className="font-heading text-4xl font-bold mb-6">Ready to Unlock Your Access?</h2>
           <p className="text-xl text-[#0EF0F0] mb-8">
             Get started today or reach out directly. We're here to help.
           </p>
