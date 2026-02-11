@@ -9,7 +9,7 @@ export default function Header() {
             <img 
               src="/logos/fal-logo.svg" 
               alt="First Access Lending" 
-              className="h-[4.5rem] md:h-[5.75rem] w-auto"
+              className="h-[5.625rem] md:h-[7.1875rem] w-auto"
             />
           </a>
         </div>
