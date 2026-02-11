@@ -10,10 +10,10 @@ export default function Home() {
             <img 
               src="/logos/fal-logo.svg" 
               alt="First Access Lending" 
-              className="h-12 w-auto"
+              className="h-16 w-auto"
             />
             <div className="border-l border-[#0EF0F0] pl-4">
-              <p className="text-[#0EF0F0] text-sm font-semibold">Second Lien Solutions</p>
+              <p className="text-[#0EF0F0] text-lg font-semibold">Second Lien Solutions</p>
             </div>
           </div>
           <nav className="flex gap-6">
@@ -28,10 +28,13 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-8 py-20">
         <div className="text-center mb-16">
           <h2 className="text-5xl font-bold text-[#003961] mb-4">
-            Your Loan, Your Way
+            Unlock Your Home's Equity
           </h2>
-          <p className="text-xl text-gray-700">
-            Choose the experience that fits your style
+          <p className="text-xl text-gray-700 mb-2">
+            Two paths. One destination. Total access.
+          </p>
+          <p className="text-lg text-[#0283DB] font-semibold">
+            Choose how you want to access your funds
           </p>
         </div>
 
@@ -42,12 +45,15 @@ export default function Home() {
               INSTANT
             </div>
             <div className="p-8">
-              <div className="w-20 h-20 bg-gradient-to-br from-[#0EF0F0] to-[#0283DB] rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <span className="text-5xl">⚡</span>
+              <div className="w-20 h-20 bg-gradient-to-br from-[#0EF0F0] to-[#0283DB] rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg">
+                <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  <circle cx="17" cy="9" r="1" fill="currentColor" />
+                </svg>
               </div>
-              <h3 className="text-3xl font-bold text-[#003961] mb-4">AI-Powered Path</h3>
+              <h3 className="text-3xl font-bold text-[#003961] mb-4">Instant Access</h3>
               <p className="text-gray-700 mb-6 leading-relaxed">
-                Get your quote instantly. No phone calls, no waiting. Our AI analyzes your situation in seconds and delivers a personalized rate—entirely on your terms.
+                <strong className="text-[#003961]">Direct. Digital. Done.</strong> Our platform analyzes your home equity and credit profile instantly, delivering a personalized quote in seconds—no calls, no waiting, just access.
               </p>
               <ul className="space-y-3 mb-8">
                 <li className="flex items-center text-gray-700">
@@ -75,8 +81,8 @@ export default function Home() {
                   Completely confidential
                 </li>
               </ul>
-              <button className="w-full bg-gradient-to-r from-[#0EF0F0] to-[#0283DB] text-white font-bold py-4 rounded-xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                Start AI Quote →
+              <button className="w-full bg-gradient-to-r from-[#0EF0F0] to-[#0283DB] text-[#003961] font-bold py-4 rounded-xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                Get Instant Access →
               </button>
             </div>
           </div>
@@ -87,12 +93,14 @@ export default function Home() {
               GUIDED
             </div>
             <div className="p-8">
-              <div className="w-20 h-20 bg-gradient-to-br from-[#003961] to-[#0283DB] rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <span className="text-5xl">👤</span>
+              <div className="w-20 h-20 bg-gradient-to-br from-[#003961] to-[#0283DB] rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg">
+                <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                </svg>
               </div>
-              <h3 className="text-3xl font-bold text-[#003961] mb-4">Human-Led Path</h3>
+              <h3 className="text-3xl font-bold text-[#003961] mb-4">Guided Access</h3>
               <p className="text-gray-700 mb-6 leading-relaxed">
-                Speak with a real loan officer. Ask questions, get personalized advice, and have someone walk you through every step of the process.
+                <strong className="text-[#003961]">Personal. Expert. Proven.</strong> Work one-on-one with an experienced loan officer who knows second liens inside out. Complex scenarios, unique situations—we navigate it together.
               </p>
               <ul className="space-y-3 mb-8">
                 <li className="flex items-center text-gray-700">
@@ -121,15 +129,15 @@ export default function Home() {
                 </li>
               </ul>
               <button className="w-full bg-gradient-to-r from-[#003961] to-[#0283DB] text-white font-bold py-4 rounded-xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                Talk to a Loan Officer →
+                Talk to an Expert →
               </button>
             </div>
           </div>
         </div>
 
         <div className="text-center mt-12">
-          <p className="text-gray-600 italic">
-            Can't decide? Start with AI and switch to human support anytime—or vice versa.
+          <p className="text-[#0283DB] font-semibold text-lg">
+            Both paths lead to the same great rates. Choose what feels right—you can always switch.
           </p>
         </div>
       </section>
@@ -142,13 +150,13 @@ export default function Home() {
           </h2>
           <div className="prose prose-lg max-w-none text-gray-700 leading-relaxed">
             <p className="mb-4">
-              First Access Lending specializes in <strong>second lien mortgages</strong>—HELOCs and closed-end second mortgages that unlock the equity in your home without refinancing your first mortgage.
+              First Access Lending specializes in <strong className="text-[#003961]">second lien mortgages</strong>—HELOCs and closed-end second mortgages that unlock the equity in your home without refinancing your first mortgage.
             </p>
             <p className="mb-4">
-              Whether you need funds for home improvements, debt consolidation, or other financial goals, we offer flexible solutions tailored to your situation. And now, you can explore your options entirely on your own terms.
+              Your home has value. We give you <strong className="text-[#0283DB]">access</strong> to it. Whether you need funds for home improvements, debt consolidation, or other financial goals, we offer flexible solutions on your terms.
             </p>
-            <p>
-              <strong>Your choice. Your timeline. Your loan.</strong>
+            <p className="text-xl text-[#003961] font-bold">
+              Your equity. Your access. Your way.
             </p>
           </div>
         </div>
