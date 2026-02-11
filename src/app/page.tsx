@@ -2,7 +2,7 @@
 
 import Header from '@/components/Header';
 import ProductTabs from '@/components/ProductTabs';
-import GoogleReviewsWidget from '@/components/GoogleReviewsWidget';
+import CustomGoogleReviews from '@/components/CustomGoogleReviews';
 import Footer from '@/components/Footer';
 
 export default function Home() {
@@ -138,7 +138,7 @@ export default function Home() {
       </section>
 
       {/* Google Reviews Widget */}
-      <GoogleReviewsWidget />
+      <CustomGoogleReviews />
 
       {/* Product Tabs */}
       <div id="products">

@@ -3,7 +3,7 @@
 import Header from '@/components/Header';
 import ProductTabs from '@/components/ProductTabs';
 import DualPathwayCards from '@/components/DualPathwayCards';
-import GoogleReviewsWidget from '@/components/GoogleReviewsWidget';
+import CustomGoogleReviews from '@/components/CustomGoogleReviews';
 import Footer from '@/components/Footer';
 
 export default function HelocPage() {
@@ -31,7 +31,7 @@ export default function HelocPage() {
       <DualPathwayCards />
 
       {/* Google Reviews Widget */}
-      <GoogleReviewsWidget />
+      <CustomGoogleReviews />
 
       {/* Product Tabs - Fixed Order, Content Changes on Click */}
       <ProductTabs currentProduct="heloc" />
