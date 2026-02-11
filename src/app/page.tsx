@@ -92,7 +92,7 @@ export default function Home() {
               </li>
             </ul>
             <button className="w-full bg-gradient-to-r from-[#0EF0F0] to-[#0283DB] text-[#003961] font-bold px-8 py-4 rounded-xl hover:shadow-lg transition-all">
-              Start Application →
+              Get Access →
             </button>
           </div>
 
@@ -130,7 +130,7 @@ export default function Home() {
               </li>
             </ul>
             <button className="w-full bg-gradient-to-r from-[#0283DB] to-[#003961] text-white font-bold px-8 py-4 rounded-xl hover:shadow-lg transition-all">
-              Schedule Consultation →
+              Get Access →
             </button>
           </div>
         </div>
