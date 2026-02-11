@@ -3,18 +3,15 @@ import Link from 'next/link';
 export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-[#FAFAFA] to-gray-100">
-      {/* Header */}
+      {/* Header - Bigger Logo, No Tagline */}
       <header className="bg-[#003961] text-white py-6 px-8 shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center">
             <img 
               src="/logos/fal-logo.svg" 
               alt="First Access Lending" 
-              className="h-16 w-auto"
+              className="h-20 w-auto"
             />
-            <div className="border-l border-[#0EF0F0] pl-4">
-              <p className="text-[#0EF0F0] text-lg font-semibold">Second Lien Solutions</p>
-            </div>
           </div>
           <nav className="flex gap-6">
             <a href="#about" className="hover:text-[#0EF0F0] transition">About</a>
@@ -24,14 +21,9 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Hero Section - More Human & Storytelling */}
-      <section className="max-w-7xl mx-auto px-8 py-16">
-        <div className="max-w-4xl mx-auto text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full mb-6 shadow-sm border border-[#0EF0F0]/30">
-            <div className="w-2 h-2 bg-[#0EF0F0] rounded-full animate-pulse"></div>
-            <span className="text-sm font-medium text-[#003961]">Unlocking Home Equity Since 2020</span>
-          </div>
-          
+      {/* HERO CTA Section - Front and Center */}
+      <section className="max-w-7xl mx-auto px-8 py-12">
+        <div className="max-w-4xl mx-auto text-center mb-10">
           <h1 className="text-5xl md:text-6xl font-bold text-[#003961] leading-tight mb-6">
             Your Home Has Value.{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0283DB] to-[#0EF0F0]">
@@ -39,45 +31,18 @@ export default function Home() {
             </span>
           </h1>
           
-          <p className="text-xl text-gray-700 leading-relaxed mb-8 max-w-3xl mx-auto">
+          <p className="text-xl text-gray-700 leading-relaxed mb-6 max-w-3xl mx-auto">
             Whether you need funds for home improvements, debt consolidation, or life's next big move—we help homeowners 
             tap into their equity with <strong className="text-[#003961]">second liens and HELOCs</strong>. Fast, flexible, and built for you.
           </p>
 
           <p className="text-lg text-[#0283DB] font-semibold mb-8">
-            Choose your path below ↓
+            Choose your path ↓
           </p>
         </div>
 
-        {/* Trust Signals */}
-        <div className="max-w-5xl mx-auto mb-16">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 text-center border border-gray-200 shadow-sm hover:shadow-md transition-all">
-              <div className="text-4xl font-bold text-[#003961] mb-2">$50M+</div>
-              <div className="text-sm text-gray-600">In home equity unlocked</div>
-            </div>
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 text-center border border-gray-200 shadow-sm hover:shadow-md transition-all">
-              <div className="text-4xl font-bold text-[#003961] mb-2">&lt;48hrs</div>
-              <div className="text-sm text-gray-600">Average approval time</div>
-            </div>
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 text-center border border-gray-200 shadow-sm hover:shadow-md transition-all">
-              <div className="text-4xl font-bold text-[#003961] mb-2">4.9★</div>
-              <div className="text-sm text-gray-600">Client satisfaction rating</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Dual Pathway Cards */}
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-[#003961] mb-3">
-            Two Paths. One Destination. Total Access.
-          </h2>
-          <p className="text-lg text-gray-700">
-            Choose how you want to access your funds
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-8 max-w-6xl mx-auto">
+        {/* Dual Pathway Cards - THE HERO */}
+        <div className="grid md:grid-cols-2 gap-8 max-w-6xl mx-auto mb-12">
           {/* Instant Access Card */}
           <div className="group relative bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border-4 border-[#0283DB] hover:border-[#0EF0F0]">
             <div className="absolute top-0 right-0 bg-[#0EF0F0] text-[#003961] px-4 py-2 rounded-bl-xl font-bold text-sm">
@@ -173,13 +138,35 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="text-center mt-12">
+        <div className="text-center mb-12">
           <p className="text-[#0283DB] font-semibold text-lg">
             Both paths lead to the same great rates. Choose what feels right—you can always switch.
           </p>
           <p className="text-gray-600 text-sm mt-2">
             🔒 Secure application • No impact to credit score • NMLS #1988098
           </p>
+        </div>
+
+        {/* Trust Signals - Moved Below CTA */}
+        <div className="max-w-5xl mx-auto mb-12">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full mb-8 shadow-sm border border-[#0EF0F0]/30 mx-auto block w-fit">
+            <div className="w-2 h-2 bg-[#0EF0F0] rounded-full animate-pulse"></div>
+            <span className="text-sm font-medium text-[#003961]">Unlocking Home Equity Since 2020</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 text-center border border-gray-200 shadow-sm hover:shadow-md transition-all">
+              <div className="text-4xl font-bold text-[#003961] mb-2">$50M+</div>
+              <div className="text-sm text-gray-600">In home equity unlocked</div>
+            </div>
+            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 text-center border border-gray-200 shadow-sm hover:shadow-md transition-all">
+              <div className="text-4xl font-bold text-[#003961] mb-2">&lt;48hrs</div>
+              <div className="text-sm text-gray-600">Average approval time</div>
+            </div>
+            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 text-center border border-gray-200 shadow-sm hover:shadow-md transition-all">
+              <div className="text-4xl font-bold text-[#003961] mb-2">4.9★</div>
+              <div className="text-sm text-gray-600">Client satisfaction rating</div>
+            </div>
+          </div>
         </div>
       </section>
 
