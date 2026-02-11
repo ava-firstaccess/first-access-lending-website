@@ -94,12 +94,20 @@ export default function ProductTabs({ currentProduct }: ProductTabsProps) {
   // Get active product data
   const activeProduct = productData.find(p => p.id === activeTab) || productData[0];
 
+  // Reorder tabs: current landing product first, then others in original order
+  const orderedTabs = landingProduct
+    ? [
+        ...productData.filter(p => p.id === landingProduct),
+        ...productData.filter(p => p.id !== landingProduct)
+      ]
+    : productData;
+
   return (
     <section className="bg-white py-16">
       <div className="max-w-7xl mx-auto px-6">
-        {/* Tab Navigation - Fixed Order, No Reordering */}
+        {/* Tab Navigation - Reordered to show landing product first */}
         <div className="flex gap-1 mb-8 border-b border-gray-200 overflow-x-auto">
-          {productData.map((product) => (
+          {orderedTabs.map((product) => (
             <button
               key={product.id}
               onClick={() => setActiveTab(product.id)}
