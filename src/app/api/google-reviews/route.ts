@@ -11,48 +11,53 @@ export async function GET() {
       );
     }
 
-    // First, search for the business to get the Place ID
+    // Use the new Places API (New) - Text Search endpoint
     const searchResponse = await fetch(
-      `https://maps.googleapis.com/maps/api/place/textsearch/json?query=First+Access+Lending+Virginia&key=${apiKey}`
+      'https://places.googleapis.com/v1/places:searchText',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.rating,places.userRatingCount,places.reviews'
+        },
+        body: JSON.stringify({
+          textQuery: 'First Access Lending Virginia'
+        })
+      }
     );
 
     if (!searchResponse.ok) {
-      throw new Error('Failed to search for business');
+      const errorText = await searchResponse.text();
+      throw new Error(`Search failed: ${searchResponse.status} - ${errorText}`);
     }
 
     const searchData = await searchResponse.json();
 
-    if (searchData.status !== 'OK' || !searchData.results?.[0]) {
+    if (!searchData.places || searchData.places.length === 0) {
       return NextResponse.json(
         { error: 'Business not found on Google', searchData },
         { status: 404 }
       );
     }
 
-    const placeId = searchData.results[0].place_id;
+    const place = searchData.places[0];
 
-    // Fetch place details with reviews
-    const detailsResponse = await fetch(
-      `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,rating,user_ratings_total,reviews&key=${apiKey}`
-    );
-
-    if (!detailsResponse.ok) {
-      throw new Error('Failed to fetch reviews');
-    }
-
-    const detailsData = await detailsResponse.json();
-
-    if (detailsData.status !== 'OK') {
-      return NextResponse.json(
-        { error: `API Error: ${detailsData.status}`, details: detailsData },
-        { status: 500 }
-      );
-    }
-
-    // Return the place details
+    // Transform the response to match the expected format
     return NextResponse.json({
-      placeId,
-      ...detailsData.result,
+      placeId: place.id,
+      name: place.displayName?.text || 'First Access Lending',
+      rating: place.rating,
+      user_ratings_total: place.userRatingCount,
+      reviews: place.reviews?.map((review: any) => ({
+        author_name: review.authorAttribution?.displayName || 'Anonymous',
+        author_url: review.authorAttribution?.uri || '',
+        profile_photo_url: review.authorAttribution?.photoUri || '',
+        rating: review.rating,
+        relative_time_description: review.relativePublishTimeDescription || '',
+        text: review.text?.text || review.originalText?.text || '',
+        time: review.publishTime ? new Date(review.publishTime).getTime() / 1000 : Date.now() / 1000
+      })) || []
     });
   } catch (error) {
     console.error('Error fetching Google reviews:', error);
