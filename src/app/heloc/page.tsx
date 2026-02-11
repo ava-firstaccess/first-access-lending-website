@@ -3,6 +3,7 @@
 import Header from '@/components/Header';
 import ProductTabs from '@/components/ProductTabs';
 import DualPathwayCards from '@/components/DualPathwayCards';
+import ReviewCarousel from '@/components/ReviewCarousel';
 import Footer from '@/components/Footer';
 
 export default function HelocPage() {
@@ -11,7 +12,7 @@ export default function HelocPage() {
       <Header />
 
       {/* Hero Section - HELOC Specific, Never Changes */}
-      <section className="max-w-7xl mx-auto px-6 py-16">
+      <section className="max-w-7xl mx-auto px-6 py-10">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="font-heading text-5xl md:text-6xl font-bold text-[#003961] leading-tight mb-6">
             Home Equity Line of Credit{' '}
@@ -29,11 +30,14 @@ export default function HelocPage() {
       {/* Dual Pathway Cards */}
       <DualPathwayCards />
 
+      {/* Review Carousel */}
+      <ReviewCarousel />
+
       {/* Product Tabs - Fixed Order, Content Changes on Click */}
       <ProductTabs currentProduct="heloc" />
 
       {/* Common Uses */}
-      <section className="bg-[#FAFAFA] py-16">
+      <section className="bg-[#FAFAFA] py-10">
         <div className="max-w-7xl mx-auto px-6">
           <h2 className="font-heading text-3xl font-bold text-[#003961] mb-8 text-center">Common Uses for a HELOC</h2>
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">

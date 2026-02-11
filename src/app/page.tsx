@@ -2,6 +2,7 @@
 
 import Header from '@/components/Header';
 import ProductTabs from '@/components/ProductTabs';
+import ReviewCarousel from '@/components/ReviewCarousel';
 import Footer from '@/components/Footer';
 
 export default function Home() {
@@ -53,7 +54,7 @@ export default function Home() {
       </section>
 
       {/* Dual Pathway Cards - Primary CTA */}
-      <section className="max-w-6xl mx-auto px-6 pb-16">
+      <section className="max-w-6xl mx-auto px-6 pb-10">
         <h2 className="font-heading text-3xl font-bold text-center text-[#003961] mb-8">
           Choose Your Path to Access
         </h2>
@@ -69,9 +70,15 @@ export default function Home() {
               <h3 className="font-heading text-2xl font-bold text-[#003961]">Instant Access</h3>
             </div>
             <p className="text-gray-700 mb-6 leading-relaxed">
-              Already know what you need? Jump straight to our application. Quick, streamlined, and built for borrowers who are ready to move.
+              <strong className="text-[#003961]">Get your instant rate quote</strong> in minutes. Quick, streamlined, and built for borrowers who are ready to move.
             </p>
             <ul className="space-y-3 mb-8">
+              <li className="flex items-start text-gray-700">
+                <svg className="w-5 h-5 text-[#0EF0F0] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span><strong>Instant rate quote</strong> delivered immediately</span>
+              </li>
               <li className="flex items-start text-gray-700">
                 <svg className="w-5 h-5 text-[#0EF0F0] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -83,12 +90,6 @@ export default function Home() {
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
                 <span>Self-service portal</span>
-              </li>
-              <li className="flex items-start text-gray-700">
-                <svg className="w-5 h-5 text-[#0EF0F0] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <span>Fast approvals</span>
               </li>
             </ul>
             <button className="w-full bg-gradient-to-r from-[#0EF0F0] to-[#0283DB] text-[#003961] font-bold px-8 py-4 rounded-xl hover:shadow-lg transition-all">
@@ -136,13 +137,16 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Review Carousel */}
+      <ReviewCarousel />
+
       {/* Product Tabs */}
       <div id="products">
         <ProductTabs />
       </div>
 
       {/* Product Overview - Quick Links */}
-      <section className="bg-white py-16">
+      <section className="bg-white py-10">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             <a href="/heloc" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
@@ -166,13 +170,9 @@ export default function Home() {
       </section>
 
       {/* Trust Signals */}
-      <section className="bg-[#FAFAFA] py-16">
+      <section className="bg-[#FAFAFA] py-12">
         <div className="max-w-5xl mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-            <div className="bg-white rounded-xl p-6 text-center shadow-sm hover:shadow-md transition-all">
-              <div className="text-4xl font-bold text-[#003961] mb-2">&lt;48hrs</div>
-              <div className="text-sm text-gray-600">Average approval time</div>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-6 max-w-md mx-auto">
             <div className="bg-white rounded-xl p-6 text-center shadow-sm hover:shadow-md transition-all">
               <div className="text-4xl font-bold text-[#003961] mb-2">5.0★</div>
               <div className="text-sm text-gray-600">Client satisfaction rating</div>
@@ -182,7 +182,7 @@ export default function Home() {
       </section>
 
       {/* About Section */}
-      <section id="about" className="bg-white py-16">
+      <section id="about" className="bg-white py-10">
         <div className="max-w-5xl mx-auto px-6">
           <h2 className="font-heading text-4xl font-bold text-[#003961] mb-6 text-center">
             We're Second Lien Specialists
@@ -199,7 +199,7 @@ export default function Home() {
       </section>
 
       {/* Real Google Reviews Section */}
-      <section id="reviews" className="py-16 bg-gradient-to-br from-[#FAFAFA] to-gray-100">
+      <section id="reviews" className="py-10 bg-gradient-to-br from-[#FAFAFA] to-gray-100">
         <div className="max-w-6xl mx-auto px-6">
           <h2 className="font-heading text-4xl font-bold text-[#003961] mb-4 text-center">
             What Our Clients Say
