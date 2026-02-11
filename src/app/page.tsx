@@ -75,6 +75,90 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Dual Pathway Cards - Primary CTA */}
+      <section className="max-w-6xl mx-auto px-6 pb-16">
+        <h2 className="text-3xl font-bold text-center text-[#003961] mb-8">
+          Choose Your Path to Access
+        </h2>
+        <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+          {/* Instant Access Card */}
+          <div className="bg-white rounded-2xl shadow-lg border-2 border-[#0EF0F0] hover:shadow-2xl transition-all p-8">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="bg-gradient-to-br from-[#0EF0F0] to-[#0283DB] p-4 rounded-xl">
+                <svg className="w-8 h-8 text-[#003961]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold text-[#003961]">Instant Access</h3>
+            </div>
+            <p className="text-gray-700 mb-6 leading-relaxed">
+              Already know what you need? Jump straight to our application. Quick, streamlined, and built for borrowers who are ready to move.
+            </p>
+            <ul className="space-y-3 mb-8">
+              <li className="flex items-start text-gray-700">
+                <svg className="w-5 h-5 text-[#0EF0F0] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span>Apply in minutes</span>
+              </li>
+              <li className="flex items-start text-gray-700">
+                <svg className="w-5 h-5 text-[#0EF0F0] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span>Self-service portal</span>
+              </li>
+              <li className="flex items-start text-gray-700">
+                <svg className="w-5 h-5 text-[#0EF0F0] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span>Fast approvals</span>
+              </li>
+            </ul>
+            <button className="w-full bg-gradient-to-r from-[#0EF0F0] to-[#0283DB] text-[#003961] font-bold px-8 py-4 rounded-xl hover:shadow-lg transition-all">
+              Start Application →
+            </button>
+          </div>
+
+          {/* Guided Access Card */}
+          <div className="bg-white rounded-2xl shadow-lg border-2 border-[#0283DB] hover:shadow-2xl transition-all p-8">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="bg-gradient-to-br from-[#0283DB] to-[#003961] p-4 rounded-xl">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold text-[#003961]">Guided Access</h3>
+            </div>
+            <p className="text-gray-700 mb-6 leading-relaxed">
+              Want expert guidance? Schedule a consultation with our lending team. We'll walk you through options and build a solution tailored to you.
+            </p>
+            <ul className="space-y-3 mb-8">
+              <li className="flex items-start text-gray-700">
+                <svg className="w-5 h-5 text-[#0283DB] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span>One-on-one consultation</span>
+              </li>
+              <li className="flex items-start text-gray-700">
+                <svg className="w-5 h-5 text-[#0283DB] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span>Personalized recommendations</span>
+              </li>
+              <li className="flex items-start text-gray-700">
+                <svg className="w-5 h-5 text-[#0283DB] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span>White-glove support</span>
+              </li>
+            </ul>
+            <button className="w-full bg-gradient-to-r from-[#0283DB] to-[#003961] text-white font-bold px-8 py-4 rounded-xl hover:shadow-lg transition-all">
+              Schedule Consultation →
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* Tabs Navigation - Figure.com Style */}
       <section id="products" className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-6">
