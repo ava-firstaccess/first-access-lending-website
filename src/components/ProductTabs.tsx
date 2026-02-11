@@ -133,7 +133,7 @@ export default function ProductTabs({ currentProduct }: ProductTabsProps) {
               href={activeProduct.href}
               className="inline-block bg-gradient-to-r from-[#0EF0F0] to-[#0283DB] text-[#003961] font-bold px-8 py-4 rounded-xl hover:shadow-lg transition-all"
             >
-              Get Started →
+              Get Access →
             </Link>
           </div>
 

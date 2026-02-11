@@ -3,13 +3,13 @@
 export default function Header() {
   return (
     <header className="bg-[#003961] text-white sticky top-0 z-50 shadow-md">
-      <nav className="h-[85px] max-w-7xl mx-auto px-8 flex items-center justify-between">
+      <nav className="h-[100px] max-w-7xl mx-auto px-8 flex items-center justify-between">
         <div className="flex items-center">
           <a href="/" className="flex items-center">
             <img 
               src="/logos/fal-logo.svg" 
               alt="First Access Lending" 
-              className="h-[4rem] md:h-[4.25rem] w-auto"
+              className="h-[5rem] md:h-[5.5rem] w-auto"
             />
           </a>
         </div>
