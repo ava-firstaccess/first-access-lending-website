@@ -6,9 +6,15 @@ export default function Home() {
       {/* Header */}
       <header className="bg-[#003961] text-white py-6 px-8 shadow-lg">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">First Access Lending</h1>
-            <p className="text-[#0EF0F0] text-sm">Second Lien Solutions</p>
+          <div className="flex items-center gap-4">
+            <img 
+              src="/logos/fal-logo.svg" 
+              alt="First Access Lending" 
+              className="h-12 w-auto"
+            />
+            <div className="border-l border-[#0EF0F0] pl-4">
+              <p className="text-[#0EF0F0] text-sm font-semibold">Second Lien Solutions</p>
+            </div>
           </div>
           <nav className="flex gap-6">
             <a href="#about" className="hover:text-[#0EF0F0] transition">About</a>

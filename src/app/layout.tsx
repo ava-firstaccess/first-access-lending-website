@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "First Access Lending | Second Lien Solutions",
   description: "AI-powered second lien mortgages - HELOCs and closed-end seconds. Choose AI or human-led service.",
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
