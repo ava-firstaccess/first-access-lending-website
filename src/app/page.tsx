@@ -2,7 +2,7 @@
 
 import Header from '@/components/Header';
 import ProductTabs from '@/components/ProductTabs';
-import ReviewCarousel from '@/components/ReviewCarousel';
+import GoogleReviewsWidget from '@/components/GoogleReviewsWidget';
 import Footer from '@/components/Footer';
 
 export default function Home() {
@@ -137,8 +137,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Review Carousel */}
-      <ReviewCarousel />
+      {/* Google Reviews Widget */}
+      <GoogleReviewsWidget />
 
       {/* Product Tabs */}
       <div id="products">

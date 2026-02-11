@@ -3,7 +3,7 @@
 import Header from '@/components/Header';
 import ProductTabs from '@/components/ProductTabs';
 import DualPathwayCards from '@/components/DualPathwayCards';
-import ReviewCarousel from '@/components/ReviewCarousel';
+import GoogleReviewsWidget from '@/components/GoogleReviewsWidget';
 import Footer from '@/components/Footer';
 
 export default function SecondMortgagesPage() {
@@ -30,8 +30,8 @@ export default function SecondMortgagesPage() {
       {/* Dual Pathway Cards */}
       <DualPathwayCards />
 
-      {/* Review Carousel */}
-      <ReviewCarousel />
+      {/* Google Reviews Widget */}
+      <GoogleReviewsWidget />
 
       {/* Product Tabs - Fixed Order, Content Changes on Click */}
       <ProductTabs currentProduct="second-mortgages" />
