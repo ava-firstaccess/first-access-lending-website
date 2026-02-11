@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-[#FAFAFA] to-gray-100">
       {/* Header */}
-      <header className="bg-[#003961] text-white py-6 px-8 shadow-lg">
+      <header className="bg-[#003961] text-white py-6 px-8 shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <img 
@@ -24,22 +24,61 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Hero: Dual Pathway Choice */}
-      <section className="max-w-7xl mx-auto px-8 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-5xl font-bold text-[#003961] mb-4">
-            Unlock Your Home's Equity
-          </h2>
-          <p className="text-xl text-gray-700 mb-2">
-            Two paths. One destination. Total access.
+      {/* Hero Section - More Human & Storytelling */}
+      <section className="max-w-7xl mx-auto px-8 py-16">
+        <div className="max-w-4xl mx-auto text-center mb-12">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full mb-6 shadow-sm border border-[#0EF0F0]/30">
+            <div className="w-2 h-2 bg-[#0EF0F0] rounded-full animate-pulse"></div>
+            <span className="text-sm font-medium text-[#003961]">Unlocking Home Equity Since 2020</span>
+          </div>
+          
+          <h1 className="text-5xl md:text-6xl font-bold text-[#003961] leading-tight mb-6">
+            Your Home Has Value.{' '}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0283DB] to-[#0EF0F0]">
+              We Give You Access.
+            </span>
+          </h1>
+          
+          <p className="text-xl text-gray-700 leading-relaxed mb-8 max-w-3xl mx-auto">
+            Whether you need funds for home improvements, debt consolidation, or life's next big move—we help homeowners 
+            tap into their equity with <strong className="text-[#003961]">second liens and HELOCs</strong>. Fast, flexible, and built for you.
           </p>
-          <p className="text-lg text-[#0283DB] font-semibold">
+
+          <p className="text-lg text-[#0283DB] font-semibold mb-8">
+            Choose your path below ↓
+          </p>
+        </div>
+
+        {/* Trust Signals */}
+        <div className="max-w-5xl mx-auto mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 text-center border border-gray-200 shadow-sm hover:shadow-md transition-all">
+              <div className="text-4xl font-bold text-[#003961] mb-2">$50M+</div>
+              <div className="text-sm text-gray-600">In home equity unlocked</div>
+            </div>
+            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 text-center border border-gray-200 shadow-sm hover:shadow-md transition-all">
+              <div className="text-4xl font-bold text-[#003961] mb-2">&lt;48hrs</div>
+              <div className="text-sm text-gray-600">Average approval time</div>
+            </div>
+            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 text-center border border-gray-200 shadow-sm hover:shadow-md transition-all">
+              <div className="text-4xl font-bold text-[#003961] mb-2">4.9★</div>
+              <div className="text-sm text-gray-600">Client satisfaction rating</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Dual Pathway Cards */}
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold text-[#003961] mb-3">
+            Two Paths. One Destination. Total Access.
+          </h2>
+          <p className="text-lg text-gray-700">
             Choose how you want to access your funds
           </p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-8 max-w-6xl mx-auto">
-          {/* AI Pathway */}
+          {/* Instant Access Card */}
           <div className="group relative bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border-4 border-[#0283DB] hover:border-[#0EF0F0]">
             <div className="absolute top-0 right-0 bg-[#0EF0F0] text-[#003961] px-4 py-2 rounded-bl-xl font-bold text-sm">
               INSTANT
@@ -47,47 +86,46 @@ export default function Home() {
             <div className="p-8">
               <div className="w-20 h-20 bg-gradient-to-br from-[#0EF0F0] to-[#0283DB] rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg">
                 <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                  <circle cx="17" cy="9" r="1" fill="currentColor" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
               <h3 className="text-3xl font-bold text-[#003961] mb-4">Instant Access</h3>
-              <p className="text-gray-700 mb-6 leading-relaxed">
-                <strong className="text-[#003961]">Direct. Digital. Done.</strong> Our platform analyzes your home equity and credit profile instantly, delivering a personalized quote in seconds—no calls, no waiting, just access.
+              <p className="text-gray-700 mb-6 leading-relaxed text-lg">
+                <strong className="text-[#003961]">Fast. Digital. Straightforward.</strong> Our platform evaluates your equity instantly and delivers a personalized quote in seconds. No phone calls, no waiting rooms—just access.
               </p>
               <ul className="space-y-3 mb-8">
-                <li className="flex items-center text-gray-700">
-                  <svg className="w-5 h-5 text-[#0EF0F0] mr-3" fill="currentColor" viewBox="0 0 20 20">
+                <li className="flex items-start text-gray-700">
+                  <svg className="w-6 h-6 text-[#0EF0F0] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  Instant rate quote
+                  <span>Instant rate quote—know your options now</span>
                 </li>
-                <li className="flex items-center text-gray-700">
-                  <svg className="w-5 h-5 text-[#0EF0F0] mr-3" fill="currentColor" viewBox="0 0 20 20">
+                <li className="flex items-start text-gray-700">
+                  <svg className="w-6 h-6 text-[#0EF0F0] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  No human interaction required
+                  <span>100% digital—apply from your couch</span>
                 </li>
-                <li className="flex items-center text-gray-700">
-                  <svg className="w-5 h-5 text-[#0EF0F0] mr-3" fill="currentColor" viewBox="0 0 20 20">
+                <li className="flex items-start text-gray-700">
+                  <svg className="w-6 h-6 text-[#0EF0F0] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  24/7 availability
+                  <span>Available 24/7—midnight or midday, we're ready</span>
                 </li>
-                <li className="flex items-center text-gray-700">
-                  <svg className="w-5 h-5 text-[#0EF0F0] mr-3" fill="currentColor" viewBox="0 0 20 20">
+                <li className="flex items-start text-gray-700">
+                  <svg className="w-6 h-6 text-[#0EF0F0] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  Completely confidential
+                  <span>Completely confidential—your business, your privacy</span>
                 </li>
               </ul>
-              <button className="w-full bg-gradient-to-r from-[#0EF0F0] to-[#0283DB] text-[#003961] font-bold py-4 rounded-xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+              <button className="w-full bg-gradient-to-r from-[#0EF0F0] to-[#0283DB] text-[#003961] font-bold py-4 rounded-xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 text-lg">
                 Get Instant Access →
               </button>
             </div>
           </div>
 
-          {/* Human Pathway */}
+          {/* Guided Access Card */}
           <div className="group relative bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border-4 border-[#003961] hover:border-[#0283DB]">
             <div className="absolute top-0 right-0 bg-[#003961] text-[#0EF0F0] px-4 py-2 rounded-bl-xl font-bold text-sm">
               GUIDED
@@ -95,40 +133,40 @@ export default function Home() {
             <div className="p-8">
               <div className="w-20 h-20 bg-gradient-to-br from-[#003961] to-[#0283DB] rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg">
                 <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
               <h3 className="text-3xl font-bold text-[#003961] mb-4">Guided Access</h3>
-              <p className="text-gray-700 mb-6 leading-relaxed">
-                <strong className="text-[#003961]">Personal. Expert. Proven.</strong> Work one-on-one with an experienced loan officer who knows second liens inside out. Complex scenarios, unique situations—we navigate it together.
+              <p className="text-gray-700 mb-6 leading-relaxed text-lg">
+                <strong className="text-[#003961]">Personal. Expert. Human.</strong> Talk with a real loan officer who lives and breathes second liens. Complex situation? Unique property? We've seen it—and we'll navigate it together.
               </p>
               <ul className="space-y-3 mb-8">
-                <li className="flex items-center text-gray-700">
-                  <svg className="w-5 h-5 text-[#0283DB] mr-3" fill="currentColor" viewBox="0 0 20 20">
+                <li className="flex items-start text-gray-700">
+                  <svg className="w-6 h-6 text-[#0283DB] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  Personal consultation
+                  <span>One-on-one consultation with a dedicated expert</span>
                 </li>
-                <li className="flex items-center text-gray-700">
-                  <svg className="w-5 h-5 text-[#0283DB] mr-3" fill="currentColor" viewBox="0 0 20 20">
+                <li className="flex items-start text-gray-700">
+                  <svg className="w-6 h-6 text-[#0283DB] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  Expert guidance
+                  <span>Custom solutions for unique scenarios</span>
                 </li>
-                <li className="flex items-center text-gray-700">
-                  <svg className="w-5 h-5 text-[#0283DB] mr-3" fill="currentColor" viewBox="0 0 20 20">
+                <li className="flex items-start text-gray-700">
+                  <svg className="w-6 h-6 text-[#0283DB] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  Complex scenarios welcome
+                  <span>Answers to every question—no rush, no judgment</span>
                 </li>
-                <li className="flex items-center text-gray-700">
-                  <svg className="w-5 h-5 text-[#0283DB] mr-3" fill="currentColor" viewBox="0 0 20 20">
+                <li className="flex items-start text-gray-700">
+                  <svg className="w-6 h-6 text-[#0283DB] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  Relationship-focused
+                  <span>Relationship-focused—you're not just a number</span>
                 </li>
               </ul>
-              <button className="w-full bg-gradient-to-r from-[#003961] to-[#0283DB] text-white font-bold py-4 rounded-xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+              <button className="w-full bg-gradient-to-r from-[#003961] to-[#0283DB] text-white font-bold py-4 rounded-xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 text-lg">
                 Talk to an Expert →
               </button>
             </div>
@@ -139,23 +177,32 @@ export default function Home() {
           <p className="text-[#0283DB] font-semibold text-lg">
             Both paths lead to the same great rates. Choose what feels right—you can always switch.
           </p>
+          <p className="text-gray-600 text-sm mt-2">
+            🔒 Secure application • No impact to credit score • NMLS #1988098
+          </p>
         </div>
       </section>
 
-      {/* About Section */}
+      {/* About Section - More Soulful */}
       <section id="about" className="bg-white py-20">
         <div className="max-w-5xl mx-auto px-8">
-          <h2 className="text-4xl font-bold text-[#003961] mb-8 text-center">
-            Second Lien Specialists
+          <h2 className="text-4xl md:text-5xl font-bold text-[#003961] mb-8 text-center">
+            We're Second Lien Specialists
           </h2>
           <div className="prose prose-lg max-w-none text-gray-700 leading-relaxed">
-            <p className="mb-4">
-              First Access Lending specializes in <strong className="text-[#003961]">second lien mortgages</strong>—HELOCs and closed-end second mortgages that unlock the equity in your home without refinancing your first mortgage.
+            <p className="text-xl mb-6 text-center text-gray-600">
+              Not all lending is created equal. We focus on what we do best.
             </p>
-            <p className="mb-4">
-              Your home has value. We give you <strong className="text-[#0283DB]">access</strong> to it. Whether you need funds for home improvements, debt consolidation, or other financial goals, we offer flexible solutions on your terms.
-            </p>
-            <p className="text-xl text-[#003961] font-bold">
+            <div className="bg-gradient-to-br from-[#FAFAFA] to-white border-l-4 border-[#0EF0F0] p-8 rounded-lg shadow-sm mb-6">
+              <p className="text-lg mb-4">
+                First Access Lending specializes in <strong className="text-[#003961]">second lien mortgages</strong>—HELOCs and closed-end seconds that unlock your home equity <em>without</em> refinancing your primary mortgage. Keep your great first mortgage rate. Access your equity. Win-win.
+              </p>
+              <p className="text-lg mb-4">
+                Your home isn't just shelter—it's a financial tool. We help you put it to work for renovations, debt consolidation, 
+                investment opportunities, education, or whatever matters most to you. Your equity, your decisions, your timeline.
+              </p>
+            </div>
+            <p className="text-2xl text-center text-[#003961] font-bold mt-8">
               Your equity. Your access. Your way.
             </p>
           </div>
@@ -168,12 +215,11 @@ export default function Home() {
           <h2 className="text-4xl font-bold text-[#003961] mb-4 text-center">
             What Our Clients Say
           </h2>
-          <p className="text-center text-gray-600 mb-12">Real reviews from Google</p>
+          <p className="text-center text-gray-600 mb-12">Real reviews from real people</p>
           
           <div className="grid md:grid-cols-3 gap-8">
-            {/* Review placeholders - will fetch real Google reviews */}
             {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-white rounded-xl shadow-lg p-6">
+              <div key={i} className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
                 <div className="flex items-center mb-4">
                   <div className="flex text-yellow-400">
                     {[...Array(5)].map((_, i) => (
@@ -209,22 +255,22 @@ export default function Home() {
       {/* Contact Section */}
       <section id="contact" className="bg-[#003961] text-white py-20">
         <div className="max-w-4xl mx-auto px-8 text-center">
-          <h2 className="text-4xl font-bold mb-6">Ready to Get Started?</h2>
+          <h2 className="text-4xl font-bold mb-6">Ready to Unlock Your Access?</h2>
           <p className="text-xl text-[#0EF0F0] mb-8">
-            Choose your path above, or reach out directly.
+            Choose your path above, or reach out directly. We're here to help.
           </p>
           <div className="flex flex-col md:flex-row gap-4 justify-center">
             <a 
               href="mailto:info@firstaccesslending.com"
-              className="bg-white text-[#003961] px-8 py-4 rounded-xl font-bold hover:bg-[#0EF0F0] transition"
+              className="bg-white text-[#003961] px-8 py-4 rounded-xl font-bold hover:bg-[#0EF0F0] hover:scale-105 transition-all"
             >
-              Email Us
+              📧 Email Us
             </a>
             <a 
               href="tel:+1234567890"
-              className="bg-[#0283DB] text-white px-8 py-4 rounded-xl font-bold hover:bg-[#0EF0F0] transition"
+              className="bg-[#0283DB] text-white px-8 py-4 rounded-xl font-bold hover:bg-[#0EF0F0] hover:text-[#003961] hover:scale-105 transition-all"
             >
-              Call Now
+              📞 Call Now
             </a>
           </div>
         </div>
@@ -234,7 +280,7 @@ export default function Home() {
       <footer className="bg-[#000C14] text-gray-400 py-8 px-8">
         <div className="max-w-7xl mx-auto text-center">
           <p className="mb-2">© 2026 First Access Lending. All rights reserved.</p>
-          <p className="text-sm">NMLS #XXXXXX | Equal Housing Lender</p>
+          <p className="text-sm">NMLS #1988098 | Equal Housing Lender</p>
         </div>
       </footer>
     </main>
