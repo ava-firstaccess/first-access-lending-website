@@ -21,7 +21,6 @@ export default function CustomGoogleReviews() {
   const [placeDetails, setPlaceDetails] = useState<PlaceDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
     async function fetchReviews() {
@@ -45,18 +44,6 @@ export default function CustomGoogleReviews() {
 
     fetchReviews();
   }, []);
-
-  const nextSlide = () => {
-    if (placeDetails?.reviews) {
-      setCurrentIndex((prev) => (prev + 1) % placeDetails.reviews.length);
-    }
-  };
-
-  const prevSlide = () => {
-    if (placeDetails?.reviews) {
-      setCurrentIndex((prev) => (prev - 1 + placeDetails.reviews.length) % placeDetails.reviews.length);
-    }
-  };
 
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
@@ -98,75 +85,40 @@ export default function CustomGoogleReviews() {
                 <span className="text-5xl font-bold">{placeDetails.rating.toFixed(1)}</span>
                 <div>
                   <div className="text-2xl">{renderStars(Math.round(placeDetails.rating))}</div>
-                  <p className="text-sm opacity-90">
-                    Based on {placeDetails.user_ratings_total} Google reviews
-                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Reviews Carousel */}
+            {/* Reviews Grid - 3 columns on desktop, 1 column on mobile */}
             {placeDetails.reviews && placeDetails.reviews.length > 0 && (
-              <div className="relative">
-                <div className="bg-white rounded-lg shadow-lg p-6 min-h-[250px]">
-                  <div className="flex items-start gap-4 mb-4">
-                    {placeDetails.reviews[currentIndex].profile_photo_url && (
-                      <img
-                        src={placeDetails.reviews[currentIndex].profile_photo_url}
-                        alt={placeDetails.reviews[currentIndex].author_name}
-                        className="w-12 h-12 rounded-full"
-                      />
-                    )}
-                    <div className="flex-1">
-                      <h3 className="font-bold text-lg text-gray-900">
-                        {placeDetails.reviews[currentIndex].author_name}
-                      </h3>
-                      <div className="text-xl mb-1">
-                        {renderStars(placeDetails.reviews[currentIndex].rating)}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {placeDetails.reviews.slice(0, 3).map((review, index) => (
+                  <div key={index} className="bg-white rounded-lg shadow-lg p-6 flex flex-col">
+                    <div className="flex items-start gap-4 mb-4">
+                      {review.profile_photo_url && (
+                        <img
+                          src={review.profile_photo_url}
+                          alt={review.author_name}
+                          className="w-12 h-12 rounded-full flex-shrink-0"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-lg text-gray-900 truncate">
+                          {review.author_name}
+                        </h3>
+                        <div className="text-xl mb-1">
+                          {renderStars(review.rating)}
+                        </div>
+                        <p className="text-sm text-gray-500">
+                          {review.relative_time_description}
+                        </p>
                       </div>
-                      <p className="text-sm text-gray-500">
-                        {placeDetails.reviews[currentIndex].relative_time_description}
-                      </p>
                     </div>
+                    <p className="text-gray-700 leading-relaxed flex-grow">
+                      {review.text}
+                    </p>
                   </div>
-                  <p className="text-gray-700 leading-relaxed">
-                    {placeDetails.reviews[currentIndex].text}
-                  </p>
-                </div>
-
-                {/* Navigation Arrows */}
-                <button
-                  onClick={prevSlide}
-                  className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 transition-colors"
-                  aria-label="Previous review"
-                >
-                  <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <button
-                  onClick={nextSlide}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 transition-colors"
-                  aria-label="Next review"
-                >
-                  <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-
-                {/* Dots Navigation */}
-                <div className="flex justify-center gap-2 mt-6">
-                  {placeDetails.reviews.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentIndex(index)}
-                      className={`w-2 h-2 rounded-full transition-all ${
-                        index === currentIndex ? 'bg-white w-8' : 'bg-white/50'
-                      }`}
-                      aria-label={`Go to review ${index + 1}`}
-                    />
-                  ))}
-                </div>
+                ))}
               </div>
             )}
           </>
