@@ -14,7 +14,7 @@ export default function Header() {
           </a>
         </div>
         <div className="flex items-center gap-8">
-          <div className="flex gap-8 text-[14px] font-medium">
+          <div className="flex gap-8 text-[16px] font-medium">
             <a href="/#products" className="hover:text-[#0283DB] transition-colors duration-200">Products</a>
             <a href="/#about" className="hover:text-[#0283DB] transition-colors duration-200">About</a>
             <a href="/#reviews" className="hover:text-[#0283DB] transition-colors duration-200">Reviews</a>
@@ -22,7 +22,7 @@ export default function Header() {
           </div>
           <a 
             href="/heloc" 
-            className="bg-[#0283DB] text-white px-6 py-2.5 rounded-full font-semibold text-[14px] hover:bg-[#003961] transition-all duration-200 shadow-md hover:shadow-lg"
+            className="bg-[#0283DB] text-white px-6 py-2.5 rounded-full font-semibold text-[18px] hover:bg-[#003961] transition-all duration-200 shadow-md hover:shadow-lg"
           >
             Access my HELOC Rate
           </a>
