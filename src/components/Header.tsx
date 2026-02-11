@@ -22,7 +22,7 @@ export default function Header() {
           </div>
           <a 
             href="/heloc" 
-            className="bg-[#0283DB] text-white px-6 py-2.5 rounded-full font-semibold text-[18px] hover:bg-[#003961] transition-all duration-200 shadow-md hover:shadow-lg"
+            className="bg-[#0283DB] text-white px-6 py-2.5 rounded-full font-medium text-[18px] hover:bg-[#003961] transition-all duration-200 shadow-md hover:shadow-lg"
           >
             Access my HELOC Rate
           </a>
