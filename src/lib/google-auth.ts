@@ -15,7 +15,7 @@ interface TokenResponse {
   token_type: string;
 }
 
-const TOKENS_PATH = path.join(process.cwd(), '.google-oauth-tokens.json');
+const TOKENS_PATH = path.join('/tmp', '.google-oauth-tokens.json');
 
 export async function getValidAccessToken(): Promise<string | null> {
   try {

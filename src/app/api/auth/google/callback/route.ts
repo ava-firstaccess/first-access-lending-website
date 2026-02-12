@@ -64,9 +64,10 @@ export async function GET(request: NextRequest) {
     const tokens: TokenResponse = await tokenResponse.json();
 
     // Store tokens securely
-    // In production, you'd store these in a database or secure vault
-    // For now, we'll store in a JSON file (NOT committed to git)
-    const tokensPath = path.join(process.cwd(), '.google-oauth-tokens.json');
+    // Use /tmp directory for Vercel serverless compatibility
+    // Note: /tmp is ephemeral and cleared between deployments
+    // For production, consider Vercel KV, database, or Edge Config
+    const tokensPath = path.join('/tmp', '.google-oauth-tokens.json');
     await fs.writeFile(
       tokensPath,
       JSON.stringify({
