@@ -23,10 +23,13 @@ function AdminSetupContent() {
     if (success) {
       setMessage({ type: 'success', text: 'Successfully authenticated with Google!' });
     } else if (error) {
+      const details = searchParams.get('details');
       const errorMessages: Record<string, string> = {
         no_code: 'No authorization code received',
         missing_credentials: 'OAuth credentials not configured',
-        token_exchange_failed: 'Failed to exchange authorization code for tokens',
+        token_exchange_failed: details 
+          ? `Failed to exchange authorization code for tokens. Google error: ${details}`
+          : 'Failed to exchange authorization code for tokens',
         server_error: 'Server error during authentication',
       };
       setMessage({ 
