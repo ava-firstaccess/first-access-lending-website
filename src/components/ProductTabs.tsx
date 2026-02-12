@@ -24,12 +24,12 @@ const productData: ProductData[] = [
     title: 'Home Equity Line of Credit',
     description: 'Keep your low first mortgage rate and access your equity with a HELOC. Draw what you need, when you need it, perfect for ongoing projects, emergencies, or opportunities.',
     features: [
+      { title: 'Keep your first mortgage rate', detail: 'Don\'t lose your low rate' },
       { title: 'No appraisal required', detail: 'Streamlined approval process' },
       { title: 'Loans up to $850K', detail: 'Access substantial equity for major projects' },
       { title: 'CLTV up to 80%', detail: 'Maximum combined loan-to-value' },
       { title: 'Primary, Vacation, Investment', detail: 'All property types accepted' },
-      { title: '1-4 units', detail: 'Single family to small multifamily' },
-      { title: 'Revolving credit', detail: 'Borrow, repay, and borrow again during draw period' }
+      { title: '1-4 units', detail: 'Single family to small multifamily' }
     ]
   },
   {
@@ -39,12 +39,12 @@ const productData: ProductData[] = [
     title: 'Second Mortgage (Closed-End Second Lien)',
     description: 'Get a fixed-rate lump sum while keeping your existing first mortgage. Predictable monthly payments, no surprises, perfect when you know exactly how much you need.',
     features: [
+      { title: 'Keep your first mortgage rate', detail: 'Don\'t lose your low rate' },
       { title: 'No appraisal required', detail: 'Fast, streamlined process' },
       { title: 'Loans up to $850K', detail: 'Access significant equity' },
       { title: 'CLTV up to 90%', detail: 'Higher loan amounts available' },
       { title: 'Primary, Vacation, Investment', detail: 'All property types accepted' },
-      { title: '1-4 units', detail: 'Single family to small multifamily' },
-      { title: 'Fixed-rate lump sum', detail: 'One-time funding with predictable payments' }
+      { title: '1-4 units', detail: 'Single family to small multifamily' }
     ]
   },
   {
