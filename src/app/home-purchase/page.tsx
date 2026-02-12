@@ -12,17 +12,17 @@ export default function HomePurchasePage() {
       <Header />
 
       {/* Hero Section - Home Purchase Specific, Never Changes */}
-      <section className="max-w-7xl mx-auto px-6 pt-6 pb-6">
+      <section className="max-w-7xl mx-auto px-6 pt-6 pb-3">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="font-heading text-5xl md:text-6xl font-bold text-[#003961] leading-tight mb-6">
             Home Purchase{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0283DB] to-[#0EF0F0]">
-              Your Next Property Starts Here
+              Get Access to Your Next Property
             </span>
           </h1>
           
           <p className="text-xl text-gray-700 leading-relaxed mb-8 max-w-2xl mx-auto">
-            Whether you're a first-time buyer or experienced investor, we have the right loan for you.
+            Whether you're a first-time buyer or experienced investor, we have the right loan to access your next property.
           </p>
         </div>
       </section>
@@ -52,6 +52,14 @@ export default function HomePurchasePage() {
             <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all">
               <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Jumbo</h3>
               <p className="text-gray-700">High-balance loans for luxury properties</p>
+            </div>
+            <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all">
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Non-QM</h3>
+              <p className="text-gray-700">Flexible qualification for self-employed and investors</p>
+            </div>
+            <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all">
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">DSCR</h3>
+              <p className="text-gray-700">Qualify based on property cash flow, not personal income</p>
             </div>
           </div>
         </div>

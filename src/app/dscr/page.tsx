@@ -2,6 +2,7 @@
 
 import Header from '@/components/Header';
 import ProductTabs from '@/components/ProductTabs';
+import DualPathwayCards from '@/components/DualPathwayCards';
 import CustomGoogleReviews from '@/components/CustomGoogleReviews';
 import Footer from '@/components/Footer';
 
@@ -23,15 +24,11 @@ export default function DSCRPage() {
           <p className="text-xl text-gray-700 leading-relaxed mb-8 max-w-2xl mx-auto">
             DSCR loans let <strong className="text-[#003961]">real estate investors</strong> scale their portfolio based on property performance, not personal tax returns.
           </p>
-
-          <a 
-            href="#products" 
-            className="inline-block bg-gradient-to-r from-[#0EF0F0] to-[#0283DB] text-[#003961] font-bold px-10 py-5 rounded-xl hover:shadow-xl transition-all text-lg"
-          >
-            Get Access →
-          </a>
         </div>
       </section>
+
+      {/* Dual Pathway Cards */}
+      <DualPathwayCards />
 
       {/* Key Benefits Section */}
       <section className="bg-white py-10">

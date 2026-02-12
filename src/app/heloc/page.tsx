@@ -36,22 +36,46 @@ export default function HelocPage() {
       {/* Product Tabs - Fixed Order, Content Changes on Click */}
       <ProductTabs currentProduct="heloc" />
 
+      {/* Second Lien Specialists Message */}
+      <section className="bg-white py-10">
+        <div className="max-w-4xl mx-auto px-6 text-center">
+          <h2 className="font-heading text-3xl font-bold text-[#003961] mb-4">
+            We're Second Lien Specialists
+          </h2>
+          <p className="text-lg text-gray-700 leading-relaxed">
+            Keep your low first mortgage rate intact. A HELOC gives you flexible access to your home equity without disrupting your existing loan. Draw what you need, when you need it.
+          </p>
+        </div>
+      </section>
+
       {/* Common Uses */}
       <section className="bg-[#FAFAFA] py-10">
         <div className="max-w-7xl mx-auto px-6">
           <h2 className="font-heading text-3xl font-bold text-[#003961] mb-8 text-center">Common Uses for a HELOC</h2>
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all">
-              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Home Renovations</h3>
-              <p className="text-gray-700">Fund remodels, additions, or upgrades over time</p>
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Real Estate Portfolio Growth</h3>
+              <p className="text-gray-700">Fund down payments on investment properties and expand your portfolio</p>
+            </div>
+            <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all">
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Business Opportunities</h3>
+              <p className="text-gray-700">Capital for business ventures, equipment, or working capital</p>
+            </div>
+            <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all">
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Down Payments & Investments</h3>
+              <p className="text-gray-700">Quick access to funds for time-sensitive opportunities</p>
+            </div>
+            <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all">
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Education Expenses</h3>
+              <p className="text-gray-700">Finance tuition or educational costs</p>
             </div>
             <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all">
               <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Debt Consolidation</h3>
               <p className="text-gray-700">Pay off high-interest credit cards or loans</p>
             </div>
             <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all">
-              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Education Expenses</h3>
-              <p className="text-gray-700">Finance tuition or educational costs</p>
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Home Renovations</h3>
+              <p className="text-gray-700">Fund remodels, additions, or upgrades over time</p>
             </div>
           </div>
         </div>

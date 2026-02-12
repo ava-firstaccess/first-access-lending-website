@@ -40,9 +40,12 @@ export default function DualPathwayCards() {
               <span>Self-service portal</span>
             </li>
           </ul>
-          <button className="w-full bg-gradient-to-r from-[#0EF0F0] to-[#0283DB] text-[#003961] font-bold px-8 py-4 rounded-xl hover:shadow-lg transition-all">
-            Get Access →
-          </button>
+          <a 
+            href="/get-quote" 
+            className="block w-full text-center bg-gradient-to-r from-[#0EF0F0] to-[#0283DB] text-[#003961] font-bold px-8 py-4 rounded-xl hover:shadow-lg transition-all"
+          >
+            Get Instant Rate Quote →
+          </a>
         </div>
 
         {/* Guided Access Card */}
@@ -78,9 +81,12 @@ export default function DualPathwayCards() {
               <span>White-glove support</span>
             </li>
           </ul>
-          <button className="w-full bg-gradient-to-r from-[#0283DB] to-[#003961] text-white font-bold px-8 py-4 rounded-xl hover:shadow-lg transition-all">
-            Get Access →
-          </button>
+          <a 
+            href="/consultation" 
+            className="block w-full text-center bg-gradient-to-r from-[#0283DB] to-[#003961] text-white font-bold px-8 py-4 rounded-xl hover:shadow-lg transition-all"
+          >
+            Schedule Consultation →
+          </a>
         </div>
       </div>
     </section>
