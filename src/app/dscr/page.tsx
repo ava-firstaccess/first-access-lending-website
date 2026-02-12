@@ -11,7 +11,7 @@ export default function DSCRPage() {
       <Header />
 
       {/* Hero Section */}
-      <section className="max-w-7xl mx-auto px-6 pt-12 pb-10">
+      <section className="max-w-7xl mx-auto px-6 pt-6 pb-6">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="font-heading text-5xl md:text-6xl font-bold text-[#003961] leading-tight mb-6">
             Qualify on{' '}

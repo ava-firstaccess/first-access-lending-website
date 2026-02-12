@@ -21,7 +21,7 @@ export default function Home() {
           </h1>
           
           <p className="text-xl text-gray-700 leading-relaxed mb-8 max-w-2xl mx-auto">
-            Unlock your home equity with <strong className="text-[#003961]">second liens and HELOCs</strong>. Fast, flexible financing for your next move.
+            Whether you're accessing equity, lowering your rate, or purchasing your next property - we provide <strong className="text-[#003961]">fast, flexible mortgage solutions</strong> tailored to your goals.
           </p>
         </div>
       </section>
@@ -118,30 +118,6 @@ export default function Home() {
         <ProductTabs />
       </div>
 
-      {/* Product Overview - Quick Links */}
-      <section className="bg-white py-10">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <a href="/heloc" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
-              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">HELOC</h3>
-              <p className="text-gray-700 text-sm">Revolving line of credit. Draw what you need, when you need it.</p>
-            </a>
-            <a href="/second-mortgages" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
-              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Second Mortgages</h3>
-              <p className="text-gray-700 text-sm">Fixed-rate lump sum. Predictable payments.</p>
-            </a>
-            <a href="/refinance" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
-              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Refinance</h3>
-              <p className="text-gray-700 text-sm">Replace your mortgage and access cash.</p>
-            </a>
-            <a href="/home-purchase" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
-              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Home Purchase</h3>
-              <p className="text-gray-700 text-sm">Financing for your next property.</p>
-            </a>
-          </div>
-        </div>
-      </section>
-
       {/* About Section */}
       <section id="about" className="bg-white py-10">
         <div className="max-w-5xl mx-auto px-6">
@@ -155,6 +131,34 @@ export default function Home() {
             <p className="text-lg text-gray-700">
               Keep your great first mortgage rate. Access your equity. Your home, your decisions, your timeline.
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Product Overview - Quick Links */}
+      <section className="bg-white py-10">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6">
+            <a href="/heloc" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">HELOC</h3>
+              <p className="text-gray-700 text-sm">Revolving line of credit. Draw what you need, when you need it.</p>
+            </a>
+            <a href="/second-mortgages" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Second Mortgages</h3>
+              <p className="text-gray-700 text-sm">Fixed-rate lump sum. Predictable payments.</p>
+            </a>
+            <a href="/dscr" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">DSCR</h3>
+              <p className="text-gray-700 text-sm">Investor loans based on cash flow, not income.</p>
+            </a>
+            <a href="/refinance" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Refinance</h3>
+              <p className="text-gray-700 text-sm">Lower your rate or access cash.</p>
+            </a>
+            <a href="/home-purchase" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
+              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Home Purchase</h3>
+              <p className="text-gray-700 text-sm">Financing for your next property.</p>
+            </a>
           </div>
         </div>
       </section>
