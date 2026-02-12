@@ -21,7 +21,27 @@ export default function CustomGoogleReviews() {
   const [placeDetails, setPlaceDetails] = useState<PlaceDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [reviewsPerView, setReviewsPerView] = useState(4);
+
+  // Handle responsive reviews per view
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 640) {
+        setReviewsPerView(1); // Mobile: 1 review
+      } else if (window.innerWidth < 768) {
+        setReviewsPerView(2); // Small tablet: 2 reviews
+      } else if (window.innerWidth < 1024) {
+        setReviewsPerView(3); // Tablet: 3 reviews
+      } else {
+        setReviewsPerView(4); // Desktop: 4 reviews
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     async function fetchReviews() {
@@ -54,27 +74,17 @@ export default function CustomGoogleReviews() {
     ));
   };
 
-  const reviewsPerSlide = 4;
   const reviews = placeDetails?.reviews || [];
   
-  // If we have 5 or fewer reviews, just show them all at once (no pagination)
-  const showPagination = reviews.length > 4;
-  const totalSlides = showPagination ? Math.ceil(reviews.length / reviewsPerSlide) : 1;
+  // Create infinite loop by duplicating reviews
+  const infiniteReviews = reviews.length > 0 ? [...reviews, ...reviews, ...reviews] : [];
 
   const nextSlide = () => {
-    if (showPagination) {
-      setCurrentSlide((prev) => (prev + 1) % totalSlides);
-    }
+    setCurrentIndex((prev) => (prev + 1) % reviews.length);
   };
 
   const prevSlide = () => {
-    if (showPagination) {
-      setCurrentSlide((prev) => (prev === 0 ? totalSlides - 1 : prev - 1));
-    }
-  };
-
-  const goToSlide = (index: number) => {
-    setCurrentSlide(index);
+    setCurrentIndex((prev) => (prev === 0 ? reviews.length - 1 : prev - 1));
   };
 
   const truncateText = (text: string, maxLength: number = 120) => {
@@ -83,13 +93,15 @@ export default function CustomGoogleReviews() {
   };
 
   const getCurrentReviews = () => {
-    if (reviews.length <= 4) {
-      // Show all reviews if 4 or fewer
-      return reviews;
+    if (reviews.length === 0) return [];
+    
+    // Get reviews starting from currentIndex, wrapping around
+    const result = [];
+    for (let i = 0; i < reviewsPerView; i++) {
+      const index = (currentIndex + i) % reviews.length;
+      result.push(reviews[index]);
     }
-    // Otherwise paginate
-    const start = currentSlide * reviewsPerSlide;
-    return reviews.slice(start, start + reviewsPerSlide);
+    return result;
   };
 
   return (
@@ -132,87 +144,83 @@ export default function CustomGoogleReviews() {
               </div>
             </div>
 
-            {/* Carousel */}
+            {/* Infinite Carousel */}
             {reviews.length > 0 && (
               <div className="relative">
-                {/* Navigation Arrows - only show if pagination is enabled */}
-                {showPagination && (
-                  <>
-                    <button
-                      onClick={prevSlide}
-                      className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-                      aria-label="Previous reviews"
-                    >
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                    </button>
+                {/* Navigation Arrows */}
+                <button
+                  onClick={prevSlide}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+                  aria-label="Previous reviews"
+                >
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
 
-                    <button
-                      onClick={nextSlide}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-                      aria-label="Next reviews"
-                    >
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  </>
-                )}
+                <button
+                  onClick={nextSlide}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+                  aria-label="Next reviews"
+                >
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
 
-                {/* Review Cards */}
-                <div className={`grid grid-cols-1 md:grid-cols-4 gap-4 ${showPagination ? 'px-8' : ''}`}>
-                  {getCurrentReviews().map((review, index) => (
-                    <div 
-                      key={currentSlide * reviewsPerSlide + index} 
-                      className="bg-[#2a2a3e] rounded-xl p-4 shadow-xl flex flex-col"
-                    >
-                      {/* Stars */}
-                      <div className="text-xl mb-2">
-                        {renderStars(review.rating)}
-                      </div>
+                {/* Review Cards - Responsive Grid */}
+                <div className="px-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {getCurrentReviews().map((review, index) => (
+                      <div 
+                        key={`${currentIndex}-${index}`} 
+                        className="bg-[#2a2a3e] rounded-xl p-4 shadow-xl flex flex-col"
+                      >
+                        {/* Stars */}
+                        <div className="text-xl mb-2">
+                          {renderStars(review.rating)}
+                        </div>
 
-                      {/* Review Text */}
-                      <div className="flex-grow mb-3">
-                        <p className="text-white text-sm leading-relaxed">
-                          {truncateText(review.text, 120)}
-                        </p>
-                      </div>
+                        {/* Review Text */}
+                        <div className="flex-grow mb-3">
+                          <p className="text-white text-sm leading-relaxed">
+                            {truncateText(review.text, 120)}
+                          </p>
+                        </div>
 
-                      {/* Author Info */}
-                      <div className="flex items-center gap-2 mt-auto">
-                        {review.profile_photo_url && (
-                          <img
-                            src={review.profile_photo_url}
-                            alt={review.author_name}
-                            className="w-10 h-10 rounded-full border-2 border-white/20"
-                          />
-                        )}
-                        <div>
-                          <p className="text-white font-bold text-sm">{review.author_name}</p>
+                        {/* Author Info */}
+                        <div className="flex items-center gap-2 mt-auto">
+                          {review.profile_photo_url && (
+                            <img
+                              src={review.profile_photo_url}
+                              alt={review.author_name}
+                              className="w-10 h-10 rounded-full border-2 border-white/20"
+                            />
+                          )}
+                          <div>
+                            <p className="text-white font-bold text-sm">{review.author_name}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Pagination Dots - only show if pagination is enabled */}
-                {showPagination && (
-                  <div className="flex justify-center gap-2 mt-6">
-                    {Array.from({ length: totalSlides }).map((_, index) => (
-                      <button
-                        key={index}
-                        onClick={() => goToSlide(index)}
-                        className={`w-2 h-2 rounded-full transition-all ${
-                          index === currentSlide 
-                            ? 'bg-[#4A90E2] w-6' 
-                            : 'bg-white/30 hover:bg-white/50'
-                        }`}
-                        aria-label={`Go to slide ${index + 1}`}
-                      />
                     ))}
                   </div>
-                )}
+                </div>
+
+                {/* Indicator Dots */}
+                <div className="flex justify-center gap-2 mt-6">
+                  {reviews.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentIndex(index)}
+                      className={`w-2 h-2 rounded-full transition-all ${
+                        index === currentIndex 
+                          ? 'bg-[#4A90E2] w-6' 
+                          : 'bg-white/30 hover:bg-white/50'
+                      }`}
+                      aria-label={`Go to review ${index + 1}`}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
