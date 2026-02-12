@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
@@ -196,16 +197,18 @@ export default function AboutPage() {
         
         <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12 max-w-4xl mx-auto">
           <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
-            {/* Photo Placeholder */}
+            {/* Leadership Photo */}
             <div className="flex-shrink-0">
-              <div className="w-48 h-48 rounded-full bg-gradient-to-br from-[#0283DB] to-[#0EF0F0] flex items-center justify-center">
-                <svg className="w-24 h-24 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
+              <div className="w-48 h-48 rounded-full overflow-hidden ring-4 ring-[#0283DB]/20">
+                <Image
+                  src="/zach-headshot-circular.png"
+                  alt="Zachary Bosson, Founder & CEO"
+                  width={392}
+                  height={388}
+                  className="w-full h-full object-cover"
+                  priority
+                />
               </div>
-              <p className="text-center text-sm text-gray-500 mt-2 italic">
-                Photo coming soon
-              </p>
             </div>
             
             {/* Bio Content */}
