@@ -7,14 +7,14 @@ export default function Header() {
 
   return (
     <header className="backdrop-blur-md bg-white/90 text-[#000C14] sticky top-0 z-50 shadow-sm transition-all duration-300">
-      <nav className="h-[60px] max-w-7xl mx-auto px-8 flex items-center justify-between">
+      <nav className="h-[75px] max-w-7xl mx-auto px-8 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center">
           <a href="/" className="flex items-center">
             <img 
               src="/logos/fal-logo.svg" 
               alt="First Access Lending" 
-              className="h-[5.625rem] md:h-[9rem] w-auto"
+              className="h-[4.78rem] md:h-[7.65rem] w-auto"
             />
           </a>
         </div>

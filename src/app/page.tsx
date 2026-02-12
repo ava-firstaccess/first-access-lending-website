@@ -14,14 +14,14 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-6 pt-12 pb-10">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="font-heading text-5xl md:text-6xl font-bold text-[#003961] leading-tight mb-6">
-            Your Home Has Value.{' '}
+            Access{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0283DB] to-[#0EF0F0]">
-              We Give You Access.
+              Your Next Move
             </span>
           </h1>
           
           <p className="text-xl text-gray-700 leading-relaxed mb-8 max-w-2xl mx-auto">
-            Whether you're accessing equity, lowering your rate, or purchasing your next property - we provide <strong className="text-[#003961]">fast, flexible mortgage solutions</strong> tailored to your goals.
+            Whether you're purchasing a new property, refinancing for a better rate, or accessing your home's equity - we provide <strong className="text-[#003961]">fast, flexible financing solutions</strong> tailored to your goals.
           </p>
         </div>
       </section>
@@ -117,51 +117,6 @@ export default function Home() {
       <div id="products">
         <ProductTabs />
       </div>
-
-      {/* About Section */}
-      <section id="about" className="bg-white py-10">
-        <div className="max-w-5xl mx-auto px-6">
-          <h2 className="font-heading text-4xl font-bold text-[#003961] mb-6 text-center">
-            We're Second Lien Specialists
-          </h2>
-          <div className="max-w-3xl mx-auto">
-            <p className="text-lg text-gray-700 mb-4">
-              First Access Lending specializes in <strong className="text-[#003961]">second lien mortgages</strong>, HELOCs and closed-end seconds that unlock your home equity without refinancing your primary mortgage.
-            </p>
-            <p className="text-lg text-gray-700">
-              Keep your great first mortgage rate. Access your equity. Your home, your decisions, your timeline.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Product Overview - Quick Links */}
-      <section className="bg-white py-10">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6">
-            <a href="/heloc" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
-              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">HELOC</h3>
-              <p className="text-gray-700 text-sm">Revolving line of credit. Draw what you need, when you need it.</p>
-            </a>
-            <a href="/second-mortgages" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
-              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Second Mortgages</h3>
-              <p className="text-gray-700 text-sm">Fixed-rate lump sum. Predictable payments.</p>
-            </a>
-            <a href="/dscr" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
-              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">DSCR</h3>
-              <p className="text-gray-700 text-sm">Investor loans based on cash flow, not income.</p>
-            </a>
-            <a href="/refinance" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
-              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Refinance</h3>
-              <p className="text-gray-700 text-sm">Lower your rate or access cash.</p>
-            </a>
-            <a href="/home-purchase" className="bg-gradient-to-br from-[#FAFAFA] to-gray-100 rounded-xl p-6 hover:shadow-lg transition-all">
-              <h3 className="font-heading text-xl font-bold text-[#003961] mb-2">Home Purchase</h3>
-              <p className="text-gray-700 text-sm">Financing for your next property.</p>
-            </a>
-          </div>
-        </div>
-      </section>
 
       <Footer />
     </main>
