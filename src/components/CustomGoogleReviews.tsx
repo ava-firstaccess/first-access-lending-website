@@ -55,16 +55,22 @@ export default function CustomGoogleReviews() {
   };
 
   const reviewsPerSlide = 4;
-  const totalSlides = placeDetails?.reviews 
-    ? Math.ceil(placeDetails.reviews.length / reviewsPerSlide) 
-    : 0;
+  const reviews = placeDetails?.reviews || [];
+  
+  // If we have 5 or fewer reviews, just show them all at once (no pagination)
+  const showPagination = reviews.length > 4;
+  const totalSlides = showPagination ? Math.ceil(reviews.length / reviewsPerSlide) : 1;
 
   const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % totalSlides);
+    if (showPagination) {
+      setCurrentSlide((prev) => (prev + 1) % totalSlides);
+    }
   };
 
   const prevSlide = () => {
-    setCurrentSlide((prev) => (prev === 0 ? totalSlides - 1 : prev - 1));
+    if (showPagination) {
+      setCurrentSlide((prev) => (prev === 0 ? totalSlides - 1 : prev - 1));
+    }
   };
 
   const goToSlide = (index: number) => {
@@ -77,9 +83,13 @@ export default function CustomGoogleReviews() {
   };
 
   const getCurrentReviews = () => {
-    if (!placeDetails?.reviews) return [];
+    if (reviews.length <= 4) {
+      // Show all reviews if 4 or fewer
+      return reviews;
+    }
+    // Otherwise paginate
     const start = currentSlide * reviewsPerSlide;
-    return placeDetails.reviews.slice(start, start + reviewsPerSlide);
+    return reviews.slice(start, start + reviewsPerSlide);
   };
 
   return (
@@ -123,31 +133,35 @@ export default function CustomGoogleReviews() {
             </div>
 
             {/* Carousel */}
-            {placeDetails.reviews && placeDetails.reviews.length > 0 && (
+            {reviews.length > 0 && (
               <div className="relative">
-                {/* Navigation Arrows */}
-                <button
-                  onClick={prevSlide}
-                  className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-                  aria-label="Previous reviews"
-                >
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
+                {/* Navigation Arrows - only show if pagination is enabled */}
+                {showPagination && (
+                  <>
+                    <button
+                      onClick={prevSlide}
+                      className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+                      aria-label="Previous reviews"
+                    >
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
 
-                <button
-                  onClick={nextSlide}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-                  aria-label="Next reviews"
-                >
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
+                    <button
+                      onClick={nextSlide}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+                      aria-label="Next reviews"
+                    >
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </>
+                )}
 
-                {/* Review Cards - 4 at a time */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 px-8">
+                {/* Review Cards */}
+                <div className={`grid grid-cols-1 md:grid-cols-4 gap-4 ${showPagination ? 'px-8' : ''}`}>
                   {getCurrentReviews().map((review, index) => (
                     <div 
                       key={currentSlide * reviewsPerSlide + index} 
@@ -182,21 +196,23 @@ export default function CustomGoogleReviews() {
                   ))}
                 </div>
 
-                {/* Pagination Dots */}
-                <div className="flex justify-center gap-2 mt-6">
-                  {Array.from({ length: totalSlides }).map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => goToSlide(index)}
-                      className={`w-2 h-2 rounded-full transition-all ${
-                        index === currentSlide 
-                          ? 'bg-[#4A90E2] w-6' 
-                          : 'bg-white/30 hover:bg-white/50'
-                      }`}
-                      aria-label={`Go to slide ${index + 1}`}
-                    />
-                  ))}
-                </div>
+                {/* Pagination Dots - only show if pagination is enabled */}
+                {showPagination && (
+                  <div className="flex justify-center gap-2 mt-6">
+                    {Array.from({ length: totalSlides }).map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => goToSlide(index)}
+                        className={`w-2 h-2 rounded-full transition-all ${
+                          index === currentSlide 
+                            ? 'bg-[#4A90E2] w-6' 
+                            : 'bg-white/30 hover:bg-white/50'
+                        }`}
+                        aria-label={`Go to slide ${index + 1}`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
