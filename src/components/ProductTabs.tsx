@@ -11,7 +11,6 @@ interface ProductData {
   title: string;
   description: string;
   features: {
-    icon: string;
     title: string;
     detail: string;
   }[];
@@ -25,10 +24,12 @@ const productData: ProductData[] = [
     title: 'Home Equity Line of Credit',
     description: 'Keep your low first mortgage rate and access your equity with a HELOC. Draw what you need, when you need it, perfect for ongoing projects, emergencies, or opportunities.',
     features: [
-      { icon: '💰', title: 'Loans up to $850K', detail: 'Access substantial equity for major projects' },
-      { icon: '🏠', title: 'Multiple property types', detail: 'Primary, vacation, and investment properties' },
-      { icon: '🔄', title: 'Revolving credit', detail: 'Borrow, repay, and borrow again during draw period' },
-      { icon: '⚡', title: 'No appraisal required', detail: 'Streamlined approval process' }
+      { title: 'No appraisal required', detail: 'Streamlined approval process' },
+      { title: 'Loans up to $850K', detail: 'Access substantial equity for major projects' },
+      { title: 'CLTV up to 80%', detail: 'Maximum combined loan-to-value' },
+      { title: 'Primary, Vacation, Investment', detail: 'All property types accepted' },
+      { title: '1-4 units', detail: 'Single family to small multifamily' },
+      { title: 'Revolving credit', detail: 'Borrow, repay, and borrow again during draw period' }
     ]
   },
   {
@@ -38,10 +39,27 @@ const productData: ProductData[] = [
     title: 'Second Mortgage (Closed-End Second Lien)',
     description: 'Get a fixed-rate lump sum while keeping your existing first mortgage. Predictable monthly payments, no surprises, perfect when you know exactly how much you need.',
     features: [
-      { icon: '💵', title: 'Fixed-rate lump sum', detail: 'One-time funding with predictable payments' },
-      { icon: '🔒', title: 'Keep your first mortgage', detail: 'Don\'t lose your low rate' },
-      { icon: '📊', title: 'Up to 90% CLTV', detail: 'Access more of your equity' },
-      { icon: '✅', title: 'Simple and predictable', detail: 'Fixed monthly payments' }
+      { title: 'No appraisal required', detail: 'Fast, streamlined process' },
+      { title: 'Loans up to $850K', detail: 'Access significant equity' },
+      { title: 'CLTV up to 90%', detail: 'Higher loan amounts available' },
+      { title: 'Primary, Vacation, Investment', detail: 'All property types accepted' },
+      { title: '1-4 units', detail: 'Single family to small multifamily' },
+      { title: 'Fixed-rate lump sum', detail: 'One-time funding with predictable payments' }
+    ]
+  },
+  {
+    id: 'dscr',
+    label: 'DSCR',
+    href: '/dscr',
+    title: 'DSCR Loans (Debt Service Coverage Ratio)',
+    description: 'Qualify based on property cash flow, not personal income. Perfect for real estate investors who want to scale their portfolio without traditional income verification.',
+    features: [
+      { title: 'No income verification', detail: 'Qualify based on rental income' },
+      { title: '1st and 2nd lien options', detail: 'Flexible financing structures' },
+      { title: 'Investment properties', detail: 'Built for rental portfolios' },
+      { title: '1-4 units', detail: 'Single family to small multifamily' },
+      { title: 'DSCR as low as 1.0', detail: 'Cash flow-based underwriting' },
+      { title: 'Fast closings', detail: 'Less documentation required' }
     ]
   },
   {
@@ -51,10 +69,10 @@ const productData: ProductData[] = [
     title: 'Cash-Out Refinance',
     description: 'Replace your existing first mortgage and pull cash out in one transaction. Great when rates are favorable or you want to consolidate debt into a single payment.',
     features: [
-      { icon: '🔄', title: 'Replace your mortgage', detail: 'New first lien with better terms' },
-      { icon: '💸', title: 'Access your equity', detail: 'Cash out for any purpose' },
-      { icon: '📉', title: 'Lower your rate', detail: 'When market conditions are right' },
-      { icon: '🤝', title: 'Consolidate debt', detail: 'Combine multiple loans into one' }
+      { title: 'Replace your mortgage', detail: 'New first lien with better terms' },
+      { title: 'Access your equity', detail: 'Cash out for any purpose' },
+      { title: 'Lower your rate', detail: 'When market conditions are right' },
+      { title: 'Consolidate debt', detail: 'Combine multiple loans into one' }
     ]
   },
   {
@@ -64,10 +82,10 @@ const productData: ProductData[] = [
     title: 'Home Purchase Financing',
     description: 'Competitive financing for your next property purchase. Whether it\'s your primary residence, vacation home, or investment property, we\'ve got you covered.',
     features: [
-      { icon: '🏡', title: 'Primary residences', detail: 'Financing for your home' },
-      { icon: '🏖️', title: 'Vacation homes', detail: 'Second homes and getaways' },
-      { icon: '📈', title: 'Investment properties', detail: 'Build your portfolio' },
-      { icon: '⚡', title: 'Fast approvals', detail: 'Close on time, every time' }
+      { title: 'Primary residences', detail: 'Financing for your home' },
+      { title: 'Vacation homes', detail: 'Second homes and getaways' },
+      { title: 'Investment properties', detail: 'Build your portfolio' },
+      { title: 'Fast approvals', detail: 'Close on time, every time' }
     ]
   }
 ];
@@ -84,6 +102,7 @@ export default function ProductTabs({ currentProduct }: ProductTabsProps) {
   if (!landingProduct) {
     if (pathname === '/heloc') landingProduct = 'heloc';
     else if (pathname === '/second-mortgages') landingProduct = 'second-mortgages';
+    else if (pathname === '/dscr') landingProduct = 'dscr';
     else if (pathname === '/refinance') landingProduct = 'refinance';
     else if (pathname === '/home-purchase') landingProduct = 'home-purchase';
   }
@@ -142,7 +161,9 @@ export default function ProductTabs({ currentProduct }: ProductTabsProps) {
             <ul className="space-y-4">
               {activeProduct.features.map((feature, idx) => (
                 <li key={idx} className="flex items-start text-gray-700">
-                  <div className="text-2xl mr-3 flex-shrink-0">{feature.icon}</div>
+                  <svg className="w-5 h-5 text-[#0EF0F0] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
                   <div>
                     <strong className="text-[#003961]">{feature.title}</strong>
                     <p className="text-sm text-gray-600 mt-1">{feature.detail}</p>

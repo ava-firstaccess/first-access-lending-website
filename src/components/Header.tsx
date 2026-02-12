@@ -7,7 +7,7 @@ export default function Header() {
 
   return (
     <header className="backdrop-blur-md bg-white/90 text-[#000C14] sticky top-0 z-50 shadow-sm transition-all duration-300">
-      <nav className="h-[40px] max-w-7xl mx-auto px-8 flex items-center justify-between">
+      <nav className="h-[60px] max-w-7xl mx-auto px-8 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center">
           <a href="/" className="flex items-center">
@@ -21,7 +21,7 @@ export default function Header() {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-8">
-          <div className="flex gap-8 text-[20px] font-medium">
+          <div className="flex gap-8 text-[15px] font-medium">
             <a href="/#products" className="hover:text-[#0283DB] transition-colors duration-200">Products</a>
             <a href="/#about" className="hover:text-[#0283DB] transition-colors duration-200">About</a>
             <a href="/#reviews" className="hover:text-[#0283DB] transition-colors duration-200">Reviews</a>
@@ -29,7 +29,7 @@ export default function Header() {
           </div>
           <a 
             href="/heloc" 
-            className="bg-[#0283DB] text-white px-6 py-2.5 rounded-full font-medium text-[22px] hover:bg-[#003961] transition-all duration-200 shadow-md hover:shadow-lg whitespace-nowrap"
+            className="bg-[#0283DB] text-white px-5 py-2 rounded-full font-medium text-base hover:bg-[#003961] transition-all duration-200 shadow-md hover:shadow-lg whitespace-nowrap"
           >
             Access my HELOC Rate
           </a>
@@ -57,35 +57,35 @@ export default function Header() {
           <div className="flex flex-col px-8 py-4 space-y-4">
             <a 
               href="/#products" 
-              className="text-[18px] font-medium hover:text-[#0283DB] transition-colors py-2"
+              className="text-sm font-medium hover:text-[#0283DB] transition-colors py-2"
               onClick={() => setMobileMenuOpen(false)}
             >
               Products
             </a>
             <a 
               href="/#about" 
-              className="text-[18px] font-medium hover:text-[#0283DB] transition-colors py-2"
+              className="text-sm font-medium hover:text-[#0283DB] transition-colors py-2"
               onClick={() => setMobileMenuOpen(false)}
             >
               About
             </a>
             <a 
               href="/#reviews" 
-              className="text-[18px] font-medium hover:text-[#0283DB] transition-colors py-2"
+              className="text-sm font-medium hover:text-[#0283DB] transition-colors py-2"
               onClick={() => setMobileMenuOpen(false)}
             >
               Reviews
             </a>
             <a 
               href="/#contact" 
-              className="text-[18px] font-medium hover:text-[#0283DB] transition-colors py-2"
+              className="text-sm font-medium hover:text-[#0283DB] transition-colors py-2"
               onClick={() => setMobileMenuOpen(false)}
             >
               Contact
             </a>
             <a 
               href="/heloc" 
-              className="bg-[#0283DB] text-white px-6 py-3 rounded-full font-medium text-[18px] hover:bg-[#003961] transition-all duration-200 shadow-md text-center"
+              className="bg-[#0283DB] text-white px-5 py-2.5 rounded-full font-medium text-sm hover:bg-[#003961] transition-all duration-200 shadow-md text-center"
               onClick={() => setMobileMenuOpen(false)}
             >
               Access my HELOC Rate

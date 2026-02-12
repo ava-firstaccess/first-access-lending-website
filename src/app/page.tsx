@@ -6,33 +6,6 @@ import CustomGoogleReviews from '@/components/CustomGoogleReviews';
 import Footer from '@/components/Footer';
 
 export default function Home() {
-  const reviews = [
-    {
-      name: "Sophia A.",
-      location: "San Antonio, TX",
-      text: "I had a great experience buying a home thanks to an exceptional team! The process was smooth and efficient from start to finish. Zachary Bosson and the team made the mortgage process manageable and easy.",
-      rating: 5
-    },
-    {
-      name: "M.",
-      location: "Alexandria, VA",
-      text: "Working with Zach and his team during the home buying process made it so easy! It was great to work with a trustworthy company and representative during such a big decision.",
-      rating: 5
-    },
-    {
-      name: "David",
-      location: "Alexandria, VA",
-      text: "I worked with Zach Bosson when shopping for my first mortgage. He took the time to explain the ins and outs of what to look for and was incredibly patient with all of my questions. It felt great to work with someone who genuinely wanted to partner with me.",
-      rating: 5
-    },
-    {
-      name: "Ian",
-      location: "Baltimore, MD",
-      text: "It was very easy to apply, and I got what I was looking for right away. Fast process, and a lot of options. The loan officer was super helpful. My family got the financing we needed.",
-      rating: 5
-    }
-  ];
-
   return (
     <main className="min-h-screen bg-[#FAFAFA]">
       <Header />
@@ -60,7 +33,7 @@ export default function Home() {
         </h2>
         <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
           {/* Instant Access Card */}
-          <div className="bg-white rounded-2xl shadow-lg border-2 border-[#0EF0F0] hover:shadow-2xl transition-all p-8">
+          <div className="bg-white rounded-2xl shadow-lg border-2 border-[#0EF0F0] hover:shadow-2xl transition-all p-8 flex flex-col">
             <div className="flex items-center gap-4 mb-6">
               <div className="bg-gradient-to-br from-[#0EF0F0] to-[#0283DB] p-4 rounded-xl">
                 <svg className="w-8 h-8 text-[#003961]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -72,7 +45,7 @@ export default function Home() {
             <p className="text-gray-700 mb-6 leading-relaxed">
               <strong className="text-[#003961]">Get your instant rate quote</strong> in minutes. Quick, streamlined, and built for borrowers who are ready to move.
             </p>
-            <ul className="space-y-3 mb-8">
+            <ul className="space-y-3 mb-8 flex-grow">
               <li className="flex items-start text-gray-700">
                 <svg className="w-5 h-5 text-[#0EF0F0] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -92,13 +65,13 @@ export default function Home() {
                 <span>Self-service portal</span>
               </li>
             </ul>
-            <button className="w-full bg-gradient-to-r from-[#0EF0F0] to-[#0283DB] text-[#003961] font-bold px-8 py-4 rounded-xl hover:shadow-lg transition-all">
+            <button className="w-full bg-gradient-to-r from-[#0EF0F0] to-[#0283DB] text-[#003961] font-bold px-8 py-4 rounded-xl hover:shadow-lg transition-all mt-auto">
               Get Access →
             </button>
           </div>
 
           {/* Guided Access Card */}
-          <div className="bg-white rounded-2xl shadow-lg border-2 border-[#0283DB] hover:shadow-2xl transition-all p-8">
+          <div className="bg-white rounded-2xl shadow-lg border-2 border-[#0283DB] hover:shadow-2xl transition-all p-8 flex flex-col">
             <div className="flex items-center gap-4 mb-6">
               <div className="bg-gradient-to-br from-[#0283DB] to-[#003961] p-4 rounded-xl">
                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -110,7 +83,7 @@ export default function Home() {
             <p className="text-gray-700 mb-6 leading-relaxed">
               Want expert guidance? Schedule a consultation with our lending team. We'll walk you through options and build a solution tailored to you.
             </p>
-            <ul className="space-y-3 mb-8">
+            <ul className="space-y-3 mb-8 flex-grow">
               <li className="flex items-start text-gray-700">
                 <svg className="w-5 h-5 text-[#0283DB] mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -130,7 +103,7 @@ export default function Home() {
                 <span>White-glove support</span>
               </li>
             </ul>
-            <button className="w-full bg-gradient-to-r from-[#0283DB] to-[#003961] text-white font-bold px-8 py-4 rounded-xl hover:shadow-lg transition-all">
+            <button className="w-full bg-gradient-to-r from-[#0283DB] to-[#003961] text-white font-bold px-8 py-4 rounded-xl hover:shadow-lg transition-all mt-auto">
               Get Access →
             </button>
           </div>
@@ -169,18 +142,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Trust Signals */}
-      <section className="bg-[#FAFAFA] py-12">
-        <div className="max-w-5xl mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-1 gap-6 max-w-md mx-auto">
-            <div className="bg-white rounded-xl p-6 text-center shadow-sm hover:shadow-md transition-all">
-              <div className="text-4xl font-bold text-[#003961] mb-2">5.0★</div>
-              <div className="text-sm text-gray-600">Client satisfaction rating</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* About Section */}
       <section id="about" className="bg-white py-10">
         <div className="max-w-5xl mx-auto px-6">
@@ -194,41 +155,6 @@ export default function Home() {
             <p className="text-lg text-gray-700">
               Keep your great first mortgage rate. Access your equity. Your home, your decisions, your timeline.
             </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Real Google Reviews Section */}
-      <section id="reviews" className="py-10 bg-gradient-to-br from-[#FAFAFA] to-gray-100">
-        <div className="max-w-6xl mx-auto px-6">
-          <h2 className="font-heading text-4xl font-bold text-[#003961] mb-4 text-center">
-            What Our Clients Say
-          </h2>
-          <p className="text-center text-gray-600 mb-12">Real reviews from real people</p>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {reviews.map((review, i) => (
-              <div key={i} className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
-                <div className="flex items-center mb-4">
-                  <div className="flex text-yellow-400">
-                    {[...Array(review.rating)].map((_, i) => (
-                      <svg key={i} className="w-5 h-5 fill-current" viewBox="0 0 20 20">
-                        <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-                      </svg>
-                    ))}
-                  </div>
-                </div>
-                <p className="text-gray-700 mb-4 italic text-sm">
-                  "{review.text}"
-                </p>
-                <p className="text-sm font-semibold text-[#003961]">
-                  ,  {review.name}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {review.location}
-                </p>
-              </div>
-            ))}
           </div>
         </div>
       </section>
