@@ -65,7 +65,7 @@ export default function ReviewCarousel() {
             "{review.text}"
           </p>
           <p className="text-lg font-semibold">
-            — {review.name}
+            ,  {review.name}
           </p>
           <p className="text-sm opacity-90">
             {review.location}

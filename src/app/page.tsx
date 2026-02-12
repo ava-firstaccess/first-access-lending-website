@@ -189,7 +189,7 @@ export default function Home() {
           </h2>
           <div className="max-w-3xl mx-auto">
             <p className="text-lg text-gray-700 mb-4">
-              First Access Lending specializes in <strong className="text-[#003961]">second lien mortgages</strong>—HELOCs and closed-end seconds that unlock your home equity without refinancing your primary mortgage.
+              First Access Lending specializes in <strong className="text-[#003961]">second lien mortgages</strong>, HELOCs and closed-end seconds that unlock your home equity without refinancing your primary mortgage.
             </p>
             <p className="text-lg text-gray-700">
               Keep your great first mortgage rate. Access your equity. Your home, your decisions, your timeline.
@@ -222,7 +222,7 @@ export default function Home() {
                   "{review.text}"
                 </p>
                 <p className="text-sm font-semibold text-[#003961]">
-                  — {review.name}
+                  ,  {review.name}
                 </p>
                 <p className="text-xs text-gray-500">
                   {review.location}

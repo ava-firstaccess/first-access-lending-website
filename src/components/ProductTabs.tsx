@@ -23,7 +23,7 @@ const productData: ProductData[] = [
     label: 'HELOC',
     href: '/heloc',
     title: 'Home Equity Line of Credit',
-    description: 'Keep your low first mortgage rate and access your equity with a HELOC. Draw what you need, when you need it—perfect for ongoing projects, emergencies, or opportunities.',
+    description: 'Keep your low first mortgage rate and access your equity with a HELOC. Draw what you need, when you need it, perfect for ongoing projects, emergencies, or opportunities.',
     features: [
       { icon: '💰', title: 'Loans up to $850K', detail: 'Access substantial equity for major projects' },
       { icon: '🏠', title: 'Multiple property types', detail: 'Primary, vacation, and investment properties' },
@@ -36,7 +36,7 @@ const productData: ProductData[] = [
     label: 'Second Mortgages',
     href: '/second-mortgages',
     title: 'Second Mortgage (Closed-End Second Lien)',
-    description: 'Get a fixed-rate lump sum while keeping your existing first mortgage. Predictable monthly payments, no surprises—perfect when you know exactly how much you need.',
+    description: 'Get a fixed-rate lump sum while keeping your existing first mortgage. Predictable monthly payments, no surprises, perfect when you know exactly how much you need.',
     features: [
       { icon: '💵', title: 'Fixed-rate lump sum', detail: 'One-time funding with predictable payments' },
       { icon: '🔒', title: 'Keep your first mortgage', detail: 'Don\'t lose your low rate' },
@@ -62,7 +62,7 @@ const productData: ProductData[] = [
     label: 'Home Purchase',
     href: '/home-purchase',
     title: 'Home Purchase Financing',
-    description: 'Competitive financing for your next property purchase. Whether it\'s your primary residence, vacation home, or investment property—we\'ve got you covered.',
+    description: 'Competitive financing for your next property purchase. Whether it\'s your primary residence, vacation home, or investment property, we\'ve got you covered.',
     features: [
       { icon: '🏡', title: 'Primary residences', detail: 'Financing for your home' },
       { icon: '🏖️', title: 'Vacation homes', detail: 'Second homes and getaways' },
