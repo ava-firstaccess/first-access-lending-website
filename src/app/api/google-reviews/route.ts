@@ -11,11 +11,22 @@ export async function GET() {
       );
     }
 
-    // First, find the place using Place Search
-    const searchUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=First%20Access%20Lending%20Virginia&inputtype=textquery&fields=place_id&key=${apiKey}`;
-    
-    const searchResponse = await fetch(searchUrl);
-    
+    // Use the new Places API (New) - Text Search endpoint
+    const searchResponse = await fetch(
+      'https://places.googleapis.com/v1/places:searchText',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.rating,places.userRatingCount,places.reviews'
+        },
+        body: JSON.stringify({
+          textQuery: 'First Access Lending Virginia'
+        })
+      }
+    );
+
     if (!searchResponse.ok) {
       const errorText = await searchResponse.text();
       throw new Error(`Search failed: ${searchResponse.status} - ${errorText}`);
@@ -23,42 +34,30 @@ export async function GET() {
 
     const searchData = await searchResponse.json();
 
-    if (!searchData.candidates || searchData.candidates.length === 0) {
+    if (!searchData.places || searchData.places.length === 0) {
       return NextResponse.json(
-        { error: 'Business not found on Google' },
+        { error: 'Business not found on Google', searchData },
         { status: 404 }
       );
     }
 
-    const placeId = searchData.candidates[0].place_id;
+    const place = searchData.places[0];
 
-    // Now fetch place details with all reviews (legacy API returns up to 5 by default, but we can get the most relevant ones)
-    const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,rating,user_ratings_total,reviews&key=${apiKey}`;
-    
-    const detailsResponse = await fetch(detailsUrl);
-
-    if (!detailsResponse.ok) {
-      const errorText = await detailsResponse.text();
-      throw new Error(`Details fetch failed: ${detailsResponse.status} - ${errorText}`);
-    }
-
-    const detailsData = await detailsResponse.json();
-
-    if (detailsData.status !== 'OK' || !detailsData.result) {
-      return NextResponse.json(
-        { error: `API returned status: ${detailsData.status}` },
-        { status: 500 }
-      );
-    }
-
-    const place = detailsData.result;
-
-    // Return the data
+    // Transform the response to match the expected format
     return NextResponse.json({
-      name: place.name,
+      placeId: place.id,
+      name: place.displayName?.text || 'First Access Lending',
       rating: place.rating,
-      user_ratings_total: place.user_ratings_total,
-      reviews: place.reviews || []
+      user_ratings_total: place.userRatingCount,
+      reviews: place.reviews?.map((review: any) => ({
+        author_name: review.authorAttribution?.displayName || 'Anonymous',
+        author_url: review.authorAttribution?.uri || '',
+        profile_photo_url: review.authorAttribution?.photoUri || '',
+        rating: review.rating,
+        relative_time_description: review.relativePublishTimeDescription || '',
+        text: review.text?.text || review.originalText?.text || '',
+        time: review.publishTime ? new Date(review.publishTime).getTime() / 1000 : Date.now() / 1000
+      })) || []
     });
   } catch (error) {
     console.error('Error fetching Google reviews:', error);
