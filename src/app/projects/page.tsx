@@ -206,6 +206,41 @@ const projects: Project[] = [
     category: 'Data/Analytics',
     status: 'Backlog',
     description: 'Automate refresh of Combined Analytics V2 dataset used by LO stats emails and payroll calculations.'
+  },
+  {
+    id: 'flood-insurance-app',
+    name: 'Add Flood Insurance to App',
+    category: 'Business Systems',
+    status: 'Backlog',
+    description: 'Integrate flood insurance functionality into application workflow.'
+  },
+  {
+    id: 'power-dialer-ghl',
+    name: 'Build Power Dialer to GHL',
+    category: 'Automation',
+    status: 'Backlog',
+    description: 'Build automated power dialer integration with GoHighLevel CRM for outbound calling campaigns.'
+  },
+  {
+    id: 'ghl-dashboard',
+    name: 'Build GHL Dashboard',
+    category: 'Data/Analytics',
+    status: 'Backlog',
+    description: 'Create comprehensive dashboard for GoHighLevel metrics, lead flow, conversion tracking, and campaign performance.'
+  },
+  {
+    id: 'calendly-cancel-handler',
+    name: 'Build Handler for Canceled Calendly Events',
+    category: 'Automation',
+    status: 'Backlog',
+    description: 'Automated workflow to handle canceled Calendly appointments with notifications and CRM updates.'
+  },
+  {
+    id: 'new-lead-workflow-split',
+    name: 'Split Laggy New Lead Text Workflow',
+    category: 'Automation',
+    status: 'Backlog',
+    description: 'Split laggy new lead text workflow into 5 separate workflows and build out comprehensive notification methodology note.'
   }
 ];
 
