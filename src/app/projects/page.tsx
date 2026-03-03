@@ -248,6 +248,13 @@ const projects: Project[] = [
     category: 'Data/Analytics',
     status: 'Backlog',
     description: 'Rebuild rental property P&L reporting and Power BI integration.'
+  },
+  {
+    id: 'lulu-firewall',
+    name: 'Download and Configure Lulu Firewall',
+    category: 'Infrastructure',
+    status: 'Backlog',
+    description: 'Install Lulu (free open-source macOS firewall) to monitor and control outbound network connections. Prevents unauthorized data exfiltration by alerting/blocking when processes try to connect to unknown servers.'
   }
 ];
 
