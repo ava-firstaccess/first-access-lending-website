@@ -261,7 +261,7 @@ const projects: Project[] = [
     name: 'Enable FileVault Full Disk Encryption',
     category: 'Security',
     status: 'Backlog',
-    description: 'Enable FileVault on Ava's MacBook for full disk encryption. If the laptop is stolen or accessed physically, all data (client records, API credentials, email, property documents) is unreadable without the login password.'
+    description: 'Enable FileVault on the MacBook for full disk encryption. Protects all data (client records, API credentials, email, property documents) from physical theft.'
   }
 ];
 
