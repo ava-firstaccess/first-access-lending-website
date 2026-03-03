@@ -262,6 +262,13 @@ const projects: Project[] = [
     category: 'Security',
     status: 'Backlog',
     description: 'Enable FileVault on the MacBook for full disk encryption. Protects all data (client records, API credentials, email, property documents) from physical theft.'
+  },
+  {
+    id: 'bonus-pacing',
+    name: 'Bonus Pacing',
+    category: 'Data/Analytics',
+    status: 'Backlog',
+    description: 'Build loan officer bonus pacing tracker to show progress toward monthly thresholds and commission tiers.'
   }
 ];
 
