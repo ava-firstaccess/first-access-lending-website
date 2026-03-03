@@ -6,7 +6,7 @@ import Footer from '@/components/Footer';
 interface Project {
   id: string;
   name: string;
-  category: 'Automation' | 'Data/Analytics' | 'Infrastructure' | 'Business Systems';
+  category: 'Automation' | 'Data/Analytics' | 'Infrastructure' | 'Business Systems' | 'Security';
   status: 'Backlog' | 'In Progress' | 'Complete';
   description: string;
   completedDate?: string;
@@ -255,6 +255,13 @@ const projects: Project[] = [
     category: 'Infrastructure',
     status: 'Backlog',
     description: 'Install Lulu (free open-source macOS firewall) to monitor and control outbound network connections. Prevents unauthorized data exfiltration by alerting/blocking when processes try to connect to unknown servers.'
+  },
+  {
+    id: 'filevault-encryption',
+    name: 'Enable FileVault Full Disk Encryption',
+    category: 'Security',
+    status: 'Backlog',
+    description: 'Enable FileVault on Ava's MacBook for full disk encryption. If the laptop is stolen or accessed physically, all data (client records, API credentials, email, property documents) is unreadable without the login password.'
   }
 ];
 
@@ -273,6 +280,8 @@ export default function ProjectsPage() {
         return 'bg-green-100 text-green-800 border-green-300';
       case 'Business Systems':
         return 'bg-orange-100 text-orange-800 border-orange-300';
+      case 'Security':
+        return 'bg-red-100 text-red-800 border-red-300';
     }
   };
 
@@ -365,6 +374,10 @@ export default function ProjectsPage() {
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-orange-500"></span>
             <span className="text-sm text-gray-700 font-medium">Business Systems</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-red-500"></span>
+            <span className="text-sm text-gray-700 font-medium">Security</span>
           </div>
         </div>
       </section>
