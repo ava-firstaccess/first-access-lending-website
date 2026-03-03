@@ -241,6 +241,13 @@ const projects: Project[] = [
     category: 'Automation',
     status: 'Backlog',
     description: 'Split laggy new lead text workflow into 5 separate workflows and build out comprehensive notification methodology note.'
+  },
+  {
+    id: 'pl-powerbi-rebuild',
+    name: 'Rebuild P&L and Power BI',
+    category: 'Data/Analytics',
+    status: 'Backlog',
+    description: 'Rebuild rental property P&L reporting and Power BI integration.'
   }
 ];
 
