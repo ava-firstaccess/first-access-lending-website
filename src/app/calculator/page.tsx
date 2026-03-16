@@ -90,24 +90,44 @@ export default function MortgageCalculator() {
   const [sent, setSent] = useState<boolean>(false);
   const [showDeductionBreakdown, setShowDeductionBreakdown] = useState<boolean>(false);
 
-  // Fetch current market rate on mount
+  // Store fetched rates
+  const [fetchedRates, setFetchedRates] = useState<{ conventional: number | null; fha: number | null }>({
+    conventional: null,
+    fha: null,
+  });
+
+  // Fetch current market rates on mount
   useEffect(() => {
-    async function fetchCurrentRate() {
+    async function fetchCurrentRates() {
       try {
         const response = await fetch('/api/current-rate');
         if (response.ok) {
           const data = await response.json();
-          if (data.rate) {
-            setInterestRate(data.rate);
+          setFetchedRates({
+            conventional: data.conventional || null,
+            fha: data.fha || null,
+          });
+          
+          // Set initial rate based on default loan type (conventional)
+          if (data.conventional) {
+            setInterestRate(data.conventional);
           }
         }
       } catch (error) {
-        console.error('Failed to fetch current rate:', error);
+        console.error('Failed to fetch current rates:', error);
         // Leave blank if fetch fails
       }
     }
-    fetchCurrentRate();
+    fetchCurrentRates();
   }, []);
+
+  // Update interest rate when loan type changes
+  useEffect(() => {
+    const rate = loanType === 'conventional' ? fetchedRates.conventional : fetchedRates.fha;
+    if (rate) {
+      setInterestRate(rate);
+    }
+  }, [loanType, fetchedRates]);
 
   // Handlers to keep down payment dollar and percent in sync
   const handleDownPaymentDollarChange = (value: number) => {
@@ -299,7 +319,11 @@ export default function MortgageCalculator() {
                       Conventional
                     </button>
                     <button
-                      onClick={() => setLoanType('fha')}
+                      onClick={() => {
+                        setLoanType('fha');
+                        // Default FHA to 3.5% down payment
+                        handleDownPaymentPercentChange(3.5);
+                      }}
                       className={`flex-1 px-4 py-3 rounded-lg font-medium transition ${
                         loanType === 'fha'
                           ? 'bg-blue-600 text-white'
