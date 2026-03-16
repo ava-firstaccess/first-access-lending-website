@@ -2,7 +2,11 @@
 
 **Preview URL:** https://first-access-lending-website.vercel.app/calc-preview-9d4f2a8e
 
-(Note: Site is deployed on Vercel subdomain. Custom domain firstaccesslending.com is not yet configured.)
+**Website Homepage:** https://first-access-lending-website.vercel.app
+
+**Status:** ✅ Live and deployed (March 16, 2026)
+
+(Note: Site is deployed on Vercel subdomain. Custom domain firstaccesslending.com is not configured.)
 
 ## Status
 - ✅ Live and functional
