@@ -526,7 +526,7 @@ export default function MortgageCalculator() {
                       >
                         {US_STATES.map(s => (
                           <option key={s.code} value={s.code}>
-                            {s.name} {STATE_TAX_RATES[s.code] === 0 ? '(No state income tax)' : ''}
+                            {s.name}
                           </option>
                         ))}
                       </select>
@@ -802,47 +802,37 @@ export default function MortgageCalculator() {
               </div>
             </div>
 
-            {/* Disclaimers */}
-            <div className="mt-12 space-y-4">
-              <div className="p-6 bg-yellow-50 rounded-lg border-2 border-yellow-300">
-                <p className="text-sm text-gray-800">
-                  <strong className="text-yellow-900">⚠️ Important:</strong> This calculator provides <strong>estimates only</strong> and is <strong>NOT</strong> a Loan Estimate (LE) as defined by federal mortgage regulations. 
-                  This is not governed by TILA-RESPA Integrated Disclosure (TRID) requirements. For an official Loan Estimate, please contact First Access Lending directly.
-                </p>
-              </div>
+            {/* Disclaimer */}
+            <div className="mt-12 p-6 bg-gray-50 rounded-lg border border-gray-200">
+              <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+                <strong>Disclaimer:</strong> This calculator provides estimates only and is NOT a Loan Estimate (LE) as defined by federal mortgage regulations. 
+                For an official Loan Estimate, please contact First Access Lending directly.
+              </p>
               
-              <div className="p-6 bg-gray-50 rounded-lg border border-gray-200">
-                <p className="text-sm text-gray-600 mb-3">
-                  <strong>Tax Disclaimer:</strong> This calculator does <strong>NOT</strong> provide tax advice. Tax savings are estimates only and may not reflect your actual tax liability. 
-                  Your individual tax situation may differ significantly based on factors not captured here. 
-                  <strong> Please consult a qualified tax professional</strong> before making decisions based on these estimates.
-                </p>
-                
-                <p className="text-sm text-gray-600 mb-3">
-                  <strong>Assumptions:</strong> This calculator assumes:
-                </p>
-                <ul className="text-sm text-gray-600 list-disc list-inside space-y-1 ml-4">
-                  <li><strong>Conventional PMI:</strong> 0.17% for &lt;90% LTV, 0.24% for 90-95% LTV</li>
-                  <li><strong>FHA MIP:</strong> 0.80% for ≤95% LTV, 0.85% for &gt;95% LTV (does not include upfront MIP)</li>
-                  <li><strong>Minimum down payment:</strong> 5% for conventional, 3.5% for FHA</li>
-                  <li>Actual PMI/MIP rates vary by credit score, loan amount, and lender</li>
-                  <li>State tax rates are simplified marginal estimates and may not reflect actual liability</li>
-                  <li>SALT deduction capped at $10,000 (federal tax law)</li>
-                  <li>PMI deductibility phases out for AGI above $100,000</li>
-                  <li>Standard deduction amounts based on 2025 tax year</li>
-                  <li>No consideration of AMT, Pease limitations, or state-specific deduction rules</li>
-                </ul>
-                
-                <p className="text-sm text-gray-600 mt-3">
-                  <strong>Actual Results May Vary:</strong> Actual loan payments, PMI rates, interest rates, tax savings, and closing costs may differ based on your credit profile, loan type, lender, property location, and individual tax circumstances. 
-                  Tax laws change frequently and may affect deduction availability. This calculator does not include all possible fees, costs, or tax considerations.
-                </p>
-                
-                <p className="text-sm text-gray-600 mt-3">
-                  <strong>Contact First Access Lending</strong> for an accurate, personalized quote and official Loan Estimate. 
-                  <strong> Consult a licensed tax professional</strong> for tax planning advice specific to your situation.
-                </p>
-              </div>
+              <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+                This calculator does NOT provide tax advice. Tax savings are estimates only and may not reflect your actual tax liability. 
+                Your individual tax situation may differ significantly based on factors not captured here. 
+                Please consult a qualified tax professional before making decisions based on these estimates.
+              </p>
+              
+              <p className="text-xs text-gray-600 mb-2 leading-relaxed">
+                <strong>Assumptions:</strong> Conventional PMI: 0.17% for &lt;90% LTV, 0.24% for 90-95% LTV. 
+                FHA MIP: 0.80% for ≤95% LTV, 0.85% for &gt;95% LTV (does not include upfront MIP). 
+                Minimum down payment: 5% for conventional, 3.5% for FHA. 
+                Actual PMI/MIP rates vary by credit score, loan amount, and lender. 
+                State tax rates are simplified marginal estimates and may not reflect actual liability. 
+                SALT deduction capped at $10,000 (federal tax law). 
+                PMI deductibility phases out for AGI above $100,000. 
+                Standard deduction amounts based on 2025 tax year. 
+                No consideration of AMT, Pease limitations, or state-specific deduction rules.
+              </p>
+              
+              <p className="text-xs text-gray-600 leading-relaxed">
+                Actual loan payments, PMI rates, interest rates, tax savings, and closing costs may differ based on your credit profile, loan type, lender, property location, and individual tax circumstances. 
+                Tax laws change frequently and may affect deduction availability. This calculator does not include all possible fees, costs, or tax considerations. 
+                Contact First Access Lending for an accurate, personalized quote and official Loan Estimate. 
+                Consult a licensed tax professional for tax planning advice specific to your situation.
+              </p>
             </div>
           </div>
         </div>
