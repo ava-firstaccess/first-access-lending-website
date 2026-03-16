@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
@@ -88,6 +88,25 @@ export default function MortgageCalculator() {
   const [sending, setSending] = useState<boolean>(false);
   const [sent, setSent] = useState<boolean>(false);
   const [showDeductionBreakdown, setShowDeductionBreakdown] = useState<boolean>(false);
+
+  // Fetch current market rate on mount
+  useEffect(() => {
+    async function fetchCurrentRate() {
+      try {
+        const response = await fetch('/api/current-rate');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.rate) {
+            setInterestRate(data.rate);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch current rate:', error);
+        // Keep default 6.5% if fetch fails
+      }
+    }
+    fetchCurrentRate();
+  }, []);
 
   // Handlers to keep down payment dollar and percent in sync
   const handleDownPaymentDollarChange = (value: number) => {
