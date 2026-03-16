@@ -103,9 +103,16 @@ export default function MortgageCalculator() {
   const monthlyInsurance = homeInsurance / 12;
   const monthlyHOA = hoaFees;
   
-  // PMI calculation (if down payment < 20%)
+  // PMI calculation (if down payment < 20%) - rates for 760 credit score
   const needsPMI = downPaymentPercent < 20;
-  const pmiRate = needsPMI ? 0.005 : 0; // 0.5% annually for < 20% down
+  const ltv = ((loanAmount / homePrice) * 100);
+  let pmiRate = 0;
+  if (needsPMI) {
+    if (ltv > 95) pmiRate = 0.0077; // 95.01-97% LTV: 0.77%
+    else if (ltv > 90) pmiRate = 0.0052; // 90.01-95% LTV: 0.52%
+    else if (ltv > 85) pmiRate = 0.0032; // 85.01-90% LTV: 0.32%
+    else if (ltv > 80) pmiRate = 0.0024; // 80.01-85% LTV: 0.24%
+  }
   const monthlyPMI = needsPMI ? (loanAmount * pmiRate) / 12 : 0;
   
   const totalMonthlyPayment = monthlyPI + monthlyPropertyTax + monthlyInsurance + monthlyHOA + monthlyPMI;
@@ -643,14 +650,44 @@ export default function MortgageCalculator() {
               </div>
             </div>
 
-            {/* Disclaimer */}
-            <div className="mt-12 p-6 bg-gray-50 rounded-lg border border-gray-200">
-              <p className="text-sm text-gray-600">
-                <strong>Disclaimer:</strong> This calculator provides estimates only and should not be considered financial or tax advice. 
-                State tax rates are simplified estimates and may not reflect your actual tax liability. Actual payments and tax savings may vary. 
-                Tax benefits depend on individual circumstances and may change with tax law updates. The SALT deduction is capped at $10,000. 
-                PMI deductibility phases out for incomes above $100,000. Please consult with a qualified tax professional and contact First Access Lending for an accurate quote.
-              </p>
+            {/* Disclaimers */}
+            <div className="mt-12 space-y-4">
+              <div className="p-6 bg-yellow-50 rounded-lg border-2 border-yellow-300">
+                <p className="text-sm text-gray-800">
+                  <strong className="text-yellow-900">⚠️ Important:</strong> This calculator provides <strong>estimates only</strong> and is <strong>NOT</strong> a Loan Estimate (LE) as defined by federal mortgage regulations. 
+                  This is not governed by TILA-RESPA Integrated Disclosure (TRID) requirements. For an official Loan Estimate, please contact First Access Lending directly.
+                </p>
+              </div>
+              
+              <div className="p-6 bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-sm text-gray-600 mb-3">
+                  <strong>Tax Disclaimer:</strong> This calculator does <strong>NOT</strong> provide tax advice. Tax savings are estimates only and may not reflect your actual tax liability. 
+                  Your individual tax situation may differ significantly based on factors not captured here. 
+                  <strong> Please consult a qualified tax professional</strong> before making decisions based on these estimates.
+                </p>
+                
+                <p className="text-sm text-gray-600 mb-3">
+                  <strong>Assumptions:</strong> This calculator assumes:
+                </p>
+                <ul className="text-sm text-gray-600 list-disc list-inside space-y-1 ml-4">
+                  <li><strong>760 credit score</strong> for PMI rate calculations</li>
+                  <li>State tax rates are simplified marginal estimates and may not reflect actual liability</li>
+                  <li>SALT deduction capped at $10,000 (federal tax law)</li>
+                  <li>PMI deductibility phases out for AGI above $100,000</li>
+                  <li>Standard deduction amounts based on 2025 tax year</li>
+                  <li>No consideration of AMT, Pease limitations, or state-specific deduction rules</li>
+                </ul>
+                
+                <p className="text-sm text-gray-600 mt-3">
+                  <strong>Actual Results May Vary:</strong> Actual loan payments, PMI rates, interest rates, tax savings, and closing costs may differ based on your credit profile, loan type, lender, property location, and individual tax circumstances. 
+                  Tax laws change frequently and may affect deduction availability. This calculator does not include all possible fees, costs, or tax considerations.
+                </p>
+                
+                <p className="text-sm text-gray-600 mt-3">
+                  <strong>Contact First Access Lending</strong> for an accurate, personalized quote and official Loan Estimate. 
+                  <strong> Consult a licensed tax professional</strong> for tax planning advice specific to your situation.
+                </p>
+              </div>
             </div>
           </div>
         </div>

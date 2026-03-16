@@ -382,13 +382,27 @@ function generatePDFHTML(data: any): string {
   </div>
 
   <div class="footer">
-    <p>
-      <strong>Disclaimer:</strong> This calculator provides estimates only and should not be considered financial or tax advice. 
-      State tax rates are simplified estimates and may not reflect your actual tax liability. Actual payments and tax savings may vary 
-      based on individual circumstances, loan terms, and applicable tax laws. Tax benefits depend on itemizing deductions and may change 
-      with tax law updates. The SALT deduction is capped at $10,000. PMI deductibility phases out for incomes above $100,000. 
-      Please consult with a qualified tax professional for personalized advice. Contact First Access Lending for an accurate loan quote.
+    <p style="background-color: #fef3c7; padding: 12px; border-radius: 6px; border-left: 4px solid #f59e0b; margin-bottom: 15px;">
+      <strong style="color: #92400e;">⚠️ Important:</strong> This calculator provides <strong>estimates only</strong> and is <strong>NOT</strong> a Loan Estimate (LE) 
+      as defined by federal mortgage regulations. This is not governed by TILA-RESPA Integrated Disclosure (TRID) requirements. 
+      For an official Loan Estimate, contact First Access Lending directly.
     </p>
+    
+    <p>
+      <strong>Tax Disclaimer:</strong> This does <strong>NOT</strong> constitute tax advice. Tax savings are estimates only. 
+      <strong>Consult a qualified tax professional</strong> before making tax-related decisions.
+    </p>
+    
+    <p style="margin-top: 12px;">
+      <strong>Assumptions:</strong> PMI rates based on 760 credit score. State tax rates are simplified estimates. 
+      SALT deduction capped at $10,000. PMI deductibility phases out for AGI above $100,000. Actual results may vary significantly 
+      based on credit profile, loan type, property location, and individual tax circumstances. Tax laws change frequently.
+    </p>
+    
+    <p style="margin-top: 12px;">
+      <strong>Contact First Access Lending</strong> for an accurate, personalized quote and official Loan Estimate.
+    </p>
+    
     <p style="margin-top: 20px;">
       &copy; ${new Date().getFullYear()} First Access Lending. All rights reserved.
     </p>
