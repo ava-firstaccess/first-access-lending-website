@@ -62,6 +62,9 @@ function generatePDFHTML(data: any): string {
     year1PMI = 0,
     stateIncomeTaxPaid = 0,
     saltDeduction = 0,
+    charitableDonations = 0,
+    medicalExpenses = 0,
+    deductibleMedical = 0,
     totalDeductions,
     marginalTaxRate,
     taxSavings,
@@ -330,6 +333,18 @@ function generatePDFHTML(data: any): string {
           <td>${fmtInt(year1PMI)}</td>
         </tr>
         ` : ''}
+        ${charitableDonations > 0 ? `
+        <tr>
+          <td>• Charitable Donations</td>
+          <td>${fmtInt(charitableDonations)}</td>
+        </tr>
+        ` : ''}
+        ${deductibleMedical > 0 ? `
+        <tr>
+          <td>• Medical Expenses (deductible portion)</td>
+          <td>${fmtInt(deductibleMedical)}</td>
+        </tr>
+        ` : ''}
         <tr class="total-row" style="font-size: 16px;">
           <td style="padding-left: 12px;">Total Itemized Deductions</td>
           <td>${fmtInt(totalDeductions)}</td>
@@ -342,6 +357,7 @@ function generatePDFHTML(data: any): string {
       <p class="note">
         State & local tax (SALT) deduction is capped at $10,000 by federal law.
         ${needsPMI && agi >= 100000 ? ' PMI not deductible for AGI above $100,000.' : ''}
+        ${medicalExpenses > 0 ? ' Medical expenses only deductible if exceeding 7.5% of AGI.' : ''}
       </p>
     </div>
 

@@ -83,6 +83,8 @@ export default function MortgageCalculator() {
   const [filingStatus, setFilingStatus] = useState<'single' | 'married'>('married');
   const [agi, setAgi] = useState<number>(150000);
   const [state, setState] = useState<string>('CA');
+  const [charitableDonations, setCharitableDonations] = useState<number>(0);
+  const [medicalExpenses, setMedicalExpenses] = useState<number>(0);
   const [email, setEmail] = useState<string>('');
   const [sending, setSending] = useState<boolean>(false);
   const [sent, setSent] = useState<boolean>(false);
@@ -197,8 +199,12 @@ export default function MortgageCalculator() {
   // SALT cap: $10,000 limit on state/local tax deduction
   const saltDeduction = Math.min(10000, stateIncomeTaxPaid + year1PropertyTax);
   
+  // Medical expenses: only deductible if > 7.5% of AGI
+  const medicalThreshold = agi * 0.075;
+  const deductibleMedical = Math.max(0, medicalExpenses - medicalThreshold);
+  
   // Total itemized deductions
-  const totalDeductions = year1Interest + saltDeduction + (agi < 100000 ? year1PMI : 0);
+  const totalDeductions = year1Interest + saltDeduction + (agi < 100000 ? year1PMI : 0) + charitableDonations + deductibleMedical;
 
   // Standard deduction (2025)
   const standardDeduction = filingStatus === 'married' ? 29200 : 14600;
@@ -251,6 +257,9 @@ export default function MortgageCalculator() {
           year1PMI,
           stateIncomeTaxPaid,
           saltDeduction,
+          charitableDonations,
+          medicalExpenses,
+          deductibleMedical,
           totalDeductions,
           marginalTaxRate,
           taxSavings,
@@ -548,6 +557,46 @@ export default function MortgageCalculator() {
                         Enter your household's total income for tax bracket calculation
                       </p>
                     </div>
+
+                    {/* Charitable Donations */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Annual Charitable Donations
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 text-gray-500 pointer-events-none">$</span>
+                        <input
+                          type="number"
+                          value={charitableDonations || ''}
+                          onChange={(e) => setCharitableDonations(Number(e.target.value))}
+                          className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="0"
+                        />
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Total charitable contributions for the year
+                      </p>
+                    </div>
+
+                    {/* Medical/Dental Expenses */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Annual Medical/Dental Expenses
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 text-gray-500 pointer-events-none">$</span>
+                        <input
+                          type="number"
+                          value={medicalExpenses || ''}
+                          onChange={(e) => setMedicalExpenses(Number(e.target.value))}
+                          className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="0"
+                        />
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Only amounts exceeding 7.5% of AGI are deductible
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -706,6 +755,30 @@ export default function MortgageCalculator() {
                             {needsPMI && agi >= 100000 && (
                               <p className="text-xs text-gray-500 pl-4 italic">
                                 PMI not deductible (AGI &gt; $100,000)
+                              </p>
+                            )}
+                            
+                            {charitableDonations > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600 pl-4">• Charitable Donations</span>
+                                <span className="font-medium text-gray-900">
+                                  ${charitableDonations.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                </span>
+                              </div>
+                            )}
+                            
+                            {medicalExpenses > medicalThreshold && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600 pl-4">• Medical Expenses (deductible portion)</span>
+                                <span className="font-medium text-gray-900">
+                                  ${deductibleMedical.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                </span>
+                              </div>
+                            )}
+                            
+                            {medicalExpenses > 0 && medicalExpenses <= medicalThreshold && (
+                              <p className="text-xs text-gray-500 pl-4 italic">
+                                Medical expenses below 7.5% AGI threshold (not deductible)
                               </p>
                             )}
                             
