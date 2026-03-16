@@ -326,8 +326,9 @@ export default function MortgageCalculator() {
                     <button
                       onClick={() => {
                         setLoanType('fha');
-                        // Default FHA to 3.5% down payment
-                        handleDownPaymentPercentChange(3.5);
+                        // Default FHA to 3.5% down payment (set directly to bypass constraint)
+                        setDownPaymentPercent(3.5);
+                        setDownPayment((3.5 / 100) * homePrice);
                       }}
                       className={`flex-1 px-4 py-3 rounded-lg font-medium transition ${
                         loanType === 'fha'
