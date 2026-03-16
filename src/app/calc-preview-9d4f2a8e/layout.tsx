@@ -5,6 +5,10 @@ export const metadata: Metadata = {
   description: 'Calculate your monthly mortgage payment and see potential tax savings. Free mortgage calculator with conventional and FHA loan options.',
   keywords: 'mortgage calculator, home loan calculator, mortgage payment calculator, tax savings calculator, PMI calculator, HELOC calculator, home equity calculator, First Access Lending',
   themeColor: '#FFFFFF',
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/brand/Favicon/Wordpress.png',
+  },
   openGraph: {
     title: 'Mortgage Payment Calculator',
     siteName: 'First Access Lending',
@@ -13,10 +17,10 @@ export const metadata: Metadata = {
     url: 'https://first-access-lending-website.vercel.app/calc-preview-9d4f2a8e',
     images: [
       {
-        url: '/logos/fal-logo.svg',
-        width: 800,
-        height: 600,
-        alt: 'First Access Lending Logo',
+        url: '/brand/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'First Access Lending',
       },
     ],
   },
