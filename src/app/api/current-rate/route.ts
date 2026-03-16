@@ -45,6 +45,27 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching current rate:', error);
     
+    // Send email notification about failure
+    try {
+      await fetch(process.env.EMAIL_API_URL || 'http://localhost:3000/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: 'zachbosson@gmail.com',
+          subject: 'MND Rate Fetch Failed',
+          html: `
+            <p>The Mortgage News Daily rate fetch failed.</p>
+            <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Error:</strong> ${error instanceof Error ? error.message : 'Unknown error'}</p>
+            <p>Calculator will show blank rate until fetch succeeds or user enters manually.</p>
+          `,
+          from: 'ava@fal.firstaccesslending.com',
+        }),
+      });
+    } catch (emailError) {
+      console.error('Failed to send notification email:', emailError);
+    }
+    
     // Return null if fetch fails - let user enter manually
     return NextResponse.json({ 
       rate: null,
