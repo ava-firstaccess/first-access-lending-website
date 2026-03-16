@@ -240,16 +240,11 @@ export default function MortgageCalculator() {
                     Home Price
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2 text-gray-500">$</span>
+                    <span className="absolute left-3 top-2 text-gray-500 pointer-events-none">$</span>
                     <input
-                      type="text"
-                      value={homePrice.toLocaleString('en-US')}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/,/g, '');
-                        if (!isNaN(Number(value))) {
-                          handleHomePriceChange(Number(value));
-                        }
-                      }}
+                      type="number"
+                      value={homePrice}
+                      onChange={(e) => handleHomePriceChange(Number(e.target.value))}
                       className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -267,26 +262,21 @@ export default function MortgageCalculator() {
                         <input
                           type="number"
                           step="0.1"
-                          value={downPaymentPercent.toFixed(1)}
+                          value={downPaymentPercent}
                           onChange={(e) => handleDownPaymentPercentChange(Number(e.target.value))}
                           className="w-full px-3 py-2 pr-7 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
-                        <span className="absolute right-3 top-2 text-gray-500">%</span>
+                        <span className="absolute right-3 top-2 text-gray-500 pointer-events-none">%</span>
                       </div>
                     </div>
                     <div className="flex-1">
                       <label className="block text-xs text-gray-500 mb-1">Dollar Amount</label>
                       <div className="relative">
-                        <span className="absolute left-3 top-2 text-gray-500">$</span>
+                        <span className="absolute left-3 top-2 text-gray-500 pointer-events-none">$</span>
                         <input
-                          type="text"
-                          value={downPayment.toLocaleString('en-US')}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/,/g, '');
-                            if (!isNaN(Number(value))) {
-                              handleDownPaymentDollarChange(Number(value));
-                            }
-                          }}
+                          type="number"
+                          value={downPayment}
+                          onChange={(e) => handleDownPaymentDollarChange(Number(e.target.value))}
                           className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       </div>
