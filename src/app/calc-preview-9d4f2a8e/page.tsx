@@ -74,6 +74,7 @@ export default function MortgageCalculator() {
   const [interestRate, setInterestRate] = useState<number>(0); // Will be populated by API
   const [loanTerm, setLoanTerm] = useState<number>(30);
   const [propertyTaxRate, setPropertyTaxRate] = useState<number>(1.2);
+  const [propertyTaxAnnual, setPropertyTaxAnnual] = useState<number>(4800); // 1.2% of $400k = $4800
   const [homeInsurance, setHomeInsurance] = useState<number>(1500);
   const [hoaFees, setHoaFees] = useState<number>(0);
   const [loanType, setLoanType] = useState<'conventional' | 'fha'>('conventional');
@@ -147,6 +148,18 @@ export default function MortgageCalculator() {
     setHomePrice(value);
     // Recalculate down payment dollar amount based on current percent
     setDownPayment((downPaymentPercent / 100) * value);
+    // Recalculate property tax dollar amount based on current rate
+    setPropertyTaxAnnual((propertyTaxRate / 100) * value);
+  };
+
+  const handlePropertyTaxRateChange = (value: number) => {
+    setPropertyTaxRate(value);
+    setPropertyTaxAnnual((value / 100) * homePrice);
+  };
+
+  const handlePropertyTaxDollarChange = (value: number) => {
+    setPropertyTaxAnnual(value);
+    setPropertyTaxRate((value / homePrice) * 100);
   };
 
   // Calculate mortgage details
@@ -443,18 +456,38 @@ export default function MortgageCalculator() {
                   </select>
                 </div>
 
-                {/* Property Tax Rate */}
+                {/* Property Tax Rate - Percent and Dollar Inputs */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Property Tax Rate (% per year)
+                    Annual Property Tax
                   </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={propertyTaxRate}
-                    onChange={(e) => setPropertyTaxRate(Number(e.target.value))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                  <div className="flex gap-3">
+                    <div className="w-32">
+                      <label className="block text-xs text-gray-500 mb-1">Percentage</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={propertyTaxRate}
+                          onChange={(e) => handlePropertyTaxRateChange(Number(e.target.value))}
+                          className="w-full px-3 py-2 pr-7 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        <span className="absolute right-3 top-2 text-gray-500 pointer-events-none">%</span>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-500 mb-1">Annual Amount</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 text-gray-500 pointer-events-none">$</span>
+                        <input
+                          type="number"
+                          value={propertyTaxAnnual}
+                          onChange={(e) => handlePropertyTaxDollarChange(Number(e.target.value))}
+                          className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Home Insurance */}
