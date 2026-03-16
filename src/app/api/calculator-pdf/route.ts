@@ -3,29 +3,6 @@ import { NextResponse } from 'next/server';
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    const {
-      email,
-      homePrice,
-      downPayment,
-      loanAmount,
-      interestRate,
-      loanTerm,
-      monthlyPI,
-      propertyTaxRate,
-      monthlyPropertyTax,
-      homeInsurance,
-      monthlyInsurance,
-      hoaFees,
-      totalMonthlyPayment,
-      showTaxSavings,
-      filingStatus,
-      agi,
-      year1Interest,
-      year1PropertyTax,
-      marginalTaxRate,
-      taxSavings,
-      effectiveMonthlyPayment,
-    } = data;
 
     // Generate HTML for PDF
     const htmlContent = generatePDFHTML(data);
@@ -37,7 +14,7 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        to: email,
+        to: data.email,
         subject: 'Your First Access Lending Mortgage Calculation',
         html: htmlContent,
         from: 'ava@fal.firstaccesslending.com',
@@ -72,12 +49,18 @@ function generatePDFHTML(data: any): string {
     homeInsurance,
     monthlyInsurance,
     hoaFees,
+    monthlyPMI = 0,
     totalMonthlyPayment,
     showTaxSavings,
     filingStatus,
     agi,
+    state,
     year1Interest,
     year1PropertyTax,
+    year1PMI = 0,
+    stateIncomeTaxPaid = 0,
+    saltDeduction = 0,
+    totalDeductions,
     marginalTaxRate,
     taxSavings,
     effectiveMonthlyPayment,
@@ -85,6 +68,8 @@ function generatePDFHTML(data: any): string {
 
   const fmt = (num: number) => `$${num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
   const fmtInt = (num: number) => `$${num.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+  const downPaymentPercent = ((downPayment / homePrice) * 100).toFixed(1);
+  const needsPMI = monthlyPMI > 0;
 
   return `
 <!DOCTYPE html>
@@ -125,6 +110,10 @@ function generatePDFHTML(data: any): string {
       padding-bottom: 10px;
       margin-top: 30px;
     }
+    h3 {
+      color: #15803d;
+      margin-top: 20px;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -159,9 +148,27 @@ function generatePDFHTML(data: any): string {
       padding: 20px;
       margin: 20px 0;
     }
-    .tax-savings h3 {
-      color: #15803d;
-      margin-top: 0;
+    .deduction-breakdown {
+      background-color: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 15px;
+      margin: 15px 0;
+    }
+    .deduction-breakdown table {
+      margin: 10px 0 0 0;
+    }
+    .deduction-breakdown td {
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+    .deduction-breakdown td:first-child {
+      padding-left: 24px;
+      font-weight: normal;
+    }
+    .deduction-breakdown .subtotal {
+      border-top: 1px solid #94a3b8;
+      font-style: italic;
     }
     .highlight {
       background-color: #dbeafe;
@@ -195,6 +202,12 @@ function generatePDFHTML(data: any): string {
       color: #2563EB;
       text-decoration: none;
     }
+    .note {
+      font-size: 12px;
+      color: #6b7280;
+      font-style: italic;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -213,7 +226,7 @@ function generatePDFHTML(data: any): string {
       <td>${fmtInt(homePrice)}</td>
     </tr>
     <tr>
-      <td>Down Payment (${((downPayment/homePrice)*100).toFixed(1)}%)</td>
+      <td>Down Payment (${downPaymentPercent}%)</td>
       <td>${fmtInt(downPayment)}</td>
     </tr>
     <tr>
@@ -244,6 +257,12 @@ function generatePDFHTML(data: any): string {
       <td>Home Insurance</td>
       <td>${fmt(monthlyInsurance)}</td>
     </tr>
+    ${needsPMI ? `
+    <tr>
+      <td>PMI (Private Mortgage Insurance)</td>
+      <td>${fmt(monthlyPMI)}</td>
+    </tr>
+    ` : ''}
     ${hoaFees > 0 ? `
     <tr>
       <td>HOA Fees</td>
@@ -266,26 +285,58 @@ function generatePDFHTML(data: any): string {
         <td>${filingStatus === 'married' ? 'Married Filing Jointly' : 'Single'}</td>
       </tr>
       <tr>
+        <td>State</td>
+        <td>${state}</td>
+      </tr>
+      <tr>
         <td>Adjusted Gross Income</td>
         <td>${fmtInt(agi)}</td>
       </tr>
       <tr>
-        <td>Your Tax Bracket</td>
+        <td>Federal Tax Bracket</td>
         <td>${(marginalTaxRate * 100).toFixed(0)}%</td>
       </tr>
-      <tr>
-        <td>Year 1 Mortgage Interest</td>
-        <td>${fmtInt(year1Interest)}</td>
-      </tr>
-      <tr>
-        <td>Annual Property Taxes</td>
-        <td>${fmtInt(year1PropertyTax)}</td>
-      </tr>
-      <tr>
-        <td>Total Deductions</td>
-        <td>${fmtInt(year1Interest + year1PropertyTax)}</td>
-      </tr>
     </table>
+
+    <div class="deduction-breakdown">
+      <h4 style="margin-top: 0; color: #475569;">Itemized Deduction Breakdown</h4>
+      <table style="margin: 10px 0 0 0;">
+        <tr>
+          <td>• Mortgage Interest (Year 1)</td>
+          <td>${fmtInt(year1Interest)}</td>
+        </tr>
+        <tr>
+          <td>• State Income Tax Paid</td>
+          <td>${fmtInt(stateIncomeTaxPaid)}</td>
+        </tr>
+        <tr>
+          <td>• Property Taxes (Annual)</td>
+          <td>${fmtInt(year1PropertyTax)}</td>
+        </tr>
+        <tr class="subtotal">
+          <td style="padding-left: 40px;">SALT Deduction (capped at $10,000)</td>
+          <td>${fmtInt(saltDeduction)}</td>
+        </tr>
+        ${needsPMI && agi < 100000 ? `
+        <tr>
+          <td>• PMI (Annual)</td>
+          <td>${fmtInt(year1PMI)}</td>
+        </tr>
+        ` : ''}
+        <tr class="total-row" style="font-size: 16px;">
+          <td style="padding-left: 12px;">Total Itemized Deductions</td>
+          <td>${fmtInt(totalDeductions)}</td>
+        </tr>
+        <tr>
+          <td>Standard Deduction</td>
+          <td>${fmtInt(filingStatus === 'married' ? 29200 : 14600)}</td>
+        </tr>
+      </table>
+      <p class="note">
+        State & local tax (SALT) deduction is capped at $10,000 by federal law.
+        ${needsPMI && agi >= 100000 ? ' PMI not deductible for AGI above $100,000.' : ''}
+      </p>
+    </div>
 
     <div class="highlight-green">
       <table style="margin: 0;">
@@ -308,9 +359,15 @@ function generatePDFHTML(data: any): string {
         </tr>
       </table>
       <p style="margin: 10px 0 0 0; font-size: 12px; color: #6b7280;">
-        After tax savings (${((taxSavings/12)/totalMonthlyPayment*100).toFixed(1)}% reduction)
+        After tax savings ${taxSavings > 0 ? `(${(((taxSavings/12)/totalMonthlyPayment)*100).toFixed(1)}% reduction)` : ''}
       </p>
     </div>
+
+    ${taxSavings === 0 ? `
+    <p class="note" style="background-color: #fef3c7; padding: 12px; border-radius: 6px; border-left: 4px solid #f59e0b;">
+      <strong>Note:</strong> Your itemized deductions do not exceed the standard deduction, so itemizing may not provide additional tax benefit in this scenario.
+    </p>
+    ` : ''}
   </div>
   ` : ''}
 
@@ -327,9 +384,10 @@ function generatePDFHTML(data: any): string {
   <div class="footer">
     <p>
       <strong>Disclaimer:</strong> This calculator provides estimates only and should not be considered financial or tax advice. 
-      Actual payments and tax savings may vary based on individual circumstances, loan terms, and applicable tax laws. 
-      Tax benefits depend on itemizing deductions and may change with tax law updates. Please consult with a qualified 
-      tax professional for personalized advice. Contact First Access Lending for an accurate loan quote.
+      State tax rates are simplified estimates and may not reflect your actual tax liability. Actual payments and tax savings may vary 
+      based on individual circumstances, loan terms, and applicable tax laws. Tax benefits depend on itemizing deductions and may change 
+      with tax law updates. The SALT deduction is capped at $10,000. PMI deductibility phases out for incomes above $100,000. 
+      Please consult with a qualified tax professional for personalized advice. Contact First Access Lending for an accurate loan quote.
     </p>
     <p style="margin-top: 20px;">
       &copy; ${new Date().getFullYear()} First Access Lending. All rights reserved.
