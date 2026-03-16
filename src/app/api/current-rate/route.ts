@@ -45,11 +45,11 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching current rate:', error);
     
-    // Return fallback rate if fetch fails
+    // Return null if fetch fails - let user enter manually
     return NextResponse.json({ 
-      rate: 6.5, // Conservative fallback
+      rate: null,
       error: 'Failed to fetch current rate',
       cached: false 
-    });
+    }, { status: 500 });
   }
 }

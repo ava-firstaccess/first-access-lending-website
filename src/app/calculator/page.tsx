@@ -73,7 +73,7 @@ export default function MortgageCalculator() {
   const [homePrice, setHomePrice] = useState<number>(400000);
   const [downPayment, setDownPayment] = useState<number>(20000); // 5% default
   const [downPaymentPercent, setDownPaymentPercent] = useState<number>(5); // 5% default
-  const [interestRate, setInterestRate] = useState<number>(6.5);
+  const [interestRate, setInterestRate] = useState<number>(0); // Will be populated by API
   const [loanTerm, setLoanTerm] = useState<number>(30);
   const [propertyTaxRate, setPropertyTaxRate] = useState<number>(1.2);
   const [homeInsurance, setHomeInsurance] = useState<number>(1500);
@@ -102,7 +102,7 @@ export default function MortgageCalculator() {
         }
       } catch (error) {
         console.error('Failed to fetch current rate:', error);
-        // Keep default 6.5% if fetch fails
+        // Leave blank if fetch fails
       }
     }
     fetchCurrentRate();
@@ -316,7 +316,7 @@ export default function MortgageCalculator() {
                   <input
                     type="number"
                     step="0.01"
-                    value={interestRate}
+                    value={interestRate || ''}
                     onChange={(e) => setInterestRate(Number(e.target.value))}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
