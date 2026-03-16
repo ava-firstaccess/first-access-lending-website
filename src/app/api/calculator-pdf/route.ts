@@ -394,7 +394,7 @@ function generatePDFHTML(data: any): string {
     </p>
     
     <p style="margin-top: 12px;">
-      <strong>Assumptions:</strong> PMI rates based on 760 credit score. State tax rates are simplified estimates. 
+      <strong>Assumptions:</strong> PMI rate of 0.2% (actual rates vary by credit score, LTV, and lender). State tax rates are simplified estimates. 
       SALT deduction capped at $10,000. PMI deductibility phases out for AGI above $100,000. Actual results may vary significantly 
       based on credit profile, loan type, property location, and individual tax circumstances. Tax laws change frequently.
     </p>

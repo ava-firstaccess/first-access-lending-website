@@ -71,7 +71,8 @@ const US_STATES = [
 export default function MortgageCalculator() {
   // Mortgage inputs
   const [homePrice, setHomePrice] = useState<number>(400000);
-  const [downPayment, setDownPayment] = useState<number>(80000);
+  const [downPayment, setDownPayment] = useState<number>(20000); // 5% default
+  const [downPaymentPercent, setDownPaymentPercent] = useState<number>(5); // 5% default
   const [interestRate, setInterestRate] = useState<number>(6.5);
   const [loanTerm, setLoanTerm] = useState<number>(30);
   const [propertyTaxRate, setPropertyTaxRate] = useState<number>(1.2);
@@ -88,9 +89,25 @@ export default function MortgageCalculator() {
   const [sent, setSent] = useState<boolean>(false);
   const [showDeductionBreakdown, setShowDeductionBreakdown] = useState<boolean>(false);
 
+  // Handlers to keep down payment dollar and percent in sync
+  const handleDownPaymentDollarChange = (value: number) => {
+    setDownPayment(value);
+    setDownPaymentPercent((value / homePrice) * 100);
+  };
+
+  const handleDownPaymentPercentChange = (value: number) => {
+    setDownPaymentPercent(value);
+    setDownPayment((value / 100) * homePrice);
+  };
+
+  const handleHomePriceChange = (value: number) => {
+    setHomePrice(value);
+    // Recalculate down payment dollar amount based on current percent
+    setDownPayment((downPaymentPercent / 100) * value);
+  };
+
   // Calculate mortgage details
   const loanAmount = homePrice - downPayment;
-  const downPaymentPercent = (downPayment / homePrice) * 100;
   const monthlyRate = interestRate / 100 / 12;
   const numPayments = loanTerm * 12;
   
@@ -103,16 +120,9 @@ export default function MortgageCalculator() {
   const monthlyInsurance = homeInsurance / 12;
   const monthlyHOA = hoaFees;
   
-  // PMI calculation (if down payment < 20%) - rates for 760 credit score
+  // PMI calculation (if down payment < 20%) - 0.2% rate
   const needsPMI = downPaymentPercent < 20;
-  const ltv = ((loanAmount / homePrice) * 100);
-  let pmiRate = 0;
-  if (needsPMI) {
-    if (ltv > 95) pmiRate = 0.0077; // 95.01-97% LTV: 0.77%
-    else if (ltv > 90) pmiRate = 0.0052; // 90.01-95% LTV: 0.52%
-    else if (ltv > 85) pmiRate = 0.0032; // 85.01-90% LTV: 0.32%
-    else if (ltv > 80) pmiRate = 0.0024; // 80.01-85% LTV: 0.24%
-  }
+  const pmiRate = needsPMI ? 0.002 : 0; // 0.2% annually
   const monthlyPMI = needsPMI ? (loanAmount * pmiRate) / 12 : 0;
   
   const totalMonthlyPayment = monthlyPI + monthlyPropertyTax + monthlyInsurance + monthlyHOA + monthlyPMI;
@@ -232,22 +242,37 @@ export default function MortgageCalculator() {
                   <input
                     type="number"
                     value={homePrice}
-                    onChange={(e) => setHomePrice(Number(e.target.value))}
+                    onChange={(e) => handleHomePriceChange(Number(e.target.value))}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
-                {/* Down Payment */}
+                {/* Down Payment - Dollar and Percent Inputs */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Down Payment ({downPaymentPercent.toFixed(1)}%)
+                    Down Payment
                   </label>
-                  <input
-                    type="number"
-                    value={downPayment}
-                    onChange={(e) => setDownPayment(Number(e.target.value))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Dollar Amount</label>
+                      <input
+                        type="number"
+                        value={downPayment}
+                        onChange={(e) => handleDownPaymentDollarChange(Number(e.target.value))}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Percentage</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={downPaymentPercent}
+                        onChange={(e) => handleDownPaymentPercentChange(Number(e.target.value))}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
                   {needsPMI && (
                     <p className="mt-1 text-xs text-orange-600">
                       ⚠️ PMI required (down payment &lt; 20%)
@@ -670,7 +695,7 @@ export default function MortgageCalculator() {
                   <strong>Assumptions:</strong> This calculator assumes:
                 </p>
                 <ul className="text-sm text-gray-600 list-disc list-inside space-y-1 ml-4">
-                  <li><strong>760 credit score</strong> for PMI rate calculations</li>
+                  <li><strong>0.2% PMI rate</strong> (actual rates vary by credit score, LTV, and lender)</li>
                   <li>State tax rates are simplified marginal estimates and may not reflect actual liability</li>
                   <li>SALT deduction capped at $10,000 (federal tax law)</li>
                   <li>PMI deductibility phases out for AGI above $100,000</li>
