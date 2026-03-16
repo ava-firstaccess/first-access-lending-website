@@ -23,6 +23,7 @@ export default function Header() {
         <div className="hidden md:flex items-center gap-8">
           <div className="flex gap-8 text-[15px] font-medium">
             <a href="/#products" className="hover:text-[#0283DB] transition-colors duration-200">Products</a>
+            <a href="/calculator" className="hover:text-[#0283DB] transition-colors duration-200">Calculator</a>
             <a href="/about" className="hover:text-[#0283DB] transition-colors duration-200">About</a>
             <a href="/#reviews" className="hover:text-[#0283DB] transition-colors duration-200">Reviews</a>
             <a href="/#contact" className="hover:text-[#0283DB] transition-colors duration-200">Contact</a>
@@ -61,6 +62,13 @@ export default function Header() {
               onClick={() => setMobileMenuOpen(false)}
             >
               Products
+            </a>
+            <a 
+              href="/calculator" 
+              className="text-sm font-medium hover:text-[#0283DB] transition-colors py-2"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Calculator
             </a>
             <a 
               href="/about" 
