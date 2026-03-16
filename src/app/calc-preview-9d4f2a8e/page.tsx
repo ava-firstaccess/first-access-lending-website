@@ -647,21 +647,21 @@ export default function MortgageCalculator() {
                     <div className="flex justify-between items-center pb-3 border-b">
                       <span className="text-gray-600">Principal & Interest</span>
                       <span className="font-semibold text-gray-900">
-                        ${monthlyPI.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                        ${monthlyPI.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                       </span>
                     </div>
                     
                     <div className="flex justify-between items-center pb-3 border-b">
                       <span className="text-gray-600">Property Taxes</span>
                       <span className="font-semibold text-gray-900">
-                        ${monthlyPropertyTax.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                        ${monthlyPropertyTax.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                       </span>
                     </div>
                     
                     <div className="flex justify-between items-center pb-3 border-b">
                       <span className="text-gray-600">Home Insurance</span>
                       <span className="font-semibold text-gray-900">
-                        ${monthlyInsurance.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                        ${monthlyInsurance.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                       </span>
                     </div>
                     
@@ -669,7 +669,7 @@ export default function MortgageCalculator() {
                       <div className="flex justify-between items-center pb-3 border-b">
                         <span className="text-gray-600">{loanType === 'fha' ? 'FHA MIP' : 'PMI'}</span>
                         <span className="font-semibold text-gray-900">
-                          ${monthlyPMI.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                          ${monthlyPMI.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                         </span>
                       </div>
                     )}
@@ -678,7 +678,7 @@ export default function MortgageCalculator() {
                       <div className="flex justify-between items-center pb-3 border-b">
                         <span className="text-gray-600">HOA Fees</span>
                         <span className="font-semibold text-gray-900">
-                          ${monthlyHOA.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                          ${monthlyHOA.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                         </span>
                       </div>
                     )}
@@ -686,7 +686,7 @@ export default function MortgageCalculator() {
                     <div className="flex justify-between items-center pt-4 text-xl font-bold">
                       <span className="text-gray-900">Total Monthly Payment</span>
                       <span className="text-blue-600">
-                        ${totalMonthlyPayment.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                        ${totalMonthlyPayment.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                       </span>
                     </div>
                   </div>
@@ -842,7 +842,7 @@ export default function MortgageCalculator() {
                         <div className="flex justify-between items-center text-sm">
                           <span className="text-green-800">Monthly Savings</span>
                           <span className="font-semibold text-green-700">
-                            ${monthlySavings.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                            ${monthlySavings.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                           </span>
                         </div>
                       </div>
@@ -853,7 +853,7 @@ export default function MortgageCalculator() {
                             Effective Monthly Payment
                           </span>
                           <span className="text-2xl font-bold text-blue-700">
-                            ${effectiveMonthlyPayment.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                            ${effectiveMonthlyPayment.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                           </span>
                         </div>
                         <p className="text-xs text-blue-800 mt-2">
