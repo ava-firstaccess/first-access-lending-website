@@ -514,12 +514,20 @@ export default function MortgageCalculator() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Annual Home Insurance
                   </label>
-                  <input
-                    type="number"
-                    value={homeInsurance}
-                    onChange={(e) => setHomeInsurance(Number(e.target.value))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-gray-500 pointer-events-none">$</span>
+                    <input
+                      type="text"
+                      value={homeInsurance.toLocaleString('en-US')}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/,/g, '');
+                        if (!isNaN(Number(value)) || value === '') {
+                          setHomeInsurance(Math.round(Number(value)) || 0);
+                        }
+                      }}
+                      className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
                 </div>
 
                 {/* HOA Fees */}
@@ -527,12 +535,20 @@ export default function MortgageCalculator() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Monthly HOA Fees
                   </label>
-                  <input
-                    type="number"
-                    value={hoaFees}
-                    onChange={(e) => setHoaFees(Number(e.target.value))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-gray-500 pointer-events-none">$</span>
+                    <input
+                      type="text"
+                      value={hoaFees.toLocaleString('en-US')}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/,/g, '');
+                        if (!isNaN(Number(value)) || value === '') {
+                          setHoaFees(Math.round(Number(value)) || 0);
+                        }
+                      }}
+                      className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
                 </div>
 
                 {/* Tax Savings Toggle */}
@@ -600,12 +616,20 @@ export default function MortgageCalculator() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Adjusted Gross Income (AGI) or Total W-2 Income
                       </label>
-                      <input
-                        type="number"
-                        value={agi}
-                        onChange={(e) => setAgi(Number(e.target.value))}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 text-gray-500 pointer-events-none">$</span>
+                        <input
+                          type="text"
+                          value={agi.toLocaleString('en-US')}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/,/g, '');
+                            if (!isNaN(Number(value)) || value === '') {
+                              setAgi(Math.round(Number(value)) || 0);
+                            }
+                          }}
+                          className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
                       <p className="mt-1 text-xs text-gray-500">
                         Enter your household's total income for tax bracket calculation
                       </p>
@@ -619,9 +643,14 @@ export default function MortgageCalculator() {
                       <div className="relative">
                         <span className="absolute left-3 top-2 text-gray-500 pointer-events-none">$</span>
                         <input
-                          type="number"
-                          value={charitableDonations || ''}
-                          onChange={(e) => setCharitableDonations(Number(e.target.value))}
+                          type="text"
+                          value={charitableDonations ? charitableDonations.toLocaleString('en-US') : ''}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/,/g, '');
+                            if (!isNaN(Number(value)) || value === '') {
+                              setCharitableDonations(Math.round(Number(value)) || 0);
+                            }
+                          }}
                           className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                           placeholder="0"
                         />
@@ -639,9 +668,14 @@ export default function MortgageCalculator() {
                       <div className="relative">
                         <span className="absolute left-3 top-2 text-gray-500 pointer-events-none">$</span>
                         <input
-                          type="number"
-                          value={medicalExpenses || ''}
-                          onChange={(e) => setMedicalExpenses(Number(e.target.value))}
+                          type="text"
+                          value={medicalExpenses ? medicalExpenses.toLocaleString('en-US') : ''}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/,/g, '');
+                            if (!isNaN(Number(value)) || value === '') {
+                              setMedicalExpenses(Math.round(Number(value)) || 0);
+                            }
+                          }}
                           className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                           placeholder="0"
                         />
