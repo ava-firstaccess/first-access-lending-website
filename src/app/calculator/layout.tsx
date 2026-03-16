@@ -11,8 +11,8 @@ export const metadata: Metadata = {
     url: 'https://firstaccesslending.com/calculator',
   },
   robots: {
-    index: true,
-    follow: true,
+    index: false,
+    follow: false,
   },
 };
 
