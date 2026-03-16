@@ -1,6 +1,8 @@
 # Calculator Secret URL
 
-**Preview URL:** https://firstaccesslending.com/calc-preview-9d4f2a8e
+**Preview URL:** https://first-access-lending-website.vercel.app/calc-preview-9d4f2a8e
+
+(Note: Site is deployed on Vercel subdomain. Custom domain firstaccesslending.com is not yet configured.)
 
 ## Status
 - ✅ Live and functional
