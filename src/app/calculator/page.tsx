@@ -78,6 +78,7 @@ export default function MortgageCalculator() {
   const [propertyTaxRate, setPropertyTaxRate] = useState<number>(1.2);
   const [homeInsurance, setHomeInsurance] = useState<number>(1500);
   const [hoaFees, setHoaFees] = useState<number>(0);
+  const [loanType, setLoanType] = useState<'conventional' | 'fha'>('conventional');
 
   // Tax savings inputs
   const [showTaxSavings, setShowTaxSavings] = useState<boolean>(false);
@@ -115,8 +116,11 @@ export default function MortgageCalculator() {
   };
 
   const handleDownPaymentPercentChange = (value: number) => {
-    setDownPaymentPercent(value);
-    setDownPayment((value / 100) * homePrice);
+    // Enforce minimum down payment based on loan type
+    const minDown = loanType === 'fha' ? 3.5 : 5;
+    const constrainedValue = Math.max(minDown, value);
+    setDownPaymentPercent(constrainedValue);
+    setDownPayment((constrainedValue / 100) * homePrice);
   };
 
   const handleHomePriceChange = (value: number) => {
@@ -139,9 +143,26 @@ export default function MortgageCalculator() {
   const monthlyInsurance = homeInsurance / 12;
   const monthlyHOA = hoaFees;
   
-  // PMI calculation (if down payment < 20%) - 0.2% rate
-  const needsPMI = downPaymentPercent < 20;
-  const pmiRate = needsPMI ? 0.002 : 0; // 0.2% annually
+  // PMI/MIP calculation
+  const ltv = (loanAmount / homePrice) * 100;
+  let pmiRate = 0;
+  let needsPMI = false;
+  
+  if (loanType === 'conventional') {
+    // Conventional PMI required if down payment < 20% (LTV > 80%)
+    needsPMI = ltv > 80;
+    if (needsPMI) {
+      if (ltv > 90) pmiRate = 0.0024; // 90-95% LTV: 0.24%
+      else pmiRate = 0.0017; // <90% LTV: 0.17%
+    }
+  } else {
+    // FHA MIP (Mortgage Insurance Premium) - always required
+    needsPMI = true;
+    // Annual MIP rates for base loan amounts, 30-year term
+    if (ltv > 95) pmiRate = 0.0085; // >95% LTV: 0.85%
+    else pmiRate = 0.0080; // ≤95% LTV: 0.80%
+  }
+  
   const monthlyPMI = needsPMI ? (loanAmount * pmiRate) / 12 : 0;
   
   const totalMonthlyPayment = monthlyPI + monthlyPropertyTax + monthlyInsurance + monthlyHOA + monthlyPMI;
@@ -188,6 +209,7 @@ export default function MortgageCalculator() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email,
+          loanType,
           homePrice,
           downPayment,
           loanAmount,
@@ -200,6 +222,7 @@ export default function MortgageCalculator() {
           monthlyInsurance,
           hoaFees,
           monthlyPMI,
+          pmiRate,
           totalMonthlyPayment,
           showTaxSavings,
           filingStatus,
@@ -253,6 +276,46 @@ export default function MortgageCalculator() {
               <div className="bg-white rounded-xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">Loan Details</h2>
                 
+                {/* Loan Type Toggle */}
+                <div className="mb-6 pb-6 border-b border-gray-200">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Loan Type
+                  </label>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setLoanType('conventional');
+                        // Enforce 5% minimum for conventional
+                        if (downPaymentPercent < 5) {
+                          handleDownPaymentPercentChange(5);
+                        }
+                      }}
+                      className={`flex-1 px-4 py-3 rounded-lg font-medium transition ${
+                        loanType === 'conventional'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      Conventional
+                    </button>
+                    <button
+                      onClick={() => setLoanType('fha')}
+                      className={`flex-1 px-4 py-3 rounded-lg font-medium transition ${
+                        loanType === 'fha'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      FHA
+                    </button>
+                  </div>
+                  {loanType === 'fha' && (
+                    <p className="mt-2 text-xs text-blue-600">
+                      ℹ️ FHA loans allow as low as 3.5% down payment
+                    </p>
+                  )}
+                </div>
+                
                 {/* Home Price */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -303,7 +366,19 @@ export default function MortgageCalculator() {
                   </div>
                   {needsPMI && (
                     <p className="mt-1 text-xs text-orange-600">
-                      ⚠️ PMI required (down payment &lt; 20%)
+                      {loanType === 'conventional' 
+                        ? '⚠️ PMI required (down payment < 20%)'
+                        : '⚠️ FHA MIP required (all FHA loans)'}
+                    </p>
+                  )}
+                  {loanType === 'conventional' && downPaymentPercent < 5 && (
+                    <p className="mt-1 text-xs text-red-600">
+                      ⚠️ Conventional loans require minimum 5% down payment
+                    </p>
+                  )}
+                  {loanType === 'fha' && downPaymentPercent < 3.5 && (
+                    <p className="mt-1 text-xs text-red-600">
+                      ⚠️ FHA loans require minimum 3.5% down payment
                     </p>
                   )}
                 </div>
@@ -489,7 +564,7 @@ export default function MortgageCalculator() {
                     
                     {needsPMI && (
                       <div className="flex justify-between items-center pb-3 border-b">
-                        <span className="text-gray-600">PMI</span>
+                        <span className="text-gray-600">{loanType === 'fha' ? 'FHA MIP' : 'PMI'}</span>
                         <span className="font-semibold text-gray-900">
                           ${monthlyPMI.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                         </span>
@@ -723,7 +798,10 @@ export default function MortgageCalculator() {
                   <strong>Assumptions:</strong> This calculator assumes:
                 </p>
                 <ul className="text-sm text-gray-600 list-disc list-inside space-y-1 ml-4">
-                  <li><strong>0.2% PMI rate</strong> (actual rates vary by credit score, LTV, and lender)</li>
+                  <li><strong>Conventional PMI:</strong> 0.17% for &lt;90% LTV, 0.24% for 90-95% LTV</li>
+                  <li><strong>FHA MIP:</strong> 0.80% for ≤95% LTV, 0.85% for &gt;95% LTV (does not include upfront MIP)</li>
+                  <li><strong>Minimum down payment:</strong> 5% for conventional, 3.5% for FHA</li>
+                  <li>Actual PMI/MIP rates vary by credit score, loan amount, and lender</li>
                   <li>State tax rates are simplified marginal estimates and may not reflect actual liability</li>
                   <li>SALT deduction capped at $10,000 (federal tax law)</li>
                   <li>PMI deductibility phases out for AGI above $100,000</li>

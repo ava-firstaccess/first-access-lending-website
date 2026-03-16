@@ -38,6 +38,7 @@ export async function POST(request: Request) {
 
 function generatePDFHTML(data: any): string {
   const {
+    loanType = 'conventional',
     homePrice,
     downPayment,
     loanAmount,
@@ -50,6 +51,7 @@ function generatePDFHTML(data: any): string {
     monthlyInsurance,
     hoaFees,
     monthlyPMI = 0,
+    pmiRate = 0,
     totalMonthlyPayment,
     showTaxSavings,
     filingStatus,
@@ -70,6 +72,7 @@ function generatePDFHTML(data: any): string {
   const fmtInt = (num: number) => `$${num.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
   const downPaymentPercent = ((downPayment / homePrice) * 100).toFixed(1);
   const needsPMI = monthlyPMI > 0;
+  const pmiLabel = loanType === 'fha' ? 'FHA MIP' : 'PMI';
 
   return `
 <!DOCTYPE html>
@@ -222,6 +225,10 @@ function generatePDFHTML(data: any): string {
   <h2>Loan Details</h2>
   <table>
     <tr>
+      <td>Loan Type</td>
+      <td>${loanType === 'fha' ? 'FHA' : 'Conventional'}</td>
+    </tr>
+    <tr>
       <td>Home Price</td>
       <td>${fmtInt(homePrice)}</td>
     </tr>
@@ -259,7 +266,7 @@ function generatePDFHTML(data: any): string {
     </tr>
     ${needsPMI ? `
     <tr>
-      <td>PMI (Private Mortgage Insurance)</td>
+      <td>${pmiLabel} ${loanType === 'fha' ? '(Mortgage Insurance Premium)' : '(Private Mortgage Insurance)'}</td>
       <td>${fmt(monthlyPMI)}</td>
     </tr>
     ` : ''}
@@ -394,9 +401,10 @@ function generatePDFHTML(data: any): string {
     </p>
     
     <p style="margin-top: 12px;">
-      <strong>Assumptions:</strong> PMI rate of 0.2% (actual rates vary by credit score, LTV, and lender). State tax rates are simplified estimates. 
-      SALT deduction capped at $10,000. PMI deductibility phases out for AGI above $100,000. Actual results may vary significantly 
-      based on credit profile, loan type, property location, and individual tax circumstances. Tax laws change frequently.
+      <strong>Assumptions:</strong> Conventional PMI: 0.17% for &lt;90% LTV, 0.24% for 90-95% LTV. FHA MIP: 0.80% for ≤95% LTV, 0.85% for &gt;95% LTV 
+      (does not include upfront MIP). Minimum down payment: 5% conventional, 3.5% FHA. Actual rates vary by credit score, loan amount, and lender. 
+      State tax rates are simplified estimates. SALT deduction capped at $10,000. PMI deductibility phases out for AGI above $100,000. 
+      Actual results may vary significantly based on credit profile, loan type, property location, and individual tax circumstances. Tax laws change frequently.
     </p>
     
     <p style="margin-top: 12px;">
