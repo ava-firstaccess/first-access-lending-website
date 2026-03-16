@@ -132,34 +132,38 @@ export default function MortgageCalculator() {
 
   // Handlers to keep down payment dollar and percent in sync
   const handleDownPaymentDollarChange = (value: number) => {
-    setDownPayment(value);
-    setDownPaymentPercent((value / homePrice) * 100);
+    const rounded = Math.round(value);
+    setDownPayment(rounded);
+    setDownPaymentPercent(Math.round((rounded / homePrice) * 1000) / 10); // Round to 1 decimal
   };
 
   const handleDownPaymentPercentChange = (value: number) => {
     // Enforce minimum down payment based on loan type
     const minDown = loanType === 'fha' ? 3.5 : 5;
     const constrainedValue = Math.max(minDown, value);
-    setDownPaymentPercent(constrainedValue);
-    setDownPayment((constrainedValue / 100) * homePrice);
+    setDownPaymentPercent(Math.round(constrainedValue * 10) / 10); // Round to 1 decimal
+    setDownPayment(Math.round((constrainedValue / 100) * homePrice));
   };
 
   const handleHomePriceChange = (value: number) => {
-    setHomePrice(value);
+    const rounded = Math.round(value);
+    setHomePrice(rounded);
     // Recalculate down payment dollar amount based on current percent
-    setDownPayment((downPaymentPercent / 100) * value);
+    setDownPayment(Math.round((downPaymentPercent / 100) * rounded));
     // Recalculate property tax dollar amount based on current rate
-    setPropertyTaxAnnual((propertyTaxRate / 100) * value);
+    setPropertyTaxAnnual(Math.round((propertyTaxRate / 100) * rounded));
   };
 
   const handlePropertyTaxRateChange = (value: number) => {
-    setPropertyTaxRate(value);
-    setPropertyTaxAnnual((value / 100) * homePrice);
+    const roundedRate = Math.round(value * 10) / 10; // Round to 1 decimal
+    setPropertyTaxRate(roundedRate);
+    setPropertyTaxAnnual(Math.round((roundedRate / 100) * homePrice));
   };
 
   const handlePropertyTaxDollarChange = (value: number) => {
-    setPropertyTaxAnnual(value);
-    setPropertyTaxRate((value / homePrice) * 100);
+    const rounded = Math.round(value);
+    setPropertyTaxAnnual(rounded);
+    setPropertyTaxRate(Math.round((rounded / homePrice) * 1000) / 10); // Round to 1 decimal
   };
 
   // Calculate mortgage details
@@ -367,9 +371,14 @@ export default function MortgageCalculator() {
                   <div className="relative">
                     <span className="absolute left-3 top-2 text-gray-500 pointer-events-none">$</span>
                     <input
-                      type="number"
-                      value={homePrice}
-                      onChange={(e) => handleHomePriceChange(Number(e.target.value))}
+                      type="text"
+                      value={homePrice.toLocaleString('en-US')}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/,/g, '');
+                        if (!isNaN(Number(value)) || value === '') {
+                          handleHomePriceChange(Number(value) || 0);
+                        }
+                      }}
                       className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -399,9 +408,14 @@ export default function MortgageCalculator() {
                       <div className="relative">
                         <span className="absolute left-3 top-2 text-gray-500 pointer-events-none">$</span>
                         <input
-                          type="number"
-                          value={downPayment}
-                          onChange={(e) => handleDownPaymentDollarChange(Number(e.target.value))}
+                          type="text"
+                          value={downPayment.toLocaleString('en-US')}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/,/g, '');
+                            if (!isNaN(Number(value)) || value === '') {
+                              handleDownPaymentDollarChange(Number(value) || 0);
+                            }
+                          }}
                           className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       </div>
@@ -480,9 +494,14 @@ export default function MortgageCalculator() {
                       <div className="relative">
                         <span className="absolute left-3 top-2 text-gray-500 pointer-events-none">$</span>
                         <input
-                          type="number"
-                          value={propertyTaxAnnual}
-                          onChange={(e) => handlePropertyTaxDollarChange(Number(e.target.value))}
+                          type="text"
+                          value={propertyTaxAnnual.toLocaleString('en-US')}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/,/g, '');
+                            if (!isNaN(Number(value)) || value === '') {
+                              handlePropertyTaxDollarChange(Number(value) || 0);
+                            }
+                          }}
                           className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       </div>
