@@ -245,7 +245,7 @@ export default function MortgageCalculator() {
 
     setSending(true);
     try {
-      const response = await fetch('/api/calculator-pdf', {
+      const response = await fetch('/api/send-calculator-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
