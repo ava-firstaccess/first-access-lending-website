@@ -932,18 +932,18 @@ export default function MortgageCalculator() {
                     Receive a detailed PDF summary of this calculation
                   </p>
                   
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2">
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="your@email.com"
-                      className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                     <button
                       onClick={handleEmailPDF}
                       disabled={sending || !email}
-                      className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+                      className="w-full px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
                     >
                       {sending ? 'Sending...' : sent ? '✓ Sent' : 'Email PDF'}
                     </button>
