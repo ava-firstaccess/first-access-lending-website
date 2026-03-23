@@ -23,9 +23,8 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'First Access Lending <noreply@firstaccesslending.com>',
+        from: 'First Access Lending <info@firstaccesslending.com>',
         to: data.email,
-        cc: 'info@firstaccesslending.com',
         subject: 'Your First Access Lending Mortgage Calculation',
         html: emailHTML,
       }),

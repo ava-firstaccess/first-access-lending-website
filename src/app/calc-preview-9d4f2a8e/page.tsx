@@ -80,7 +80,7 @@ export default function MortgageCalculator() {
   const [loanType, setLoanType] = useState<'conventional' | 'fha'>('conventional');
 
   // Tax savings inputs
-  const [showTaxSavings, setShowTaxSavings] = useState<boolean>(false);
+  const [showTaxSavings, setShowTaxSavings] = useState<boolean>(true);
   const [filingStatus, setFilingStatus] = useState<'single' | 'married'>('married');
   const [agi, setAgi] = useState<number>(150000);
   const [state, setState] = useState<string>('CA');
