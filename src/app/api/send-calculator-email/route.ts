@@ -25,6 +25,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         from: 'First Access Lending <noreply@firstaccesslending.com>',
         to: data.email,
+        cc: 'info@firstaccesslending.com',
         subject: 'Your First Access Lending Mortgage Calculation',
         html: emailHTML,
       }),
@@ -50,6 +51,26 @@ export async function POST(request: Request) {
     }
     
     const result = await resendResponse.json();
+    
+    // Send lead to Shape CRM
+    try {
+      await fetch('https://secure-api.setshape.com/postlead/22347/22897', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          email: data.email,
+          property_value: data.homePrice?.toString() || '',
+          loan_amount: data.loanAmount?.toString() || '',
+          loan_type: data.loanType || 'conventional',
+          lead_source: 'Website Calculator',
+        }).toString(),
+      });
+    } catch (shapeError) {
+      console.error('Shape CRM error (non-blocking):', shapeError);
+      // Don't fail the request if Shape API fails
+    }
     
     return NextResponse.json({ 
       success: true,
