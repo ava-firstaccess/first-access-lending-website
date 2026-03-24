@@ -23,6 +23,12 @@ export default function AddressAutocomplete({
     // Load Google Places script
     if (typeof window === 'undefined') return;
 
+    // If no API key, just use regular input (fallback)
+    if (!process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY) {
+      console.warn('Google Places API key not configured - using plain text input');
+      return;
+    }
+
     const loadGooglePlaces = () => {
       if (!(window as any).google) {
         const script = document.createElement('script');
@@ -32,6 +38,10 @@ export default function AddressAutocomplete({
         document.head.appendChild(script);
         
         script.onload = initAutocomplete;
+        script.onerror = () => {
+          console.error('Failed to load Google Places script');
+          // Gracefully degrade to regular input
+        };
       } else {
         initAutocomplete();
       }
