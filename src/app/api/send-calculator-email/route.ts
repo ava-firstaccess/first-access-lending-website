@@ -124,7 +124,7 @@ function generateCalculatorEmail(data: any): string {
   const fmtInt = (num: number) => `$${num.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
   const downPaymentPercent = ((downPayment / homePrice) * 100).toFixed(1);
   const needsPMI = monthlyPMI > 0;
-  const pmiLabel = loanType === 'fha' ? 'FHA MIP' : 'PMI';
+  const pmiLabel = loanType === 'fha' ? 'FHA MIP' : loanType === 'va' ? 'N/A' : 'PMI';
 
   return `
 <!DOCTYPE html>
@@ -263,7 +263,7 @@ function generateCalculatorEmail(data: any): string {
     <table>
       <tr>
         <td>Loan Type</td>
-        <td>${loanType === 'fha' ? 'FHA' : 'Conventional'}</td>
+        <td>${loanType === 'fha' ? 'FHA' : loanType === 'va' ? 'VA' : 'Conventional'}</td>
       </tr>
       <tr>
         <td>Home Price</td>
