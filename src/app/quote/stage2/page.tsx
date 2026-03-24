@@ -177,7 +177,7 @@ function Stage2Content() {
       <div className="container mx-auto px-4">
         
         {/* Desktop: Two Column Layout */}
-        <div className="hidden lg:grid lg:grid-cols-3 lg:gap-8">
+        <div className="grid lg:grid-cols-3 lg:gap-8 gap-6">
           <div className="lg:col-span-2">
             
             {/* Header */}
@@ -772,11 +772,7 @@ function Stage2Content() {
           </div>
         </div>
 
-        {/* Mobile: Stacked Layout */}
-        <div className="lg:hidden space-y-6">
-          {/* Same content as desktop but stacked */}
-          <p className="text-sm text-gray-600">Mobile layout: same sections, stacked vertically</p>
-        </div>
+        {/* Mobile: Hide desktop grid, show as single column */}
 
       </div>
     </div>
