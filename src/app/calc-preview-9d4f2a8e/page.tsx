@@ -77,7 +77,7 @@ export default function MortgageCalculator() {
   const [propertyTaxAnnual, setPropertyTaxAnnual] = useState<number>(4800); // 1.2% of $400k = $4800
   const [homeInsurance, setHomeInsurance] = useState<number>(1500);
   const [hoaFees, setHoaFees] = useState<number>(0);
-  const [loanType, setLoanType] = useState<'conventional' | 'fha'>('conventional');
+  const [loanType, setLoanType] = useState<'conventional' | 'fha' | 'va'>('conventional');
 
   // Tax savings inputs
   const [showTaxSavings, setShowTaxSavings] = useState<boolean>(true);
@@ -92,9 +92,10 @@ export default function MortgageCalculator() {
   const [showDeductionBreakdown, setShowDeductionBreakdown] = useState<boolean>(false);
 
   // Store fetched rates
-  const [fetchedRates, setFetchedRates] = useState<{ conventional: number | null; fha: number | null }>({
+  const [fetchedRates, setFetchedRates] = useState<{ conventional: number | null; fha: number | null; va: number | null }>({
     conventional: null,
     fha: null,
+    va: null,
   });
 
   // Fetch current market rates on mount
@@ -107,6 +108,7 @@ export default function MortgageCalculator() {
           setFetchedRates({
             conventional: data.conventional || null,
             fha: data.fha || null,
+            va: data.va || null,
           });
           
           // Set initial rate based on default loan type (conventional)
@@ -124,7 +126,11 @@ export default function MortgageCalculator() {
 
   // Update interest rate when loan type changes
   useEffect(() => {
-    const rate = loanType === 'conventional' ? fetchedRates.conventional : fetchedRates.fha;
+    const rate = loanType === 'conventional' 
+      ? fetchedRates.conventional 
+      : loanType === 'fha' 
+        ? fetchedRates.fha 
+        : fetchedRates.va;
     if (rate) {
       setInterestRate(rate);
     }
@@ -139,7 +145,7 @@ export default function MortgageCalculator() {
 
   const handleDownPaymentPercentChange = (value: number) => {
     // Enforce minimum down payment based on loan type
-    const minDown = loanType === 'fha' ? 3.5 : 5;
+    const minDown = loanType === 'va' ? 0 : loanType === 'fha' ? 3.5 : 5;
     const constrainedValue = Math.max(minDown, value);
     setDownPaymentPercent(Math.round(constrainedValue * 10) / 10); // Round to 1 decimal
     setDownPayment(Math.round((constrainedValue / 100) * homePrice));
@@ -192,13 +198,14 @@ export default function MortgageCalculator() {
       if (ltv > 90) pmiRate = 0.0024; // 90-95% LTV: 0.24%
       else pmiRate = 0.0017; // <90% LTV: 0.17%
     }
-  } else {
+  } else if (loanType === 'fha') {
     // FHA MIP (Mortgage Insurance Premium) - always required
     needsPMI = true;
     // Annual MIP rates for base loan amounts, 30-year term
     if (ltv > 95) pmiRate = 0.0085; // >95% LTV: 0.85%
     else pmiRate = 0.0080; // ≤95% LTV: 0.80%
   }
+  // VA loans: no PMI/MIP
   
   const monthlyPMI = needsPMI ? (loanAmount * pmiRate) / 12 : 0;
   
@@ -355,10 +362,30 @@ export default function MortgageCalculator() {
                     >
                       FHA
                     </button>
+                    <button
+                      onClick={() => {
+                        setLoanType('va');
+                        // VA allows 0% down payment
+                        setDownPaymentPercent(0);
+                        setDownPayment(0);
+                      }}
+                      className={`flex-1 px-4 py-3 rounded-lg font-medium transition ${
+                        loanType === 'va'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      VA
+                    </button>
                   </div>
                   {loanType === 'fha' && (
                     <p className="mt-2 text-xs text-blue-600">
                       ℹ️ FHA loans allow as low as 3.5% down payment
+                    </p>
+                  )}
+                  {loanType === 'va' && (
+                    <p className="mt-2 text-xs text-blue-600">
+                      ℹ️ VA loans allow 0% down payment • No mortgage insurance required
                     </p>
                   )}
                 </div>
