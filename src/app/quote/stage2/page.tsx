@@ -185,7 +185,7 @@ function Stage2Content() {
     { key: 'demographics', title: 'Demographics' },
   ];
 
-  const activeSections = sectionOrder.filter(s => !s.conditional || s.conditional());
+  const activeSections = sectionOrder;
   const totalSteps = activeSections.length;
   const currentSectionKey = activeSections[currentStep]?.key || 'borrowerInfo';
 
