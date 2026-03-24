@@ -100,6 +100,31 @@ export default function AddressAutocomplete({
           }
         });
 
+        // Capture typing in the shadow DOM input to enable Continue button
+        const observer = new MutationObserver(() => {
+          const shadowInput = el.shadowRoot?.querySelector('input');
+          if (shadowInput) {
+            observer.disconnect();
+            shadowInput.addEventListener('input', () => {
+              handleChange(shadowInput.value);
+            });
+            // Set placeholder
+            shadowInput.placeholder = placeholder;
+          }
+        });
+        observer.observe(el, { childList: true, subtree: true });
+        // Also check immediately (shadow DOM may already be ready)
+        setTimeout(() => {
+          const shadowInput = el.shadowRoot?.querySelector('input');
+          if (shadowInput) {
+            observer.disconnect();
+            shadowInput.addEventListener('input', () => {
+              handleChange(shadowInput.value);
+            });
+            shadowInput.placeholder = placeholder;
+          }
+        }, 500);
+
         // Hide fallback, insert autocomplete element
         if (fallbackRef.current) {
           fallbackRef.current.style.display = 'none';
