@@ -86,17 +86,29 @@ export default function AddressAutocomplete({
 
         autocomplete.addEventListener('gmp-placeselect', async (event: any) => {
           const place = event.place;
-          if (place) {
-            try {
-              await place.fetchFields({ fields: ['formattedAddress', 'addressComponents'] });
-              if (place.formattedAddress) {
-                handleChange(place.formattedAddress);
-              }
-            } catch {
-              if (place.displayName) {
-                handleChange(place.displayName);
-              }
+          if (!place) return;
+
+          // Try to get the formatted address via fetchFields
+          try {
+            await place.fetchFields({ fields: ['formattedAddress', 'addressComponents'] });
+            if (place.formattedAddress) {
+              handleChange(place.formattedAddress);
+              return;
             }
+          } catch (err) {
+            console.warn('fetchFields failed:', err);
+          }
+
+          // Fallback: try displayName
+          if (place.displayName) {
+            handleChange(typeof place.displayName === 'string' ? place.displayName : place.displayName.text || '');
+            return;
+          }
+
+          // Last resort: grab whatever text is in the shadow DOM input
+          const shadowInput = el.shadowRoot?.querySelector('input');
+          if (shadowInput?.value) {
+            handleChange(shadowInput.value);
           }
         });
 
