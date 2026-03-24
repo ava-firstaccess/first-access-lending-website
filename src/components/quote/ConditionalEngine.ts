@@ -94,12 +94,12 @@ export function isFieldVisible(
   formData: Record<string, any>,
   rules: VisibilityRule[]
 ): boolean {
-  // Default: visible unless explicitly hidden
-  let visible = true;
+  // Check if any rule targets this field
+  let hasShowRule = false;
+  let hasHideRule = false;
+  let visible: boolean | null = null;
   
-  // Evaluate rules in order
   for (const rule of rules) {
-    // Check if this rule applies to this field
     const appliesToField = rule.targets.some(target => {
       const normalizedTarget = normalizeFieldName(target.text);
       const normalizedField = normalizeFieldName(fieldName);
@@ -108,16 +108,28 @@ export function isFieldVisible(
     
     if (!appliesToField) continue;
     
-    // Evaluate conditions
+    if (rule.action === 'show') hasShowRule = true;
+    if (rule.action === 'hide') hasHideRule = true;
+    
     const conditionsMet = evaluateRuleConditions(rule.conditions, formData);
     
-    // Apply action if conditions met
     if (conditionsMet) {
       visible = rule.action === 'show';
     }
   }
   
-  return visible;
+  // If a rule matched, use its result
+  if (visible !== null) return visible;
+  
+  // If field has a "show" rule but no conditions matched yet, default to hidden
+  // (it should only appear when its show condition is met)
+  if (hasShowRule) return false;
+  
+  // If field has a "hide" rule but conditions aren't met, keep visible
+  if (hasHideRule) return true;
+  
+  // No rules reference this field: visible by default
+  return true;
 }
 
 /**
