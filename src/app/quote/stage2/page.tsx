@@ -258,6 +258,7 @@ function Stage2Content() {
             </div>
 
             {/* Current Section */}
+            <form autoComplete="on" onSubmit={(e) => e.preventDefault()}>
             {currentSectionKey === 'borrowerInfo' && (
             <SectionCard
               title="Borrower Information"
@@ -266,10 +267,10 @@ function Stage2Content() {
               defaultOpen={true}
               sectionNumber={currentStep + 1}
             >
-              <TextField label="First Name" name="Borrower - First Name" value={formData['Borrower - First Name']} onChange={updateField} required />
-              <TextField label="Last Name" name="Borrower - Last Name" value={formData['Borrower - Last Name']} onChange={updateField} required />
-              <TextField type="tel" label="Phone" name="Borrower - Phone" value={formData['Borrower - Phone']} onChange={updateField} required placeholder="(555) 123-4567" />
-              <TextField type="email" label="Email" name="Borrower - Email" value={formData['Borrower - Email']} onChange={updateField} required />
+              <TextField label="First Name" name="Borrower - First Name" value={formData['Borrower - First Name']} onChange={updateField} required autoComplete="given-name" />
+              <TextField label="Last Name" name="Borrower - Last Name" value={formData['Borrower - Last Name']} onChange={updateField} required autoComplete="family-name" />
+              <TextField type="tel" label="Phone" name="Borrower - Phone" value={formData['Borrower - Phone']} onChange={updateField} required placeholder="(555) 123-4567" autoComplete="tel" />
+              <TextField type="email" label="Email" name="Borrower - Email" value={formData['Borrower - Email']} onChange={updateField} required autoComplete="email" />
               <DateField label="Date of Birth" name="Borrower - Date of Birth" value={formData['Borrower - Date of Birth']} onChange={updateField} required />
               <SSNField label="Social Security Number" name="Borrower - SSN" value={formData['Borrower - SSN']} onChange={updateField} required />
               <SelectField
@@ -345,8 +346,8 @@ function Stage2Content() {
                   { value: 'Living Rent Free', label: 'Living Rent Free' }
                 ]}
               />
-              <TextField label="Street Address" name="Borrower - Current Address Line 1" value={formData['Borrower - Current Address Line 1']} onChange={updateField} required className="md:col-span-2" />
-              <TextField label="City" name="Borrower - Current Address City" value={formData['Borrower - Current Address City']} onChange={updateField} required />
+              <TextField label="Street Address" name="Borrower - Current Address Line 1" value={formData['Borrower - Current Address Line 1']} onChange={updateField} required className="md:col-span-2" autoComplete="street-address" />
+              <TextField label="City" name="Borrower - Current Address City" value={formData['Borrower - Current Address City']} onChange={updateField} required autoComplete="address-level2" />
               <SelectField
                 label="State"
                 name="Borrower - Current Address State"
@@ -361,7 +362,7 @@ function Stage2Content() {
                   // Add all states
                 ]}
               />
-              <TextField label="Zip Code" name="Borrower - Current Address Zip" value={formData['Borrower - Current Address Zip']} onChange={updateField} required />
+              <TextField label="Zip Code" name="Borrower - Current Address Zip" value={formData['Borrower - Current Address Zip']} onChange={updateField} required autoComplete="postal-code" />
               <NumberField label="Years at Address" name="Borrower - Years in Current Home" value={formData['Borrower - Years in Current Home']} onChange={updateField} required min={0} max={99} />
               <NumberField label="Months at Address" name="Borrower - Months in Current Home" value={formData['Borrower - Months in Current Home']} onChange={updateField} required min={0} max={11} />
             </SectionCard>
@@ -800,6 +801,8 @@ function Stage2Content() {
               />
             </SectionCard>
             )}
+
+            </form>
 
             {/* Navigation Buttons */}
             <div className="mt-6 flex items-center justify-between gap-4">
