@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 let cachedRates: { 
   conventional: number | null; 
   fha: number | null; 
+  va: number | null;
   timestamp: number 
 } | null = null;
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
@@ -14,6 +15,7 @@ export async function GET() {
       return NextResponse.json({ 
         conventional: cachedRates.conventional,
         fha: cachedRates.fha,
+        va: cachedRates.va,
         cached: true 
       });
     }
@@ -37,10 +39,14 @@ export async function GET() {
     // Extract 30-year FHA rate
     const fhaMatch = html.match(/30 Yr\. FHA[^]*?(\d+\.\d+)%/i);
     
+    // Extract 30-year VA rate
+    const vaMatch = html.match(/30 Yr\. VA[^]*?(\d+\.\d+)%/i);
+    
     const conventionalRate = conventionalMatch ? parseFloat(conventionalMatch[1]) : null;
     const fhaRate = fhaMatch ? parseFloat(fhaMatch[1]) : null;
+    const vaRate = vaMatch ? parseFloat(vaMatch[1]) : null;
 
-    if (!conventionalRate && !fhaRate) {
+    if (!conventionalRate && !fhaRate && !vaRate) {
       throw new Error('Could not parse rates from page');
     }
     
@@ -48,12 +54,14 @@ export async function GET() {
     cachedRates = {
       conventional: conventionalRate,
       fha: fhaRate,
+      va: vaRate,
       timestamp: Date.now(),
     };
 
     return NextResponse.json({ 
       conventional: conventionalRate,
       fha: fhaRate,
+      va: vaRate,
       cached: false 
     });
 
@@ -85,6 +93,7 @@ export async function GET() {
     return NextResponse.json({ 
       conventional: null,
       fha: null,
+      va: null,
       error: 'Failed to fetch current rates',
       cached: false 
     }, { status: 500 });
