@@ -30,7 +30,17 @@ export default function AddressAutocomplete({
     }
 
     const loadGooglePlaces = () => {
-      if (!(window as any).google) {
+      // Check if script is already loading or loaded
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+      
+      if ((window as any).google?.maps?.places) {
+        // Already loaded, initialize immediately
+        initAutocomplete();
+      } else if (existingScript) {
+        // Script is loading, wait for it
+        existingScript.addEventListener('load', initAutocomplete);
+      } else {
+        // Not loaded yet, add script
         const script = document.createElement('script');
         script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}&libraries=places`;
         script.async = true;
@@ -42,13 +52,14 @@ export default function AddressAutocomplete({
           console.error('Failed to load Google Places script');
           // Gracefully degrade to regular input
         };
-      } else {
-        initAutocomplete();
       }
     };
 
     const initAutocomplete = () => {
-      if (!inputRef.current || !(window as any).google) return;
+      if (!inputRef.current || !(window as any).google?.maps?.places) return;
+      
+      // Prevent multiple initializations
+      if (autocompleteRef.current) return;
 
       // Initialize autocomplete
       autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, {
