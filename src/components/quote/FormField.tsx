@@ -1,7 +1,7 @@
 // Reusable Form Field Components
 'use client';
 
-import { ChangeEvent } from 'react';
+import { ChangeEvent, useRef } from 'react';
 
 interface BaseFieldProps {
   label: string;
@@ -52,7 +52,7 @@ export function TextField({
   );
 }
 
-// Date Input (manual-typeable MM/DD/YYYY with fallback date picker)
+// Date Input (manual-typeable MM/DD/YYYY + calendar icon for native picker)
 interface DateFieldProps extends BaseFieldProps {
   min?: string;
   max?: string;
@@ -71,6 +71,8 @@ export function DateField({
   disabled = false,
   autoComplete
 }: DateFieldProps) {
+  const pickerRef = useRef<HTMLInputElement>(null);
+
   // Display as MM/DD/YYYY for typing, store as YYYY-MM-DD
   const toDisplay = (iso: string) => {
     if (!iso) return '';
@@ -97,16 +99,14 @@ export function DateField({
 
   const handleTextChange = (e: ChangeEvent<HTMLInputElement>) => {
     const formatted = formatDisplay(e.target.value);
-    // Store ISO when complete, otherwise store display value for continued typing
     const iso = toISO(formatted);
-    if (iso) {
-      onChange(name, iso);
-    } else {
-      onChange(name, formatted);
-    }
+    onChange(name, iso || formatted);
   };
 
-  // Show formatted display if value is ISO, otherwise show raw
+  const handlePickerChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.value) onChange(name, e.target.value);
+  };
+
   const displayValue = value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? toDisplay(value) : (value || '');
 
   return (
@@ -115,18 +115,44 @@ export function DateField({
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>
-      <input
-        type="text"
-        inputMode="numeric"
-        value={displayValue}
-        onChange={handleTextChange}
-        placeholder="MM/DD/YYYY"
-        required={required}
-        disabled={disabled}
-        autoComplete={autoComplete || 'bday'}
-        maxLength={10}
-        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
-      />
+      <div className="relative">
+        <input
+          type="text"
+          inputMode="numeric"
+          value={displayValue}
+          onChange={handleTextChange}
+          placeholder="MM/DD/YYYY"
+          required={required}
+          disabled={disabled}
+          autoComplete={autoComplete || 'bday'}
+          maxLength={10}
+          className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
+        />
+        {/* Hidden native date picker */}
+        <input
+          ref={pickerRef}
+          type="date"
+          value={value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : ''}
+          onChange={handlePickerChange}
+          min={min}
+          max={max}
+          tabIndex={-1}
+          className="absolute inset-0 opacity-0 w-0 h-0 overflow-hidden pointer-events-none"
+          aria-hidden="true"
+        />
+        {/* Calendar icon button */}
+        <button
+          type="button"
+          onClick={() => pickerRef.current?.showPicker?.()}
+          disabled={disabled}
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50"
+          title="Open calendar"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }
