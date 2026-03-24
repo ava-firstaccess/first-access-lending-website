@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import QuestionCard from '@/components/quote/QuestionCard';
 import QuoteBuilder from '@/components/quote/QuoteBuilder';
+import AddressAutocomplete from '@/components/quote/AddressAutocomplete';
 
 interface Stage1Data {
   propertyAddress?: string;
@@ -101,11 +102,10 @@ export default function Stage1() {
             isValid={!!data.propertyAddress}
             onContinue={() => setStep(2)}
           >
-            <input
-              type="text"
-              placeholder="Enter address or city, state"
+            <AddressAutocomplete
               value={data.propertyAddress || ''}
-              onChange={(e) => updateData('propertyAddress', e.target.value)}
+              onChange={(address) => updateData('propertyAddress', address)}
+              placeholder="Enter address or city, state"
               className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none"
             />
           </QuestionCard>
