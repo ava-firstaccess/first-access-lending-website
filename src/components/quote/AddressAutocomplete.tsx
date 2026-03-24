@@ -112,30 +112,23 @@ export default function AddressAutocomplete({
           }
         });
 
-        // Capture typing in the shadow DOM input to enable Continue button
-        const observer = new MutationObserver(() => {
+        // Poll shadow DOM input value to sync with React state
+        // (Shadow DOM events are unreliable - programmatic value changes from 
+        // place selection don't fire 'input' events)
+        let lastValue = '';
+        const pollInterval = setInterval(() => {
           const shadowInput = el.shadowRoot?.querySelector('input');
           if (shadowInput) {
-            observer.disconnect();
-            shadowInput.addEventListener('input', () => {
-              handleChange(shadowInput.value);
-            });
-            // Set placeholder
             shadowInput.placeholder = placeholder;
-          }
-        });
-        observer.observe(el, { childList: true, subtree: true });
-        // Also check immediately (shadow DOM may already be ready)
-        setTimeout(() => {
-          const shadowInput = el.shadowRoot?.querySelector('input');
-          if (shadowInput) {
-            observer.disconnect();
-            shadowInput.addEventListener('input', () => {
+            if (shadowInput.value !== lastValue && shadowInput.value.length > 0) {
+              lastValue = shadowInput.value;
               handleChange(shadowInput.value);
-            });
-            shadowInput.placeholder = placeholder;
+            }
           }
-        }, 500);
+        }, 300);
+
+        // Store cleanup ref
+        (el as any).__pollInterval = pollInterval;
 
         // Hide fallback, insert autocomplete element
         if (fallbackRef.current) {

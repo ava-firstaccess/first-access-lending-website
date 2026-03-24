@@ -231,7 +231,7 @@ export default function Stage1() {
         return (
           <QuestionCard
             title="Where's the property?"
-            subtitle="We'll verify this later, just need a rough location"
+            subtitle=""
             progress={progress}
             isValid={!!data.propertyAddress}
             onContinue={goForward}
