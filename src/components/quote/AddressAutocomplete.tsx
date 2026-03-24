@@ -1,8 +1,7 @@
-// Address Autocomplete using Google PlaceAutocompleteElement
-// Clean rewrite - no shadow DOM hacking, no polling
+// Address Autocomplete - only accepts validated selections from Google dropdown
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface AddressAutocompleteProps {
   value: string;
@@ -11,7 +10,6 @@ interface AddressAutocompleteProps {
   className?: string;
 }
 
-// Load Google Maps once, resolve via callback when fully ready
 let loadPromise: Promise<void> | null = null;
 
 function loadGoogleMaps(apiKey: string): Promise<void> {
@@ -36,8 +34,9 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
   const containerRef = useRef<HTMLDivElement>(null);
   const onChangeRef = useRef(onChange);
   const initialized = useRef(false);
+  const [confirmed, setConfirmed] = useState(!!value);
+  const [displayAddress, setDisplayAddress] = useState(value || '');
 
-  // Keep onChange ref current (avoids stale closure issue)
   onChangeRef.current = onChange;
 
   useEffect(() => {
@@ -49,33 +48,43 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
     loadGoogleMaps(apiKey).then(() => {
       if (!containerRef.current) return;
       const PAE = google.maps.places?.PlaceAutocompleteElement;
-      if (!PAE) { console.warn('PlaceAutocompleteElement unavailable'); return; }
+      if (!PAE) return;
 
       const ac = new PAE({
         componentRestrictions: { country: 'us' },
         types: ['address'],
       });
 
-      // When user selects a place from dropdown
+      // ONLY fire onChange when user selects from dropdown
       ac.addEventListener('gmp-placeselect', async (e: any) => {
         const place = e.place;
         if (!place) return;
+
+        let address = '';
         try {
           await place.fetchFields({ fields: ['formattedAddress'] });
-          if (place.formattedAddress) { onChangeRef.current(place.formattedAddress); return; }
-        } catch { /* fall through */ }
-        // Fallback: read whatever text the element is showing
-        const input = (ac as any).inputElement ?? (ac as unknown as HTMLElement).shadowRoot?.querySelector('input');
-        if (input?.value) onChangeRef.current(input.value);
+          address = place.formattedAddress || '';
+        } catch {
+          // Read from the element's visible input as fallback
+          const input = (ac as unknown as HTMLElement).shadowRoot?.querySelector('input');
+          address = input?.value || '';
+        }
+
+        if (address) {
+          setDisplayAddress(address);
+          setConfirmed(true);
+          onChangeRef.current(address);
+        }
       });
 
-      // Typing: input events bubble out of shadow DOM
+      // When user types (clears a previous selection), un-confirm
       (ac as unknown as HTMLElement).addEventListener('input', () => {
-        const input = (ac as any).inputElement ?? (ac as unknown as HTMLElement).shadowRoot?.querySelector('input');
-        if (input?.value) onChangeRef.current(input.value);
+        if (confirmed) {
+          setConfirmed(false);
+          onChangeRef.current(''); // Clear the value so Continue disables
+        }
       });
 
-      // Insert and hide fallback
       const el = ac as unknown as HTMLElement;
       el.style.width = '100%';
       const fallback = containerRef.current.querySelector('input');
@@ -85,7 +94,6 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
     }).catch(err => console.warn('Maps failed:', err));
   }, []);
 
-  // Fallback plain input (shown until Google loads, or if it fails)
   return (
     <div ref={containerRef} className="w-full">
       <input
@@ -96,6 +104,14 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
         className={className || ''}
         autoComplete="off"
       />
+      {confirmed && displayAddress && (
+        <p className="text-sm text-green-600 mt-2 flex items-center gap-1">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          {displayAddress}
+        </p>
+      )}
       <style jsx global>{`
         gmp-place-autocomplete {
           width: 100%;
