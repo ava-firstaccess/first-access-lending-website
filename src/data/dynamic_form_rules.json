@@ -1,0 +1,1682 @@
+{
+  "extraction_policy": "Exact visible text only. Any field ending with '...' was truncated in the screenshots and was not guessed.",
+  "warnings": [
+    "Several condition fields and target fields are visibly truncated in the source UI; those strings were preserved exactly as shown.",
+    "Rule 7 appears to duplicate rule 6.",
+    "Rule 29 appears to duplicate rule 28.",
+    "Rule 58's second condition visibly reads 'Co-Borrower - Years at Previous ... IS EQUAL TO 0'. This may be intentional or a UI/config issue; it was preserved exactly as shown.",
+    "The UI appears to evaluate conditions top-down."
+  ],
+  "rule_count": 60,
+  "rules": [
+    {
+      "order": 1,
+      "ui_label": "Hide Fields",
+      "action": "hide",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Borrower - Has Co-Borrower",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "No"
+        },
+        {
+          "join": "OR",
+          "field_text": "Borrower - Has Co-Borrower",
+          "field_text_truncated": false,
+          "operator": "IS EMPTY",
+          "value": null
+        }
+      ],
+      "targets": [
+        {
+          "text": "Dem - Co-Borrower Race",
+          "truncated": false
+        },
+        {
+          "text": "Dem - Co-Borrower Sex",
+          "truncated": false
+        },
+        {
+          "text": "Co-Borrower - Citizenship Status",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 2,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Borrower - Has Co-Borrower",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Yes"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Co-Borrower - First Name",
+          "truncated": false
+        },
+        {
+          "text": "Co-Borrower - Last Name",
+          "truncated": false
+        },
+        {
+          "text": "Co-Borrower - Phone",
+          "truncated": false
+        },
+        {
+          "text": "Co-Borrower - Email",
+          "truncated": false
+        },
+        {
+          "text": "Co-Borrower - Employment Status",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 6
+    },
+    {
+      "order": 3,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Second Mortgage - Present",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Yes"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Second Mortgage - Balance",
+          "truncated": false
+        },
+        {
+          "text": "Second Mortgage - Monthly Paymen...",
+          "truncated": true
+        },
+        {
+          "text": "Second Mortgage - Rate Type",
+          "truncated": false
+        },
+        {
+          "text": "Second Mortgage - Interest Rate ...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 4,
+      "ui_label": "Hide Fields",
+      "action": "hide",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Second Mortgage - Present",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "No"
+        },
+        {
+          "join": "OR",
+          "field_text": "Second Mortgage - Present",
+          "field_text_truncated": false,
+          "operator": "IS EMPTY",
+          "value": null
+        }
+      ],
+      "targets": [
+        {
+          "text": "Second Mortgage - Balance",
+          "truncated": false
+        },
+        {
+          "text": "Second Mortgage - Monthly Paymen...",
+          "truncated": true
+        },
+        {
+          "text": "Second Mortgage - Rate Type",
+          "truncated": false
+        },
+        {
+          "text": "Second Mortgage - Interest Rate ...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 5,
+      "ui_label": "Hide Fields",
+      "action": "hide",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Borrower - Housing Ownership Typ...",
+          "field_text_truncated": true,
+          "operator": "IS EQUAL TO",
+          "value": "Rent"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Current Loan - First Mortgage Ba...",
+          "truncated": true
+        },
+        {
+          "text": "Current Loan - Monthly Payment",
+          "truncated": false
+        },
+        {
+          "text": "Current Loan - Type",
+          "truncated": false
+        },
+        {
+          "text": "Current Loan - Term (Months)",
+          "truncated": false
+        },
+        {
+          "text": "Current Loan - Interest Rate (%)",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 8
+    },
+    {
+      "order": 6,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Current Loan - Mortgage Insuranc...",
+          "field_text_truncated": true,
+          "operator": "IS EQUAL TO",
+          "value": "Yes"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Current Loan - Mortgage Insuranc...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0,
+      "appears_duplicate_of_order": null
+    },
+    {
+      "order": 7,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Current Loan - Mortgage Insuranc...",
+          "field_text_truncated": true,
+          "operator": "IS EQUAL TO",
+          "value": "Yes"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Current Loan - Mortgage Insuranc...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0,
+      "appears_duplicate_of_order": 6
+    },
+    {
+      "order": 8,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Current Loan - Escrowed",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "No"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Current Loan - Annual Taxes",
+          "truncated": false
+        },
+        {
+          "text": "Current Loan - Annual HOI",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 9,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Current Loan - Pay HOA",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Yes"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Current Loan - HOA Dues",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 10,
+      "ui_label": "Hide Fields",
+      "action": "hide",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Loan Purpose",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Purchase"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Stated Property Value",
+          "truncated": false
+        },
+        {
+          "text": "Listed For Sale (Last 6 Months)",
+          "truncated": false
+        },
+        {
+          "text": "Current Loan - Type",
+          "truncated": false
+        },
+        {
+          "text": "Current Loan - Term (Months)",
+          "truncated": false
+        },
+        {
+          "text": "Current Loan - Interest Rate (%)",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 13
+    },
+    {
+      "order": 11,
+      "ui_label": "Hide Fields",
+      "action": "hide",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Loan Purpose",
+          "field_text_truncated": false,
+          "operator": "IS NOT EQUAL TO",
+          "value": "Purchase"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Purchase - Currently In Contract",
+          "truncated": false
+        },
+        {
+          "text": "Purchase - Working With Agent",
+          "truncated": false
+        },
+        {
+          "text": "Purchase - First-Time Homebuyer",
+          "truncated": false
+        },
+        {
+          "text": "Purchase - Property Type Sought",
+          "truncated": false
+        },
+        {
+          "text": "Purchase - Down Payment Amount",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 3
+    },
+    {
+      "order": 12,
+      "ui_label": "Hide Fields",
+      "action": "hide",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Number of Other Properties",
+          "field_text_truncated": false,
+          "operator": "LESS THAN",
+          "value": 5
+        }
+      ],
+      "targets": [
+        {
+          "text": "Other Properties - Address 5 Esc...",
+          "truncated": true
+        },
+        {
+          "text": "Other Properties - Address 5",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 13,
+      "ui_label": "Hide Fields",
+      "action": "hide",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Number of Other Properties",
+          "field_text_truncated": false,
+          "operator": "LESS THAN",
+          "value": 4
+        }
+      ],
+      "targets": [
+        {
+          "text": "Other Properties - Address 4",
+          "truncated": false
+        },
+        {
+          "text": "Other Properties - Address 4 Esc...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 14,
+      "ui_label": "Hide Fields",
+      "action": "hide",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Number of Other Properties",
+          "field_text_truncated": false,
+          "operator": "LESS THAN",
+          "value": 3
+        }
+      ],
+      "targets": [
+        {
+          "text": "Other Properties - Address 3",
+          "truncated": false
+        },
+        {
+          "text": "Other Properties - Address 3 Esc...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 15,
+      "ui_label": "Hide Fields",
+      "action": "hide",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Number of Other Properties",
+          "field_text_truncated": false,
+          "operator": "LESS THAN",
+          "value": 2
+        }
+      ],
+      "targets": [
+        {
+          "text": "Other Properties - Address 2",
+          "truncated": false
+        },
+        {
+          "text": "Other Properties - Address 2 Esc...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 16,
+      "ui_label": "Hide Fields",
+      "action": "hide",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Number of Other Properties",
+          "field_text_truncated": false,
+          "operator": "LESS THAN",
+          "value": 1
+        },
+        {
+          "join": "OR",
+          "field_text": "Number of Other Properties",
+          "field_text_truncated": false,
+          "operator": "IS EMPTY",
+          "value": null
+        }
+      ],
+      "targets": [
+        {
+          "text": "Other Properties - Address 1",
+          "truncated": false
+        },
+        {
+          "text": "Other Properties - Address 1 Esc...",
+          "truncated": true
+        },
+        {
+          "text": "Other Properties - Address 2",
+          "truncated": false
+        },
+        {
+          "text": "Other Properties - Address 2 Esc...",
+          "truncated": true
+        },
+        {
+          "text": "Other Properties - Address 3",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 5
+    },
+    {
+      "order": 17,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Borrower - Employment Status",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Employed"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Borrower - Employer Name",
+          "truncated": false
+        },
+        {
+          "text": "Borrower - Years at Employer",
+          "truncated": false
+        },
+        {
+          "text": "Borrower - Months at Employer",
+          "truncated": false
+        },
+        {
+          "text": "Borrower - Years in Line of Work",
+          "truncated": false
+        },
+        {
+          "text": "Borrower - Job Title",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 3
+    },
+    {
+      "order": 18,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Borrower - Employment Status",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Self-Employed"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Borrower - Self-Employed 25%+ Ow...",
+          "truncated": true
+        },
+        {
+          "text": "Borrower - Self-Employed Monthly...",
+          "truncated": true
+        },
+        {
+          "text": "Borrower - Employer Name",
+          "truncated": false
+        },
+        {
+          "text": "Borrower - Job Title",
+          "truncated": false
+        },
+        {
+          "text": "Borrower - Years at Employer",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 2
+    },
+    {
+      "order": 19,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Borrower - Employment Status",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Retired"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Borrower - Other Income 1 Type",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 20,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Borrower - Pay Type",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Hourly"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Borrower - Hourly Rate",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 21,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Borrower - Variable Income Types",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Overtime"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Borrower - Overtime Monthly Inco...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 22,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Borrower - Variable Income Types",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Commission"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Borrower - Commission Monthly In...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 23,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Borrower - Variable Income Types",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Bonus"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Borrower - Bonus Monthly Income",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 24,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Borrower - Variable Income Types",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Other"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Borrower - Other Monthly Income",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 25,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Borrower - Other Income 1 Type",
+          "field_text_truncated": false,
+          "operator": "IS FILLED",
+          "value": null
+        }
+      ],
+      "targets": [
+        {
+          "text": "Borrower - Other Income 1 Amount",
+          "truncated": false
+        },
+        {
+          "text": "Borrower - Other Income 2 Type",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 26,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Borrower - Other Income 2 Type",
+          "field_text_truncated": false,
+          "operator": "IS FILLED",
+          "value": null
+        }
+      ],
+      "targets": [
+        {
+          "text": "Borrower - Other Income 3 Type",
+          "truncated": false
+        },
+        {
+          "text": "Borrower - Other Income 2 Amount",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 27,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Borrower - Other Income 3 Type",
+          "field_text_truncated": false,
+          "operator": "IS FILLED",
+          "value": null
+        }
+      ],
+      "targets": [
+        {
+          "text": "Borrower - Other Income 3 Amount",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 28,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Co-Borrower - Employment Status",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Employed"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Co-Borrower - Employer Name",
+          "truncated": false
+        },
+        {
+          "text": "Co-Borrower - Job Title",
+          "truncated": false
+        },
+        {
+          "text": "Co-Borrower - Years at Employer",
+          "truncated": false
+        },
+        {
+          "text": "Co-Borrower - Years in Line of W...",
+          "truncated": true
+        },
+        {
+          "text": "Co-Borrower - Months at Employer",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 3
+    },
+    {
+      "order": 29,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Co-Borrower - Employment Status",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Employed"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Co-Borrower - Employer Name",
+          "truncated": false
+        },
+        {
+          "text": "Co-Borrower - Job Title",
+          "truncated": false
+        },
+        {
+          "text": "Co-Borrower - Years at Employer",
+          "truncated": false
+        },
+        {
+          "text": "Co-Borrower - Years in Line of W...",
+          "truncated": true
+        },
+        {
+          "text": "Co-Borrower - Months at Employer",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 3,
+      "appears_duplicate_of_order": 28
+    },
+    {
+      "order": 30,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Co-Borrower - Employment Status",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Self-Employed"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Co-Borrower - Self-Employed 25%+...",
+          "truncated": true
+        },
+        {
+          "text": "Co-Borrower - Employer Name",
+          "truncated": false
+        },
+        {
+          "text": "Co-Borrower - Job Title",
+          "truncated": false
+        },
+        {
+          "text": "Co-Borrower - Years at Employer",
+          "truncated": false
+        },
+        {
+          "text": "Co-Borrower - Years in Line of W...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 2
+    },
+    {
+      "order": 31,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Co-Borrower - Employment Status",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Retired"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Co-Borrower - Other Income 1 Typ...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 32,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Co-Borrower - Pay Type",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Hourly"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Co-Borrower - Hourly Rate",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 33,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Co-Borrower - Variable Income Ty...",
+          "field_text_truncated": true,
+          "operator": "IS EQUAL TO",
+          "value": "Overtime"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Co-Borrower - Overtime Monthly I...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 34,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Co-Borrower - Variable Income Ty...",
+          "field_text_truncated": true,
+          "operator": "IS EQUAL TO",
+          "value": "Commission"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Co-Borrower - Commission Monthly...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 35,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Co-Borrower - Variable Income Ty...",
+          "field_text_truncated": true,
+          "operator": "IS EQUAL TO",
+          "value": "Bonus"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Co-Borrower - Bonus Monthly Inco...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 36,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Co-Borrower - Variable Income Ty...",
+          "field_text_truncated": true,
+          "operator": "IS EQUAL TO",
+          "value": "Other"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Co-Borrower - Other Monthly Inco...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 37,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Co-Borrower - Other Income 1 Typ...",
+          "field_text_truncated": true,
+          "operator": "IS FILLED",
+          "value": null
+        }
+      ],
+      "targets": [
+        {
+          "text": "Co-Borrower - Other Income 1 Amo...",
+          "truncated": true
+        },
+        {
+          "text": "Co-Borrower - Other Income 2 Typ...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 38,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Co-Borrower - Other Income 2 Typ...",
+          "field_text_truncated": true,
+          "operator": "IS FILLED",
+          "value": null
+        }
+      ],
+      "targets": [
+        {
+          "text": "Co-Borrower - Other Income 2 Amo...",
+          "truncated": true
+        },
+        {
+          "text": "Co-Borrower - Other Income 3 Typ...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 39,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Co-Borrower - Other Income 3 Typ...",
+          "field_text_truncated": true,
+          "operator": "IS FILLED",
+          "value": null
+        }
+      ],
+      "targets": [
+        {
+          "text": "Co-Borrower - Other Income 3 Amo...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 40,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Dec - Judgments / Federal Debt /...",
+          "field_text_truncated": true,
+          "operator": "IS EQUAL TO",
+          "value": "Yes"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Dec - Borrower Outstanding Judgm...",
+          "truncated": true
+        },
+        {
+          "text": "Dec - Borrower Party to Lawsuit ...",
+          "truncated": true
+        },
+        {
+          "text": "Dec - Borrower Delinquent/Defaul...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 41,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Dec - Bankruptcy / Short Sale / ...",
+          "field_text_truncated": true,
+          "operator": "IS EQUAL TO",
+          "value": "Yes"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Dec - Borrower Bankruptcy (Last ...",
+          "truncated": true
+        },
+        {
+          "text": "Dec - Borrower Short Sale / Pre-...",
+          "truncated": true
+        },
+        {
+          "text": "Dec - Borrower Deed in Lieu (Las...",
+          "truncated": true
+        },
+        {
+          "text": "Dec - Borrower Property Foreclos...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 42,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Dec - Same for Co-Borrower",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "No"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Dec - Co-Borrower Delinquent/Def...",
+          "truncated": true
+        },
+        {
+          "text": "Dec - Co-Borrower Outstanding Ju...",
+          "truncated": true
+        },
+        {
+          "text": "Dec - Co-Borrower Party to Lawsu...",
+          "truncated": true
+        },
+        {
+          "text": "Dec - Co-Borrower Bankruptcy (La...",
+          "truncated": true
+        },
+        {
+          "text": "Dec - Co-Borrower Short Sale / P...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 2
+    },
+    {
+      "order": 43,
+      "ui_label": "Hide Field",
+      "action": "hide",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Dem - Borrower Ethnicity",
+          "field_text_truncated": false,
+          "operator": "IS EMPTY",
+          "value": null
+        }
+      ],
+      "targets": [
+        {
+          "text": "Dem - Borrower Ethnicity Detail",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 44,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Dem - Borrower Ethnicity",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Hispanic or Latino"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Dem - Borrower Ethnicity Detail",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 45,
+      "ui_label": "Hide Field",
+      "action": "hide",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Dem - Co-Borrower Ethnicity",
+          "field_text_truncated": false,
+          "operator": "IS EMPTY",
+          "value": null
+        }
+      ],
+      "targets": [
+        {
+          "text": "Dem - Co-Borrower Ethnicity Deta...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 46,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Dem - Co-Borrower Ethnicity",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Hispanic or Latino"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Dem - Co-Borrower Ethnicity Deta...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 47,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Number of Dependents",
+          "field_text_truncated": false,
+          "operator": "GREATER THAN",
+          "value": 0
+        }
+      ],
+      "targets": [
+        {
+          "text": "Ages of Dependents",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 48,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Alimony or Child Support",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Yes"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Alimony/Child Support Monthly Pa...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 49,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Borrower - Housing Ownership Typ...",
+          "field_text_truncated": true,
+          "operator": "IS EQUAL TO",
+          "value": "Rent"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Current Loan - Rent",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 50,
+      "ui_label": "Hide Field",
+      "action": "hide",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Current Loan - Mortgage Insuranc...",
+          "field_text_truncated": true,
+          "operator": "IS EMPTY",
+          "value": null
+        },
+        {
+          "join": "OR",
+          "field_text": "Current Loan - Mortgage Insuranc...",
+          "field_text_truncated": true,
+          "operator": "IS EQUAL TO",
+          "value": "No"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Current Loan - Mortgage Insuranc...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 51,
+      "ui_label": "Hide Fields",
+      "action": "hide",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Current Loan - Escrowed",
+          "field_text_truncated": false,
+          "operator": "IS EMPTY",
+          "value": null
+        },
+        {
+          "join": "OR",
+          "field_text": "Current Loan - Escrowed",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Yes"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Current Loan - Annual HOI",
+          "truncated": false
+        },
+        {
+          "text": "Current Loan - Annual Taxes",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 52,
+      "ui_label": "Hide Fields",
+      "action": "hide",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Current Loan - Free & Clear",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "Yes"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Current Loan - First Mortgage Ba...",
+          "truncated": true
+        },
+        {
+          "text": "Current Loan - Monthly Payment",
+          "truncated": false
+        },
+        {
+          "text": "Current Loan - Type",
+          "truncated": false
+        },
+        {
+          "text": "Current Loan - Term (Months)",
+          "truncated": false
+        },
+        {
+          "text": "Current Loan - Interest Rate (%)",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 3
+    },
+    {
+      "order": 53,
+      "ui_label": "Hide Field",
+      "action": "hide",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Current Loan - Pay HOA",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "No"
+        },
+        {
+          "join": "OR",
+          "field_text": "Current Loan - Pay HOA",
+          "field_text_truncated": false,
+          "operator": "IS EMPTY",
+          "value": null
+        }
+      ],
+      "targets": [
+        {
+          "text": "Current Loan - HOA Dues",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 54,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Dec - Borrower Bankruptcy (Last ...",
+          "field_text_truncated": true,
+          "operator": "IS EQUAL TO",
+          "value": "Yes"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Dec - Borrower Bankruptcy Type",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 55,
+      "ui_label": "Show Field",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Dec - Co-Borrower Bankruptcy (La...",
+          "field_text_truncated": true,
+          "operator": "IS EQUAL TO",
+          "value": "Yes"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Dec - Co-Borrower Bankruptcy Typ...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 56,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Borrower - Years in Current Home",
+          "field_text_truncated": false,
+          "operator": "STARTS WITH",
+          "value": "1"
+        },
+        {
+          "join": "OR",
+          "field_text": "Borrower - Years in Current Home",
+          "field_text_truncated": false,
+          "operator": "STARTS WITH",
+          "value": "0"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Borrower - Prior Housing Ownersh...",
+          "truncated": true
+        },
+        {
+          "text": "Borrower - Prior Address Line 1",
+          "truncated": false
+        },
+        {
+          "text": "Borrower - Prior Address City",
+          "truncated": false
+        },
+        {
+          "text": "Borrower - Prior Address - State",
+          "truncated": false
+        },
+        {
+          "text": "Borrower - Prior Address Zip",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 2
+    },
+    {
+      "order": 57,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Borrower - Years at Employer",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "1"
+        },
+        {
+          "join": "OR",
+          "field_text": "Borrower - Years at Employer",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "0"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Borrower - Previous Employer Nam...",
+          "truncated": true
+        },
+        {
+          "text": "Borrower - Previous Employer Pos...",
+          "truncated": true
+        },
+        {
+          "text": "Borrower - Years at Previous Emp...",
+          "truncated": true
+        },
+        {
+          "text": "Borrower - Months at Previous Em...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 58,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Co-Borrower - Years at Employer",
+          "field_text_truncated": false,
+          "operator": "IS EQUAL TO",
+          "value": "1"
+        },
+        {
+          "join": "OR",
+          "field_text": "Co-Borrower - Years at Previous ...",
+          "field_text_truncated": true,
+          "operator": "IS EQUAL TO",
+          "value": "0"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Co-Borrower - Previous Employer ...",
+          "truncated": true
+        },
+        {
+          "text": "Co-Borrower - Previous Employer ...",
+          "truncated": true
+        },
+        {
+          "text": "Co-Borrower - Years at Previous ...",
+          "truncated": true
+        },
+        {
+          "text": "Co-Borrower - Months at Previous...",
+          "truncated": true
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 59,
+      "ui_label": "Show Fields",
+      "action": "show",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Present Address Same as Subject ...",
+          "field_text_truncated": true,
+          "operator": "IS EQUAL TO",
+          "value": "No"
+        }
+      ],
+      "targets": [
+        {
+          "text": "Subject Property - Street Addres...",
+          "truncated": true
+        },
+        {
+          "text": "Subject Property - City",
+          "truncated": false
+        },
+        {
+          "text": "Subject Property - State",
+          "truncated": false
+        },
+        {
+          "text": "Subject Property - Zip",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    },
+    {
+      "order": 60,
+      "ui_label": "Hide Field",
+      "action": "hide",
+      "conditions": [
+        {
+          "join": "IF",
+          "field_text": "Opportunity Created Source",
+          "field_text_truncated": false,
+          "operator": "IS EMPTY",
+          "value": null
+        },
+        {
+          "join": "OR",
+          "field_text": "Opportunity Created Source",
+          "field_text_truncated": false,
+          "operator": "IS FILLED",
+          "value": null
+        }
+      ],
+      "targets": [
+        {
+          "text": "Opportunity Created Source",
+          "truncated": false
+        }
+      ],
+      "plus_more_count": 0
+    }
+  ]
+}
