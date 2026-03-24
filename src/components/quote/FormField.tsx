@@ -52,10 +52,11 @@ export function TextField({
   );
 }
 
-// Date Input
+// Date Input (manual-typeable MM/DD/YYYY with fallback date picker)
 interface DateFieldProps extends BaseFieldProps {
   min?: string;
   max?: string;
+  autoComplete?: string;
 }
 
 export function DateField({
@@ -67,8 +68,47 @@ export function DateField({
   min,
   max,
   className = '',
-  disabled = false
+  disabled = false,
+  autoComplete
 }: DateFieldProps) {
+  // Display as MM/DD/YYYY for typing, store as YYYY-MM-DD
+  const toDisplay = (iso: string) => {
+    if (!iso) return '';
+    const parts = iso.split('-');
+    if (parts.length === 3) return `${parts[1]}/${parts[2]}/${parts[0]}`;
+    return iso;
+  };
+  const toISO = (display: string) => {
+    const digits = display.replace(/\D/g, '');
+    if (digits.length === 8) {
+      const mm = digits.slice(0, 2);
+      const dd = digits.slice(2, 4);
+      const yyyy = digits.slice(4, 8);
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    return '';
+  };
+  const formatDisplay = (raw: string) => {
+    const digits = raw.replace(/\D/g, '').slice(0, 8);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+  };
+
+  const handleTextChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatDisplay(e.target.value);
+    // Store ISO when complete, otherwise store display value for continued typing
+    const iso = toISO(formatted);
+    if (iso) {
+      onChange(name, iso);
+    } else {
+      onChange(name, formatted);
+    }
+  };
+
+  // Show formatted display if value is ISO, otherwise show raw
+  const displayValue = value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? toDisplay(value) : (value || '');
+
   return (
     <div className={className}>
       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -76,13 +116,15 @@ export function DateField({
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>
       <input
-        type="date"
-        value={value || ''}
-        onChange={(e) => onChange(name, e.target.value)}
-        min={min}
-        max={max}
+        type="text"
+        inputMode="numeric"
+        value={displayValue}
+        onChange={handleTextChange}
+        placeholder="MM/DD/YYYY"
         required={required}
         disabled={disabled}
+        autoComplete={autoComplete || 'bday'}
+        maxLength={10}
         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
       />
     </div>

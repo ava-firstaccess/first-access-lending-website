@@ -268,10 +268,19 @@ export default function Stage1() {
                 className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               />
               <div className="text-center">
-                <div className="text-4xl font-bold text-gray-900">
-                  ${(data.propertyValue || 500000).toLocaleString()}
+                <div className="relative inline-block">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-2xl font-bold text-gray-400">$</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={(data.propertyValue || 500000).toLocaleString()}
+                    onChange={(e) => {
+                      const num = parseInt(e.target.value.replace(/\D/g, ''));
+                      if (!isNaN(num)) updateData('propertyValue', Math.min(num, 5000000));
+                    }}
+                    className="text-4xl font-bold text-gray-900 text-center bg-transparent border-b-2 border-dashed border-gray-300 focus:border-blue-500 outline-none pl-9 pr-2 py-1 w-64"
+                  />
                 </div>
-                <p className="text-sm text-gray-600 mt-2">Drag slider to adjust</p>
               </div>
             </div>
           </QuestionCard>
@@ -298,12 +307,23 @@ export default function Stage1() {
                 className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               />
               <div className="text-center">
-                <div className="text-4xl font-bold text-gray-900">
-                  ${(data.loanBalance || 0).toLocaleString()}
+                <div className="relative inline-block">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-2xl font-bold text-gray-400">$</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={(data.loanBalance || 0).toLocaleString()}
+                    onChange={(e) => {
+                      const num = parseInt(e.target.value.replace(/\D/g, ''));
+                      if (!isNaN(num)) updateData('loanBalance', Math.min(num, data.propertyValue || 5000000));
+                      else if (e.target.value === '') updateData('loanBalance', 0);
+                    }}
+                    className="text-4xl font-bold text-gray-900 text-center bg-transparent border-b-2 border-dashed border-gray-300 focus:border-blue-500 outline-none pl-9 pr-2 py-1 w-64"
+                  />
                 </div>
                 <button
                   onClick={() => updateData('loanBalance', 0)}
-                  className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium block mx-auto"
                 >
                   Property is free & clear
                 </button>
@@ -333,9 +353,18 @@ export default function Stage1() {
                 className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               />
               <div className="text-center">
-                <div className="text-5xl font-bold text-gray-900">
-                  {data.creditScore || 720}
-                </div>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={data.creditScore || 720}
+                  onChange={(e) => {
+                    const num = parseInt(e.target.value.replace(/\D/g, ''));
+                    if (!isNaN(num) && num >= 300 && num <= 850) updateData('creditScore', num);
+                    else if (e.target.value === '') updateData('creditScore', 580);
+                  }}
+                  className="text-5xl font-bold text-gray-900 text-center bg-transparent border-b-2 border-dashed border-gray-300 focus:border-blue-500 outline-none w-32 mx-auto"
+                  maxLength={3}
+                />
                 <p className="text-sm text-gray-600 mt-2">
                   {(data.creditScore || 720) >= 740 ? 'Excellent' :
                    (data.creditScore || 720) >= 700 ? 'Good' :
@@ -433,8 +462,19 @@ export default function Stage1() {
                 className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               />
               <div className="text-center">
-                <div className="text-4xl font-bold text-gray-900">
-                  ${cashDesired.toLocaleString()}
+                <div className="relative inline-block">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-2xl font-bold text-gray-400">$</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={cashDesired.toLocaleString()}
+                    onChange={(e) => {
+                      const num = parseInt(e.target.value.replace(/\D/g, ''));
+                      const maxVal = Math.max(500000, (data.propertyValue || 500000) - currentBalance);
+                      if (!isNaN(num)) updateData('cashOutAmount', Math.min(Math.max(num, 0), maxVal));
+                    }}
+                    className="text-4xl font-bold text-gray-900 text-center bg-transparent border-b-2 border-dashed border-gray-300 focus:border-blue-500 outline-none pl-9 pr-2 py-1 w-64"
+                  />
                 </div>
               </div>
 
