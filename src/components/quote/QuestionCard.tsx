@@ -8,6 +8,7 @@ interface QuestionCardProps {
   subtitle?: string;
   children: ReactNode;
   onContinue?: () => void;
+  onBack?: () => void;
   showContinue?: boolean;
   isValid?: boolean;
   progress?: number; // 0-100
@@ -18,6 +19,7 @@ export default function QuestionCard({
   subtitle,
   children,
   onContinue,
+  onBack,
   showContinue = true,
   isValid = true,
   progress = 0
@@ -41,6 +43,19 @@ export default function QuestionCard({
       {/* Card */}
       <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12">
         
+        {/* Back Button */}
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1 text-gray-500 hover:text-gray-700 text-sm font-medium mb-4 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back
+          </button>
+        )}
+
         {/* Header */}
         <div className="mb-8">
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
@@ -86,6 +101,24 @@ export default function QuestionCard({
                 Call 1-888-885-7789
               </a>
             </div>
+          </div>
+        )}
+
+        {/* Exit Ramp for auto-advance cards (no Continue button) */}
+        {!showContinue && (
+          <div className="text-center pt-4 border-t border-gray-100 mt-4">
+            <p className="text-sm text-gray-600 mb-2">
+              Rather talk to someone?
+            </p>
+            <a 
+              href="tel:1-888-885-7789"
+              className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+              Call 1-888-885-7789
+            </a>
           </div>
         )}
 

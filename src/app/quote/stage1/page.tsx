@@ -1,32 +1,66 @@
-// Stage 1: Quick Qualification (Anonymous, 7 Questions)
+// Stage 1: Quick Qualification (Anonymous)
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import QuestionCard from '@/components/quote/QuestionCard';
 import QuoteBuilder from '@/components/quote/QuoteBuilder';
 import AddressAutocomplete from '@/components/quote/AddressAutocomplete';
 
+type ProductType = 'HELOC' | 'CES' | 'CashOut' | 'NoCashRefi';
+
 interface Stage1Data {
+  product?: ProductType;
   propertyAddress?: string;
   propertyValue?: number;
   loanBalance?: number;
-  creditScore?: string;
+  creditScore?: number;
   propertyType?: 'Primary' | 'Investment' | '2nd Home';
   occupancy?: 'Owner-Occupied' | 'Rental';
   cashOut?: boolean;
   cashOutAmount?: number;
+  drawTerm?: number; // HELOC draw period in years
+}
+
+// Question flow depends on product selection
+function getQuestionFlow(data: Stage1Data): string[] {
+  const flow: string[] = ['product', 'address', 'propertyValue', 'loanBalance', 'creditScore', 'propertyType'];
+  
+  // Skip occupancy for Primary Residence (obviously owner-occupied)
+  if (data.propertyType !== 'Primary') {
+    flow.push('occupancy');
+  }
+
+  // HELOC gets draw term question
+  if (data.product === 'HELOC') {
+    flow.push('drawTerm');
+  }
+
+  // Only ask cash out for CashOut Refi
+  // HELOC/CES assume cash out = loan amount, NoCashRefi = no cash out
+  if (data.product === 'CashOut') {
+    flow.push('cashOutAmount');
+  }
+
+  return flow;
 }
 
 export default function Stage1() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
   const [data, setData] = useState<Stage1Data>({});
+  const [animating, setAnimating] = useState(false);
+  const [bounceRef, setBounceRef] = useState<string | null>(null);
   const [quote, setQuote] = useState({
     maxAvailable: 0,
     rateRange: { min: 0, max: 0 },
     monthlyPayment: 0
   });
+
+  const flow = getQuestionFlow(data);
+  const currentQuestion = flow[step];
+  const totalSteps = flow.length;
+  const progress = ((step + 1) / (totalSteps + 1)) * 100; // +1 for results
 
   // Calculate quote whenever data changes
   useEffect(() => {
@@ -34,47 +68,67 @@ export default function Stage1() {
   }, [data]);
 
   const calculateQuote = () => {
-    const {
-      propertyValue,
-      loanBalance,
-      creditScore,
-      propertyType,
-      cashOutAmount
-    } = data;
-
+    const { propertyValue, loanBalance, creditScore, propertyType, cashOutAmount, product, drawTerm } = data;
     if (!propertyValue || !creditScore) return;
 
     // LTV limits by credit score + property type
-    const ltvLimits: Record<string, Record<string, number>> = {
-      'Primary': { '720+': 0.90, '680-719': 0.85, '640-679': 0.80, '<640': 0.70 },
-      'Investment': { '720+': 0.80, '680-719': 0.75, '640-679': 0.70, '<640': 0.60 },
-      '2nd Home': { '720+': 0.85, '680-719': 0.80, '640-679': 0.75, '<640': 0.65 }
-    };
-
     const propType = propertyType || 'Primary';
-    const maxLtv = ltvLimits[propType]?.[creditScore] || 0.80;
+    const score = creditScore;
+    
+    let maxLtv = 0.80;
+    if (score >= 720) {
+      maxLtv = propType === 'Primary' ? 0.90 : propType === '2nd Home' ? 0.85 : 0.80;
+    } else if (score >= 680) {
+      maxLtv = propType === 'Primary' ? 0.85 : propType === '2nd Home' ? 0.80 : 0.75;
+    } else if (score >= 640) {
+      maxLtv = propType === 'Primary' ? 0.80 : propType === '2nd Home' ? 0.75 : 0.70;
+    } else {
+      maxLtv = propType === 'Primary' ? 0.70 : propType === '2nd Home' ? 0.65 : 0.60;
+    }
+
     const maxLoan = propertyValue * maxLtv;
     const currentBalance = loanBalance || 0;
-    const maxAvailable = Math.max(0, maxLoan - currentBalance - (cashOutAmount || 0));
+    
+    let maxAvailable: number;
+    if (product === 'CashOut') {
+      maxAvailable = Math.max(0, maxLoan - currentBalance - (cashOutAmount || 0));
+    } else if (product === 'NoCashRefi') {
+      maxAvailable = Math.max(0, maxLoan - currentBalance);
+    } else {
+      // HELOC/CES: max available IS the cash they can get
+      maxAvailable = Math.max(0, maxLoan - currentBalance);
+    }
 
     // Rate adjustments
-    const baseRate = 7.50;
-    const creditAdj: Record<string, number> = {
-      '720+': 0.00,
-      '680-719': 0.25,
-      '640-679': 0.50,
-      '<640': 1.00
-    };
+    let baseRate = 7.50;
+    
+    // Product adjustments
+    if (product === 'HELOC') {
+      baseRate = 7.25; // Variable rate, slightly lower start
+      // Draw term adjustment
+      if (drawTerm === 5) baseRate -= 0.25;
+      else if (drawTerm === 15) baseRate += 0.25;
+    } else if (product === 'CES') {
+      baseRate = 8.00; // Fixed rate, slightly higher
+    }
+    
+    // Credit adjustments
+    let creditAdj = 0;
+    if (score >= 720) creditAdj = 0;
+    else if (score >= 680) creditAdj = 0.25;
+    else if (score >= 640) creditAdj = 0.50;
+    else creditAdj = 1.00;
+
     const propertyAdj: Record<string, number> = {
       'Primary': 0.00,
       'Investment': 0.50,
       '2nd Home': 0.25
     };
 
-    const rate = baseRate + (creditAdj[creditScore] || 0) + (propertyAdj[propType] || 0);
+    const rate = baseRate + creditAdj + (propertyAdj[propType] || 0);
     const rateRange = { min: rate, max: rate + 0.5 };
 
-    // Simple payment calc (10-year HELOC, interest-only estimate)
+    // Payment calc
     const monthlyRate = rate / 100 / 12;
     const monthlyPayment = maxAvailable > 0 ? maxAvailable * monthlyRate : 0;
 
@@ -85,22 +139,103 @@ export default function Stage1() {
     });
   };
 
-  const updateData = (field: keyof Stage1Data, value: any) => {
+  const updateData = useCallback((field: keyof Stage1Data, value: any) => {
     setData(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  // Auto-advance with bounce animation for selection-type questions
+  const selectAndAdvance = useCallback((field: keyof Stage1Data, value: any, optionKey: string) => {
+    if (animating) return;
+    updateData(field, value);
+    setBounceRef(optionKey);
+    setAnimating(true);
+
+    // Double bounce then advance
+    setTimeout(() => {
+      setBounceRef(null);
+      setAnimating(false);
+      goForward();
+    }, 600);
+  }, [animating, step, flow]);
+
+  const goForward = useCallback(() => {
+    const nextFlow = getQuestionFlow(data);
+    if (step + 1 >= nextFlow.length) {
+      router.push('/quote/stage1/results?' + new URLSearchParams({
+        ...Object.fromEntries(
+          Object.entries(data).map(([k, v]) => [k, String(v)])
+        )
+      }).toString());
+    } else {
+      setStep(prev => prev + 1);
+    }
+  }, [step, data, router]);
+
+  const goBack = () => {
+    if (step > 0) setStep(prev => prev - 1);
   };
 
-  const progress = (step / 7) * 100;
+  // Selection button with bounce animation
+  const SelectButton = ({ field, value, label, desc, optionKey }: {
+    field: keyof Stage1Data;
+    value: any;
+    label: string;
+    desc?: string;
+    optionKey: string;
+  }) => {
+    const isSelected = data[field] === value;
+    const isBouncing = bounceRef === optionKey;
+
+    return (
+      <button
+        onClick={() => selectAndAdvance(field, value, optionKey)}
+        className={`w-full text-left py-4 px-6 rounded-xl border-2 transition-all ${
+          isSelected
+            ? 'border-blue-600 bg-blue-50'
+            : 'border-gray-300 hover:border-gray-400'
+        } ${isBouncing ? 'animate-selection-bounce' : ''}`}
+      >
+        <div className="font-semibold text-gray-900">{label}</div>
+        {desc && <div className="text-sm text-gray-600 mt-1">{desc}</div>}
+      </button>
+    );
+  };
 
   const renderStep = () => {
-    switch(step) {
-      case 1:
+    switch(currentQuestion) {
+      case 'product':
+        return (
+          <QuestionCard
+            title="What are you looking for?"
+            subtitle="Choose the product that fits your needs"
+            progress={progress}
+            isValid={!!data.product}
+            onContinue={goForward}
+            onBack={step > 0 ? goBack : undefined}
+            showContinue={false}
+          >
+            <div className="space-y-3">
+              <SelectButton field="product" value="HELOC" optionKey="heloc"
+                label="HELOC" desc="Home Equity Line of Credit - draw as needed, variable rate" />
+              <SelectButton field="product" value="CES" optionKey="ces"
+                label="Closed-End Second" desc="Lump sum, fixed rate second mortgage" />
+              <SelectButton field="product" value="CashOut" optionKey="cashout"
+                label="Cash-Out Refinance" desc="Replace your first mortgage and take cash out" />
+              <SelectButton field="product" value="NoCashRefi" optionKey="nocash"
+                label="Rate & Term Refinance" desc="Lower your rate or change your term, no cash out" />
+            </div>
+          </QuestionCard>
+        );
+
+      case 'address':
         return (
           <QuestionCard
             title="Where's the property?"
             subtitle="We'll verify this later, just need a rough location"
             progress={progress}
             isValid={!!data.propertyAddress}
-            onContinue={() => setStep(2)}
+            onContinue={goForward}
+            onBack={step > 0 ? goBack : undefined}
           >
             <AddressAutocomplete
               value={data.propertyAddress || ''}
@@ -111,14 +246,15 @@ export default function Stage1() {
           </QuestionCard>
         );
 
-      case 2:
+      case 'propertyValue':
         return (
           <QuestionCard
             title="What's your home worth?"
             subtitle="We'll verify with an AVM, but your estimate helps us show accurate numbers"
             progress={progress}
             isValid={!!data.propertyValue && data.propertyValue > 0}
-            onContinue={() => setStep(3)}
+            onContinue={goForward}
+            onBack={step > 0 ? goBack : undefined}
           >
             <div className="space-y-4">
               <input
@@ -140,14 +276,15 @@ export default function Stage1() {
           </QuestionCard>
         );
 
-      case 3:
+      case 'loanBalance':
         return (
           <QuestionCard
             title="Current loan balance?"
             subtitle="How much do you owe on your first mortgage?"
             progress={progress}
             isValid={data.loanBalance !== undefined}
-            onContinue={() => setStep(4)}
+            onContinue={goForward}
+            onBack={step > 0 ? goBack : undefined}
           >
             <div className="space-y-4">
               <input
@@ -174,146 +311,130 @@ export default function Stage1() {
           </QuestionCard>
         );
 
-      case 4:
+      case 'creditScore':
         return (
           <QuestionCard
             title="Your credit score?"
-            subtitle="Self-reported is fine for now"
+            subtitle="Your best estimate - we'll verify later"
             progress={progress}
             isValid={!!data.creditScore}
-            onContinue={() => setStep(5)}
+            onContinue={goForward}
+            onBack={step > 0 ? goBack : undefined}
           >
-            <div className="grid grid-cols-2 gap-4">
-              {['720+', '680-719', '640-679', '<640'].map(score => (
-                <button
-                  key={score}
-                  onClick={() => updateData('creditScore', score)}
-                  className={`py-4 px-6 rounded-xl border-2 font-semibold transition-all ${
-                    data.creditScore === score
-                      ? 'border-blue-600 bg-blue-50 text-blue-700'
-                      : 'border-gray-300 hover:border-gray-400 text-gray-700'
-                  }`}
-                >
-                  {score}
-                </button>
-              ))}
+            <div className="space-y-4">
+              <input
+                type="range"
+                min="580"
+                max="850"
+                step="5"
+                value={data.creditScore || 720}
+                onChange={(e) => updateData('creditScore', parseInt(e.target.value))}
+                className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              />
+              <div className="text-center">
+                <div className="text-5xl font-bold text-gray-900">
+                  {data.creditScore || 720}
+                </div>
+                <p className="text-sm text-gray-600 mt-2">
+                  {(data.creditScore || 720) >= 740 ? 'Excellent' :
+                   (data.creditScore || 720) >= 700 ? 'Good' :
+                   (data.creditScore || 720) >= 660 ? 'Fair' : 'Below Average'}
+                </p>
+              </div>
             </div>
           </QuestionCard>
         );
 
-      case 5:
+      case 'propertyType':
         return (
           <QuestionCard
             title="Property type?"
             subtitle="This affects your max loan amount"
             progress={progress}
             isValid={!!data.propertyType}
-            onContinue={() => setStep(6)}
+            onContinue={goForward}
+            onBack={step > 0 ? goBack : undefined}
+            showContinue={false}
           >
             <div className="space-y-3">
-              {[
-                { value: 'Primary', label: 'Primary Residence', desc: 'You live here' },
-                { value: 'Investment', label: 'Investment Property', desc: 'Rental or flip' },
-                { value: '2nd Home', label: 'Second Home', desc: 'Vacation home' }
-              ].map(option => (
-                <button
-                  key={option.value}
-                  onClick={() => updateData('propertyType', option.value as any)}
-                  className={`w-full text-left py-4 px-6 rounded-xl border-2 transition-all ${
-                    data.propertyType === option.value
-                      ? 'border-blue-600 bg-blue-50'
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                >
-                  <div className="font-semibold text-gray-900">{option.label}</div>
-                  <div className="text-sm text-gray-600 mt-1">{option.desc}</div>
-                </button>
-              ))}
+              <SelectButton field="propertyType" value="Primary" optionKey="primary"
+                label="Primary Residence" desc="You live here" />
+              <SelectButton field="propertyType" value="Investment" optionKey="investment"
+                label="Investment Property" desc="Rental property" />
+              <SelectButton field="propertyType" value="2nd Home" optionKey="2ndhome"
+                label="Second Home" desc="Vacation home" />
             </div>
           </QuestionCard>
         );
 
-      case 6:
+      case 'occupancy':
         return (
           <QuestionCard
             title="Do you live there?"
             subtitle="Occupancy status"
             progress={progress}
             isValid={!!data.occupancy}
-            onContinue={() => setStep(7)}
+            onContinue={goForward}
+            onBack={step > 0 ? goBack : undefined}
+            showContinue={false}
           >
             <div className="space-y-3">
-              {[
-                { value: 'Owner-Occupied', label: 'Yes, I live there' },
-                { value: 'Rental', label: "No, it's rented out" }
-              ].map(option => (
-                <button
-                  key={option.value}
-                  onClick={() => updateData('occupancy', option.value as any)}
-                  className={`w-full py-4 px-6 rounded-xl border-2 font-semibold transition-all ${
-                    data.occupancy === option.value
-                      ? 'border-blue-600 bg-blue-50 text-blue-700'
-                      : 'border-gray-300 hover:border-gray-400 text-gray-700'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
+              <SelectButton field="occupancy" value="Owner-Occupied" optionKey="owner"
+                label="Yes, I live there" />
+              <SelectButton field="occupancy" value="Rental" optionKey="rental"
+                label="No, it's rented out" />
             </div>
           </QuestionCard>
         );
 
-      case 7:
+      case 'drawTerm':
         return (
           <QuestionCard
-            title="Need cash out?"
-            subtitle="Are you refinancing to pull cash out?"
+            title="HELOC draw period?"
+            subtitle="How long do you want to access funds? Shorter terms = lower rates"
             progress={progress}
-            isValid={data.cashOut !== undefined}
-            onContinue={() => router.push('/quote/stage1/results')}
+            isValid={!!data.drawTerm}
+            onContinue={goForward}
+            onBack={step > 0 ? goBack : undefined}
+            showContinue={false}
           >
             <div className="space-y-3">
-              <button
-                onClick={() => updateData('cashOut', false)}
-                className={`w-full py-4 px-6 rounded-xl border-2 font-semibold transition-all ${
-                  data.cashOut === false
-                    ? 'border-blue-600 bg-blue-50 text-blue-700'
-                    : 'border-gray-300 hover:border-gray-400 text-gray-700'
-                }`}
-              >
-                No, just refinancing
-              </button>
-              <button
-                onClick={() => updateData('cashOut', true)}
-                className={`w-full py-4 px-6 rounded-xl border-2 font-semibold transition-all ${
-                  data.cashOut === true
-                    ? 'border-blue-600 bg-blue-50 text-blue-700'
-                    : 'border-gray-300 hover:border-gray-400 text-gray-700'
-                }`}
-              >
-                Yes, I want cash out
-              </button>
+              <SelectButton field="drawTerm" value={5} optionKey="draw5"
+                label="5 Years" desc="Lower rate, shorter access" />
+              <SelectButton field="drawTerm" value={10} optionKey="draw10"
+                label="10 Years" desc="Standard draw period" />
+              <SelectButton field="drawTerm" value={15} optionKey="draw15"
+                label="15 Years" desc="Longer access, slightly higher rate" />
             </div>
+          </QuestionCard>
+        );
 
-            {data.cashOut === true && (
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  How much cash do you need?
-                </label>
-                <input
-                  type="range"
-                  min="10000"
-                  max="500000"
-                  step="5000"
-                  value={data.cashOutAmount || 50000}
-                  onChange={(e) => updateData('cashOutAmount', parseInt(e.target.value))}
-                  className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                />
-                <div className="text-center text-2xl font-bold text-gray-900 mt-4">
+      case 'cashOutAmount':
+        return (
+          <QuestionCard
+            title="How much cash do you need?"
+            subtitle="This will be added to your new loan balance"
+            progress={progress}
+            isValid={!!data.cashOutAmount && data.cashOutAmount > 0}
+            onContinue={goForward}
+            onBack={step > 0 ? goBack : undefined}
+          >
+            <div className="space-y-4">
+              <input
+                type="range"
+                min="10000"
+                max="500000"
+                step="5000"
+                value={data.cashOutAmount || 50000}
+                onChange={(e) => updateData('cashOutAmount', parseInt(e.target.value))}
+                className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              />
+              <div className="text-center">
+                <div className="text-4xl font-bold text-gray-900">
                   ${(data.cashOutAmount || 50000).toLocaleString()}
                 </div>
               </div>
-            )}
+            </div>
           </QuestionCard>
         );
 
@@ -324,6 +445,20 @@ export default function Stage1() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50 py-8">
+      {/* Bounce animation CSS */}
+      <style jsx global>{`
+        @keyframes selectionBounce {
+          0% { transform: scale(1); }
+          30% { transform: scale(1.04); }
+          50% { transform: scale(0.98); }
+          70% { transform: scale(1.02); }
+          100% { transform: scale(1); }
+        }
+        .animate-selection-bounce {
+          animation: selectionBounce 0.5s ease-in-out;
+        }
+      `}</style>
+
       <div className="container mx-auto px-4">
         
         {/* Desktop: Two Column Layout */}
