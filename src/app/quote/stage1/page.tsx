@@ -22,12 +22,12 @@ interface Stage1Data {
   drawTerm?: number; // HELOC draw period in years
 }
 
-// Question flow depends on product selection
+// Question flow depends on product + property type selections
 function getQuestionFlow(data: Stage1Data): string[] {
   const flow: string[] = ['product', 'address', 'propertyValue', 'loanBalance', 'creditScore', 'propertyType'];
   
-  // Skip occupancy for Primary Residence (obviously owner-occupied)
-  if (data.propertyType !== 'Primary') {
+  // Only ask occupancy for 2nd Home (Primary = owner-occupied, Investment = not owner-occupied)
+  if (data.propertyType === '2nd Home') {
     flow.push('occupancy');
   }
 
@@ -36,11 +36,12 @@ function getQuestionFlow(data: Stage1Data): string[] {
     flow.push('drawTerm');
   }
 
-  // Only ask cash out for CashOut Refi
-  // HELOC/CES assume cash out = loan amount, NoCashRefi = no cash out
+  // Cash-Out Refi: ask desired cash out amount (they keep existing balance + get cash)
   if (data.product === 'CashOut') {
     flow.push('cashOutAmount');
   }
+  // HELOC/CES: no cash out question - max available IS the cash they get
+  // NoCashRefi: no cash out at all
 
   return flow;
 }
@@ -410,10 +411,12 @@ export default function Stage1() {
         );
 
       case 'cashOutAmount':
+        const currentBalance = data.loanBalance || 0;
+        const cashDesired = data.cashOutAmount || 50000;
+        const newLoanAmount = currentBalance + cashDesired;
         return (
           <QuestionCard
             title="How much cash do you need?"
-            subtitle="This will be added to your new loan balance"
             progress={progress}
             isValid={!!data.cashOutAmount && data.cashOutAmount > 0}
             onContinue={goForward}
@@ -423,16 +426,33 @@ export default function Stage1() {
               <input
                 type="range"
                 min="10000"
-                max="500000"
+                max={Math.max(500000, (data.propertyValue || 500000) - currentBalance)}
                 step="5000"
-                value={data.cashOutAmount || 50000}
+                value={cashDesired}
                 onChange={(e) => updateData('cashOutAmount', parseInt(e.target.value))}
                 className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               />
               <div className="text-center">
                 <div className="text-4xl font-bold text-gray-900">
-                  ${(data.cashOutAmount || 50000).toLocaleString()}
+                  ${cashDesired.toLocaleString()}
                 </div>
+              </div>
+
+              {/* New loan breakdown */}
+              <div className="bg-gray-50 rounded-xl p-4 mt-4">
+                <div className="flex justify-between text-sm text-gray-600 mb-1">
+                  <span>Current balance</span>
+                  <span>${currentBalance.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm text-gray-600 mb-2">
+                  <span>Cash out</span>
+                  <span>+ ${cashDesired.toLocaleString()}</span>
+                </div>
+                <div className="border-t border-gray-300 pt-2 flex justify-between font-semibold text-gray-900">
+                  <span>New loan amount</span>
+                  <span>${newLoanAmount.toLocaleString()}</span>
+                </div>
+                <p className="text-xs text-gray-400 mt-2">*Closing costs calculated after verification</p>
               </div>
             </div>
           </QuestionCard>
