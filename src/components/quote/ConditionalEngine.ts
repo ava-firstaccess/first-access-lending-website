@@ -159,6 +159,9 @@ export function isSectionComplete(
   formData: Record<string, any>,
   rules: VisibilityRule[]
 ): boolean {
+  let hasRequiredFields = false;
+  let allRequiredFilled = true;
+
   for (const field of sectionFields) {
     // Skip if field is not visible
     if (!isFieldVisible(field.name, formData, rules)) continue;
@@ -166,12 +169,15 @@ export function isSectionComplete(
     // Skip if field is not required
     if (field.required === false) continue;
     
+    hasRequiredFields = true;
+
     // Check if field has a value
     const value = formData[field.name];
     if (value === undefined || value === null || value === '') {
-      return false;
+      allRequiredFilled = false;
     }
   }
   
-  return true;
+  // Only complete if there were required fields AND all were filled
+  return hasRequiredFields && allRequiredFilled;
 }

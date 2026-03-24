@@ -167,10 +167,54 @@ function Stage2Content() {
     router.push('/quote/stage1/results?' + searchParams.toString());
   };
 
-  // Calculate progress (percentage of completed sections)
-  const completedSections = Object.values(sections).filter(fields => isSectionCompleted(fields)).length;
-  const totalSections = Object.keys(sections).length;
-  const progress = (completedSections / totalSections) * 100;
+  // Step-by-step navigation
+  const [currentStep, setCurrentStep] = useState(0);
+
+  // Build active sections list (skip conditional sections that aren't visible)
+  const sectionOrder = [
+    { key: 'borrowerInfo', title: 'Borrower Information' },
+    { key: 'coBorrower', title: 'Co-Borrower Information', conditional: () => isVisible('Co-Borrower - First Name') },
+    { key: 'currentResidence', title: 'Current Residence' },
+    { key: 'subjectProperty', title: 'Subject Property' },
+    { key: 'title', title: 'Title & Vesting' },
+    { key: 'currentLoan', title: 'Current Loan Details' },
+    { key: 'secondMortgage', title: 'Second Mortgage', conditional: () => isVisible('Second Mortgage - Balance') },
+    { key: 'otherProperties', title: 'Other Properties' },
+    { key: 'employmentIncome', title: 'Employment & Income' },
+    { key: 'assets', title: 'Assets' },
+    { key: 'declarations', title: 'Declarations' },
+    { key: 'demographics', title: 'Demographics' },
+  ];
+
+  const activeSections = sectionOrder.filter(s => !s.conditional || s.conditional());
+  const totalSteps = activeSections.length;
+  const currentSectionKey = activeSections[currentStep]?.key || 'borrowerInfo';
+
+  // Calculate progress
+  const completedSections = activeSections.filter(s => isSectionCompleted(sections[s.key as keyof typeof sections])).length;
+  const progress = ((currentStep + 1) / (totalSteps + 1)) * 100; // +1 for submit
+
+  const goNext = () => {
+    if (currentStep < totalSteps - 1) {
+      setCurrentStep(prev => prev + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const goBack = () => {
+    if (currentStep > 0) {
+      setCurrentStep(prev => prev - 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      handleBackToResults();
+    }
+  };
+
+  const isCurrentSectionComplete = () => {
+    const sectionFields = sections[currentSectionKey as keyof typeof sections];
+    if (!sectionFields) return true;
+    return isSectionCompleted(sectionFields);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50 py-8">
@@ -198,25 +242,42 @@ function Stage2Content() {
               )}
             </div>
 
-            {/* Exit Ramp */}
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-              <p className="text-sm text-gray-700">
-                <strong>Need help?</strong> Call us at{' '}
-                <a href="tel:1-888-885-7789" className="text-blue-600 hover:text-blue-700 font-semibold">
-                  1-888-885-7789
-                </a>
-              </p>
+            {/* Progress Steps */}
+            <div className="flex items-center gap-1 mb-6 overflow-x-auto pb-2">
+              {activeSections.map((s, i) => (
+                <button
+                  key={s.key}
+                  onClick={() => setCurrentStep(i)}
+                  className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all ${
+                    i === currentStep
+                      ? 'bg-blue-600 text-white scale-110'
+                      : isSectionCompleted(sections[s.key as keyof typeof sections])
+                        ? 'bg-green-500 text-white'
+                        : i < currentStep
+                          ? 'bg-gray-300 text-gray-600'
+                          : 'bg-gray-200 text-gray-400'
+                  }`}
+                  title={s.title}
+                >
+                  {isSectionCompleted(sections[s.key as keyof typeof sections]) && i !== currentStep ? (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    i + 1
+                  )}
+                </button>
+              ))}
             </div>
 
-            {/* Sections */}
-            
-            {/* 1. Borrower Info */}
+            {/* Current Section */}
+            {currentSectionKey === 'borrowerInfo' && (
             <SectionCard
               title="Borrower Information"
               description="Your personal details"
               isComplete={isSectionCompleted(sections.borrowerInfo)}
-              defaultOpen={!isSectionCompleted(sections.borrowerInfo)}
-              sectionNumber={1}
+              defaultOpen={true}
+              sectionNumber={currentStep + 1}
             >
               <TextField label="First Name" name="Borrower - First Name" value={formData['Borrower - First Name']} onChange={updateField} required />
               <TextField label="Last Name" name="Borrower - Last Name" value={formData['Borrower - Last Name']} onChange={updateField} required />
@@ -249,15 +310,15 @@ function Stage2Content() {
                 ]}
               />
             </SectionCard>
+            )}
 
-            {/* 2. Co-Borrower (conditional) */}
-            {isVisible('Co-Borrower - First Name') && (
+            {currentSectionKey === 'coBorrower' && (
               <SectionCard
                 title="Co-Borrower Information"
                 description="Co-borrower personal details"
                 isComplete={isSectionCompleted(sections.coBorrower)}
-                defaultOpen={!isSectionCompleted(sections.coBorrower)}
-                sectionNumber={2}
+                defaultOpen={true}
+                sectionNumber={currentStep + 1}
               >
                 <TextField label="First Name" name="Co-Borrower - First Name" value={formData['Co-Borrower - First Name']} onChange={updateField} required />
                 <TextField label="Last Name" name="Co-Borrower - Last Name" value={formData['Co-Borrower - Last Name']} onChange={updateField} required />
@@ -279,13 +340,13 @@ function Stage2Content() {
               </SectionCard>
             )}
 
-            {/* 3. Current Residence */}
+            {currentSectionKey === 'currentResidence' && (
             <SectionCard
               title="Current Residence"
               description="Where you live now"
               isComplete={isSectionCompleted(sections.currentResidence)}
-              defaultOpen={false}
-              sectionNumber={3}
+              defaultOpen={true}
+              sectionNumber={currentStep + 1}
             >
               <SelectField
                 label="Housing Type"
@@ -319,14 +380,15 @@ function Stage2Content() {
               <NumberField label="Years at Address" name="Borrower - Years in Current Home" value={formData['Borrower - Years in Current Home']} onChange={updateField} required min={0} max={99} />
               <NumberField label="Months at Address" name="Borrower - Months in Current Home" value={formData['Borrower - Months in Current Home']} onChange={updateField} required min={0} max={11} />
             </SectionCard>
+            )}
 
-            {/* 4. Subject Property */}
+            {currentSectionKey === 'subjectProperty' && (
             <SectionCard
               title="Subject Property"
               description="The property you're financing"
               isComplete={isSectionCompleted(sections.subjectProperty)}
-              defaultOpen={false}
-              sectionNumber={4}
+              defaultOpen={true}
+              sectionNumber={currentStep + 1}
             >
               <RadioField
                 label="Is this the same as your current address?"
@@ -381,14 +443,15 @@ function Stage2Content() {
                 ]}
               />
             </SectionCard>
+            )}
 
-            {/* 5. Title */}
+            {currentSectionKey === 'title' && (
             <SectionCard
               title="Title & Vesting"
               description="How the property is owned"
               isComplete={isSectionCompleted(sections.title)}
-              defaultOpen={false}
-              sectionNumber={5}
+              defaultOpen={true}
+              sectionNumber={currentStep + 1}
             >
               <SelectField
                 label="Current Title Held As"
@@ -417,14 +480,15 @@ function Stage2Content() {
                 ]}
               />
             </SectionCard>
+            )}
 
-            {/* 6. Current Loan */}
+            {currentSectionKey === 'currentLoan' && (
             <SectionCard
               title="Current Loan Details"
               description="Your existing mortgage (if any)"
               isComplete={isSectionCompleted(sections.currentLoan)}
-              defaultOpen={false}
-              sectionNumber={6}
+              defaultOpen={true}
+              sectionNumber={currentStep + 1}
             >
               <RadioField
                 label="Is the property free & clear?"
@@ -519,15 +583,15 @@ function Stage2Content() {
                 </>
               )}
             </SectionCard>
+            )}
 
-            {/* 7. Second Mortgage (conditional) */}
-            {isVisible('Second Mortgage - Balance') && (
+            {currentSectionKey === 'secondMortgage' && (
               <SectionCard
                 title="Second Mortgage"
                 description="Details about your second lien"
                 isComplete={isSectionCompleted(sections.secondMortgage)}
-                defaultOpen={!isSectionCompleted(sections.secondMortgage)}
-                sectionNumber={7}
+                defaultOpen={true}
+                sectionNumber={currentStep + 1}
               >
                 <CurrencyField label="Balance" name="Second Mortgage - Balance" value={formData['Second Mortgage - Balance']} onChange={updateField} required />
                 <CurrencyField label="Monthly Payment" name="Second Mortgage - Monthly Payment" value={formData['Second Mortgage - Monthly Payment']} onChange={updateField} required />
@@ -546,13 +610,13 @@ function Stage2Content() {
               </SectionCard>
             )}
 
-            {/* 8. Other Properties */}
+            {currentSectionKey === 'otherProperties' && (
             <SectionCard
               title="Other Properties"
               description="Additional real estate you own"
               isComplete={isSectionCompleted(sections.otherProperties)}
-              defaultOpen={false}
-              sectionNumber={8}
+              defaultOpen={true}
+              sectionNumber={currentStep + 1}
             >
               <RadioField
                 label="Do you own other properties?"
@@ -575,13 +639,15 @@ function Stage2Content() {
               )}
             </SectionCard>
 
-            {/* 9. Employment & Income */}
+            )}
+
+            {currentSectionKey === 'employmentIncome' && (
             <SectionCard
               title="Employment & Income"
               description="Your income sources"
               isComplete={isSectionCompleted(sections.employmentIncome)}
-              defaultOpen={false}
-              sectionNumber={9}
+              defaultOpen={true}
+              sectionNumber={currentStep + 1}
             >
               <SelectField
                 label="Employment Status"
@@ -599,13 +665,15 @@ function Stage2Content() {
               <CurrencyField label="Base Monthly Income" name="Borrower - Base Monthly Income" value={formData['Borrower - Base Monthly Income']} onChange={updateField} placeholder="Gross monthly income" />
             </SectionCard>
 
-            {/* 10. Assets */}
+            )}
+
+            {currentSectionKey === 'assets' && (
             <SectionCard
               title="Assets"
               description="Your financial accounts"
               isComplete={isSectionCompleted(sections.assets)}
-              defaultOpen={false}
-              sectionNumber={10}
+              defaultOpen={true}
+              sectionNumber={currentStep + 1}
             >
               <SelectField
                 label="Primary Account Type"
@@ -624,13 +692,15 @@ function Stage2Content() {
               <CurrencyField label="Cash Left After Closing" name="Assets - Cash Left Over" value={formData['Assets - Cash Left Over']} onChange={updateField} placeholder="Reserves" />
             </SectionCard>
 
-            {/* 11. Declarations */}
+            )}
+
+            {currentSectionKey === 'declarations' && (
             <SectionCard
               title="Declarations"
               description="Required disclosure questions"
               isComplete={isSectionCompleted(sections.declarations)}
-              defaultOpen={false}
-              sectionNumber={11}
+              defaultOpen={true}
+              sectionNumber={currentStep + 1}
             >
               <RadioField
                 label="Outstanding judgments, federal debt, or delinquent accounts?"
@@ -699,13 +769,15 @@ function Stage2Content() {
               />
             </SectionCard>
 
-            {/* 12. Demographics */}
+            )}
+
+            {currentSectionKey === 'demographics' && (
             <SectionCard
               title="Demographics"
               description="Optional - for government monitoring purposes"
               isComplete={isSectionCompleted(sections.demographics)}
-              defaultOpen={false}
-              sectionNumber={12}
+              defaultOpen={true}
+              sectionNumber={currentStep + 1}
             >
               <SelectField
                 label="Ethnicity (Optional)"
@@ -744,18 +816,42 @@ function Stage2Content() {
                 ]}
               />
             </SectionCard>
+            )}
 
-            {/* Submit Button */}
-            <div className="mt-8 bg-white rounded-xl shadow-md p-6">
+            {/* Navigation Buttons */}
+            <div className="mt-6 flex items-center justify-between gap-4">
               <button
-                onClick={handleSubmit}
-                className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all text-lg"
+                onClick={goBack}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-800 font-medium py-3 px-6 rounded-xl border-2 border-gray-300 hover:border-gray-400 transition-colors"
               >
-                Submit Application
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Back
               </button>
-              <p className="text-sm text-gray-600 text-center mt-3">
-                By submitting, you agree to our terms and authorize a credit check.
-              </p>
+
+              {currentStep < totalSteps - 1 ? (
+                <button
+                  onClick={goNext}
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all text-center"
+                >
+                  Continue
+                </button>
+              ) : (
+                <button
+                  onClick={handleSubmit}
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all text-center"
+                >
+                  Submit Application
+                </button>
+              )}
+            </div>
+
+            {/* Exit ramp */}
+            <div className="text-center mt-4">
+              <a href="tel:1-888-885-7789" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                Need help? Call 1-888-885-7789
+              </a>
             </div>
 
           </div>
