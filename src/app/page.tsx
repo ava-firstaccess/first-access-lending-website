@@ -67,7 +67,7 @@ export default function Home() {
             </ul>
             <a href="/quote" className="w-full bg-gradient-to-r from-[#0EF0F0] to-[#0283DB] text-[#003961] font-bold px-8 py-4 rounded-xl hover:shadow-lg transition-all mt-auto block text-center">
               Get Access →
-            </button>
+            </a>
           </div>
 
           {/* Guided Access Card */}
@@ -103,9 +103,9 @@ export default function Home() {
                 <span>White-glove support</span>
               </li>
             </ul>
-            <button className="w-full bg-gradient-to-r from-[#0283DB] to-[#003961] text-white font-bold px-8 py-4 rounded-xl hover:shadow-lg transition-all mt-auto">
+            <a href="/quote" className="w-full bg-gradient-to-r from-[#0283DB] to-[#003961] text-white font-bold px-8 py-4 rounded-xl hover:shadow-lg transition-all mt-auto block text-center">
               Get Access →
-            </button>
+            </a>
           </div>
         </div>
       </section>
