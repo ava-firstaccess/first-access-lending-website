@@ -243,36 +243,18 @@ function Stage2Content() {
               )}
             </div>
 
-            {/* Progress Steps */}
-            <div className="flex items-center gap-2 mb-6 overflow-x-auto px-1 py-1">
-              {activeSections.map((s, i) => {
-                const isComplete = isSectionCompleted(sections[s.key as keyof typeof sections]);
-                const visited = i <= highestStep;
-                return (
-                <button
-                  key={s.key}
-                  onClick={() => { if (visited) setCurrentStep(i); }}
-                  className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all ${
-                    i === currentStep
-                      ? 'bg-blue-600 text-white'
-                      : isComplete && visited
-                        ? 'bg-green-500 text-white'
-                        : visited
-                          ? 'bg-gray-300 text-gray-600 cursor-pointer'
-                          : 'bg-gray-200 text-gray-400 cursor-default'
-                  }`}
-                  title={s.title}
-                >
-                  {isComplete && visited && i !== currentStep ? (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
-                    i + 1
-                  )}
-                </button>
-                );
-              })}
+            {/* Progress Bar */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">{activeSections[currentStep]?.title}</span>
+                <span className="text-sm text-gray-500">Step {currentStep + 1} of {totalSteps}</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 h-2.5 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${((currentStep + 1) / totalSteps) * 100}%` }}
+                />
+              </div>
             </div>
 
             {/* Current Section */}
