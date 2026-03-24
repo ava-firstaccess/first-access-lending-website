@@ -169,6 +169,7 @@ function Stage2Content() {
 
   // Step-by-step navigation
   const [currentStep, setCurrentStep] = useState(0);
+  const [highestStep, setHighestStep] = useState(0);
 
   // Build active sections list (skip conditional sections that aren't visible)
   const sectionOrder = [
@@ -196,7 +197,9 @@ function Stage2Content() {
 
   const goNext = () => {
     if (currentStep < totalSteps - 1) {
-      setCurrentStep(prev => prev + 1);
+      const next = currentStep + 1;
+      setCurrentStep(next);
+      setHighestStep(prev => Math.max(prev, next));
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -243,23 +246,26 @@ function Stage2Content() {
             </div>
 
             {/* Progress Steps */}
-            <div className="flex items-center gap-1 mb-6 overflow-x-auto pb-2">
-              {activeSections.map((s, i) => (
+            <div className="flex items-center gap-2 mb-6 overflow-x-auto px-1 py-1">
+              {activeSections.map((s, i) => {
+                const isComplete = isSectionCompleted(sections[s.key as keyof typeof sections]);
+                const visited = i <= highestStep;
+                return (
                 <button
                   key={s.key}
-                  onClick={() => setCurrentStep(i)}
+                  onClick={() => { if (visited) setCurrentStep(i); }}
                   className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all ${
                     i === currentStep
-                      ? 'bg-blue-600 text-white scale-110'
-                      : isSectionCompleted(sections[s.key as keyof typeof sections])
+                      ? 'bg-blue-600 text-white'
+                      : isComplete && visited
                         ? 'bg-green-500 text-white'
-                        : i < currentStep
-                          ? 'bg-gray-300 text-gray-600'
-                          : 'bg-gray-200 text-gray-400'
+                        : visited
+                          ? 'bg-gray-300 text-gray-600 cursor-pointer'
+                          : 'bg-gray-200 text-gray-400 cursor-default'
                   }`}
                   title={s.title}
                 >
-                  {isSectionCompleted(sections[s.key as keyof typeof sections]) && i !== currentStep ? (
+                  {isComplete && visited && i !== currentStep ? (
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
@@ -267,7 +273,8 @@ function Stage2Content() {
                     i + 1
                   )}
                 </button>
-              ))}
+                );
+              })}
             </div>
 
             {/* Current Section */}
