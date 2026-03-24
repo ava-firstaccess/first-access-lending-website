@@ -245,7 +245,7 @@ export default function Stage1() {
             <div className="space-y-3">
               {[
                 { value: 'Owner-Occupied', label: 'Yes, I live there' },
-                { value: 'Rental', label: 'No, it's rented out' }
+                { value: 'Rental', label: "No, it's rented out" }
               ].map(option => (
                 <button
                   key={option.value}
