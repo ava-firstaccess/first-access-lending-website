@@ -1,4 +1,4 @@
-// Address Autocomplete - simple script tag approach
+// Address Autocomplete - uncontrolled input (Google manages DOM directly)
 'use client';
 
 import { useEffect, useRef } from 'react';
@@ -10,43 +10,36 @@ interface AddressAutocompleteProps {
   className?: string;
 }
 
-// Global singleton to prevent loading script multiple times
-let googleMapsLoaded = false;
-let googleMapsLoading = false;
-const loadCallbacks: (() => void)[] = [];
+// Singleton script loader
+let scriptLoaded = false;
+let scriptLoading = false;
+const callbacks: (() => void)[] = [];
 
-function loadGoogleMaps(apiKey: string): Promise<void> {
+function ensureGoogleMaps(apiKey: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (googleMapsLoaded) {
+    if (scriptLoaded && window.google?.maps?.places) {
       resolve();
       return;
     }
-
-    if (googleMapsLoading) {
-      loadCallbacks.push(() => resolve());
+    if (scriptLoading) {
+      callbacks.push(() => resolve());
       return;
     }
-
-    googleMapsLoading = true;
-
+    scriptLoading = true;
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
     script.async = true;
-    script.defer = true;
-
     script.onload = () => {
-      googleMapsLoaded = true;
-      googleMapsLoading = false;
+      scriptLoaded = true;
+      scriptLoading = false;
       resolve();
-      loadCallbacks.forEach(cb => cb());
-      loadCallbacks.length = 0;
+      callbacks.forEach(cb => cb());
+      callbacks.length = 0;
     };
-
     script.onerror = () => {
-      googleMapsLoading = false;
-      reject(new Error('Failed to load Google Maps script'));
+      scriptLoading = false;
+      reject(new Error('Google Maps failed to load'));
     };
-
     document.head.appendChild(script);
   });
 }
@@ -61,16 +54,22 @@ export default function AddressAutocomplete({
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const initRef = useRef(false);
 
+  // Sync initial value to uncontrolled input
   useEffect(() => {
-    if (typeof window === 'undefined' || !inputRef.current || initRef.current) return;
+    if (inputRef.current && value && !inputRef.current.value) {
+      inputRef.current.value = value;
+    }
+  }, [value]);
 
+  useEffect(() => {
+    if (!inputRef.current || initRef.current) return;
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY;
     if (!apiKey) return;
 
     initRef.current = true;
 
-    loadGoogleMaps(apiKey).then(() => {
-      if (!inputRef.current || !window.google?.maps?.places) return;
+    ensureGoogleMaps(apiKey).then(() => {
+      if (!inputRef.current) return;
 
       autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, {
         types: ['address'],
@@ -85,7 +84,7 @@ export default function AddressAutocomplete({
         }
       });
     }).catch((err) => {
-      console.warn('Google Places autocomplete unavailable:', err);
+      console.warn('Autocomplete unavailable:', err);
     });
 
     return () => {
@@ -95,12 +94,14 @@ export default function AddressAutocomplete({
     };
   }, [onChange]);
 
+  // Uncontrolled input - no value prop, Google manages it directly
+  // onInput syncs typed text to React state (for Continue button enable)
   return (
     <input
       ref={inputRef}
       type="text"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
+      defaultValue={value}
+      onInput={(e) => onChange((e.target as HTMLInputElement).value)}
       placeholder={placeholder}
       className={className}
       autoComplete="off"
