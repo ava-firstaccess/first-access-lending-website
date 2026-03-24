@@ -1,7 +1,8 @@
-// Address Autocomplete - PlaceAutocompleteElement (New API)
+// Address Autocomplete using Google PlaceAutocompleteElement
+// Clean rewrite - no shadow DOM hacking, no polling
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface AddressAutocompleteProps {
   value: string;
@@ -10,147 +11,89 @@ interface AddressAutocompleteProps {
   className?: string;
 }
 
-// Singleton: resolve ONLY via callback (no polling - prevents race condition)
-let mapsPromise: Promise<void> | null = null;
+// Load Google Maps once, resolve via callback when fully ready
+let loadPromise: Promise<void> | null = null;
 
 function loadGoogleMaps(apiKey: string): Promise<void> {
-  if (mapsPromise) return mapsPromise;
-
-  mapsPromise = new Promise((resolve, reject) => {
-    // Already loaded from another source
+  if (loadPromise) return loadPromise;
+  loadPromise = new Promise((resolve, reject) => {
     if (window.google?.maps?.places?.PlaceAutocompleteElement) {
       resolve();
       return;
     }
-
-    const callbackName = '__gm_autocomplete_cb_' + Date.now();
-    (window as any)[callbackName] = () => {
-      delete (window as any)[callbackName];
-      resolve();
-    };
-
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=${callbackName}`;
-    script.async = true;
-    script.onerror = () => {
-      delete (window as any)[callbackName];
-      mapsPromise = null;
-      reject(new Error('Google Maps failed to load'));
-    };
-    document.head.appendChild(script);
+    const cb = '_gmReady';
+    (window as any)[cb] = () => { delete (window as any)[cb]; resolve(); };
+    const s = document.createElement('script');
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=${cb}`;
+    s.async = true;
+    s.onerror = () => { loadPromise = null; reject(new Error('Maps load failed')); };
+    document.head.appendChild(s);
   });
-
-  return mapsPromise;
+  return loadPromise;
 }
 
-export default function AddressAutocomplete({
-  value,
-  onChange,
-  placeholder = "Enter address or city, state",
-  className = ""
-}: AddressAutocompleteProps) {
+export default function AddressAutocomplete({ value, onChange, placeholder, className }: AddressAutocompleteProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const fallbackRef = useRef<HTMLInputElement>(null);
-  const initRef = useRef(false);
+  const onChangeRef = useRef(onChange);
+  const initialized = useRef(false);
 
-  const handleChange = useCallback((address: string) => {
-    onChange(address);
-  }, [onChange]);
+  // Keep onChange ref current (avoids stale closure issue)
+  onChangeRef.current = onChange;
 
   useEffect(() => {
-    if (initRef.current) return;
+    if (initialized.current || !containerRef.current) return;
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY;
-    if (!apiKey || !containerRef.current) return;
+    if (!apiKey) return;
+    initialized.current = true;
 
-    initRef.current = true;
+    loadGoogleMaps(apiKey).then(() => {
+      if (!containerRef.current) return;
+      const PAE = google.maps.places?.PlaceAutocompleteElement;
+      if (!PAE) { console.warn('PlaceAutocompleteElement unavailable'); return; }
 
-    (async () => {
-      try {
-        await loadGoogleMaps(apiKey);
+      const ac = new PAE({
+        componentRestrictions: { country: 'us' },
+        types: ['address'],
+      });
 
-        const PAE = google.maps.places?.PlaceAutocompleteElement;
-        if (!PAE) {
-          console.warn('PlaceAutocompleteElement not available after load');
-          return;
-        }
+      // When user selects a place from dropdown
+      ac.addEventListener('gmp-placeselect', async (e: any) => {
+        const place = e.place;
+        if (!place) return;
+        try {
+          await place.fetchFields({ fields: ['formattedAddress'] });
+          if (place.formattedAddress) { onChangeRef.current(place.formattedAddress); return; }
+        } catch { /* fall through */ }
+        // Fallback: read whatever text the element is showing
+        const input = (ac as any).inputElement ?? (ac as unknown as HTMLElement).shadowRoot?.querySelector('input');
+        if (input?.value) onChangeRef.current(input.value);
+      });
 
-        if (!containerRef.current) return;
+      // Typing: input events bubble out of shadow DOM
+      (ac as unknown as HTMLElement).addEventListener('input', () => {
+        const input = (ac as any).inputElement ?? (ac as unknown as HTMLElement).shadowRoot?.querySelector('input');
+        if (input?.value) onChangeRef.current(input.value);
+      });
 
-        const autocomplete = new PAE({
-          componentRestrictions: { country: 'us' },
-          types: ['address'],
-        });
+      // Insert and hide fallback
+      const el = ac as unknown as HTMLElement;
+      el.style.width = '100%';
+      const fallback = containerRef.current.querySelector('input');
+      if (fallback) fallback.style.display = 'none';
+      containerRef.current.insertBefore(el, containerRef.current.firstChild);
 
-        const el = autocomplete as unknown as HTMLElement;
-        el.style.width = '100%';
+    }).catch(err => console.warn('Maps failed:', err));
+  }, []);
 
-        autocomplete.addEventListener('gmp-placeselect', async (event: any) => {
-          const place = event.place;
-          if (!place) return;
-
-          // Try to get the formatted address via fetchFields
-          try {
-            await place.fetchFields({ fields: ['formattedAddress', 'addressComponents'] });
-            if (place.formattedAddress) {
-              handleChange(place.formattedAddress);
-              return;
-            }
-          } catch (err) {
-            console.warn('fetchFields failed:', err);
-          }
-
-          // Fallback: try displayName
-          if (place.displayName) {
-            handleChange(typeof place.displayName === 'string' ? place.displayName : place.displayName.text || '');
-            return;
-          }
-
-          // Last resort: grab whatever text is in the shadow DOM input
-          const shadowInput = el.shadowRoot?.querySelector('input');
-          if (shadowInput?.value) {
-            handleChange(shadowInput.value);
-          }
-        });
-
-        // Poll shadow DOM input value to sync with React state
-        // (Shadow DOM events are unreliable - programmatic value changes from 
-        // place selection don't fire 'input' events)
-        let lastValue = '';
-        const pollInterval = setInterval(() => {
-          const shadowInput = el.shadowRoot?.querySelector('input');
-          if (shadowInput) {
-            shadowInput.placeholder = placeholder;
-            if (shadowInput.value !== lastValue && shadowInput.value.length > 0) {
-              lastValue = shadowInput.value;
-              handleChange(shadowInput.value);
-            }
-          }
-        }, 300);
-
-        // Store cleanup ref
-        (el as any).__pollInterval = pollInterval;
-
-        // Hide fallback, insert autocomplete element
-        if (fallbackRef.current) {
-          fallbackRef.current.style.display = 'none';
-        }
-        containerRef.current.insertBefore(el, containerRef.current.firstChild);
-
-      } catch (err) {
-        console.warn('Autocomplete unavailable, using plain input:', err);
-      }
-    })();
-  }, [handleChange]);
-
+  // Fallback plain input (shown until Google loads, or if it fails)
   return (
     <div ref={containerRef} className="w-full">
       <input
-        ref={fallbackRef}
         type="text"
         defaultValue={value}
         onInput={(e) => onChange((e.target as HTMLInputElement).value)}
-        placeholder={placeholder}
-        className={className}
+        placeholder={placeholder || 'Enter address or city, state'}
+        className={className || ''}
         autoComplete="off"
       />
       <style jsx global>{`
