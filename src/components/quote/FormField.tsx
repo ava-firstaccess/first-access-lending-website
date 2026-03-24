@@ -128,30 +128,23 @@ export function DateField({
           maxLength={10}
           className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
         />
-        {/* Hidden native date picker */}
-        <input
-          ref={pickerRef}
-          type="date"
-          value={value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : ''}
-          onChange={handlePickerChange}
-          min={min}
-          max={max}
-          tabIndex={-1}
-          className="absolute inset-0 opacity-0 w-0 h-0 overflow-hidden pointer-events-none"
-          aria-hidden="true"
-        />
-        {/* Calendar icon button */}
-        <button
-          type="button"
-          onClick={() => pickerRef.current?.showPicker?.()}
-          disabled={disabled}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50"
-          title="Open calendar"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {/* Calendar icon that IS the native date input */}
+        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+          <input
+            ref={pickerRef}
+            type="date"
+            value={value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : ''}
+            onChange={handlePickerChange}
+            min={min}
+            max={max}
+            disabled={disabled}
+            tabIndex={-1}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
+          <svg className="w-5 h-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
-        </button>
+        </div>
       </div>
     </div>
   );
