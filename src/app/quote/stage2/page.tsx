@@ -174,12 +174,10 @@ function Stage2Content() {
   // Build active sections list (skip conditional sections that aren't visible)
   const sectionOrder = [
     { key: 'borrowerInfo', title: 'Borrower Information' },
-    { key: 'coBorrower', title: 'Co-Borrower Information', conditional: () => isVisible('Co-Borrower - First Name') },
     { key: 'currentResidence', title: 'Current Residence' },
     { key: 'subjectProperty', title: 'Subject Property' },
     { key: 'title', title: 'Title & Vesting' },
-    { key: 'currentLoan', title: 'Current Loan Details' },
-    { key: 'secondMortgage', title: 'Second Mortgage', conditional: () => isVisible('Second Mortgage - Balance') },
+    { key: 'currentLoan', title: 'Current Loan & Liens' },
     { key: 'otherProperties', title: 'Other Properties' },
     { key: 'employmentIncome', title: 'Employment & Income' },
     { key: 'assets', title: 'Assets' },
@@ -316,35 +314,33 @@ function Stage2Content() {
                   { value: 'No', label: 'No' }
                 ]}
               />
-            </SectionCard>
-            )}
 
-            {currentSectionKey === 'coBorrower' && (
-              <SectionCard
-                title="Co-Borrower Information"
-                description="Co-borrower personal details"
-                isComplete={isSectionCompleted(sections.coBorrower)}
-                defaultOpen={true}
-                sectionNumber={currentStep + 1}
-              >
-                <TextField label="First Name" name="Co-Borrower - First Name" value={formData['Co-Borrower - First Name']} onChange={updateField} required />
-                <TextField label="Last Name" name="Co-Borrower - Last Name" value={formData['Co-Borrower - Last Name']} onChange={updateField} required />
-                <TextField type="tel" label="Phone" name="Co-Borrower - Phone" value={formData['Co-Borrower - Phone']} onChange={updateField} required placeholder="(555) 123-4567" />
-                <TextField type="email" label="Email" name="Co-Borrower - Email" value={formData['Co-Borrower - Email']} onChange={updateField} required />
-                <SelectField
-                  label="Employment Status"
-                  name="Co-Borrower - Employment Status"
-                  value={formData['Co-Borrower - Employment Status']}
-                  onChange={updateField}
-                  required
-                  options={[
-                    { value: 'Employed', label: 'Employed' },
-                    { value: 'Self-Employed', label: 'Self-Employed' },
-                    { value: 'Retired', label: 'Retired' },
-                    { value: 'Not Employed', label: 'Not Employed' }
-                  ]}
-                />
-              </SectionCard>
+              {/* Co-Borrower fields expand inline when Yes */}
+              {formData['Borrower - Has Co-Borrower'] === 'Yes' && (
+                <>
+                  <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
+                    <h4 className="font-semibold text-gray-700 mb-3">Co-Borrower Details</h4>
+                  </div>
+                  <TextField label="Co-Borrower First Name" name="Co-Borrower - First Name" value={formData['Co-Borrower - First Name']} onChange={updateField} required />
+                  <TextField label="Co-Borrower Last Name" name="Co-Borrower - Last Name" value={formData['Co-Borrower - Last Name']} onChange={updateField} required />
+                  <TextField type="tel" label="Co-Borrower Phone" name="Co-Borrower - Phone" value={formData['Co-Borrower - Phone']} onChange={updateField} required placeholder="(555) 123-4567" />
+                  <TextField type="email" label="Co-Borrower Email" name="Co-Borrower - Email" value={formData['Co-Borrower - Email']} onChange={updateField} required />
+                  <SelectField
+                    label="Co-Borrower Employment Status"
+                    name="Co-Borrower - Employment Status"
+                    value={formData['Co-Borrower - Employment Status']}
+                    onChange={updateField}
+                    required
+                    options={[
+                      { value: 'Employed', label: 'Employed' },
+                      { value: 'Self-Employed', label: 'Self-Employed' },
+                      { value: 'Retired', label: 'Retired' },
+                      { value: 'Not Employed', label: 'Not Employed' }
+                    ]}
+                  />
+                </>
+              )}
+            </SectionCard>
             )}
 
             {currentSectionKey === 'currentResidence' && (
@@ -589,32 +585,30 @@ function Stage2Content() {
                   />
                 </>
               )}
-            </SectionCard>
-            )}
 
-            {currentSectionKey === 'secondMortgage' && (
-              <SectionCard
-                title="Second Mortgage"
-                description="Details about your second lien"
-                isComplete={isSectionCompleted(sections.secondMortgage)}
-                defaultOpen={true}
-                sectionNumber={currentStep + 1}
-              >
-                <CurrencyField label="Balance" name="Second Mortgage - Balance" value={formData['Second Mortgage - Balance']} onChange={updateField} required />
-                <CurrencyField label="Monthly Payment" name="Second Mortgage - Monthly Payment" value={formData['Second Mortgage - Monthly Payment']} onChange={updateField} required />
-                <SelectField
-                  label="Loan Type"
-                  name="Second Mortgage - Type"
-                  value={formData['Second Mortgage - Type']}
-                  onChange={updateField}
-                  required
-                  options={[
-                    { value: 'HELOC', label: 'HELOC' },
-                    { value: 'Home Equity Loan', label: 'Home Equity Loan (Closed-End)' }
-                  ]}
-                />
-                <NumberField label="Interest Rate (%)" name="Second Mortgage - Interest Rate (%)" value={formData['Second Mortgage - Interest Rate (%)']} onChange={updateField} required step={0.001} placeholder="8.500" />
-              </SectionCard>
+              {/* Second Mortgage fields expand inline when Yes */}
+              {formData['Second Mortgage - Present'] === 'Yes' && (
+                <>
+                  <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
+                    <h4 className="font-semibold text-gray-700 mb-3">Second Mortgage Details</h4>
+                  </div>
+                  <CurrencyField label="Balance" name="Second Mortgage - Balance" value={formData['Second Mortgage - Balance']} onChange={updateField} required />
+                  <CurrencyField label="Monthly Payment" name="Second Mortgage - Monthly Payment" value={formData['Second Mortgage - Monthly Payment']} onChange={updateField} required />
+                  <SelectField
+                    label="Loan Type"
+                    name="Second Mortgage - Type"
+                    value={formData['Second Mortgage - Type']}
+                    onChange={updateField}
+                    required
+                    options={[
+                      { value: 'HELOC', label: 'HELOC' },
+                      { value: 'Home Equity Loan', label: 'Home Equity Loan (Closed-End)' }
+                    ]}
+                  />
+                  <NumberField label="Interest Rate (%)" name="Second Mortgage - Interest Rate (%)" value={formData['Second Mortgage - Interest Rate (%)']} onChange={updateField} required step={0.001} placeholder="8.500" />
+                </>
+              )}
+            </SectionCard>
             )}
 
             {currentSectionKey === 'otherProperties' && (
