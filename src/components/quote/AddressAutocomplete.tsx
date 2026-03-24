@@ -10,30 +10,84 @@ interface AddressAutocompleteProps {
   className?: string;
 }
 
-// Singleton: load Google Maps bootstrap, then use importLibrary
-let mapsReady: Promise<void> | null = null;
+// Use Google's inline bootstrapper for importLibrary support
+let bootstrapped = false;
 
-function ensureGoogleMaps(apiKey: string): Promise<void> {
-  if (mapsReady) return mapsReady;
-
-  mapsReady = new Promise((resolve, reject) => {
-    // If already loaded (e.g. from another component), resolve immediately
-    if (typeof window.google?.maps?.importLibrary === 'function') {
-      resolve();
+function ensureGoogleMaps(apiKey: string): Promise<typeof google.maps> {
+  return new Promise((resolve, reject) => {
+    if (window.google?.maps) {
+      resolve(window.google.maps);
       return;
     }
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async`;
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => {
-      mapsReady = null;
-      reject(new Error('Google Maps failed to load'));
-    };
-    document.head.appendChild(script);
-  });
 
-  return mapsReady;
+    if (!bootstrapped) {
+      bootstrapped = true;
+
+      // Google's recommended inline bootstrapper (minified)
+      // This enables importLibrary() which is required for PlaceAutocompleteElement
+      ((g: any) => {
+        let h: any;
+        const a: any = {};
+        const k: any = {};
+        const c = "google";
+        const l = "importLibrary";
+        const q = "__aw";
+        const m = "__gmp";
+
+        // Set up the importLibrary shim
+        if (!(c in g)) (g as any)[c] = {};
+        if (!(g as any)[c].maps) (g as any)[c].maps = {};
+        const maps = (g as any)[c].maps;
+        
+        if (!maps[l]) {
+          const pendingCalls: Array<{name: string; resolve: Function; reject: Function}> = [];
+          
+          maps[l] = (name: string) => new Promise((res, rej) => {
+            pendingCalls.push({name, resolve: res, reject: rej});
+          });
+
+          // Load the actual script
+          const script = document.createElement('script');
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=__gmcb`;
+          script.async = true;
+          script.onerror = () => reject(new Error('Google Maps failed to load'));
+          
+          // Callback when API loads
+          (window as any).__gmcb = () => {
+            delete (window as any).__gmcb;
+            const realImport = (window as any).google.maps.importLibrary;
+            // Resolve any pending calls
+            if (realImport) {
+              pendingCalls.forEach(({name, resolve: res, reject: rej}) => {
+                realImport(name).then(res).catch(rej);
+              });
+            }
+            resolve((window as any).google.maps);
+          };
+          
+          document.head.appendChild(script);
+        }
+      })(window);
+    }
+
+    // Poll for google.maps (in case bootstrapper was already called)
+    const check = setInterval(() => {
+      if (window.google?.maps) {
+        clearInterval(check);
+        resolve(window.google.maps);
+      }
+    }, 100);
+
+    // Timeout after 10s
+    setTimeout(() => {
+      clearInterval(check);
+      if (window.google?.maps) {
+        resolve(window.google.maps);
+      } else {
+        reject(new Error('Google Maps load timeout'));
+      }
+    }, 10000);
+  });
 }
 
 export default function AddressAutocomplete({
@@ -61,28 +115,25 @@ export default function AddressAutocomplete({
       try {
         await ensureGoogleMaps(apiKey);
 
-        // Import the places library - returns the module with all classes
-        const placesLib: any = await google.maps.importLibrary('places');
-        const { PlaceAutocompleteElement } = placesLib;
+        // Now google.maps is available with importLibrary
+        // Try PlaceAutocompleteElement from the places namespace
+        const PAE = google.maps.places?.PlaceAutocompleteElement;
 
-        if (!PlaceAutocompleteElement) {
-          console.warn('PlaceAutocompleteElement not in places library, using fallback');
+        if (!PAE) {
+          console.warn('PlaceAutocompleteElement not available, using fallback');
           return;
         }
 
         if (!containerRef.current) return;
 
-        // Create autocomplete element
-        const autocomplete = new PlaceAutocompleteElement({
+        const autocomplete = new PAE({
           componentRestrictions: { country: 'us' },
           types: ['address'],
         });
 
-        // Style it
         const el = autocomplete as unknown as HTMLElement;
         el.style.width = '100%';
 
-        // Listen for place selection
         autocomplete.addEventListener('gmp-placeselect', async (event: any) => {
           const place = event.place;
           if (place) {
@@ -99,7 +150,6 @@ export default function AddressAutocomplete({
           }
         });
 
-        // Hide fallback, show autocomplete
         if (fallbackRef.current) {
           fallbackRef.current.style.display = 'none';
         }
