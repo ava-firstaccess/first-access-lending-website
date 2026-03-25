@@ -24,30 +24,32 @@ interface Stage1Data {
   occupancy?: 'Owner-Occupied' | 'Rental';
   cashOut?: boolean;
   cashOutAmount?: number;
-  drawTerm?: number; // HELOC draw period in years
+  structureType?: 'SFR' | 'Condo' | 'Townhouse' | 'Multi-Family' | 'PUD';
+  numberOfUnits?: number;
+  unitNumber?: string;
   _creditScoreInput?: string; // transient: raw text input for credit score editing
 }
 
 // Question flow depends on product + property type selections
 function getQuestionFlow(data: Stage1Data): string[] {
-  const flow: string[] = ['product', 'address', 'propertyValue', 'loanBalance', 'creditScore', 'propertyType'];
+  const flow: string[] = ['product', 'address', 'propertyValue', 'loanBalance', 'structureType'];
   
+  // Condo gets unit #, multi-family gets unit count
+  if (data.structureType === 'Condo' || data.structureType === 'Multi-Family') {
+    flow.push('unitInfo');
+  }
+
+  flow.push('creditScore', 'propertyType');
+
   // Only ask occupancy for 2nd Home (Primary = owner-occupied, Investment = not owner-occupied)
   if (data.propertyType === '2nd Home') {
     flow.push('occupancy');
   }
 
-  // HELOC gets draw term question
-  if (data.product === 'HELOC') {
-    flow.push('drawTerm');
-  }
-
-  // Cash-Out Refi: ask desired cash out amount (they keep existing balance + get cash)
+  // Cash-Out Refi: ask desired cash out amount
   if (data.product === 'CashOut') {
     flow.push('cashOutAmount');
   }
-  // HELOC/CES: no cash out question - max available IS the cash they get
-  // NoCashRefi: no cash out at all
 
   return flow;
 }
@@ -91,7 +93,7 @@ export default function Stage1() {
   }, [data]);
 
   const calculateQuote = () => {
-    const { propertyValue, loanBalance, creditScore, propertyType, cashOutAmount, product, drawTerm } = data;
+    const { propertyValue, loanBalance, creditScore, propertyType, cashOutAmount, product } = data;
     if (!propertyValue || !creditScore) return;
 
     // LTV limits by credit score + property type
@@ -128,9 +130,6 @@ export default function Stage1() {
     // Product adjustments
     if (product === 'HELOC') {
       baseRate = 7.25; // Variable rate, slightly lower start
-      // Draw term adjustment
-      if (drawTerm === 3) baseRate -= 0.50;
-      else if (drawTerm === 5) baseRate -= 0.25;
     } else if (product === 'CES') {
       baseRate = 8.00; // Fixed rate, slightly higher
     }
@@ -460,25 +459,58 @@ export default function Stage1() {
           </QuestionCard>
         );
 
-      case 'drawTerm':
+      case 'structureType':
         return (
           <QuestionCard
-            title="HELOC draw period?"
-            subtitle="How long do you want to access funds? Shorter terms = lower rates"
+            title="What type of property is it?"
+            subtitle="This affects pricing and available programs"
             progress={progress}
-            isValid={!!data.drawTerm}
+            isValid={!!data.structureType}
             onContinue={goForward}
             onBack={step > 0 ? goBack : undefined}
             showContinue={false}
           >
             <div className="space-y-3">
-              <SelectButton field="drawTerm" value={3} optionKey="draw3"
-                label="3 Years" desc="Lowest rate, shortest access" />
-              <SelectButton field="drawTerm" value={5} optionKey="draw5"
-                label="5 Years" desc="Low rate, short access" />
-              <SelectButton field="drawTerm" value={10} optionKey="draw10"
-                label="10 Years" desc="Standard draw period" />
+              <SelectButton field="structureType" value="SFR" optionKey="sfr"
+                label="Single Family" desc="Detached single family home" />
+              <SelectButton field="structureType" value="Condo" optionKey="condo"
+                label="Condo" desc="Condominium unit" />
+              <SelectButton field="structureType" value="Townhouse" optionKey="townhouse"
+                label="Townhouse" desc="Attached townhome" />
+              <SelectButton field="structureType" value="Multi-Family" optionKey="multifamily"
+                label="Multi-Family" desc="2-4 unit property" />
+              <SelectButton field="structureType" value="PUD" optionKey="pud"
+                label="PUD" desc="Planned Unit Development" />
             </div>
+          </QuestionCard>
+        );
+
+      case 'unitInfo':
+        return (
+          <QuestionCard
+            title={data.structureType === 'Multi-Family' ? 'How many units?' : 'Unit number?'}
+            subtitle={data.structureType === 'Multi-Family' ? 'Total number of units in the property (2-4)' : 'Your condo unit number'}
+            progress={progress}
+            isValid={data.structureType === 'Multi-Family' ? !!data.numberOfUnits : true}
+            onContinue={goForward}
+            onBack={step > 0 ? goBack : undefined}
+            showContinue={data.structureType !== 'Multi-Family'}
+          >
+            {data.structureType === 'Multi-Family' ? (
+              <div className="space-y-3">
+                <SelectButton field="numberOfUnits" value={2} optionKey="units2" label="2 Units" />
+                <SelectButton field="numberOfUnits" value={3} optionKey="units3" label="3 Units" />
+                <SelectButton field="numberOfUnits" value={4} optionKey="units4" label="4 Units" />
+              </div>
+            ) : (
+              <input
+                type="text"
+                placeholder="e.g. 4B, 201, etc."
+                value={data.unitNumber || ''}
+                onChange={(e) => updateData('unitNumber', e.target.value)}
+                className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none"
+              />
+            )}
           </QuestionCard>
         );
 
