@@ -111,7 +111,10 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
   }, [value]);
 
   return (
-    <div ref={hostRef}>
+    <div
+      ref={hostRef}
+      className="border-2 border-gray-300 rounded-xl bg-white transition-colors focus-within:border-blue-600"
+    >
       <style jsx global>{`
         gmp-place-autocomplete {
           width: 100%;
@@ -121,15 +124,12 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
           width: 100%;
           padding: 0.75rem 1rem;
           font-size: 1.125rem;
-          border: 2px solid #d1d5db;
+          border: none !important;
           border-radius: 0.75rem;
-          outline: none;
-          transition: border-color 0.15s;
+          outline: none !important;
           font-family: inherit;
-          background: white;
-        }
-        gmp-place-autocomplete input:focus {
-          border-color: #2563eb;
+          background: transparent !important;
+          box-shadow: none !important;
         }
       `}</style>
     </div>
