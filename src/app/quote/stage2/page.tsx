@@ -832,19 +832,7 @@ function Stage2Content() {
                 ]}
               />
               {formData['Subject Property - Structure Type'] === 'Condo' && (
-                <>
-                  <SelectField
-                    label="Unit Type" name="Subject Property - Unit Type" value={formData['Subject Property - Unit Type']} onChange={updateField} required
-                    options={[
-                      { value: 'Unit', label: 'Unit' },
-                      { value: 'Apartment', label: 'Apartment' },
-                      { value: 'Suite', label: 'Suite' },
-                      { value: 'Floor', label: 'Floor' },
-                      { value: 'Penthouse', label: 'Penthouse' }
-                    ]}
-                  />
-                  <TextField label="Unit #" name="Subject Property - Unit Number" value={formData['Subject Property - Unit Number']} onChange={updateField} required />
-                </>
+                <TextField label="Unit #" name="Subject Property - Unit Number" value={formData['Subject Property - Unit Number']} onChange={updateField} required />
               )}
               <CurrencyField label="Stated Property Value" name="Stated Property Value" value={formData['Stated Property Value'] || stage1PropertyValue} onChange={updateField} required />
               <RadioField
