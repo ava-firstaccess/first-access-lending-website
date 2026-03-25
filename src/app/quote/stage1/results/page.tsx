@@ -219,7 +219,6 @@ export default function ResultsPage() {
 
                 {/* HELOC Column */}
                 <div className={`rounded-xl border-2 p-6 ${product === 'HELOC' ? 'border-blue-400 bg-blue-50/30' : 'border-gray-200'}`}>
-                  <div className={`text-xs font-bold uppercase tracking-wide mb-2 text-center ${product === 'HELOC' ? 'text-blue-600' : 'invisible'}`}>Your Selection</div>
                   <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">HELOC</h3>
 
                   {/* Max Available */}
@@ -278,7 +277,6 @@ export default function ResultsPage() {
 
                 {/* CES Column */}
                 <div className={`rounded-xl border-2 p-6 ${product === 'CES' ? 'border-blue-400 bg-blue-50/30' : 'border-gray-200'}`}>
-                  <div className={`text-xs font-bold uppercase tracking-wide mb-2 text-center ${product === 'CES' ? 'text-blue-600' : 'invisible'}`}>Your Selection</div>
                   <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">Closed-End Second</h3>
 
                   {/* Max Available */}
