@@ -111,6 +111,7 @@ export default function ResultsPage() {
   const [cesTerm, setCesTerm] = useState<number>(20);
   const [helocTotalTerm, setHelocTotalTerm] = useState<number>(20);
   const [helocDrawTerm, setHelocDrawTerm] = useState<number>(5);
+  const skipOtp = process.env.NEXT_PUBLIC_SKIP_OTP === 'true';
 
   useEffect(() => {
     const raw = localStorage.getItem('stage1-data');
@@ -202,7 +203,7 @@ export default function ResultsPage() {
               <span className="font-medium text-white">100% automated - no phone calls unless you want them.</span>
             </p>
             <button
-              onClick={() => router.push('/quote/verify')}
+              onClick={() => router.push(skipOtp ? '/quote/stage2' : '/quote/verify')}
               className="bg-white text-blue-700 font-bold py-3 px-8 rounded-xl shadow-lg hover:shadow-xl hover:bg-blue-50 transition-all text-lg"
             >
               Get Your Custom Rate Quote &rarr;
@@ -218,7 +219,7 @@ export default function ResultsPage() {
               <div className="grid md:grid-cols-2 gap-6 mb-8">
 
                 {/* HELOC Column */}
-                <div className={`rounded-xl border-2 p-6 ${product === 'HELOC' ? 'border-blue-400 bg-blue-50/30' : 'border-gray-200'}`}>
+                <div className={`rounded-xl border-2 p-6 flex flex-col ${product === 'HELOC' ? 'border-blue-400 bg-blue-50/30' : 'border-gray-200'}`}>
                   <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">HELOC</h3>
 
                   {/* Max Available */}
@@ -247,36 +248,38 @@ export default function ResultsPage() {
                     </div>
                   </div>
 
-                  {/* Rate + Payment */}
-                  <div className="bg-green-50 rounded-lg p-4 text-center mb-3">
-                    <div className="text-xs text-green-600 font-medium mb-1">Estimated Rate</div>
-                    <div className="text-2xl font-bold text-green-900">{helocQuote.rate.toFixed(2)}%</div>
-                    <div className="text-xs text-green-600 mt-0.5">Variable</div>
-                  </div>
-                  <div className="bg-orange-50 rounded-lg p-4 text-center">
-                    <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly (Draw Period)</div>
-                    <div className="text-2xl font-bold text-orange-900">${helocQuote.monthlyPayment.toLocaleString()}</div>
-                    <div className="text-xs text-orange-600 mt-0.5">Interest only</div>
-                  </div>
+                  {/* Rate + Payment + CTA pinned to bottom */}
+                  <div className="mt-auto">
+                    <div className="bg-green-50 rounded-lg p-4 text-center mb-3">
+                      <div className="text-xs text-green-600 font-medium mb-1">Estimated Rate</div>
+                      <div className="text-2xl font-bold text-green-900">{helocQuote.rate.toFixed(2)}%</div>
+                      <div className="text-xs text-green-600 mt-0.5">Variable</div>
+                    </div>
+                    <div className="bg-orange-50 rounded-lg p-4 text-center">
+                      <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly (Draw Period)</div>
+                      <div className="text-2xl font-bold text-orange-900">${helocQuote.monthlyPayment.toLocaleString()}</div>
+                      <div className="text-xs text-orange-600 mt-0.5">Interest only</div>
+                    </div>
 
-                  <button
-                    onClick={() => {
-                      const s1 = JSON.parse(localStorage.getItem('stage1-data') || '{}');
-                      s1.product = 'HELOC';
-                      s1.helocTotalTerm = String(helocTotalTerm);
-                      s1.helocDrawTerm = String(helocDrawTerm);
-                      localStorage.setItem('stage1-data', JSON.stringify(s1));
-                      router.push('/quote/verify');
-                    }}
-                    className="w-full mt-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm"
-                  >
-                    Select HELOC &amp; Get Access! →
-                  </button>
-                  <p className="text-xs text-gray-400 mt-2 text-center">Fully digital until you choose otherwise</p>
+                    <button
+                      onClick={() => {
+                        const s1 = JSON.parse(localStorage.getItem('stage1-data') || '{}');
+                        s1.product = 'HELOC';
+                        s1.helocTotalTerm = String(helocTotalTerm);
+                        s1.helocDrawTerm = String(helocDrawTerm);
+                        localStorage.setItem('stage1-data', JSON.stringify(s1));
+                        router.push(skipOtp ? '/quote/stage2' : '/quote/verify');
+                      }}
+                      className="w-full mt-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm"
+                    >
+                      Select HELOC &amp; Get Access! →
+                    </button>
+                    <p className="text-xs text-gray-400 mt-2 text-center">Fully digital until you choose otherwise</p>
+                  </div>
                 </div>
 
                 {/* CES Column */}
-                <div className={`rounded-xl border-2 p-6 ${product === 'CES' ? 'border-blue-400 bg-blue-50/30' : 'border-gray-200'}`}>
+                <div className={`rounded-xl border-2 p-6 flex flex-col ${product === 'CES' ? 'border-blue-400 bg-blue-50/30' : 'border-gray-200'}`}>
                   <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">Closed-End Second</h3>
 
                   {/* Max Available */}
@@ -295,35 +298,35 @@ export default function ResultsPage() {
                         onChange={setCesTerm}
                       />
                     </div>
-                    {/* Empty row to align with HELOC draw period toggle */}
-                    <div className="h-[34px]"></div>
                   </div>
 
-                  {/* Rate + Payment */}
-                  <div className="bg-green-50 rounded-lg p-4 text-center mb-3">
-                    <div className="text-xs text-green-600 font-medium mb-1">Estimated Rate</div>
-                    <div className="text-2xl font-bold text-green-900">{cesQuote.rate.toFixed(2)}%</div>
-                    <div className="text-xs text-green-600 mt-0.5">Fixed</div>
-                  </div>
-                  <div className="bg-orange-50 rounded-lg p-4 text-center">
-                    <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly Payment</div>
-                    <div className="text-2xl font-bold text-orange-900">${cesQuote.monthlyPayment.toLocaleString()}</div>
-                    <div className="text-xs text-orange-600 mt-0.5">Principal &amp; Interest</div>
-                  </div>
+                  {/* Rate + Payment + CTA pinned to bottom */}
+                  <div className="mt-auto">
+                    <div className="bg-green-50 rounded-lg p-4 text-center mb-3">
+                      <div className="text-xs text-green-600 font-medium mb-1">Estimated Rate</div>
+                      <div className="text-2xl font-bold text-green-900">{cesQuote.rate.toFixed(2)}%</div>
+                      <div className="text-xs text-green-600 mt-0.5">Fixed</div>
+                    </div>
+                    <div className="bg-orange-50 rounded-lg p-4 text-center">
+                      <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly Payment</div>
+                      <div className="text-2xl font-bold text-orange-900">${cesQuote.monthlyPayment.toLocaleString()}</div>
+                      <div className="text-xs text-orange-600 mt-0.5">Principal &amp; Interest</div>
+                    </div>
 
-                  <button
-                    onClick={() => {
-                      const s1 = JSON.parse(localStorage.getItem('stage1-data') || '{}');
-                      s1.product = 'CES';
-                      s1.cesTerm = String(cesTerm);
-                      localStorage.setItem('stage1-data', JSON.stringify(s1));
-                      router.push('/quote/verify');
-                    }}
-                    className="w-full mt-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm"
-                  >
-                    Select CES &amp; Get Access! →
-                  </button>
-                  <p className="text-xs text-gray-400 mt-2 text-center">Fully digital until you choose otherwise</p>
+                    <button
+                      onClick={() => {
+                        const s1 = JSON.parse(localStorage.getItem('stage1-data') || '{}');
+                        s1.product = 'CES';
+                        s1.cesTerm = String(cesTerm);
+                        localStorage.setItem('stage1-data', JSON.stringify(s1));
+                        router.push(skipOtp ? '/quote/stage2' : '/quote/verify');
+                      }}
+                      className="w-full mt-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm"
+                    >
+                      Select CES &amp; Get Access! →
+                    </button>
+                    <p className="text-xs text-gray-400 mt-2 text-center">Fully digital until you choose otherwise</p>
+                  </div>
                 </div>
               </div>
 
