@@ -381,10 +381,10 @@ function buildCustomFields(formData: Record<string, any>): Array<{ id: string; f
           if (typeof cleanValue === 'string') {
             cleanValue = cleanValue.replace(/^"+|"+$/g, '').trim();
           }
-          // Convert ISO dates (YYYY-MM-DD) to GHL format (MM/DD/YYYY)
+          // Convert ISO dates (YYYY-MM-DD) to GHL format (MM-DD-YYYY)
           if (typeof cleanValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(cleanValue)) {
             const [y, m, d] = cleanValue.split('-');
-            cleanValue = `${m}/${d}/${y}`;
+            cleanValue = `${m}-${d}-${y}`;
           }
         }
         fields.push({ id: ghlId, field_value: cleanValue });
@@ -398,7 +398,7 @@ function buildCustomFields(formData: Record<string, any>): Array<{ id: string; f
   }
   if (!fields.some(f => f.id === '0UoSSP8TCoVpcAMveBUt')) {
     const now = new Date();
-    fields.push({ id: '0UoSSP8TCoVpcAMveBUt', field_value: `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')}/${now.getFullYear()}` });
+    fields.push({ id: '0UoSSP8TCoVpcAMveBUt', field_value: `${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}-${now.getFullYear()}` });
   }
 
   return fields;
