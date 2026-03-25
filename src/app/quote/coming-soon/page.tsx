@@ -2,7 +2,7 @@
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 
 const STATE_NAMES: Record<string, string> = {
   AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
@@ -24,6 +24,45 @@ function ComingSoonContent() {
   const stateCode = searchParams.get('state') || '';
   const stateName = STATE_NAMES[stateCode] || stateCode;
 
+  const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const res = await fetch('/api/coming-soon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          firstName: firstName || undefined,
+          lastName: lastName || undefined,
+          state: stateCode,
+        }),
+      });
+
+      if (res.ok) {
+        setSubmitted(true);
+      } else {
+        const data = await res.json();
+        setError(data.error || 'Something went wrong. Please try again.');
+      }
+    } catch {
+      setError('Unable to connect. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center p-4">
       <div className="max-w-lg w-full text-center">
@@ -40,44 +79,68 @@ function ComingSoonContent() {
         </h1>
 
         <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-          We&apos;re not yet licensed in {stateName}, but we&apos;re working on it. 
-          We&apos;d love to let you know when we&apos;re available in your area.
+          We&apos;re not yet licensed in {stateName}, but we&apos;re working on it.
+          Leave your info and we&apos;ll let you know the moment we can help.
         </p>
 
-        {/* Email notify form */}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const form = e.target as HTMLFormElement;
-            const email = (form.elements.namedItem('email') as HTMLInputElement).value;
-            // Store interest - could wire to GHL or Supabase later
-            localStorage.setItem('comingSoonInterest', JSON.stringify({
-              email,
-              state: stateCode,
-              timestamp: new Date().toISOString()
-            }));
-            form.reset();
-            const btn = form.querySelector('button') as HTMLButtonElement;
-            btn.textContent = '✓ We\'ll be in touch!';
-            btn.disabled = true;
-            btn.className = 'px-6 py-3 bg-green-600 text-white font-semibold rounded-xl';
-          }}
-          className="flex gap-3 max-w-md mx-auto mb-8"
-        >
-          <input
-            name="email"
-            type="email"
-            required
-            placeholder="Enter your email"
-            className="flex-1 px-4 py-3 text-lg border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors whitespace-nowrap"
-          >
-            Notify Me
-          </button>
-        </form>
+        {!submitted ? (
+          <form onSubmit={handleSubmit} className="space-y-3 max-w-md mx-auto mb-8">
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="First name"
+                className="flex-1 px-4 py-3 text-base border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none"
+              />
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Last name"
+                className="flex-1 px-4 py-3 text-base border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none"
+              />
+            </div>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="Email address"
+              className="w-full px-4 py-3 text-base border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none"
+            />
+
+            {error && (
+              <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm text-center">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={!email || loading}
+              className={`w-full py-3 px-6 rounded-xl font-semibold text-lg transition-all ${
+                email && !loading
+                  ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {loading ? 'Saving...' : 'Notify Me When Available'}
+            </button>
+          </form>
+        ) : (
+          <div className="max-w-md mx-auto mb-8 bg-green-50 border border-green-200 rounded-xl p-6">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mb-3">
+              <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-green-800 mb-2">You&apos;re on the list!</h3>
+            <p className="text-green-700 text-sm">
+              We&apos;ll send you an email as soon as we&apos;re licensed in {stateName}. Check your inbox for a confirmation.
+            </p>
+          </div>
+        )}
 
         <div className="border-t border-gray-200 pt-6">
           <p className="text-sm text-gray-500 mb-4">
