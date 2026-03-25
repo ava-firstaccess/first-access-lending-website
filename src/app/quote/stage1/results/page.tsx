@@ -261,6 +261,21 @@ export default function ResultsPage() {
                     <div className="text-2xl font-bold text-orange-900">${helocQuote.monthlyPayment.toLocaleString()}</div>
                     <div className="text-xs text-orange-600 mt-0.5">Interest only</div>
                   </div>
+
+                  <button
+                    onClick={() => {
+                      const s1 = JSON.parse(localStorage.getItem('stage1-data') || '{}');
+                      s1.product = 'HELOC';
+                      s1.helocTotalTerm = String(helocTotalTerm);
+                      s1.helocDrawTerm = String(helocDrawTerm);
+                      localStorage.setItem('stage1-data', JSON.stringify(s1));
+                      router.push('/quote/verify');
+                    }}
+                    className="w-full mt-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm"
+                  >
+                    Select HELOC &amp; Get Access! →
+                  </button>
+                  <p className="text-xs text-gray-400 mt-2 text-center">Fully digital until you choose otherwise</p>
                 </div>
 
                 {/* CES Column */}
@@ -301,6 +316,20 @@ export default function ResultsPage() {
                     <div className="text-2xl font-bold text-orange-900">${cesQuote.monthlyPayment.toLocaleString()}</div>
                     <div className="text-xs text-orange-600 mt-0.5">Principal &amp; Interest</div>
                   </div>
+
+                  <button
+                    onClick={() => {
+                      const s1 = JSON.parse(localStorage.getItem('stage1-data') || '{}');
+                      s1.product = 'CES';
+                      s1.cesTerm = String(cesTerm);
+                      localStorage.setItem('stage1-data', JSON.stringify(s1));
+                      router.push('/quote/verify');
+                    }}
+                    className="w-full mt-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm"
+                  >
+                    Select CES &amp; Get Access! →
+                  </button>
+                  <p className="text-xs text-gray-400 mt-2 text-center">Fully digital until you choose otherwise</p>
                 </div>
               </div>
 

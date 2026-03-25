@@ -325,7 +325,12 @@ function Stage2Content() {
 
   // Section definitions for completion tracking
   const sections = {
-    loanDetails: [] as { name: string; required: boolean }[],  // Display-only summary card
+    loanDetails: [
+      { name: 'product', required: true },
+      { name: 'propertyType', required: true },
+      { name: 'propertyAddress', required: true },
+      { name: 'propertyValue', required: true },
+    ],
     borrowerInfo: [
       { name: 'Borrower - First Name', required: true },
       { name: 'Borrower - Last Name', required: true },
@@ -701,32 +706,54 @@ function Stage2Content() {
                 LOAN DETAILS (Stage 1 Summary)
             ═══════════════════════════════════════════════ */}
             {currentSectionKey === 'loanDetails' && (
-            <SectionCard title="Loan Details" description="Review your initial selections" isComplete={true} defaultOpen={true} sectionNumber={1}>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Product</p>
-                  <p className="text-base font-semibold text-gray-900">
-                    {stage1Product === 'HELOC' ? 'HELOC' : stage1Product === 'CES' ? 'Closed-End Second' : stage1Product === 'CashOut' ? 'Cash-Out Refinance' : stage1Product === 'NoCashRefi' ? 'Rate/Term Refinance' : stage1Product || '—'}
-                  </p>
-                </div>
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Property Type</p>
-                  <p className="text-base font-semibold text-gray-900">{stage1PropertyType || '—'}</p>
-                </div>
-                <div className="col-span-2 bg-gray-50 rounded-xl p-4">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Property Address</p>
-                  <p className="text-base font-semibold text-gray-900">{stage1Address || '—'}</p>
-                </div>
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Property Value</p>
-                  <p className="text-base font-semibold text-gray-900">{stage1PropertyValue ? `$${Number(stage1PropertyValue).toLocaleString()}` : '—'}</p>
-                </div>
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Current Loan Balance</p>
-                  <p className="text-base font-semibold text-gray-900">{stage1LoanBalance ? `$${Number(stage1LoanBalance).toLocaleString()}` : '—'}</p>
-                </div>
+            <SectionCard title="Loan Details" description="Confirm or update your selections" isComplete={!!formData['product'] && !!formData['propertyAddress']} defaultOpen={true} sectionNumber={1}>
+              <SelectField
+                label="Product" name="product" value={formData['product']} onChange={updateField} required
+                options={[
+                  { value: 'HELOC', label: 'HELOC' },
+                  { value: 'CES', label: 'Closed-End Second' },
+                  { value: 'CashOut', label: 'Cash-Out Refinance' },
+                  { value: 'NoCashRefi', label: 'Rate/Term Refinance' }
+                ]}
+              />
+              <SelectField
+                label="Property Type" name="propertyType" value={formData['propertyType']} onChange={updateField} required
+                options={[
+                  { value: 'Primary', label: 'Primary Residence' },
+                  { value: 'Investment', label: 'Investment Property' },
+                  { value: '2nd Home', label: 'Second Home' }
+                ]}
+              />
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Property Address <span className="text-red-400">*</span></label>
+                <input
+                  type="text"
+                  value={formData['propertyAddress'] || ''}
+                  onChange={(e) => updateField('propertyAddress', e.target.value)}
+                  className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none"
+                  required
+                />
               </div>
-              <p className="text-xs text-gray-400 mt-3">These details were captured in your initial quote. To change them, go back to the quote page.</p>
+              <CurrencyField label="Property Value" name="propertyValue" value={formData['propertyValue']} onChange={updateField} required />
+              <CurrencyField label="Current Loan Balance" name="loanBalance" value={formData['loanBalance']} onChange={updateField} required />
+              {(formData['product'] === 'HELOC') && (
+                <>
+                  <SelectField
+                    label="Total Term" name="helocTotalTerm" value={formData['helocTotalTerm'] || '20'} onChange={updateField}
+                    options={[{ value: '20', label: '20 Years' }, { value: '30', label: '30 Years' }]}
+                  />
+                  <SelectField
+                    label="Draw Period" name="helocDrawTerm" value={formData['helocDrawTerm'] || '5'} onChange={updateField}
+                    options={[{ value: '3', label: '3 Years' }, { value: '5', label: '5 Years' }, { value: '10', label: '10 Years' }]}
+                  />
+                </>
+              )}
+              {(formData['product'] === 'CES') && (
+                <SelectField
+                  label="Term" name="cesTerm" value={formData['cesTerm'] || '20'} onChange={updateField}
+                  options={[{ value: '20', label: '20 Years' }, { value: '30', label: '30 Years' }]}
+                />
+              )}
             </SectionCard>
             )}
 
