@@ -2,7 +2,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 
 interface QuoteCalc {
   maxAvailable: number;
@@ -19,7 +19,8 @@ function calcQuote(
   creditScore: number,
   propertyType: string,
   drawTerm: number,
-  cashOutAmount: number
+  cashOutAmount: number,
+  cesTerm: number = 20
 ): QuoteCalc {
   let maxLtv = 0.80;
   if (creditScore >= 720) {
@@ -42,6 +43,8 @@ function calcQuote(
     else if (drawTerm === 5) baseRate -= 0.25;
   } else if (product === 'CES') {
     baseRate = 8.00;
+    // 30-year term gets a slightly higher rate
+    if (cesTerm === 30) baseRate += 0.25;
   }
 
   let creditAdj = 0;
@@ -54,7 +57,18 @@ function calcQuote(
   const rate = baseRate + creditAdj + (propertyAdj[propertyType] || 0);
 
   const monthlyRate = rate / 100 / 12;
-  const monthlyPayment = maxAvailable > 0 ? Math.round(maxAvailable * monthlyRate) : 0;
+  let monthlyPayment = 0;
+
+  if (maxAvailable > 0) {
+    if (product === 'CES') {
+      // Fully amortizing P&I for closed-end second
+      const n = cesTerm * 12;
+      monthlyPayment = Math.round(maxAvailable * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
+    } else {
+      // Interest-only for HELOC and others
+      monthlyPayment = Math.round(maxAvailable * monthlyRate);
+    }
+  }
 
   return {
     maxAvailable,
@@ -65,11 +79,18 @@ function calcQuote(
   };
 }
 
-function QuoteColumn({ label, quote, highlight }: { label: string; quote: QuoteCalc; highlight: boolean }) {
+function QuoteColumn({ label, quote, highlight, paymentLabel, termToggle }: {
+  label: string;
+  quote: QuoteCalc;
+  highlight: boolean;
+  paymentLabel?: string;
+  termToggle?: React.ReactNode;
+}) {
   const ringClass = highlight ? 'ring-2 ring-blue-400' : '';
   return (
     <div className={`bg-white rounded-xl p-6 ${ringClass}`}>
       <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">{label}</h3>
+      {termToggle && <div className="mb-4">{termToggle}</div>}
       <div className="space-y-4">
         <div className="bg-blue-50 rounded-lg p-4 text-center">
           <div className="text-xs text-blue-600 font-medium mb-1">Max Available</div>
@@ -83,7 +104,7 @@ function QuoteColumn({ label, quote, highlight }: { label: string; quote: QuoteC
         <div className="bg-orange-50 rounded-lg p-4 text-center">
           <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly</div>
           <div className="text-2xl font-bold text-orange-900">${quote.monthlyPayment.toLocaleString()}</div>
-          <div className="text-xs text-orange-600 mt-0.5">Interest only</div>
+          <div className="text-xs text-orange-600 mt-0.5">{paymentLabel || 'Interest only'}</div>
         </div>
       </div>
     </div>
@@ -94,6 +115,7 @@ export default function ResultsPage() {
   const router = useRouter();
   const [loaded, setLoaded] = useState(false);
   const [stage1, setStage1] = useState<Record<string, any>>({});
+  const [cesTerm, setCesTerm] = useState<20 | 30>(20);
 
   useEffect(() => {
     const raw = localStorage.getItem('stage1-data');
@@ -121,14 +143,14 @@ export default function ResultsPage() {
   const propertyAddress = String(stage1.propertyAddress || '');
 
   const primaryQuote = useMemo(() =>
-    calcQuote(product, propertyValue, loanBalance, creditScore, propertyType, drawTerm, cashOutAmount),
-    [product, propertyValue, loanBalance, creditScore, propertyType, drawTerm, cashOutAmount]
+    calcQuote(product, propertyValue, loanBalance, creditScore, propertyType, drawTerm, cashOutAmount, product === 'CES' ? cesTerm : 20),
+    [product, propertyValue, loanBalance, creditScore, propertyType, drawTerm, cashOutAmount, cesTerm]
   );
 
   const altProduct = product === 'HELOC' ? 'CES' : product === 'CES' ? 'HELOC' : null;
   const altQuote = useMemo(() =>
-    altProduct ? calcQuote(altProduct, propertyValue, loanBalance, creditScore, propertyType, 5, cashOutAmount) : null,
-    [altProduct, propertyValue, loanBalance, creditScore, propertyType, cashOutAmount]
+    altProduct ? calcQuote(altProduct, propertyValue, loanBalance, creditScore, propertyType, 5, cashOutAmount, altProduct === 'CES' ? cesTerm : 20) : null,
+    [altProduct, propertyValue, loanBalance, creditScore, propertyType, cashOutAmount, cesTerm]
   );
 
   const productLabels: Record<string, string> = {
@@ -196,8 +218,60 @@ export default function ResultsPage() {
           {/* Quote Numbers - Side by side if cross-sell available */}
           {altProduct && altQuote ? (
             <div className="grid md:grid-cols-2 gap-6 mb-8">
-              <QuoteColumn label={productLabels[product]} quote={primaryQuote} highlight={true} />
-              <QuoteColumn label={productLabels[altProduct]} quote={altQuote} highlight={false} />
+              {/* Determine which column is HELOC and which is CES */}
+              {product === 'HELOC' ? (
+                <>
+                  <QuoteColumn label="HELOC" quote={primaryQuote} highlight={true} paymentLabel="Interest only" />
+                  <QuoteColumn
+                    label="Closed-End Second"
+                    quote={altQuote}
+                    highlight={false}
+                    paymentLabel={`P&I / ${cesTerm}-year fixed`}
+                    termToggle={
+                      <div className="flex justify-center gap-1 bg-gray-100 rounded-lg p-1">
+                        <button
+                          onClick={() => setCesTerm(20)}
+                          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${cesTerm === 20 ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                          20-Year
+                        </button>
+                        <button
+                          onClick={() => setCesTerm(30)}
+                          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${cesTerm === 30 ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                          30-Year
+                        </button>
+                      </div>
+                    }
+                  />
+                </>
+              ) : (
+                <>
+                  <QuoteColumn
+                    label="Closed-End Second"
+                    quote={primaryQuote}
+                    highlight={true}
+                    paymentLabel={`P&I / ${cesTerm}-year fixed`}
+                    termToggle={
+                      <div className="flex justify-center gap-1 bg-gray-100 rounded-lg p-1">
+                        <button
+                          onClick={() => setCesTerm(20)}
+                          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${cesTerm === 20 ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                          20-Year
+                        </button>
+                        <button
+                          onClick={() => setCesTerm(30)}
+                          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${cesTerm === 30 ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                          30-Year
+                        </button>
+                      </div>
+                    }
+                  />
+                  <QuoteColumn label="HELOC" quote={altQuote} highlight={false} paymentLabel="Interest only" />
+                </>
+              )}
             </div>
           ) : (
             <div className="grid md:grid-cols-3 gap-6 mb-8">
