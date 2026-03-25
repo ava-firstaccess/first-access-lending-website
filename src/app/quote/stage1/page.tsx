@@ -20,6 +20,7 @@ interface Stage1Data {
   cashOut?: boolean;
   cashOutAmount?: number;
   drawTerm?: number; // HELOC draw period in years
+  _creditScoreInput?: string; // transient: raw text input for credit score editing
 }
 
 // Question flow depends on product + property type selections
@@ -107,8 +108,8 @@ export default function Stage1() {
     if (product === 'HELOC') {
       baseRate = 7.25; // Variable rate, slightly lower start
       // Draw term adjustment
-      if (drawTerm === 5) baseRate -= 0.25;
-      else if (drawTerm === 15) baseRate += 0.25;
+      if (drawTerm === 3) baseRate -= 0.50;
+      else if (drawTerm === 5) baseRate -= 0.25;
     } else if (product === 'CES') {
       baseRate = 8.00; // Fixed rate, slightly higher
     }
@@ -164,7 +165,9 @@ export default function Stage1() {
     if (step + 1 >= nextFlow.length) {
       router.push('/quote/stage1/results?' + new URLSearchParams({
         ...Object.fromEntries(
-          Object.entries(data).map(([k, v]) => [k, String(v)])
+          Object.entries(data)
+            .filter(([k]) => !k.startsWith('_'))
+            .map(([k, v]) => [k, String(v)])
         )
       }).toString());
     } else {
@@ -332,7 +335,9 @@ export default function Stage1() {
           </QuestionCard>
         );
 
-      case 'creditScore':
+      case 'creditScore': {
+        const scoreValue = data.creditScore ?? 720;
+        const scoreDisplay = data._creditScoreInput !== undefined ? data._creditScoreInput : String(scoreValue);
         return (
           <QuestionCard
             title="Your credit score?"
@@ -348,32 +353,44 @@ export default function Stage1() {
                 min="580"
                 max="850"
                 step="5"
-                value={data.creditScore || 720}
-                onChange={(e) => updateData('creditScore', parseInt(e.target.value))}
+                value={scoreValue}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value);
+                  updateData('creditScore', v);
+                  updateData('_creditScoreInput', String(v));
+                }}
                 className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               />
               <div className="text-center">
                 <input
                   type="text"
                   inputMode="numeric"
-                  value={data.creditScore || 720}
+                  value={scoreDisplay}
                   onChange={(e) => {
-                    const num = parseInt(e.target.value.replace(/\D/g, ''));
-                    if (!isNaN(num) && num >= 300 && num <= 850) updateData('creditScore', num);
-                    else if (e.target.value === '') updateData('creditScore', 580);
+                    const raw = e.target.value.replace(/\D/g, '');
+                    updateData('_creditScoreInput', raw);
+                    const num = parseInt(raw);
+                    if (!isNaN(num) && num >= 300 && num <= 850) {
+                      updateData('creditScore', num);
+                    }
+                  }}
+                  onBlur={() => {
+                    // Snap back to valid value on blur
+                    updateData('_creditScoreInput', String(data.creditScore || 720));
                   }}
                   className="text-5xl font-bold text-gray-900 text-center bg-transparent border-b-2 border-dashed border-gray-300 focus:border-blue-500 outline-none w-32 mx-auto"
                   maxLength={3}
                 />
                 <p className="text-sm text-gray-600 mt-2">
-                  {(data.creditScore || 720) >= 740 ? 'Excellent' :
-                   (data.creditScore || 720) >= 700 ? 'Good' :
-                   (data.creditScore || 720) >= 660 ? 'Fair' : 'Below Average'}
+                  {scoreValue >= 740 ? 'Excellent' :
+                   scoreValue >= 700 ? 'Good' :
+                   scoreValue >= 660 ? 'Fair' : 'Below Average'}
                 </p>
               </div>
             </div>
           </QuestionCard>
         );
+      }
 
       case 'propertyType':
         return (
@@ -429,12 +446,12 @@ export default function Stage1() {
             showContinue={false}
           >
             <div className="space-y-3">
+              <SelectButton field="drawTerm" value={3} optionKey="draw3"
+                label="3 Years" desc="Lowest rate, shortest access" />
               <SelectButton field="drawTerm" value={5} optionKey="draw5"
-                label="5 Years" desc="Lower rate, shorter access" />
+                label="5 Years" desc="Low rate, short access" />
               <SelectButton field="drawTerm" value={10} optionKey="draw10"
                 label="10 Years" desc="Standard draw period" />
-              <SelectButton field="drawTerm" value={15} optionKey="draw15"
-                label="15 Years" desc="Longer access, slightly higher rate" />
             </div>
           </QuestionCard>
         );
