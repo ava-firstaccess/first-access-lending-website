@@ -173,7 +173,7 @@ function AnnualMonthlyField({ label, namePrefix, formData, onChange, required = 
     : (monthlyVal ? `$${Number(monthlyVal).toLocaleString()}/mo` : '');
 
   return (
-    <div className="md:col-span-2">
+    <div>
       <label className="block text-sm font-medium text-gray-700 mb-1.5">
         {label} {required && <span className="text-red-400">*</span>}
       </label>
