@@ -210,13 +210,11 @@ function AnnualMonthlyField({ label, namePrefix, formData, onChange, required = 
           required={required}
           className="flex-1 px-2 py-3 text-lg font-semibold text-gray-900 bg-transparent outline-none placeholder:text-gray-300"
         />
-        {/* Derived value */}
-        {derivedValue && (
-          <span className="pr-3 text-sm text-gray-400 whitespace-nowrap">
-            = {derivedValue}
-          </span>
-        )}
       </div>
+      {/* Derived value below */}
+      {derivedValue && (
+        <p className="text-xs text-gray-400 mt-1 text-right">= {derivedValue}</p>
+      )}
     </div>
   );
 }
