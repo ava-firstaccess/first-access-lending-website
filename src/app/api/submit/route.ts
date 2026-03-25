@@ -3,8 +3,9 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 
 const GHL_API_BASE = 'https://services.leadconnectorhq.com';
 const GHL_LOCATION_ID = 'pqK0BqXrQ5smZEkID6fP';
-const GHL_PIPELINE_ID = 'HfRGKwTjkYk6wEEeHiaB';
-const GHL_STAGE_APP_COMPLETED = 'd6e28959-5f52-4249-9e64-8dd8ef616e1a';
+// Get Access pipeline (new, dedicated for website leads)
+const GHL_PIPELINE_ID = 'sLrWXmhxdYQNwKoW2wrQ';
+const GHL_STAGE_NEW_LEAD = '71528f87-6da1-4c54-b6bf-ea3129d691a2';
 const GHL_VERSION = '2021-07-28';
 
 // ── Form field name → GHL opportunity custom field ID ──
@@ -397,7 +398,7 @@ async function createOpportunity(contactId: string, formData: Record<string, any
     pipelineId: GHL_PIPELINE_ID,
     locationId: GHL_LOCATION_ID,
     name,
-    pipelineStageId: GHL_STAGE_APP_COMPLETED,
+    pipelineStageId: GHL_STAGE_NEW_LEAD,
     status: 'open',
     contactId,
     customFields: buildCustomFields(formData),
