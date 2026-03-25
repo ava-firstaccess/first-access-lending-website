@@ -6,9 +6,10 @@
 - **Credit pull integration** - After soft pull, read consumer debts from credit report
 - **Debt payoff selection** - Present list of debts to borrower, let them choose which to pay off with loan proceeds
 - **Payment impact** - Show how paying off selected debts changes their DTI and available amount
-- **Mortgage account assignment** - List out their mortgage accounts from credit report and have them assign each to the properties listed in the REO (Other Properties) section
+- **Mortgage account assignment** - List out their mortgage/tradeline accounts from credit report and have them assign each to the properties listed in the REO (Other Properties) section
   - This connects credit liabilities to the property addresses for accurate CLTV/DTI calculations
   - Enables automatic REO schedule population for 1003
+  - Borrower confirms which mortgage belongs to which property (credit report doesn't always have clean address matching)
 
 ### AVM Integration
 - HouseCanary vs CoreLogic vs Quantarium (vendor selection pending)
