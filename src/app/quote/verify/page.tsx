@@ -248,6 +248,25 @@ export default function VerifyPage() {
               </div>
 
               <div className="space-y-6">
+                {/* Hidden input for iOS OTP autofill */}
+                <input
+                  type="text"
+                  autoComplete="one-time-code"
+                  inputMode="numeric"
+                  maxLength={4}
+                  className="absolute opacity-0 h-0 w-0 pointer-events-none"
+                  tabIndex={-1}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    if (digits.length === 4) {
+                      const newCode = digits.split('');
+                      setCode(newCode);
+                      codeRefs[3].current?.focus();
+                      handleVerifyOTP(digits);
+                    }
+                  }}
+                />
+
                 {/* Large code input boxes */}
                 <div className="flex justify-center gap-4">
                   {code.map((digit, i) => (
@@ -256,9 +275,21 @@ export default function VerifyPage() {
                       ref={codeRefs[i]}
                       type="text"
                       inputMode="numeric"
-                      maxLength={1}
+                      autoComplete={i === 0 ? 'one-time-code' : 'off'}
+                      maxLength={i === 0 ? 4 : 1}
                       value={digit}
-                      onChange={(e) => handleCodeInput(i, e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        // iOS autofill may put all 4 digits in first box
+                        if (val.length >= 4 && i === 0) {
+                          const digits = val.slice(0, 4).split('');
+                          setCode(digits);
+                          codeRefs[3].current?.focus();
+                          handleVerifyOTP(digits.join(''));
+                        } else {
+                          handleCodeInput(i, e.target.value);
+                        }
+                      }}
                       onKeyDown={(e) => handleCodeKeyDown(i, e)}
                       onPaste={i === 0 ? handleCodePaste : undefined}
                       className="w-16 h-20 md:w-20 md:h-24 text-center text-3xl md:text-4xl font-bold border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
