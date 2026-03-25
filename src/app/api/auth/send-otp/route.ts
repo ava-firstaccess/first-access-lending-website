@@ -71,24 +71,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to generate code' }, { status: 500 });
     }
 
-    // Send via GHL webhook
-    const webhookUrl = process.env.GHL_SMS_WEBHOOK_URL;
-    if (!webhookUrl) {
-      console.error('GHL_SMS_WEBHOOK_URL not configured');
+    // Send via Blooio API (iMessage/SMS)
+    const blooioKey = process.env.BLOOIO_API_KEY;
+    if (!blooioKey) {
+      console.error('BLOOIO_API_KEY not configured');
       return NextResponse.json({ error: 'SMS service not configured' }, { status: 500 });
     }
 
-    const smsResponse = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        phone: normalized,
-        text: `Your First Access verification code is ${code}. Expires in 5 minutes.`
-      })
-    });
+    const chatId = encodeURIComponent(normalized);
+    const smsResponse = await fetch(
+      `https://backend.blooio.com/v2/api/chats/${chatId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${blooioKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          text: `Your First Access verification code is ${code}. Expires in 5 minutes.`
+        })
+      }
+    );
 
     if (!smsResponse.ok) {
-      console.error('GHL webhook failed:', smsResponse.status, await smsResponse.text());
+      const errBody = await smsResponse.text();
+      console.error('Blooio send failed:', smsResponse.status, errBody);
       return NextResponse.json({ error: 'Failed to send verification code' }, { status: 500 });
     }
 
