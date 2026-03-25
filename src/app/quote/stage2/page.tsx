@@ -57,6 +57,89 @@ const OTHER_INCOME_TYPES = [
   { value: 'Other', label: 'Other' }
 ];
 
+// Race field per 1003 - primary race dropdown with sub-options
+function RaceField({ prefix, formData, onChange }: {
+  prefix: string; // e.g. "Dem - Borrower" or "Dem - Co-Borrower"
+  formData: FormData;
+  onChange: (name: string, value: any) => void;
+}) {
+  const raceKey = `${prefix} Race`;
+  const raceDetailKey = `${prefix} Race Detail`;
+  const tribeKey = `${prefix} Tribe Name`;
+  const otherAsianKey = `${prefix} Other Asian`;
+  const otherPIKey = `${prefix} Other Pacific Islander`;
+  const race = formData[raceKey] || '';
+
+  return (
+    <div className="md:col-span-2 space-y-3">
+      <SelectField
+        label="Race (Optional)"
+        name={raceKey}
+        value={race}
+        onChange={onChange}
+        options={[
+          { value: 'American Indian or Alaska Native', label: 'American Indian or Alaska Native' },
+          { value: 'Asian', label: 'Asian' },
+          { value: 'Black or African American', label: 'Black or African American' },
+          { value: 'Native Hawaiian or Other Pacific Islander', label: 'Native Hawaiian or Other Pacific Islander' },
+          { value: 'White', label: 'White' },
+          { value: 'I do not wish to provide', label: 'I do not wish to provide' }
+        ]}
+      />
+
+      {/* American Indian - tribe name */}
+      {race === 'American Indian or Alaska Native' && (
+        <TextField label="Name of enrolled or principal tribe" name={tribeKey} value={formData[tribeKey]} onChange={onChange} placeholder="Enter tribe name" />
+      )}
+
+      {/* Asian - sub-options */}
+      {race === 'Asian' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <SelectField
+            label="Asian Detail"
+            name={raceDetailKey}
+            value={formData[raceDetailKey]}
+            onChange={onChange}
+            options={[
+              { value: 'Asian Indian', label: 'Asian Indian' },
+              { value: 'Chinese', label: 'Chinese' },
+              { value: 'Filipino', label: 'Filipino' },
+              { value: 'Japanese', label: 'Japanese' },
+              { value: 'Korean', label: 'Korean' },
+              { value: 'Vietnamese', label: 'Vietnamese' },
+              { value: 'Other Asian', label: 'Other Asian' }
+            ]}
+          />
+          {formData[raceDetailKey] === 'Other Asian' && (
+            <TextField label="Other Asian race" name={otherAsianKey} value={formData[otherAsianKey]} onChange={onChange} placeholder="e.g. Hmong, Laotian, Thai, Pakistani, Cambodian" />
+          )}
+        </div>
+      )}
+
+      {/* Native Hawaiian or Other Pacific Islander - sub-options */}
+      {race === 'Native Hawaiian or Other Pacific Islander' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <SelectField
+            label="Pacific Islander Detail"
+            name={raceDetailKey}
+            value={formData[raceDetailKey]}
+            onChange={onChange}
+            options={[
+              { value: 'Native Hawaiian', label: 'Native Hawaiian' },
+              { value: 'Guamanian or Chamorro', label: 'Guamanian or Chamorro' },
+              { value: 'Samoan', label: 'Samoan' },
+              { value: 'Other Pacific Islander', label: 'Other Pacific Islander' }
+            ]}
+          />
+          {formData[raceDetailKey] === 'Other Pacific Islander' && (
+            <TextField label="Other Pacific Islander race" name={otherPIKey} value={formData[otherPIKey]} onChange={onChange} placeholder="Enter race" />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Synced Annual/Monthly currency pair - editing one auto-calculates the other
 function AnnualMonthlyField({ label, namePrefix, formData, onChange, required = false }: {
   label: string;
@@ -980,14 +1063,29 @@ function Stage2Content() {
                   </div>
                   {formData['Dec - Same for Co-Borrower'] === 'No' && (
                     <>
-                      <RadioField label="Co-Borrower: Outstanding judgments?" name="Dec - Co-Borrower Outstanding Judgments" value={formData['Dec - Co-Borrower Outstanding Judgments']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
-                      <RadioField label="Co-Borrower: Delinquent/default?" name="Dec - Co-Borrower Delinquent/Default" value={formData['Dec - Co-Borrower Delinquent/Default']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
-                      <RadioField label="Co-Borrower: Party to lawsuit?" name="Dec - Co-Borrower Party to Lawsuit" value={formData['Dec - Co-Borrower Party to Lawsuit']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
-                      <RadioField label="Co-Borrower: Bankruptcy (last 7 years)?" name="Dec - Co-Borrower Bankruptcy (Last 7 Years)" value={formData['Dec - Co-Borrower Bankruptcy (Last 7 Years)']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
-                      {formData['Dec - Co-Borrower Bankruptcy (Last 7 Years)'] === 'Yes' && (
-                        <SelectField label="Co-Borrower Bankruptcy Type" name="Dec - Co-Borrower Bankruptcy Type" value={formData['Dec - Co-Borrower Bankruptcy Type']} onChange={updateField} options={[{ value: 'Chapter 7', label: 'Chapter 7' }, { value: 'Chapter 11', label: 'Chapter 11' }, { value: 'Chapter 13', label: 'Chapter 13' }]} />
+                      <RadioField label="Co-Borrower: Outstanding judgments, federal debt, delinquent accounts, or party to a lawsuit?" name="Dec - Co-Borrower Judgments / Federal Debt / Delinquent" value={formData['Dec - Co-Borrower Judgments / Federal Debt / Delinquent']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+                      {formData['Dec - Co-Borrower Judgments / Federal Debt / Delinquent'] === 'Yes' && (
+                        <>
+                          <RadioField label="Co-Borrower: Outstanding judgments?" name="Dec - Co-Borrower Outstanding Judgments" value={formData['Dec - Co-Borrower Outstanding Judgments']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                          <RadioField label="Co-Borrower: Delinquent/default on federal debt?" name="Dec - Co-Borrower Delinquent/Default Federal Debt" value={formData['Dec - Co-Borrower Delinquent/Default Federal Debt']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                          <RadioField label="Co-Borrower: Party to a lawsuit?" name="Dec - Co-Borrower Party to Lawsuit" value={formData['Dec - Co-Borrower Party to Lawsuit']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                        </>
                       )}
-                      <RadioField label="Co-Borrower: Short sale / pre-foreclosure?" name="Dec - Co-Borrower Short Sale / Pre-Foreclosure" value={formData['Dec - Co-Borrower Short Sale / Pre-Foreclosure']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+
+                      <RadioField label="Co-Borrower: Bankruptcy, short sale, or foreclosure in last 7 years?" name="Dec - Co-Borrower Bankruptcy / Short Sale / Foreclosure" value={formData['Dec - Co-Borrower Bankruptcy / Short Sale / Foreclosure']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+                      {formData['Dec - Co-Borrower Bankruptcy / Short Sale / Foreclosure'] === 'Yes' && (
+                        <>
+                          <RadioField label="Co-Borrower: Bankruptcy in last 7 years?" name="Dec - Co-Borrower Bankruptcy (Last 7 Years)" value={formData['Dec - Co-Borrower Bankruptcy (Last 7 Years)']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                          {formData['Dec - Co-Borrower Bankruptcy (Last 7 Years)'] === 'Yes' && (
+                            <SelectField label="Co-Borrower Bankruptcy Type" name="Dec - Co-Borrower Bankruptcy Type" value={formData['Dec - Co-Borrower Bankruptcy Type']} onChange={updateField} options={[{ value: 'Chapter 7', label: 'Chapter 7' }, { value: 'Chapter 11', label: 'Chapter 11' }, { value: 'Chapter 13', label: 'Chapter 13' }]} />
+                          )}
+                          <RadioField label="Co-Borrower: Short sale or pre-foreclosure?" name="Dec - Co-Borrower Short Sale / Pre-Foreclosure" value={formData['Dec - Co-Borrower Short Sale / Pre-Foreclosure']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                          <RadioField label="Co-Borrower: Deed in lieu?" name="Dec - Co-Borrower Deed in Lieu" value={formData['Dec - Co-Borrower Deed in Lieu']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                          <RadioField label="Co-Borrower: Property foreclosure?" name="Dec - Co-Borrower Property Foreclosure" value={formData['Dec - Co-Borrower Property Foreclosure']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                        </>
+                      )}
+
+                      <RadioField label="Co-Borrower: Primary residence in last 3 years?" name="Dec - Co-Borrower Primary Residence Last 3 Years" value={formData['Dec - Co-Borrower Primary Residence Last 3 Years']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
                     </>
                   )}
                 </>
@@ -1008,7 +1106,7 @@ function Stage2Content() {
                 ]}
               />
               {formData['Dem - Borrower Ethnicity'] === 'Hispanic or Latino' && (
-                <SelectField label="Ethnicity Detail" name="Dem - Borrower Ethnicity Detail" value={formData['Dem - Borrower Ethnicity Detail']} onChange={updateField}
+                <SelectField label="Ethnicity Detail (Optional)" name="Dem - Borrower Ethnicity Detail" value={formData['Dem - Borrower Ethnicity Detail']} onChange={updateField}
                   options={[
                     { value: 'Mexican', label: 'Mexican' },
                     { value: 'Puerto Rican', label: 'Puerto Rican' },
@@ -1024,16 +1122,7 @@ function Stage2Content() {
                   { value: 'I do not wish to provide', label: 'I do not wish to provide' }
                 ]}
               />
-              <SelectField label="Race (Optional)" name="Dem - Borrower Race" value={formData['Dem - Borrower Race']} onChange={updateField}
-                options={[
-                  { value: 'American Indian or Alaska Native', label: 'American Indian or Alaska Native' },
-                  { value: 'Asian', label: 'Asian' },
-                  { value: 'Black or African American', label: 'Black or African American' },
-                  { value: 'Native Hawaiian or Other Pacific Islander', label: 'Native Hawaiian or Other Pacific Islander' },
-                  { value: 'White', label: 'White' },
-                  { value: 'I do not wish to provide', label: 'I do not wish to provide' }
-                ]}
-              />
+              <RaceField prefix="Dem - Borrower " formData={formData} onChange={updateField} />
 
               {/* Co-Borrower Demographics */}
               {formData['Borrower - Has Co-Borrower'] === 'Yes' && (
@@ -1041,7 +1130,7 @@ function Stage2Content() {
                   <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
                     <h4 className="font-semibold text-gray-700 mb-3">Co-Borrower Demographics</h4>
                   </div>
-                  <SelectField label="Co-Borrower Ethnicity" name="Dem - Co-Borrower Ethnicity" value={formData['Dem - Co-Borrower Ethnicity']} onChange={updateField}
+                  <SelectField label="Co-Borrower Ethnicity (Optional)" name="Dem - Co-Borrower Ethnicity" value={formData['Dem - Co-Borrower Ethnicity']} onChange={updateField}
                     options={[
                       { value: 'Hispanic or Latino', label: 'Hispanic or Latino' },
                       { value: 'Not Hispanic or Latino', label: 'Not Hispanic or Latino' },
@@ -1049,7 +1138,7 @@ function Stage2Content() {
                     ]}
                   />
                   {formData['Dem - Co-Borrower Ethnicity'] === 'Hispanic or Latino' && (
-                    <SelectField label="Co-Borrower Ethnicity Detail" name="Dem - Co-Borrower Ethnicity Detail" value={formData['Dem - Co-Borrower Ethnicity Detail']} onChange={updateField}
+                    <SelectField label="Co-Borrower Ethnicity Detail (Optional)" name="Dem - Co-Borrower Ethnicity Detail" value={formData['Dem - Co-Borrower Ethnicity Detail']} onChange={updateField}
                       options={[
                         { value: 'Mexican', label: 'Mexican' },
                         { value: 'Puerto Rican', label: 'Puerto Rican' },
@@ -1058,23 +1147,14 @@ function Stage2Content() {
                       ]}
                     />
                   )}
-                  <SelectField label="Co-Borrower Sex" name="Dem - Co-Borrower Sex" value={formData['Dem - Co-Borrower Sex']} onChange={updateField}
+                  <SelectField label="Co-Borrower Sex (Optional)" name="Dem - Co-Borrower Sex" value={formData['Dem - Co-Borrower Sex']} onChange={updateField}
                     options={[
                       { value: 'Male', label: 'Male' },
                       { value: 'Female', label: 'Female' },
                       { value: 'I do not wish to provide', label: 'I do not wish to provide' }
                     ]}
                   />
-                  <SelectField label="Co-Borrower Race" name="Dem - Co-Borrower Race" value={formData['Dem - Co-Borrower Race']} onChange={updateField}
-                    options={[
-                      { value: 'American Indian or Alaska Native', label: 'American Indian or Alaska Native' },
-                      { value: 'Asian', label: 'Asian' },
-                      { value: 'Black or African American', label: 'Black or African American' },
-                      { value: 'Native Hawaiian or Other Pacific Islander', label: 'Native Hawaiian or Other Pacific Islander' },
-                      { value: 'White', label: 'White' },
-                      { value: 'I do not wish to provide', label: 'I do not wish to provide' }
-                    ]}
-                  />
+                  <RaceField prefix="Dem - Co-Borrower " formData={formData} onChange={updateField} />
                 </>
               )}
             </SectionCard>
