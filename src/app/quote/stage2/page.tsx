@@ -46,7 +46,7 @@ function Stage2Content() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [formData, setFormData] = useState<FormData>({});
-  const [isSaving, setIsSaving] = useState(false);
+  const isSaving = false; // silent save, no UI shift
 
   // Load Stage 1 data from URL params or localStorage
   useEffect(() => {
@@ -73,9 +73,6 @@ function Stage2Content() {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
         localStorage.setItem('stage2-progress', JSON.stringify(formData));
-        setIsSaving(true);
-        if (savingTimerRef.current) clearTimeout(savingTimerRef.current);
-        savingTimerRef.current = setTimeout(() => setIsSaving(false), 1000);
       }, 1500);
       return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
     }
