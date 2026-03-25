@@ -253,6 +253,11 @@ export default function VerifyPage() {
                 <p className="text-xs text-gray-400 mt-4 text-center leading-relaxed">
                   This verification is only to confirm your identity. Entering your number here will <span className="font-medium text-gray-500">not</span> opt you in to marketing calls or texts. If you previously opted in to receive communications from us, we may still reach out separately.
                 </p>
+                <p className="text-xs text-gray-400 mt-2 text-center leading-relaxed">
+                  By clicking &ldquo;Send Verification Code,&rdquo; you consent to receive a one-time automated text message with your verification code. Message and data rates may apply. One message per request. Reply STOP to cancel. View our{' '}
+                  <a href="/privacy" className="underline hover:text-gray-500">Privacy Policy</a> and{' '}
+                  <a href="/terms" className="underline hover:text-gray-500">Terms of Service</a>.
+                </p>
               </div>
             </>
           )}
