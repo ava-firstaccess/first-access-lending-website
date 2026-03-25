@@ -9,9 +9,14 @@ import AddressAutocomplete from '@/components/quote/AddressAutocomplete';
 
 type ProductType = 'HELOC' | 'CES' | 'CashOut' | 'NoCashRefi';
 
+const LICENSED_STATES = new Set([
+  'AL','AZ','CA','CO','CT','FL','GA','IL','MA','MD','MI','NJ','NY','OH','OR','PA','VA'
+]);
+
 interface Stage1Data {
   product?: ProductType;
   propertyAddress?: string;
+  propertyState?: string;
   propertyValue?: number;
   loanBalance?: number;
   creditScore?: number;
@@ -258,7 +263,13 @@ export default function Stage1() {
           >
             <AddressAutocomplete
               value={data.propertyAddress || ''}
-              onChange={(address) => updateData('propertyAddress', address)}
+              onChange={(address, state) => {
+                setData(prev => ({ ...prev, propertyAddress: address, propertyState: state }));
+                if (state && !LICENSED_STATES.has(state)) {
+                  router.push(`/quote/coming-soon?state=${encodeURIComponent(state)}`);
+                  return;
+                }
+              }}
               placeholder="Enter address or city, state"
               className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none"
             />
