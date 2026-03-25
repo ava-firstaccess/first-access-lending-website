@@ -276,6 +276,7 @@ function Stage2Content() {
 
   // Section definitions for completion tracking
   const sections = {
+    loanDetails: [] as { name: string; required: boolean }[],  // Display-only summary card
     borrowerInfo: [
       { name: 'Borrower - First Name', required: true },
       { name: 'Borrower - Last Name', required: true },
@@ -371,6 +372,7 @@ function Stage2Content() {
   const [currentStep, setCurrentStep] = useState(0);
 
   const sectionOrder = [
+    { key: 'loanDetails', title: 'Loan Details' },
     { key: 'borrowerInfo', title: 'Borrower Information' },
     { key: 'currentResidence', title: 'Current Residence' },
     { key: 'subjectProperty', title: 'Subject Property' },
@@ -645,6 +647,39 @@ function Stage2Content() {
             </div>
 
             <form autoComplete="on" onSubmit={(e) => e.preventDefault()}>
+
+            {/* ═══════════════════════════════════════════════
+                LOAN DETAILS (Stage 1 Summary)
+            ═══════════════════════════════════════════════ */}
+            {currentSectionKey === 'loanDetails' && (
+            <SectionCard title="Loan Details" description="Review your initial selections" isComplete={true} defaultOpen={true} sectionNumber={1}>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Product</p>
+                  <p className="text-base font-semibold text-gray-900">
+                    {stage1Product === 'HELOC' ? 'HELOC' : stage1Product === 'CES' ? 'Closed-End Second' : stage1Product === 'CashOut' ? 'Cash-Out Refinance' : stage1Product === 'NoCashRefi' ? 'Rate/Term Refinance' : stage1Product || '—'}
+                  </p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Property Type</p>
+                  <p className="text-base font-semibold text-gray-900">{stage1PropertyType || '—'}</p>
+                </div>
+                <div className="col-span-2 bg-gray-50 rounded-xl p-4">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Property Address</p>
+                  <p className="text-base font-semibold text-gray-900">{stage1Address || '—'}</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Property Value</p>
+                  <p className="text-base font-semibold text-gray-900">{stage1PropertyValue ? `$${Number(stage1PropertyValue).toLocaleString()}` : '—'}</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Current Loan Balance</p>
+                  <p className="text-base font-semibold text-gray-900">{stage1LoanBalance ? `$${Number(stage1LoanBalance).toLocaleString()}` : '—'}</p>
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 mt-3">These details were captured in your initial quote. To change them, go back to the quote page.</p>
+            </SectionCard>
+            )}
 
             {/* ═══════════════════════════════════════════════
                 BORROWER INFORMATION

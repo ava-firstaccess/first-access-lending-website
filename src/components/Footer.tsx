@@ -38,6 +38,12 @@ export default function Footer() {
               Commission MC-6961. Loans made or arranged pursuant to Department of Financial Protection and Innovation 
               California Financing Law License.
             </p>
+            <p className="text-xs max-w-3xl mx-auto mt-3 text-gray-500">
+              The estimates and quotes provided on this website are for informational purposes only and do not constitute 
+              a Loan Estimate as defined under the TILA-RESPA Integrated Disclosure (TRID) rule. Actual terms, rates, fees, 
+              and costs may vary based on your specific financial situation, creditworthiness, and property details. A formal 
+              Loan Estimate will be provided after you submit a complete loan application as required by federal law.
+            </p>
           </div>
         </div>
       </footer>

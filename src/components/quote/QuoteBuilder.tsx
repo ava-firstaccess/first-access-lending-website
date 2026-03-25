@@ -36,7 +36,7 @@ export default function QuoteBuilder({
       <div className="mb-6 pb-4 border-b border-gray-200">
         <h3 className="text-lg font-bold text-gray-900">Your Quote</h3>
         <p className="text-sm text-gray-600 mt-1">
-          {stage === 'stage1' ? 'Estimated based on your answers' : 'Official quote with verified data'}
+          Estimated based on your answers
         </p>
       </div>
 
@@ -102,7 +102,7 @@ export default function QuoteBuilder({
             Get Custom Quote
           </button>
           <p className="text-xs text-center text-gray-500 mt-2">
-            See your exact rate with verified data
+            Continue to full application
           </p>
         </div>
       )}
