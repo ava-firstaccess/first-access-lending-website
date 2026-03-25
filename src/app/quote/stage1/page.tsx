@@ -163,13 +163,12 @@ export default function Stage1() {
   const goForward = useCallback(() => {
     const nextFlow = getQuestionFlow(data);
     if (step + 1 >= nextFlow.length) {
-      router.push('/quote/stage1/results?' + new URLSearchParams({
-        ...Object.fromEntries(
-          Object.entries(data)
-            .filter(([k]) => !k.startsWith('_'))
-            .map(([k, v]) => [k, String(v)])
-        )
-      }).toString());
+      // Store Stage 1 data in localStorage (clean URLs, no size limits)
+      const stage1Clean = Object.fromEntries(
+        Object.entries(data).filter(([k]) => !k.startsWith('_'))
+      );
+      localStorage.setItem('stage1-data', JSON.stringify(stage1Clean));
+      router.push('/quote/stage1/results');
     } else {
       setStep(prev => prev + 1);
     }

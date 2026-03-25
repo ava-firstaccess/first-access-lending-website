@@ -1,8 +1,8 @@
 // Stage 2: Full 1003 Application Form
 'use client';
 
-import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import SectionCard from '@/components/quote/SectionCard';
 import QuoteBuilder from '@/components/quote/QuoteBuilder';
 import AddressAutocomplete from '@/components/quote/AddressAutocomplete';
@@ -59,7 +59,6 @@ const OTHER_INCOME_TYPES = [
 
 function Stage2Content() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [formData, setFormData] = useState<FormData>({});
 
   // Stage 1 data
@@ -71,15 +70,13 @@ function Stage2Content() {
   const isFirstLienProduct = stage1Product === 'CashOut' || stage1Product === 'NoCashRefi';
   const isPrimary = stage1PropertyType === 'Primary';
 
-  // Load Stage 1 data from URL params + localStorage
+  // Load Stage 1 data from localStorage
   useEffect(() => {
-    const stage1Data: FormData = {};
-    searchParams.forEach((value, key) => {
-      stage1Data[key] = value;
-    });
+    const stage1Raw = localStorage.getItem('stage1-data');
+    const stage1Data: FormData = stage1Raw ? JSON.parse(stage1Raw) : {};
 
     // Auto-populate Stage 2 fields from Stage 1
-    if (stage1Data.loanBalance && stage1Data.loanBalance !== '0') {
+    if (stage1Data.loanBalance && stage1Data.loanBalance !== '0' && Number(stage1Data.loanBalance) > 0) {
       stage1Data['Current Loan - Free & Clear'] = 'No';
       stage1Data['Current Loan - First Mortgage Balance'] = parseFloat(stage1Data.loanBalance);
     } else {
@@ -94,7 +91,7 @@ function Stage2Content() {
     } else {
       setFormData(stage1Data);
     }
-  }, [searchParams]);
+  }, []);
 
   // Auto-save progress to localStorage (debounced)
   const saveTimerRef = useRef<NodeJS.Timeout>(undefined);
@@ -193,9 +190,8 @@ function Stage2Content() {
   };
 
   const handleBackToResults = () => {
-    const s1Params = new URLSearchParams();
-    searchParams.forEach((value, key) => { s1Params.set(key, value); });
-    router.push('/quote/stage1/results?' + s1Params.toString());
+    // Stage 1 data lives in localStorage - results page reads from there
+    router.push('/quote/stage1/results');
   };
 
   // Step navigation
@@ -1041,9 +1037,5 @@ function Stage2Content() {
 }
 
 export default function Stage2() {
-  return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
-      <Stage2Content />
-    </Suspense>
-  );
+  return <Stage2Content />;
 }

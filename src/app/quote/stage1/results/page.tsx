@@ -1,9 +1,8 @@
 // Stage 1 Results Page
 'use client';
 
-import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
-import { Suspense, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 interface QuoteCalc {
   maxAvailable: number;
@@ -91,25 +90,41 @@ function QuoteColumn({ label, quote, highlight }: { label: string; quote: QuoteC
   );
 }
 
-function ResultsContent() {
-  const params = useSearchParams();
+export default function ResultsPage() {
   const router = useRouter();
+  const [loaded, setLoaded] = useState(false);
+  const [stage1, setStage1] = useState<Record<string, any>>({});
 
-  const product = params.get('product') || 'HELOC';
-  const propertyValue = parseInt(params.get('propertyValue') || '500000');
-  const loanBalance = parseInt(params.get('loanBalance') || '0');
-  const creditScore = parseInt(params.get('creditScore') || '720');
-  const propertyType = params.get('propertyType') || 'Primary';
-  const drawTerm = parseInt(params.get('drawTerm') || '5');
-  const cashOutAmount = parseInt(params.get('cashOutAmount') || '0');
-  const propertyAddress = params.get('propertyAddress') || '';
+  useEffect(() => {
+    const raw = localStorage.getItem('stage1-data');
+    if (raw) {
+      try {
+        setStage1(JSON.parse(raw));
+      } catch {
+        router.push('/quote/stage1');
+        return;
+      }
+    } else {
+      router.push('/quote/stage1');
+      return;
+    }
+    setLoaded(true);
+  }, [router]);
+
+  const product = String(stage1.product || 'HELOC');
+  const propertyValue = Number(stage1.propertyValue) || 500000;
+  const loanBalance = Number(stage1.loanBalance) || 0;
+  const creditScore = Number(stage1.creditScore) || 720;
+  const propertyType = String(stage1.propertyType || 'Primary');
+  const drawTerm = Number(stage1.drawTerm) || 5;
+  const cashOutAmount = Number(stage1.cashOutAmount) || 0;
+  const propertyAddress = String(stage1.propertyAddress || '');
 
   const primaryQuote = useMemo(() =>
     calcQuote(product, propertyValue, loanBalance, creditScore, propertyType, drawTerm, cashOutAmount),
     [product, propertyValue, loanBalance, creditScore, propertyType, drawTerm, cashOutAmount]
   );
 
-  // Cross-sell: if HELOC show CES side-by-side, vice versa
   const altProduct = product === 'HELOC' ? 'CES' : product === 'CES' ? 'HELOC' : null;
   const altQuote = useMemo(() =>
     altProduct ? calcQuote(altProduct, propertyValue, loanBalance, creditScore, propertyType, 5, cashOutAmount) : null,
@@ -130,24 +145,23 @@ function ResultsContent() {
     'NoCashRefi': 'Rate & Term Refinance'
   };
 
-  // Build Stage 2 URL with all Stage 1 data prepopulated
-  const buildStage2Url = () => {
-    const stage1Params = new URLSearchParams();
-    params.forEach((value, key) => {
-      stage1Params.set(key, value);
-    });
-    return '/quote/stage2?' + stage1Params.toString();
+  const handleGetCustomQuote = () => {
+    // Stage 1 data already in localStorage - Stage 2 reads it from there
+    router.push('/quote/stage2');
   };
 
-  const handleGetCustomQuote = () => {
-    router.push(buildStage2Url());
-  };
+  if (!loaded) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50 flex items-center justify-center">
+        <div className="text-gray-600">Calculating your quote...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50 py-8">
       <div className="container mx-auto px-4 max-w-4xl">
 
-        {/* Results Card */}
         <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12">
 
           {/* Header */}
@@ -164,7 +178,7 @@ function ResultsContent() {
             <p className="text-gray-600">Based on the information you provided</p>
           </div>
 
-          {/* CTA at top (Fix #4) */}
+          {/* CTA at top */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 mb-8 text-center">
             <p className="text-blue-100 text-sm mb-3">
               This is a preliminary estimate. To get your exact, customized rate, continue with a full application.
@@ -179,40 +193,26 @@ function ResultsContent() {
             </button>
           </div>
 
-          {/* Quote Numbers - Side by side if cross-sell available (Fix #3) */}
+          {/* Quote Numbers - Side by side if cross-sell available */}
           {altProduct && altQuote ? (
             <div className="grid md:grid-cols-2 gap-6 mb-8">
-              <QuoteColumn
-                label={productLabels[product]}
-                quote={primaryQuote}
-                highlight={true}
-              />
-              <QuoteColumn
-                label={productLabels[altProduct]}
-                quote={altQuote}
-                highlight={false}
-              />
+              <QuoteColumn label={productLabels[product]} quote={primaryQuote} highlight={true} />
+              <QuoteColumn label={productLabels[altProduct]} quote={altQuote} highlight={false} />
             </div>
           ) : (
             <div className="grid md:grid-cols-3 gap-6 mb-8">
               <div className="bg-blue-50 rounded-xl p-6 text-center">
                 <div className="text-sm text-blue-600 font-medium mb-1">Max Available</div>
-                <div className="text-3xl md:text-4xl font-bold text-blue-900">
-                  ${primaryQuote.maxAvailable.toLocaleString()}
-                </div>
+                <div className="text-3xl md:text-4xl font-bold text-blue-900">${primaryQuote.maxAvailable.toLocaleString()}</div>
               </div>
               <div className="bg-green-50 rounded-xl p-6 text-center">
                 <div className="text-sm text-green-600 font-medium mb-1">Estimated Rate</div>
-                <div className="text-3xl md:text-4xl font-bold text-green-900">
-                  {primaryQuote.rate.toFixed(2)}%
-                </div>
+                <div className="text-3xl md:text-4xl font-bold text-green-900">{primaryQuote.rate.toFixed(2)}%</div>
                 <div className="text-xs text-green-600 mt-1">{primaryQuote.rateType}</div>
               </div>
               <div className="bg-orange-50 rounded-xl p-6 text-center">
                 <div className="text-sm text-orange-600 font-medium mb-1">Est. Monthly Payment</div>
-                <div className="text-3xl md:text-4xl font-bold text-orange-900">
-                  ${primaryQuote.monthlyPayment.toLocaleString()}
-                </div>
+                <div className="text-3xl md:text-4xl font-bold text-orange-900">${primaryQuote.monthlyPayment.toLocaleString()}</div>
                 <div className="text-xs text-orange-600 mt-1">Interest only</div>
               </div>
             </div>
@@ -250,19 +250,13 @@ function ResultsContent() {
 
           {/* Bottom actions */}
           <div className="flex items-center justify-center gap-6 pt-4 border-t border-gray-100">
-            <a
-              href="tel:1-888-885-7789"
-              className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm"
-            >
+            <a href="tel:1-888-885-7789" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
               </svg>
               Call 1-888-885-7789
             </a>
-            <button
-              onClick={() => router.push('/quote/stage1')}
-              className="text-gray-500 hover:text-gray-700 text-sm font-medium"
-            >
+            <button onClick={() => router.push('/quote/stage1')} className="text-gray-500 hover:text-gray-700 text-sm font-medium">
               Start Over
             </button>
           </div>
@@ -277,17 +271,5 @@ function ResultsContent() {
 
       </div>
     </div>
-  );
-}
-
-export default function ResultsPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50 flex items-center justify-center">
-        <div className="text-gray-600">Calculating your quote...</div>
-      </div>
-    }>
-      <ResultsContent />
-    </Suspense>
   );
 }
