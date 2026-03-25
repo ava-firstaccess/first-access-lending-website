@@ -214,13 +214,6 @@ export default function ResultsPage() {
           {/* ═══════════════════════════════════════════════ */}
           {!isRefi && (
             <>
-              {/* Shared top row: Max Available (same for both) */}
-              <div className="bg-blue-50 rounded-xl p-5 text-center mb-6">
-                <div className="text-sm text-blue-600 font-medium mb-1">Max Available Equity</div>
-                <div className="text-3xl font-bold text-blue-900">${helocQuote.maxAvailable.toLocaleString()}</div>
-                <div className="text-xs text-blue-500 mt-1">Up to {(helocQuote.maxLtv * 100).toFixed(0)}% CLTV</div>
-              </div>
-
               {/* Two columns */}
               <div className="grid md:grid-cols-2 gap-6 mb-8">
 
@@ -230,6 +223,12 @@ export default function ResultsPage() {
                     <div className="text-xs font-bold text-blue-600 uppercase tracking-wide mb-2 text-center">Your Selection</div>
                   )}
                   <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">HELOC</h3>
+
+                  {/* Max Available */}
+                  <div className="bg-blue-50 rounded-lg p-4 text-center mb-5">
+                    <div className="text-xs text-blue-600 font-medium mb-1">Max Available</div>
+                    <div className="text-2xl font-bold text-blue-900">${helocQuote.maxAvailable.toLocaleString()}</div>
+                  </div>
 
                   {/* Term Toggles */}
                   <div className="space-y-3 mb-5">
@@ -251,20 +250,16 @@ export default function ResultsPage() {
                     </div>
                   </div>
 
-                  {/* Rate + Payments on same row */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-sm text-gray-600">Rate</span>
-                      <span className="text-xl font-bold text-gray-900">{helocQuote.rate.toFixed(2)}% <span className="text-xs font-normal text-gray-500">Variable</span></span>
-                    </div>
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-sm text-gray-600">Draw Payment</span>
-                      <span className="text-xl font-bold text-gray-900">${helocQuote.monthlyPayment.toLocaleString()}<span className="text-xs font-normal text-gray-500">/mo</span></span>
-                    </div>
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-sm text-gray-600">Repayment</span>
-                      <span className="text-xl font-bold text-gray-900">${helocRepaymentPayment.toLocaleString()}<span className="text-xs font-normal text-gray-500">/mo</span></span>
-                    </div>
+                  {/* Rate + Payment */}
+                  <div className="bg-green-50 rounded-lg p-4 text-center mb-3">
+                    <div className="text-xs text-green-600 font-medium mb-1">Estimated Rate</div>
+                    <div className="text-2xl font-bold text-green-900">{helocQuote.rate.toFixed(2)}%</div>
+                    <div className="text-xs text-green-600 mt-0.5">Variable</div>
+                  </div>
+                  <div className="bg-orange-50 rounded-lg p-4 text-center">
+                    <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly (Draw Period)</div>
+                    <div className="text-2xl font-bold text-orange-900">${helocQuote.monthlyPayment.toLocaleString()}</div>
+                    <div className="text-xs text-orange-600 mt-0.5">Interest only</div>
                   </div>
                 </div>
 
@@ -274,6 +269,12 @@ export default function ResultsPage() {
                     <div className="text-xs font-bold text-blue-600 uppercase tracking-wide mb-2 text-center">Your Selection</div>
                   )}
                   <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">Closed-End Second</h3>
+
+                  {/* Max Available */}
+                  <div className="bg-blue-50 rounded-lg p-4 text-center mb-5">
+                    <div className="text-xs text-blue-600 font-medium mb-1">Max Available</div>
+                    <div className="text-2xl font-bold text-blue-900">${cesQuote.maxAvailable.toLocaleString()}</div>
+                  </div>
 
                   {/* Term Toggle */}
                   <div className="space-y-3 mb-5">
@@ -285,18 +286,20 @@ export default function ResultsPage() {
                         onChange={setCesTerm}
                       />
                     </div>
+                    {/* Empty row to align with HELOC draw period toggle */}
+                    <div className="h-[34px]"></div>
                   </div>
 
                   {/* Rate + Payment */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-sm text-gray-600">Rate</span>
-                      <span className="text-xl font-bold text-gray-900">{cesQuote.rate.toFixed(2)}% <span className="text-xs font-normal text-gray-500">Fixed</span></span>
-                    </div>
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-sm text-gray-600">Monthly Payment</span>
-                      <span className="text-xl font-bold text-gray-900">${cesQuote.monthlyPayment.toLocaleString()}<span className="text-xs font-normal text-gray-500">/mo</span></span>
-                    </div>
+                  <div className="bg-green-50 rounded-lg p-4 text-center mb-3">
+                    <div className="text-xs text-green-600 font-medium mb-1">Estimated Rate</div>
+                    <div className="text-2xl font-bold text-green-900">{cesQuote.rate.toFixed(2)}%</div>
+                    <div className="text-xs text-green-600 mt-0.5">Fixed</div>
+                  </div>
+                  <div className="bg-orange-50 rounded-lg p-4 text-center">
+                    <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly Payment</div>
+                    <div className="text-2xl font-bold text-orange-900">${cesQuote.monthlyPayment.toLocaleString()}</div>
+                    <div className="text-xs text-orange-600 mt-0.5">Principal &amp; Interest</div>
                   </div>
                 </div>
               </div>
