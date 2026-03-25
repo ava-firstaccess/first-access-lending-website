@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { LOGO_BASE64 } from '@/lib/logo-base64';
 
 // Coming Soon: create/find GHL contact, create/move opportunity to Coming Soon pipeline, send email
 
@@ -50,10 +51,10 @@ function buildComingSoonEmail(firstName: string, stateName: string): string {
     <tr>
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-          <!-- Header -->
+          <!-- Header with Logo -->
           <tr>
-            <td style="background:linear-gradient(135deg,#1e40af,#3b82f6);padding:32px 40px;text-align:center;">
-              <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">First Access Lending</h1>
+            <td style="background:linear-gradient(135deg,#1e40af,#3b82f6);padding:28px 40px;text-align:center;">
+              <img src="${LOGO_BASE64}" alt="First Access Lending" style="height:55px;display:inline-block;" />
             </td>
           </tr>
           <!-- Body -->
