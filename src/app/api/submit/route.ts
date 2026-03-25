@@ -372,10 +372,16 @@ function buildCustomFields(formData: Record<string, any>): Array<{ id: string; f
     if (value !== undefined && value !== null && String(value).trim() !== '') {
       // Don't duplicate fields we already set from Stage 1
       if (!fields.some(f => f.id === ghlId)) {
-        // Strip extra quotes from values (e.g. DOB stored as "\"1990-02-29\"")
-        let cleanValue = value;
+        // Clean value: strip wrapping quotes, parse stringified JSON
+        let cleanValue: any = value;
         if (typeof cleanValue === 'string') {
-          cleanValue = cleanValue.replace(/^"+|"+$/g, '').trim();
+          // Handle double-JSON-encoded strings like '"1990-02-29"'
+          if (cleanValue.startsWith('"') && cleanValue.endsWith('"')) {
+            try { cleanValue = JSON.parse(cleanValue); } catch { /* keep as-is */ }
+          }
+          if (typeof cleanValue === 'string') {
+            cleanValue = cleanValue.replace(/^"+|"+$/g, '').trim();
+          }
         }
         fields.push({ id: ghlId, field_value: cleanValue });
       }
