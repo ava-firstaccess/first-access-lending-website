@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import SectionCard from '@/components/quote/SectionCard';
 import QuoteBuilder from '@/components/quote/QuoteBuilder';
+import AddressAutocomplete from '@/components/quote/AddressAutocomplete';
 import {
   TextField,
   DateField,
@@ -12,6 +13,7 @@ import {
   NumberField,
   SelectField,
   RadioField,
+  CheckboxGroupField,
   TextareaField,
   SSNField
 } from '@/components/quote/FormField';
@@ -42,19 +44,48 @@ const US_STATES = [
   { value: 'WV', label: 'West Virginia' }, { value: 'WI', label: 'Wisconsin' }, { value: 'WY', label: 'Wyoming' }
 ];
 
+const OTHER_INCOME_TYPES = [
+  { value: 'Social Security', label: 'Social Security' },
+  { value: 'Pension', label: 'Pension' },
+  { value: 'Disability', label: 'Disability' },
+  { value: 'Child Support Received', label: 'Child Support Received' },
+  { value: 'Alimony Received', label: 'Alimony Received' },
+  { value: 'Rental Income', label: 'Rental Income' },
+  { value: 'Investment Income', label: 'Investment/Dividend Income' },
+  { value: 'Trust Income', label: 'Trust Income' },
+  { value: 'VA Benefits', label: 'VA Benefits' },
+  { value: 'Other', label: 'Other' }
+];
+
 function Stage2Content() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [formData, setFormData] = useState<FormData>({});
-  const isSaving = false; // silent save, no UI shift
 
-  // Load Stage 1 data from URL params or localStorage
+  // Stage 1 data
+  const stage1Product = formData['product'] || '';
+  const stage1PropertyType = formData['propertyType'] || 'Primary';
+  const stage1Address = formData['propertyAddress'] || '';
+  const stage1PropertyValue = formData['propertyValue'] || '';
+  const stage1LoanBalance = formData['loanBalance'] || '';
+  const isFirstLienProduct = stage1Product === 'CashOut' || stage1Product === 'NoCashRefi';
+  const isPrimary = stage1PropertyType === 'Primary';
+
+  // Load Stage 1 data from URL params + localStorage
   useEffect(() => {
     const stage1Data: FormData = {};
     searchParams.forEach((value, key) => {
       stage1Data[key] = value;
     });
-    
+
+    // Auto-populate Stage 2 fields from Stage 1
+    if (stage1Data.loanBalance && stage1Data.loanBalance !== '0') {
+      stage1Data['Current Loan - Free & Clear'] = 'No';
+      stage1Data['Current Loan - First Mortgage Balance'] = parseFloat(stage1Data.loanBalance);
+    } else {
+      stage1Data['Current Loan - Free & Clear'] = 'Yes';
+    }
+
     // Merge with any saved progress from localStorage
     const savedData = localStorage.getItem('stage2-progress');
     if (savedData) {
@@ -65,9 +96,8 @@ function Stage2Content() {
     }
   }, [searchParams]);
 
-  // Auto-save progress to localStorage (debounced to prevent stutter)
+  // Auto-save progress to localStorage (debounced)
   const saveTimerRef = useRef<NodeJS.Timeout>(undefined);
-  const savingTimerRef = useRef<NodeJS.Timeout>(undefined);
   useEffect(() => {
     if (Object.keys(formData).length > 0) {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -83,11 +113,23 @@ function Stage2Content() {
   }, []);
 
   const rules = visibilityRules.rules as VisibilityRule[];
-
-  // Field visibility helper
   const isVisible = (fieldName: string) => isFieldVisible(fieldName, formData, rules);
 
-  // Section completion helpers
+  // Helper: are any of these employment types selected?
+  const hasEmploymentType = (person: string, type: string) => {
+    const types = formData[`${person} - Employment Status`];
+    return Array.isArray(types) ? types.includes(type) : types === type;
+  };
+  const hasAnyEmployment = (person: string) => {
+    const types = formData[`${person} - Employment Status`];
+    return Array.isArray(types) ? types.length > 0 : !!types;
+  };
+  const hasVariableIncome = (person: string, type: string) => {
+    const types = formData[`${person} - Variable Income Types`];
+    return Array.isArray(types) ? types.includes(type) : types === type;
+  };
+
+  // Section definitions for completion tracking
   const sections = {
     borrowerInfo: [
       { name: 'Borrower - First Name', required: true },
@@ -99,24 +141,13 @@ function Stage2Content() {
       { name: 'Borrower - Citizenship Status', required: true },
       { name: 'Borrower - Has Co-Borrower', required: true }
     ],
-    coBorrower: [
-      { name: 'Co-Borrower - First Name', required: true },
-      { name: 'Co-Borrower - Last Name', required: true },
-      { name: 'Co-Borrower - Phone', required: true },
-      { name: 'Co-Borrower - Email', required: true },
-      { name: 'Co-Borrower - Employment Status', required: true }
-    ],
     currentResidence: [
       { name: 'Borrower - Housing Ownership Type', required: true },
-      { name: 'Borrower - Current Address Line 1', required: true },
-      { name: 'Borrower - Current Address City', required: true },
-      { name: 'Borrower - Current Address State', required: true },
-      { name: 'Borrower - Current Address Zip', required: true },
+      { name: 'Borrower - Current Address', required: true },
       { name: 'Borrower - Years in Current Home', required: true },
       { name: 'Borrower - Months in Current Home', required: true }
     ],
     subjectProperty: [
-      { name: 'Present Address Same as Subject Property', required: true },
       { name: 'Subject Property - Occupancy', required: true },
       { name: 'Subject Property - Units', required: true },
       { name: 'Subject Property - Structure Type', required: true },
@@ -128,38 +159,18 @@ function Stage2Content() {
       { name: 'Title - Will Be Held As', required: true }
     ],
     currentLoan: [
-      { name: 'Current Loan - Free & Clear', required: true },
-      { name: 'Current Loan - First Mortgage Balance', required: false },
-      { name: 'Current Loan - Monthly Payment', required: false },
-      { name: 'Current Loan - Type', required: false },
-      { name: 'Current Loan - Term (Months)', required: false },
-      { name: 'Current Loan - Interest Rate (%)', required: false },
-      { name: 'Current Loan - Rate Type', required: false },
-      { name: 'Current Loan - Mortgage Insurance Present', required: false },
-      { name: 'Current Loan - Escrowed', required: false },
-      { name: 'Current Loan - Pay HOA', required: false },
-      { name: 'Second Mortgage - Present', required: false }
-    ],
-    secondMortgage: [
-      { name: 'Second Mortgage - Balance', required: true },
-      { name: 'Second Mortgage - Monthly Payment', required: true },
-      { name: 'Second Mortgage - Type', required: true },
-      { name: 'Second Mortgage - Interest Rate (%)', required: true }
+      { name: 'Current Loan - Free & Clear', required: true }
     ],
     otherProperties: [
-      { name: 'Owns Other Properties', required: true },
-      { name: 'Number of Other Properties', required: false },
-      { name: 'Other Properties - Notes', required: false }
+      { name: 'Owns Other Properties', required: true }
     ],
     employmentIncome: [
-      { name: 'Borrower - Employment Status', required: true },
-      { name: 'Borrower - Base Monthly Income', required: false }
+      { name: 'Borrower - Employment Status', required: true }
     ],
     assets: [
       { name: 'Assets - Account Type', required: true },
       { name: 'Assets - Checking/Savings Total', required: true },
-      { name: 'Assets - Retirement Total', required: true },
-      { name: 'Assets - Cash Left Over', required: false }
+      { name: 'Assets - Retirement Total', required: true }
     ],
     declarations: [
       { name: 'Dec - Judgments / Federal Debt / Delinquent', required: true },
@@ -169,9 +180,7 @@ function Stage2Content() {
       { name: 'Dec - Family/Business Relationship', required: true }
     ],
     demographics: [
-      { name: 'Dem - Borrower Ethnicity', required: false },
-      { name: 'Dem - Borrower Sex', required: false },
-      { name: 'Dem - Borrower Race', required: false }
+      { name: 'Dem - Borrower Ethnicity', required: false }
     ]
   };
 
@@ -179,20 +188,19 @@ function Stage2Content() {
     isSectionComplete(sectionFields, formData, rules);
 
   const handleSubmit = async () => {
-    // TODO: Submit to API
     console.log('Submitting form data:', formData);
     alert('Form submitted! (API integration pending)');
   };
 
   const handleBackToResults = () => {
-    router.push('/quote/stage1/results?' + searchParams.toString());
+    const s1Params = new URLSearchParams();
+    searchParams.forEach((value, key) => { s1Params.set(key, value); });
+    router.push('/quote/stage1/results?' + s1Params.toString());
   };
 
-  // Step-by-step navigation
+  // Step navigation
   const [currentStep, setCurrentStep] = useState(0);
-  const [highestStep, setHighestStep] = useState(0);
 
-  // Build active sections list (skip conditional sections that aren't visible)
   const sectionOrder = [
     { key: 'borrowerInfo', title: 'Borrower Information' },
     { key: 'currentResidence', title: 'Current Residence' },
@@ -206,19 +214,13 @@ function Stage2Content() {
     { key: 'demographics', title: 'Demographics' },
   ];
 
-  const activeSections = sectionOrder;
-  const totalSteps = activeSections.length;
-  const currentSectionKey = activeSections[currentStep]?.key || 'borrowerInfo';
-
-  // Calculate progress
-  const completedSections = activeSections.filter(s => isSectionCompleted(sections[s.key as keyof typeof sections])).length;
-  const progress = ((currentStep + 1) / (totalSteps + 1)) * 100; // +1 for submit
+  const totalSteps = sectionOrder.length;
+  const currentSectionKey = sectionOrder[currentStep]?.key || 'borrowerInfo';
+  const progress = ((currentStep + 1) / (totalSteps + 1)) * 100;
 
   const goNext = () => {
     if (currentStep < totalSteps - 1) {
-      const next = currentStep + 1;
-      setCurrentStep(next);
-      setHighestStep(prev => Math.max(prev, next));
+      setCurrentStep(prev => prev + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -232,84 +234,50 @@ function Stage2Content() {
     }
   };
 
-  const isCurrentSectionComplete = () => {
-    const sectionFields = sections[currentSectionKey as keyof typeof sections];
-    if (!sectionFields) return true;
-    return isSectionCompleted(sectionFields);
-  };
+  // ─── Employment & Income Section (per person) ───
+  const renderEmploymentFields = (person: 'Borrower' | 'Co-Borrower') => {
+    const isEmployed = hasEmploymentType(person, 'Employed');
+    const isSelfEmployed = hasEmploymentType(person, 'Self-Employed');
+    const isRetired = hasEmploymentType(person, 'Retired');
+    const isNotEmployed = hasEmploymentType(person, 'Not Employed');
+    const showEmployerFields = isEmployed || isSelfEmployed;
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50 py-8">
-      <div className="container mx-auto px-4">
-        
-        {/* Desktop: Two Column Layout */}
-        <div className="grid lg:grid-cols-3 lg:gap-8 gap-6">
-          <div className="lg:col-span-2">
-            
-            {/* Header */}
-            <div className="mb-8">
-              <button
-                onClick={handleBackToResults}
-                className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium mb-4"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                Back to Results
-              </button>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Complete Your Application</h1>
-              <p className="text-gray-600">Fill out the sections below to finalize your loan application.</p>
-              {isSaving && (
-                <p className="text-sm text-green-600 mt-2">✓ Progress saved</p>
-              )}
+    return (
+      <>
+        <CheckboxGroupField
+          label={`${person === 'Borrower' ? 'Your' : "Co-Borrower's"} Employment Status`}
+          name={`${person} - Employment Status`}
+          value={formData[`${person} - Employment Status`]}
+          onChange={updateField}
+          required
+          options={[
+            { value: 'Employed', label: 'Employed (W-2)' },
+            { value: 'Self-Employed', label: 'Self-Employed' },
+            { value: 'Retired', label: 'Retired' },
+            { value: 'Not Employed', label: 'Not Currently Employed' }
+          ]}
+          className="md:col-span-2"
+        />
+
+        {/* ── Employed / Self-Employed fields ── */}
+        {showEmployerFields && (
+          <>
+            <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
+              <h4 className="font-semibold text-gray-700 mb-1">
+                {isSelfEmployed && !isEmployed ? 'Business Details' : 'Employer Details'}
+              </h4>
             </div>
+            <TextField label={isSelfEmployed && !isEmployed ? 'Business Name' : 'Employer Name'} name={`${person} - Employer Name`} value={formData[`${person} - Employer Name`]} onChange={updateField} required />
+            <TextField label="Job Title / Position" name={`${person} - Job Title`} value={formData[`${person} - Job Title`]} onChange={updateField} required />
+            <NumberField label="Years at Employer" name={`${person} - Years at Employer`} value={formData[`${person} - Years at Employer`]} onChange={updateField} required min={0} max={99} />
+            <NumberField label="Months at Employer" name={`${person} - Months at Employer`} value={formData[`${person} - Months at Employer`]} onChange={updateField} required min={0} max={11} />
+            <NumberField label="Years in Line of Work" name={`${person} - Years in Line of Work`} value={formData[`${person} - Years in Line of Work`]} onChange={updateField} required min={0} max={99} />
 
-            {/* Progress Bar */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">{activeSections[currentStep]?.title}</span>
-                <span className="text-sm text-gray-500">Step {currentStep + 1} of {totalSteps}</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div
-                  className="bg-gradient-to-r from-blue-500 to-blue-600 h-2.5 rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${((currentStep + 1) / totalSteps) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Current Section */}
-            <form autoComplete="on" onSubmit={(e) => e.preventDefault()}>
-            {currentSectionKey === 'borrowerInfo' && (
-            <SectionCard
-              title="Borrower Information"
-              description="Your personal details"
-              isComplete={isSectionCompleted(sections.borrowerInfo)}
-              defaultOpen={true}
-              sectionNumber={currentStep + 1}
-            >
-              <TextField label="First Name" name="Borrower - First Name" value={formData['Borrower - First Name']} onChange={updateField} required autoComplete="given-name" />
-              <TextField label="Last Name" name="Borrower - Last Name" value={formData['Borrower - Last Name']} onChange={updateField} required autoComplete="family-name" />
-              <TextField type="tel" label="Phone" name="Borrower - Phone" value={formData['Borrower - Phone']} onChange={updateField} required placeholder="(555) 123-4567" autoComplete="tel" />
-              <TextField type="email" label="Email" name="Borrower - Email" value={formData['Borrower - Email']} onChange={updateField} required autoComplete="email" />
-              <DateField label="Date of Birth" name="Borrower - Date of Birth" value={formData['Borrower - Date of Birth']} onChange={updateField} required autoComplete="off" />
-              <SSNField label="Social Security Number" name="Borrower - SSN" value={formData['Borrower - SSN']} onChange={updateField} required />
-              <SelectField
-                label="Citizenship Status"
-                name="Borrower - Citizenship Status"
-                value={formData['Borrower - Citizenship Status']}
-                onChange={updateField}
-                required
-                options={[
-                  { value: 'US Citizen', label: 'U.S. Citizen' },
-                  { value: 'Permanent Resident', label: 'Permanent Resident Alien' },
-                  { value: 'Non-Permanent Resident', label: 'Non-Permanent Resident Alien' }
-                ]}
-              />
+            {isSelfEmployed && (
               <RadioField
-                label="Do you have a co-borrower?"
-                name="Borrower - Has Co-Borrower"
-                value={formData['Borrower - Has Co-Borrower']}
+                label="Do you own 25% or more of the business?"
+                name={`${person} - Self-Employed 25%+ Ownership`}
+                value={formData[`${person} - Self-Employed 25%+ Ownership`]}
                 onChange={updateField}
                 required
                 inline
@@ -318,8 +286,202 @@ function Stage2Content() {
                   { value: 'No', label: 'No' }
                 ]}
               />
+            )}
 
-              {/* Co-Borrower fields expand inline when Yes */}
+            {/* Pay Type */}
+            <SelectField
+              label="Pay Type"
+              name={`${person} - Pay Type`}
+              value={formData[`${person} - Pay Type`]}
+              onChange={updateField}
+              required
+              options={[
+                { value: 'Salary', label: 'Salary' },
+                { value: 'Hourly', label: 'Hourly' }
+              ]}
+            />
+
+            {formData[`${person} - Pay Type`] === 'Hourly' && (
+              <CurrencyField label="Hourly Rate" name={`${person} - Hourly Rate`} value={formData[`${person} - Hourly Rate`]} onChange={updateField} required placeholder="Per hour" />
+            )}
+
+            <CurrencyField
+              label={isSelfEmployed && !isEmployed ? 'Monthly Net Business Income' : 'Base Monthly Income'}
+              name={isSelfEmployed && !isEmployed ? `${person} - Self-Employed Monthly Income` : `${person} - Base Monthly Income`}
+              value={formData[isSelfEmployed && !isEmployed ? `${person} - Self-Employed Monthly Income` : `${person} - Base Monthly Income`]}
+              onChange={updateField}
+              required
+              placeholder="Gross monthly"
+            />
+
+            {/* Variable Income */}
+            <CheckboxGroupField
+              label="Additional Income Types"
+              name={`${person} - Variable Income Types`}
+              value={formData[`${person} - Variable Income Types`]}
+              onChange={updateField}
+              inline
+              options={[
+                { value: 'Overtime', label: 'Overtime' },
+                { value: 'Commission', label: 'Commission' },
+                { value: 'Bonus', label: 'Bonus' },
+                { value: 'Other', label: 'Other' }
+              ]}
+              className="md:col-span-2"
+            />
+
+            {hasVariableIncome(person, 'Overtime') && (
+              <CurrencyField label="Overtime Monthly Income" name={`${person} - Overtime Monthly Income`} value={formData[`${person} - Overtime Monthly Income`]} onChange={updateField} required />
+            )}
+            {hasVariableIncome(person, 'Commission') && (
+              <CurrencyField label="Commission Monthly Income" name={`${person} - Commission Monthly Income`} value={formData[`${person} - Commission Monthly Income`]} onChange={updateField} required />
+            )}
+            {hasVariableIncome(person, 'Bonus') && (
+              <CurrencyField label="Bonus Monthly Income" name={`${person} - Bonus Monthly Income`} value={formData[`${person} - Bonus Monthly Income`]} onChange={updateField} required />
+            )}
+            {hasVariableIncome(person, 'Other') && (
+              <CurrencyField label="Other Monthly Income" name={`${person} - Other Monthly Income`} value={formData[`${person} - Other Monthly Income`]} onChange={updateField} required />
+            )}
+
+            {/* Previous Employer (if < 2 years at current) */}
+            {(Number(formData[`${person} - Years at Employer`]) <= 1) && formData[`${person} - Years at Employer`] !== undefined && formData[`${person} - Years at Employer`] !== '' && (
+              <>
+                <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
+                  <h4 className="font-semibold text-gray-700 mb-1">Previous Employer</h4>
+                  <p className="text-sm text-gray-500 mb-3">Required when less than 2 years at current employer</p>
+                </div>
+                <TextField label="Previous Employer Name" name={`${person} - Previous Employer Name`} value={formData[`${person} - Previous Employer Name`]} onChange={updateField} required />
+                <TextField label="Previous Position" name={`${person} - Previous Employer Position`} value={formData[`${person} - Previous Employer Position`]} onChange={updateField} required />
+                <NumberField label="Years at Previous Employer" name={`${person} - Years at Previous Employer`} value={formData[`${person} - Years at Previous Employer`]} onChange={updateField} required min={0} max={99} />
+                <NumberField label="Months at Previous Employer" name={`${person} - Months at Previous Employer`} value={formData[`${person} - Months at Previous Employer`]} onChange={updateField} required min={0} max={11} />
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── Retired / Not Employed: Other Income ── */}
+        {(isRetired || isNotEmployed) && !showEmployerFields && (
+          <>
+            <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
+              <h4 className="font-semibold text-gray-700 mb-1">Income Sources</h4>
+              <p className="text-sm text-gray-500 mb-3">{isRetired ? 'Retirement income, pensions, Social Security, etc.' : 'Any current income sources'}</p>
+            </div>
+          </>
+        )}
+
+        {/* Other Income chain (shows for Retired, Not Employed, or anyone who wants to add) */}
+        {(isRetired || isNotEmployed || showEmployerFields) && (
+          <>
+            {/* Only show header for employed folks since retired/not-employed already have one */}
+            {showEmployerFields && (
+              <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
+                <h4 className="font-semibold text-gray-700 mb-1">Other Income Sources</h4>
+                <p className="text-sm text-gray-500 mb-3">Social Security, pension, rental income, etc. (optional for employed)</p>
+              </div>
+            )}
+            <SelectField label="Other Income 1 Type" name={`${person} - Other Income 1 Type`} value={formData[`${person} - Other Income 1 Type`]} onChange={updateField} options={OTHER_INCOME_TYPES} required={isRetired || isNotEmployed} />
+            {formData[`${person} - Other Income 1 Type`] && (
+              <>
+                <CurrencyField label="Other Income 1 Amount (Monthly)" name={`${person} - Other Income 1 Amount`} value={formData[`${person} - Other Income 1 Amount`]} onChange={updateField} required />
+                <SelectField label="Other Income 2 Type" name={`${person} - Other Income 2 Type`} value={formData[`${person} - Other Income 2 Type`]} onChange={updateField} options={OTHER_INCOME_TYPES} />
+              </>
+            )}
+            {formData[`${person} - Other Income 2 Type`] && (
+              <>
+                <CurrencyField label="Other Income 2 Amount (Monthly)" name={`${person} - Other Income 2 Amount`} value={formData[`${person} - Other Income 2 Amount`]} onChange={updateField} required />
+                <SelectField label="Other Income 3 Type" name={`${person} - Other Income 3 Type`} value={formData[`${person} - Other Income 3 Type`]} onChange={updateField} options={OTHER_INCOME_TYPES} />
+              </>
+            )}
+            {formData[`${person} - Other Income 3 Type`] && (
+              <CurrencyField label="Other Income 3 Amount (Monthly)" name={`${person} - Other Income 3 Amount`} value={formData[`${person} - Other Income 3 Amount`]} onChange={updateField} required />
+            )}
+          </>
+        )}
+
+        {/* Alimony / Child Support */}
+        {hasAnyEmployment(person) && (
+          <>
+            <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2" />
+            <RadioField
+              label="Do you pay alimony or child support?"
+              name={`${person} - Alimony or Child Support`}
+              value={formData[`${person} - Alimony or Child Support`]}
+              onChange={updateField}
+              inline
+              options={[
+                { value: 'Yes', label: 'Yes' },
+                { value: 'No', label: 'No' }
+              ]}
+              className="md:col-span-2"
+            />
+            {formData[`${person} - Alimony or Child Support`] === 'Yes' && (
+              <CurrencyField label="Monthly Payment" name={`${person} - Alimony/Child Support Monthly Payment`} value={formData[`${person} - Alimony/Child Support Monthly Payment`]} onChange={updateField} required />
+            )}
+          </>
+        )}
+      </>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50 py-8">
+      <div className="container mx-auto px-4">
+
+        <div className="grid lg:grid-cols-3 lg:gap-8 gap-6">
+          <div className="lg:col-span-2">
+
+            {/* Header */}
+            <div className="mb-8">
+              <button onClick={handleBackToResults} className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium mb-4">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Back to Results
+              </button>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Complete Your Application</h1>
+              <p className="text-gray-600">100% automated - no phone calls unless you want them.</p>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">{sectionOrder[currentStep]?.title}</span>
+                <span className="text-sm text-gray-500">Step {currentStep + 1} of {totalSteps}</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div className="bg-gradient-to-r from-blue-500 to-blue-600 h-2.5 rounded-full transition-all duration-500 ease-out" style={{ width: `${((currentStep + 1) / totalSteps) * 100}%` }} />
+              </div>
+            </div>
+
+            <form autoComplete="on" onSubmit={(e) => e.preventDefault()}>
+
+            {/* ═══════════════════════════════════════════════
+                BORROWER INFORMATION
+            ═══════════════════════════════════════════════ */}
+            {currentSectionKey === 'borrowerInfo' && (
+            <SectionCard title="Borrower Information" description="Your personal details" isComplete={isSectionCompleted(sections.borrowerInfo)} defaultOpen={true} sectionNumber={currentStep + 1}>
+              <TextField label="First Name" name="Borrower - First Name" value={formData['Borrower - First Name']} onChange={updateField} required autoComplete="given-name" />
+              <TextField label="Last Name" name="Borrower - Last Name" value={formData['Borrower - Last Name']} onChange={updateField} required autoComplete="family-name" />
+              <TextField type="tel" label="Phone" name="Borrower - Phone" value={formData['Borrower - Phone']} onChange={updateField} required placeholder="(555) 123-4567" autoComplete="tel" />
+              <TextField type="email" label="Email" name="Borrower - Email" value={formData['Borrower - Email']} onChange={updateField} required autoComplete="email" />
+              <DateField label="Date of Birth" name="Borrower - Date of Birth" value={formData['Borrower - Date of Birth']} onChange={updateField} required autoComplete="off" />
+              <SSNField label="Social Security Number" name="Borrower - SSN" value={formData['Borrower - SSN']} onChange={updateField} required />
+              <SelectField
+                label="Citizenship Status" name="Borrower - Citizenship Status" value={formData['Borrower - Citizenship Status']} onChange={updateField} required
+                options={[
+                  { value: 'US Citizen', label: 'U.S. Citizen' },
+                  { value: 'Permanent Resident', label: 'Permanent Resident Alien' },
+                  { value: 'Non-Permanent Resident', label: 'Non-Permanent Resident Alien' }
+                ]}
+              />
+              <NumberField label="Number of Dependents" name="Number of Dependents" value={formData['Number of Dependents']} onChange={updateField} min={0} max={20} />
+              {Number(formData['Number of Dependents']) > 0 && (
+                <TextField label="Ages of Dependents" name="Ages of Dependents" value={formData['Ages of Dependents']} onChange={updateField} placeholder="e.g. 5, 8, 12" />
+              )}
+              <RadioField
+                label="Do you have a co-borrower?" name="Borrower - Has Co-Borrower" value={formData['Borrower - Has Co-Borrower']} onChange={updateField} required inline
+                options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
+              />
               {formData['Borrower - Has Co-Borrower'] === 'Yes' && (
                 <>
                   <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
@@ -330,16 +492,11 @@ function Stage2Content() {
                   <TextField type="tel" label="Co-Borrower Phone" name="Co-Borrower - Phone" value={formData['Co-Borrower - Phone']} onChange={updateField} required placeholder="(555) 123-4567" />
                   <TextField type="email" label="Co-Borrower Email" name="Co-Borrower - Email" value={formData['Co-Borrower - Email']} onChange={updateField} required />
                   <SelectField
-                    label="Co-Borrower Employment Status"
-                    name="Co-Borrower - Employment Status"
-                    value={formData['Co-Borrower - Employment Status']}
-                    onChange={updateField}
-                    required
+                    label="Co-Borrower Citizenship Status" name="Co-Borrower - Citizenship Status" value={formData['Co-Borrower - Citizenship Status']} onChange={updateField} required
                     options={[
-                      { value: 'Employed', label: 'Employed' },
-                      { value: 'Self-Employed', label: 'Self-Employed' },
-                      { value: 'Retired', label: 'Retired' },
-                      { value: 'Not Employed', label: 'Not Employed' }
+                      { value: 'US Citizen', label: 'U.S. Citizen' },
+                      { value: 'Permanent Resident', label: 'Permanent Resident Alien' },
+                      { value: 'Non-Permanent Resident', label: 'Non-Permanent Resident Alien' }
                     ]}
                   />
                 </>
@@ -347,41 +504,37 @@ function Stage2Content() {
             </SectionCard>
             )}
 
+            {/* ═══════════════════════════════════════════════
+                CURRENT RESIDENCE - Google Address Picker
+            ═══════════════════════════════════════════════ */}
             {currentSectionKey === 'currentResidence' && (
-            <SectionCard
-              title="Current Residence"
-              description="Where you live now"
-              isComplete={isSectionCompleted(sections.currentResidence)}
-              defaultOpen={true}
-              sectionNumber={currentStep + 1}
-            >
+            <SectionCard title="Current Residence" description="Where you live now" isComplete={isSectionCompleted(sections.currentResidence)} defaultOpen={true} sectionNumber={currentStep + 1}>
               <SelectField
-                label="Housing Type"
-                name="Borrower - Housing Ownership Type"
-                value={formData['Borrower - Housing Ownership Type']}
-                onChange={updateField}
-                required
+                label="Housing Type" name="Borrower - Housing Ownership Type" value={formData['Borrower - Housing Ownership Type']} onChange={updateField} required
                 options={[
                   { value: 'Own', label: 'Own' },
                   { value: 'Rent', label: 'Rent' },
                   { value: 'Living Rent Free', label: 'Living Rent Free' }
                 ]}
               />
-              <TextField label="Street Address" name="Borrower - Current Address Line 1" value={formData['Borrower - Current Address Line 1']} onChange={updateField} required className="md:col-span-2" autoComplete="street-address" />
-              <TextField label="City" name="Borrower - Current Address City" value={formData['Borrower - Current Address City']} onChange={updateField} required autoComplete="address-level2" />
-              <SelectField
-                label="State"
-                name="Borrower - Current Address State"
-                value={formData['Borrower - Current Address State']}
-                onChange={updateField}
-                required
-                options={US_STATES}
-              />
-              <TextField label="Zip Code" name="Borrower - Current Address Zip" value={formData['Borrower - Current Address Zip']} onChange={updateField} required autoComplete="postal-code" />
+              {formData['Borrower - Housing Ownership Type'] === 'Rent' && (
+                <CurrencyField label="Monthly Rent" name="Current Loan - Rent" value={formData['Current Loan - Rent']} onChange={updateField} required placeholder="Monthly rent payment" />
+              )}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Current Address <span className="text-red-500 ml-1">*</span>
+                </label>
+                <AddressAutocomplete
+                  value={formData['Borrower - Current Address'] || ''}
+                  onChange={(address) => updateField('Borrower - Current Address', address)}
+                  placeholder="Start typing your address..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
               <NumberField label="Years at Address" name="Borrower - Years in Current Home" value={formData['Borrower - Years in Current Home']} onChange={updateField} required min={0} max={99} />
               <NumberField label="Months at Address" name="Borrower - Months in Current Home" value={formData['Borrower - Months in Current Home']} onChange={updateField} required min={0} max={11} />
 
-              {/* Prior Address - shows when less than 2 years at current address */}
+              {/* Prior Address if < 2 years */}
               {(Number(formData['Borrower - Years in Current Home']) < 2) && formData['Borrower - Years in Current Home'] !== undefined && formData['Borrower - Years in Current Home'] !== '' && (
                 <>
                   <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
@@ -389,28 +542,24 @@ function Stage2Content() {
                     <p className="text-sm text-gray-500 mb-3">Required when less than 2 years at current address</p>
                   </div>
                   <SelectField
-                    label="Prior Housing Type"
-                    name="Borrower - Prior Housing Ownership Type"
-                    value={formData['Borrower - Prior Housing Ownership Type']}
-                    onChange={updateField}
-                    required
+                    label="Prior Housing Type" name="Borrower - Prior Housing Ownership Type" value={formData['Borrower - Prior Housing Ownership Type']} onChange={updateField} required
                     options={[
                       { value: 'Own', label: 'Own' },
                       { value: 'Rent', label: 'Rent' },
                       { value: 'Living Rent Free', label: 'Living Rent Free' }
                     ]}
                   />
-                  <TextField label="Street Address" name="Borrower - Prior Address Line 1" value={formData['Borrower - Prior Address Line 1']} onChange={updateField} required className="md:col-span-2" autoComplete="street-address" />
-                  <TextField label="City" name="Borrower - Prior Address City" value={formData['Borrower - Prior Address City']} onChange={updateField} required autoComplete="address-level2" />
-                  <SelectField
-                    label="State"
-                    name="Borrower - Prior Address - State"
-                    value={formData['Borrower - Prior Address - State']}
-                    onChange={updateField}
-                    required
-                    options={US_STATES}
-                  />
-                  <TextField label="Zip Code" name="Borrower - Prior Address Zip" value={formData['Borrower - Prior Address Zip']} onChange={updateField} required autoComplete="postal-code" />
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Prior Address <span className="text-red-500 ml-1">*</span>
+                    </label>
+                    <AddressAutocomplete
+                      value={formData['Borrower - Prior Address'] || ''}
+                      onChange={(address) => updateField('Borrower - Prior Address', address)}
+                      placeholder="Start typing your prior address..."
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
                   <NumberField label="Years at Prior Address" name="Borrower - Years at Prior Address" value={formData['Borrower - Years at Prior Address']} onChange={updateField} required min={0} max={99} />
                   <NumberField label="Months at Prior Address" name="Borrower - Months at Prior Address" value={formData['Borrower - Months at Prior Address']} onChange={updateField} required min={0} max={11} />
                 </>
@@ -418,33 +567,39 @@ function Stage2Content() {
             </SectionCard>
             )}
 
+            {/* ═══════════════════════════════════════════════
+                SUBJECT PROPERTY - Dynamic based on property type
+            ═══════════════════════════════════════════════ */}
             {currentSectionKey === 'subjectProperty' && (
-            <SectionCard
-              title="Subject Property"
-              description="The property you're financing"
-              isComplete={isSectionCompleted(sections.subjectProperty)}
-              defaultOpen={true}
-              sectionNumber={currentStep + 1}
-            >
-              <RadioField
-                label="Is this the same as your current address?"
-                name="Present Address Same as Subject Property"
-                value={formData['Present Address Same as Subject Property']}
-                onChange={updateField}
-                required
-                inline
-                options={[
-                  { value: 'Yes', label: 'Yes' },
-                  { value: 'No', label: 'No' }
-                ]}
-                className="md:col-span-2"
-              />
+            <SectionCard title="Subject Property" description="The property you're financing" isComplete={isSectionCompleted(sections.subjectProperty)} defaultOpen={true} sectionNumber={currentStep + 1}>
+              {/* Show address from Stage 1 - greyed out for primary, editable for investment/2nd home */}
+              {isPrimary ? (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Subject Property Address</label>
+                  <div className="w-full px-4 py-2 bg-gray-100 border border-gray-200 rounded-lg text-gray-600">
+                    {stage1Address || 'Address from previous step'}
+                  </div>
+                  <p className="text-sm text-blue-600 mt-1">✓ Subject property is your primary residence</p>
+                </div>
+              ) : (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Subject Property Address <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <AddressAutocomplete
+                    value={formData['Subject Property - Address'] || stage1Address || ''}
+                    onChange={(address) => updateField('Subject Property - Address', address)}
+                    placeholder="Enter the subject property address..."
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    {stage1PropertyType === 'Investment' ? 'Investment property' : 'Second home'}
+                  </p>
+                </div>
+              )}
+
               <SelectField
-                label="Occupancy"
-                name="Subject Property - Occupancy"
-                value={formData['Subject Property - Occupancy']}
-                onChange={updateField}
-                required
+                label="Occupancy" name="Subject Property - Occupancy" value={formData['Subject Property - Occupancy'] || (isPrimary ? 'Primary Residence' : stage1PropertyType === 'Investment' ? 'Investment Property' : 'Second Home')} onChange={updateField} required
                 options={[
                   { value: 'Primary Residence', label: 'Primary Residence' },
                   { value: 'Second Home', label: 'Second Home' },
@@ -453,11 +608,7 @@ function Stage2Content() {
               />
               <NumberField label="Number of Units" name="Subject Property - Units" value={formData['Subject Property - Units']} onChange={updateField} required min={1} max={4} />
               <SelectField
-                label="Structure Type"
-                name="Subject Property - Structure Type"
-                value={formData['Subject Property - Structure Type']}
-                onChange={updateField}
-                required
+                label="Structure Type" name="Subject Property - Structure Type" value={formData['Subject Property - Structure Type']} onChange={updateField} required
                 options={[
                   { value: 'Single Family', label: 'Single Family' },
                   { value: 'Condo', label: 'Condo' },
@@ -465,36 +616,21 @@ function Stage2Content() {
                   { value: 'Multi-Family', label: 'Multi-Family' }
                 ]}
               />
-              <CurrencyField label="Stated Property Value" name="Stated Property Value" value={formData['Stated Property Value']} onChange={updateField} required />
+              <CurrencyField label="Stated Property Value" name="Stated Property Value" value={formData['Stated Property Value'] || stage1PropertyValue} onChange={updateField} required />
               <RadioField
-                label="Listed for sale in last 6 months?"
-                name="Listed For Sale (Last 6 Months)"
-                value={formData['Listed For Sale (Last 6 Months)']}
-                onChange={updateField}
-                required
-                inline
-                options={[
-                  { value: 'Yes', label: 'Yes' },
-                  { value: 'No', label: 'No' }
-                ]}
+                label="Listed for sale in last 6 months?" name="Listed For Sale (Last 6 Months)" value={formData['Listed For Sale (Last 6 Months)']} onChange={updateField} required inline
+                options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
               />
             </SectionCard>
             )}
 
+            {/* ═══════════════════════════════════════════════
+                TITLE & VESTING
+            ═══════════════════════════════════════════════ */}
             {currentSectionKey === 'title' && (
-            <SectionCard
-              title="Title & Vesting"
-              description="How the property is owned"
-              isComplete={isSectionCompleted(sections.title)}
-              defaultOpen={true}
-              sectionNumber={currentStep + 1}
-            >
+            <SectionCard title="Title & Vesting" description="How the property is owned" isComplete={isSectionCompleted(sections.title)} defaultOpen={true} sectionNumber={currentStep + 1}>
               <SelectField
-                label="Current Title Held As"
-                name="Title - Current Title Held As"
-                value={formData['Title - Current Title Held As']}
-                onChange={updateField}
-                required
+                label="Current Title Held As" name="Title - Current Title Held As" value={formData['Title - Current Title Held As']} onChange={updateField} required
                 options={[
                   { value: 'Sole Ownership', label: 'Sole Ownership' },
                   { value: 'Joint Tenants', label: 'Joint Tenants' },
@@ -503,11 +639,7 @@ function Stage2Content() {
                 ]}
               />
               <SelectField
-                label="Title Will Be Held As"
-                name="Title - Will Be Held As"
-                value={formData['Title - Will Be Held As']}
-                onChange={updateField}
-                required
+                label="Title Will Be Held As" name="Title - Will Be Held As" value={formData['Title - Will Be Held As']} onChange={updateField} required
                 options={[
                   { value: 'Sole Ownership', label: 'Sole Ownership' },
                   { value: 'Joint Tenants', label: 'Joint Tenants' },
@@ -518,185 +650,158 @@ function Stage2Content() {
             </SectionCard>
             )}
 
+            {/* ═══════════════════════════════════════════════
+                CURRENT LOAN & LIENS - Data carries over from Stage 1
+                PMI/Escrow use inline 2-column layout
+                Term/Type/RateType only for CashOut/NoCashRefi
+            ═══════════════════════════════════════════════ */}
             {currentSectionKey === 'currentLoan' && (
-            <SectionCard
-              title="Current Loan Details"
-              description="Your existing mortgage (if any)"
-              isComplete={isSectionCompleted(sections.currentLoan)}
-              defaultOpen={true}
-              sectionNumber={currentStep + 1}
-            >
+            <SectionCard title="Current Loan Details" description="Your existing mortgage (if any)" isComplete={isSectionCompleted(sections.currentLoan)} defaultOpen={true} sectionNumber={currentStep + 1}>
               <RadioField
-                label="Is the property free & clear?"
-                name="Current Loan - Free & Clear"
-                value={formData['Current Loan - Free & Clear']}
-                onChange={updateField}
-                required
-                inline
-                options={[
-                  { value: 'Yes', label: 'Yes' },
-                  { value: 'No', label: 'No' }
-                ]}
+                label="Is the property free & clear?" name="Current Loan - Free & Clear"
+                value={formData['Current Loan - Free & Clear']} onChange={updateField} required inline
+                options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
                 className="md:col-span-2"
               />
-              
-              {isVisible('Current Loan - First Mortgage Balance') && (
+
+              {formData['Current Loan - Free & Clear'] === 'No' && (
                 <>
-                  <CurrencyField label="First Mortgage Balance" name="Current Loan - First Mortgage Balance" value={formData['Current Loan - First Mortgage Balance']} onChange={updateField} />
-                  <CurrencyField label="Monthly Payment" name="Current Loan - Monthly Payment" value={formData['Current Loan - Monthly Payment']} onChange={updateField} />
-                  <SelectField
-                    label="Loan Type"
-                    name="Current Loan - Type"
-                    value={formData['Current Loan - Type']}
-                    onChange={updateField}
-                    options={[
-                      { value: 'Conventional', label: 'Conventional' },
-                      { value: 'FHA', label: 'FHA' },
-                      { value: 'VA', label: 'VA' },
-                      { value: 'USDA', label: 'USDA' }
-                    ]}
-                  />
-                  <NumberField label="Term (Months)" name="Current Loan - Term (Months)" value={formData['Current Loan - Term (Months)']} onChange={updateField} placeholder="360" />
+                  <CurrencyField label="First Mortgage Balance" name="Current Loan - First Mortgage Balance" value={formData['Current Loan - First Mortgage Balance']} onChange={updateField} required />
+                  <CurrencyField label="Monthly Payment" name="Current Loan - Monthly Payment" value={formData['Current Loan - Monthly Payment']} onChange={updateField} required />
                   <NumberField label="Interest Rate (%)" name="Current Loan - Interest Rate (%)" value={formData['Current Loan - Interest Rate (%)']} onChange={updateField} step={0.001} placeholder="7.250" />
-                  <SelectField
-                    label="Rate Type"
-                    name="Current Loan - Rate Type"
-                    value={formData['Current Loan - Rate Type']}
-                    onChange={updateField}
-                    options={[
-                      { value: 'Fixed', label: 'Fixed' },
-                      { value: 'ARM', label: 'Adjustable (ARM)' }
-                    ]}
-                  />
-                  <RadioField
-                    label="Mortgage Insurance Present?"
-                    name="Current Loan - Mortgage Insurance Present"
-                    value={formData['Current Loan - Mortgage Insurance Present']}
-                    onChange={updateField}
-                    inline
-                    options={[
-                      { value: 'Yes', label: 'Yes' },
-                      { value: 'No', label: 'No' }
-                    ]}
-                  />
-                  {formData['Current Loan - Mortgage Insurance Present'] === 'Yes' && (
-                    <CurrencyField label="Monthly PMI Amount" name="Current Loan - PMI Amount" value={formData['Current Loan - PMI Amount']} onChange={updateField} placeholder="Monthly MI payment" />
-                  )}
-                  <RadioField
-                    label="Taxes & Insurance Escrowed?"
-                    name="Current Loan - Escrowed"
-                    value={formData['Current Loan - Escrowed']}
-                    onChange={updateField}
-                    inline
-                    options={[
-                      { value: 'Yes', label: 'Yes' },
-                      { value: 'No', label: 'No' }
-                    ]}
-                  />
-                  {formData['Current Loan - Escrowed'] === 'No' && (
+
+                  {/* Only show term, type, rate type for first lien products */}
+                  {isFirstLienProduct && (
                     <>
-                      <CurrencyField label="Annual Property Taxes" name="Current Loan - Annual Taxes" value={formData['Current Loan - Annual Taxes']} onChange={updateField} required placeholder="Yearly tax amount" />
-                      <CurrencyField label="Annual Homeowners Insurance" name="Current Loan - Annual HOI" value={formData['Current Loan - Annual HOI']} onChange={updateField} required placeholder="Yearly insurance premium" />
+                      <SelectField
+                        label="Loan Type" name="Current Loan - Type" value={formData['Current Loan - Type']} onChange={updateField}
+                        options={[
+                          { value: 'Conventional', label: 'Conventional' },
+                          { value: 'FHA', label: 'FHA' },
+                          { value: 'VA', label: 'VA' },
+                          { value: 'USDA', label: 'USDA' }
+                        ]}
+                      />
+                      <NumberField label="Term (Months)" name="Current Loan - Term (Months)" value={formData['Current Loan - Term (Months)']} onChange={updateField} placeholder="360" />
+                      <SelectField
+                        label="Rate Type" name="Current Loan - Rate Type" value={formData['Current Loan - Rate Type']} onChange={updateField}
+                        options={[
+                          { value: 'Fixed', label: 'Fixed' },
+                          { value: 'ARM', label: 'Adjustable (ARM)' }
+                        ]}
+                      />
                     </>
                   )}
-                  <RadioField
-                    label="HOA Dues?"
-                    name="Current Loan - Pay HOA"
-                    value={formData['Current Loan - Pay HOA']}
-                    onChange={updateField}
-                    inline
-                    options={[
-                      { value: 'Yes', label: 'Yes' },
-                      { value: 'No', label: 'No' }
-                    ]}
-                  />
-                  {isVisible('Current Loan - HOA Dues') && (
-                    <CurrencyField label="Monthly HOA Dues" name="Current Loan - HOA Dues" value={formData['Current Loan - HOA Dues']} onChange={updateField} />
+
+                  {/* PMI - Yes/No in col1, amount in col2 (same row) */}
+                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                    <RadioField
+                      label="Mortgage Insurance (PMI)?" name="Current Loan - Mortgage Insurance Present"
+                      value={formData['Current Loan - Mortgage Insurance Present']} onChange={updateField} inline
+                      options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
+                    />
+                    {formData['Current Loan - Mortgage Insurance Present'] === 'Yes' && (
+                      <CurrencyField label="Monthly PMI Amount" name="Current Loan - PMI Amount" value={formData['Current Loan - PMI Amount']} onChange={updateField} required placeholder="Monthly MI" />
+                    )}
+                  </div>
+
+                  {/* Escrow - Yes/No in col1, if No -> taxes col1 + insurance col2 on next row */}
+                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                    <RadioField
+                      label="Taxes & Insurance Escrowed?" name="Current Loan - Escrowed"
+                      value={formData['Current Loan - Escrowed']} onChange={updateField} inline
+                      options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
+                    />
+                  </div>
+                  {formData['Current Loan - Escrowed'] === 'No' && (
+                    <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <CurrencyField label="Annual Property Taxes" name="Current Loan - Annual Taxes" value={formData['Current Loan - Annual Taxes']} onChange={updateField} required placeholder="Yearly tax amount" />
+                      <CurrencyField label="Annual Homeowners Insurance" name="Current Loan - Annual HOI" value={formData['Current Loan - Annual HOI']} onChange={updateField} required placeholder="Yearly insurance" />
+                    </div>
                   )}
+
+                  {/* HOA - Yes/No in col1, amount in col2 */}
+                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                    <RadioField
+                      label="HOA Dues?" name="Current Loan - Pay HOA"
+                      value={formData['Current Loan - Pay HOA']} onChange={updateField} inline
+                      options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
+                    />
+                    {formData['Current Loan - Pay HOA'] === 'Yes' && (
+                      <CurrencyField label="Monthly HOA Dues" name="Current Loan - HOA Dues" value={formData['Current Loan - HOA Dues']} onChange={updateField} required />
+                    )}
+                  </div>
+
+                  {/* Second Mortgage */}
                   <RadioField
-                    label="Second Mortgage Present?"
-                    name="Second Mortgage - Present"
-                    value={formData['Second Mortgage - Present']}
-                    onChange={updateField}
-                    inline
-                    options={[
-                      { value: 'Yes', label: 'Yes' },
-                      { value: 'No', label: 'No' }
-                    ]}
+                    label="Second Mortgage Present?" name="Second Mortgage - Present"
+                    value={formData['Second Mortgage - Present']} onChange={updateField} inline
+                    options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
                     className="md:col-span-2"
                   />
-                </>
-              )}
-
-              {/* Second Mortgage fields expand inline when Yes */}
-              {formData['Second Mortgage - Present'] === 'Yes' && (
-                <>
-                  <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
-                    <h4 className="font-semibold text-gray-700 mb-3">Second Mortgage Details</h4>
-                  </div>
-                  <CurrencyField label="Balance" name="Second Mortgage - Balance" value={formData['Second Mortgage - Balance']} onChange={updateField} required />
-                  <CurrencyField label="Monthly Payment" name="Second Mortgage - Monthly Payment" value={formData['Second Mortgage - Monthly Payment']} onChange={updateField} required />
-                  <SelectField
-                    label="Loan Type"
-                    name="Second Mortgage - Type"
-                    value={formData['Second Mortgage - Type']}
-                    onChange={updateField}
-                    required
-                    options={[
-                      { value: 'HELOC', label: 'HELOC' },
-                      { value: 'Home Equity Loan', label: 'Home Equity Loan (Closed-End)' }
-                    ]}
-                  />
-                  <NumberField label="Interest Rate (%)" name="Second Mortgage - Interest Rate (%)" value={formData['Second Mortgage - Interest Rate (%)']} onChange={updateField} required step={0.001} placeholder="8.500" />
+                  {formData['Second Mortgage - Present'] === 'Yes' && (
+                    <>
+                      <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
+                        <h4 className="font-semibold text-gray-700 mb-3">Second Mortgage Details</h4>
+                      </div>
+                      <CurrencyField label="Balance" name="Second Mortgage - Balance" value={formData['Second Mortgage - Balance']} onChange={updateField} required />
+                      <CurrencyField label="Monthly Payment" name="Second Mortgage - Monthly Payment" value={formData['Second Mortgage - Monthly Payment']} onChange={updateField} required />
+                      <SelectField
+                        label="Loan Type" name="Second Mortgage - Type" value={formData['Second Mortgage - Type']} onChange={updateField} required
+                        options={[
+                          { value: 'HELOC', label: 'HELOC' },
+                          { value: 'Home Equity Loan', label: 'Home Equity Loan (Closed-End)' }
+                        ]}
+                      />
+                      <NumberField label="Interest Rate (%)" name="Second Mortgage - Interest Rate (%)" value={formData['Second Mortgage - Interest Rate (%)']} onChange={updateField} required step={0.001} placeholder="8.500" />
+                      <SelectField
+                        label="Rate Type" name="Second Mortgage - Rate Type" value={formData['Second Mortgage - Rate Type']} onChange={updateField} required
+                        options={[
+                          { value: 'Fixed', label: 'Fixed' },
+                          { value: 'Variable', label: 'Variable' }
+                        ]}
+                      />
+                    </>
+                  )}
                 </>
               )}
             </SectionCard>
             )}
 
+            {/* ═══════════════════════════════════════════════
+                OTHER PROPERTIES
+            ═══════════════════════════════════════════════ */}
             {currentSectionKey === 'otherProperties' && (
-            <SectionCard
-              title="Other Properties"
-              description="Additional real estate you own"
-              isComplete={isSectionCompleted(sections.otherProperties)}
-              defaultOpen={true}
-              sectionNumber={currentStep + 1}
-            >
+            <SectionCard title="Other Properties" description="Additional real estate you own" isComplete={isSectionCompleted(sections.otherProperties)} defaultOpen={true} sectionNumber={currentStep + 1}>
               <RadioField
-                label="Do you own other properties?"
-                name="Owns Other Properties"
-                value={formData['Owns Other Properties']}
-                onChange={updateField}
-                required
-                inline
-                options={[
-                  { value: 'Yes', label: 'Yes' },
-                  { value: 'No', label: 'No' }
-                ]}
+                label="Do you own other properties?" name="Owns Other Properties" value={formData['Owns Other Properties']} onChange={updateField} required inline
+                options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
                 className="md:col-span-2"
               />
               {formData['Owns Other Properties'] === 'Yes' && (
                 <>
                   <NumberField label="How many other properties?" name="Number of Other Properties" value={formData['Number of Other Properties']} onChange={updateField} min={1} max={5} required />
-                  
-                  {/* Dynamic property address fields based on count */}
                   {Array.from({ length: Math.min(Number(formData['Number of Other Properties']) || 0, 5) }, (_, i) => {
                     const n = i + 1;
                     return (
                       <div key={`prop-${n}`} className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
                         <h4 className="font-semibold text-gray-700 mb-3">Property {n}</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <TextField label="Address" name={`Other Properties - Address ${n}`} value={formData[`Other Properties - Address ${n}`]} onChange={updateField} required className="md:col-span-2" autoComplete="street-address" />
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Address <span className="text-red-500">*</span></label>
+                            <AddressAutocomplete
+                              value={formData[`Other Properties - Address ${n}`] || ''}
+                              onChange={(address) => updateField(`Other Properties - Address ${n}`, address)}
+                              placeholder="Property address..."
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                          </div>
                           <RadioField
                             label="Do you escrow this property?"
                             name={`Other Properties - Address ${n} Escrow`}
                             value={formData[`Other Properties - Address ${n} Escrow`]}
-                            onChange={updateField}
-                            required
-                            inline
-                            options={[
-                              { value: 'Yes', label: 'Yes' },
-                              { value: 'No', label: 'No' }
-                            ]}
+                            onChange={updateField} required inline
+                            options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
                           />
                         </div>
                       </div>
@@ -705,49 +810,34 @@ function Stage2Content() {
                 </>
               )}
             </SectionCard>
-
             )}
 
+            {/* ═══════════════════════════════════════════════
+                EMPLOYMENT & INCOME - Full GHL fields with checkboxes
+            ═══════════════════════════════════════════════ */}
             {currentSectionKey === 'employmentIncome' && (
-            <SectionCard
-              title="Employment & Income"
-              description="Your income sources"
-              isComplete={isSectionCompleted(sections.employmentIncome)}
-              defaultOpen={true}
-              sectionNumber={currentStep + 1}
-            >
-              <SelectField
-                label="Employment Status"
-                name="Borrower - Employment Status"
-                value={formData['Borrower - Employment Status']}
-                onChange={updateField}
-                required
-                options={[
-                  { value: 'Employed', label: 'Employed' },
-                  { value: 'Self-Employed', label: 'Self-Employed' },
-                  { value: 'Retired', label: 'Retired' },
-                  { value: 'Not Employed', label: 'Not Employed' }
-                ]}
-              />
-              <CurrencyField label="Base Monthly Income" name="Borrower - Base Monthly Income" value={formData['Borrower - Base Monthly Income']} onChange={updateField} placeholder="Gross monthly income" />
-            </SectionCard>
+            <SectionCard title="Employment & Income" description="Your income sources" isComplete={isSectionCompleted(sections.employmentIncome)} defaultOpen={true} sectionNumber={currentStep + 1}>
+              {renderEmploymentFields('Borrower')}
 
+              {/* Co-Borrower Employment (if applicable) */}
+              {formData['Borrower - Has Co-Borrower'] === 'Yes' && (
+                <>
+                  <div className="md:col-span-2 border-t-2 border-blue-200 pt-6 mt-4">
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">Co-Borrower Employment & Income</h3>
+                  </div>
+                  {renderEmploymentFields('Co-Borrower')}
+                </>
+              )}
+            </SectionCard>
             )}
 
+            {/* ═══════════════════════════════════════════════
+                ASSETS
+            ═══════════════════════════════════════════════ */}
             {currentSectionKey === 'assets' && (
-            <SectionCard
-              title="Assets"
-              description="Your financial accounts"
-              isComplete={isSectionCompleted(sections.assets)}
-              defaultOpen={true}
-              sectionNumber={currentStep + 1}
-            >
+            <SectionCard title="Assets" description="Your financial accounts" isComplete={isSectionCompleted(sections.assets)} defaultOpen={true} sectionNumber={currentStep + 1}>
               <SelectField
-                label="Primary Account Type"
-                name="Assets - Account Type"
-                value={formData['Assets - Account Type']}
-                onChange={updateField}
-                required
+                label="Primary Account Type" name="Assets - Account Type" value={formData['Assets - Account Type']} onChange={updateField} required
                 options={[
                   { value: 'Checking', label: 'Checking' },
                   { value: 'Savings', label: 'Savings' },
@@ -758,130 +848,148 @@ function Stage2Content() {
               <CurrencyField label="Total Retirement Accounts" name="Assets - Retirement Total" value={formData['Assets - Retirement Total']} onChange={updateField} required />
               <CurrencyField label="Cash Left After Closing" name="Assets - Cash Left Over" value={formData['Assets - Cash Left Over']} onChange={updateField} placeholder="Reserves" />
             </SectionCard>
-
             )}
 
+            {/* ═══════════════════════════════════════════════
+                DECLARATIONS
+            ═══════════════════════════════════════════════ */}
             {currentSectionKey === 'declarations' && (
-            <SectionCard
-              title="Declarations"
-              description="Required disclosure questions"
-              isComplete={isSectionCompleted(sections.declarations)}
-              defaultOpen={true}
-              sectionNumber={currentStep + 1}
-            >
-              <RadioField
-                label="Outstanding judgments, federal debt, or delinquent accounts?"
-                name="Dec - Judgments / Federal Debt / Delinquent"
-                value={formData['Dec - Judgments / Federal Debt / Delinquent']}
-                onChange={updateField}
-                required
-                inline
-                options={[
-                  { value: 'Yes', label: 'Yes' },
-                  { value: 'No', label: 'No' }
-                ]}
-                className="md:col-span-2"
-              />
-              <RadioField
-                label="Bankruptcy, short sale, or foreclosure in last 7 years?"
-                name="Dec - Bankruptcy / Short Sale / Foreclosure"
-                value={formData['Dec - Bankruptcy / Short Sale / Foreclosure']}
-                onChange={updateField}
-                required
-                inline
-                options={[
-                  { value: 'Yes', label: 'Yes' },
-                  { value: 'No', label: 'No' }
-                ]}
-                className="md:col-span-2"
-              />
-              <RadioField
-                label="Ownership interest in another property in last 3 years?"
-                name="Dec - Ownership Interest Last 3 Years"
-                value={formData['Dec - Ownership Interest Last 3 Years']}
-                onChange={updateField}
-                required
-                inline
-                options={[
-                  { value: 'Yes', label: 'Yes' },
-                  { value: 'No', label: 'No' }
-                ]}
-                className="md:col-span-2"
-              />
-              <RadioField
-                label="Primary residence in last 3 years?"
-                name="Dec - Primary Residence Last 3 Years"
-                value={formData['Dec - Primary Residence Last 3 Years']}
-                onChange={updateField}
-                required
-                inline
-                options={[
-                  { value: 'Yes', label: 'Yes' },
-                  { value: 'No', label: 'No' }
-                ]}
-                className="md:col-span-2"
-              />
-              <RadioField
-                label="Family or business relationship with seller?"
-                name="Dec - Family/Business Relationship"
-                value={formData['Dec - Family/Business Relationship']}
-                onChange={updateField}
-                required
-                inline
-                options={[
-                  { value: 'Yes', label: 'Yes' },
-                  { value: 'No', label: 'No' }
-                ]}
-                className="md:col-span-2"
-              />
-            </SectionCard>
+            <SectionCard title="Declarations" description="Required disclosure questions" isComplete={isSectionCompleted(sections.declarations)} defaultOpen={true} sectionNumber={currentStep + 1}>
+              <RadioField label="Outstanding judgments, federal debt, or delinquent accounts?" name="Dec - Judgments / Federal Debt / Delinquent" value={formData['Dec - Judgments / Federal Debt / Delinquent']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+              {formData['Dec - Judgments / Federal Debt / Delinquent'] === 'Yes' && (
+                <>
+                  <RadioField label="Outstanding judgments?" name="Dec - Borrower Outstanding Judgments" value={formData['Dec - Borrower Outstanding Judgments']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                  <RadioField label="Delinquent/default on federal debt?" name="Dec - Borrower Delinquent/Default Federal Debt" value={formData['Dec - Borrower Delinquent/Default Federal Debt']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                  <RadioField label="Party to a lawsuit?" name="Dec - Borrower Party to Lawsuit" value={formData['Dec - Borrower Party to Lawsuit']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                </>
+              )}
 
+              <RadioField label="Bankruptcy, short sale, or foreclosure in last 7 years?" name="Dec - Bankruptcy / Short Sale / Foreclosure" value={formData['Dec - Bankruptcy / Short Sale / Foreclosure']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+              {formData['Dec - Bankruptcy / Short Sale / Foreclosure'] === 'Yes' && (
+                <>
+                  <RadioField label="Bankruptcy in last 7 years?" name="Dec - Borrower Bankruptcy (Last 7 Years)" value={formData['Dec - Borrower Bankruptcy (Last 7 Years)']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                  {formData['Dec - Borrower Bankruptcy (Last 7 Years)'] === 'Yes' && (
+                    <SelectField label="Bankruptcy Type" name="Dec - Borrower Bankruptcy Type" value={formData['Dec - Borrower Bankruptcy Type']} onChange={updateField} options={[{ value: 'Chapter 7', label: 'Chapter 7' }, { value: 'Chapter 13', label: 'Chapter 13' }]} />
+                  )}
+                  <RadioField label="Short sale or pre-foreclosure?" name="Dec - Borrower Short Sale / Pre-Foreclosure" value={formData['Dec - Borrower Short Sale / Pre-Foreclosure']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                  <RadioField label="Deed in lieu?" name="Dec - Borrower Deed in Lieu (Last 7 Years)" value={formData['Dec - Borrower Deed in Lieu (Last 7 Years)']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                  <RadioField label="Property foreclosure?" name="Dec - Borrower Property Foreclosure" value={formData['Dec - Borrower Property Foreclosure']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                </>
+              )}
+
+              <RadioField label="Ownership interest in another property in last 3 years?" name="Dec - Ownership Interest Last 3 Years" value={formData['Dec - Ownership Interest Last 3 Years']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+              <RadioField label="Primary residence in last 3 years?" name="Dec - Primary Residence Last 3 Years" value={formData['Dec - Primary Residence Last 3 Years']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+              <RadioField label="Family or business relationship with seller?" name="Dec - Family/Business Relationship" value={formData['Dec - Family/Business Relationship']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+
+              {/* Co-Borrower Declarations */}
+              {formData['Borrower - Has Co-Borrower'] === 'Yes' && (
+                <>
+                  <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
+                    <RadioField
+                      label="Same declarations for Co-Borrower?" name="Dec - Same for Co-Borrower"
+                      value={formData['Dec - Same for Co-Borrower']} onChange={updateField} inline
+                      options={[{ value: 'Yes', label: 'Yes, same answers' }, { value: 'No', label: 'No, different' }]}
+                    />
+                  </div>
+                  {formData['Dec - Same for Co-Borrower'] === 'No' && (
+                    <>
+                      <RadioField label="Co-Borrower: Outstanding judgments?" name="Dec - Co-Borrower Outstanding Judgments" value={formData['Dec - Co-Borrower Outstanding Judgments']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                      <RadioField label="Co-Borrower: Delinquent/default?" name="Dec - Co-Borrower Delinquent/Default" value={formData['Dec - Co-Borrower Delinquent/Default']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                      <RadioField label="Co-Borrower: Party to lawsuit?" name="Dec - Co-Borrower Party to Lawsuit" value={formData['Dec - Co-Borrower Party to Lawsuit']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                      <RadioField label="Co-Borrower: Bankruptcy (last 7 years)?" name="Dec - Co-Borrower Bankruptcy (Last 7 Years)" value={formData['Dec - Co-Borrower Bankruptcy (Last 7 Years)']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                      {formData['Dec - Co-Borrower Bankruptcy (Last 7 Years)'] === 'Yes' && (
+                        <SelectField label="Co-Borrower Bankruptcy Type" name="Dec - Co-Borrower Bankruptcy Type" value={formData['Dec - Co-Borrower Bankruptcy Type']} onChange={updateField} options={[{ value: 'Chapter 7', label: 'Chapter 7' }, { value: 'Chapter 13', label: 'Chapter 13' }]} />
+                      )}
+                      <RadioField label="Co-Borrower: Short sale / pre-foreclosure?" name="Dec - Co-Borrower Short Sale / Pre-Foreclosure" value={formData['Dec - Co-Borrower Short Sale / Pre-Foreclosure']} onChange={updateField} inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} />
+                    </>
+                  )}
+                </>
+              )}
+            </SectionCard>
             )}
 
+            {/* ═══════════════════════════════════════════════
+                DEMOGRAPHICS
+            ═══════════════════════════════════════════════ */}
             {currentSectionKey === 'demographics' && (
-            <SectionCard
-              title="Demographics"
-              description="Optional - for government monitoring purposes"
-              isComplete={isSectionCompleted(sections.demographics)}
-              defaultOpen={true}
-              sectionNumber={currentStep + 1}
-            >
-              <SelectField
-                label="Ethnicity (Optional)"
-                name="Dem - Borrower Ethnicity"
-                value={formData['Dem - Borrower Ethnicity']}
-                onChange={updateField}
+            <SectionCard title="Demographics" description="Optional - for government monitoring purposes" isComplete={isSectionCompleted(sections.demographics)} defaultOpen={true} sectionNumber={currentStep + 1}>
+              <SelectField label="Ethnicity (Optional)" name="Dem - Borrower Ethnicity" value={formData['Dem - Borrower Ethnicity']} onChange={updateField}
                 options={[
                   { value: 'Hispanic or Latino', label: 'Hispanic or Latino' },
                   { value: 'Not Hispanic or Latino', label: 'Not Hispanic or Latino' },
-                  { value: 'I do not wish to provide', label: 'I do not wish to provide this information' }
+                  { value: 'I do not wish to provide', label: 'I do not wish to provide' }
                 ]}
               />
-              <SelectField
-                label="Sex (Optional)"
-                name="Dem - Borrower Sex"
-                value={formData['Dem - Borrower Sex']}
-                onChange={updateField}
+              {formData['Dem - Borrower Ethnicity'] === 'Hispanic or Latino' && (
+                <SelectField label="Ethnicity Detail" name="Dem - Borrower Ethnicity Detail" value={formData['Dem - Borrower Ethnicity Detail']} onChange={updateField}
+                  options={[
+                    { value: 'Mexican', label: 'Mexican' },
+                    { value: 'Puerto Rican', label: 'Puerto Rican' },
+                    { value: 'Cuban', label: 'Cuban' },
+                    { value: 'Other Hispanic or Latino', label: 'Other Hispanic or Latino' }
+                  ]}
+                />
+              )}
+              <SelectField label="Sex (Optional)" name="Dem - Borrower Sex" value={formData['Dem - Borrower Sex']} onChange={updateField}
                 options={[
                   { value: 'Male', label: 'Male' },
                   { value: 'Female', label: 'Female' },
-                  { value: 'I do not wish to provide', label: 'I do not wish to provide this information' }
+                  { value: 'I do not wish to provide', label: 'I do not wish to provide' }
                 ]}
               />
-              <SelectField
-                label="Race (Optional)"
-                name="Dem - Borrower Race"
-                value={formData['Dem - Borrower Race']}
-                onChange={updateField}
+              <SelectField label="Race (Optional)" name="Dem - Borrower Race" value={formData['Dem - Borrower Race']} onChange={updateField}
                 options={[
                   { value: 'American Indian or Alaska Native', label: 'American Indian or Alaska Native' },
                   { value: 'Asian', label: 'Asian' },
                   { value: 'Black or African American', label: 'Black or African American' },
                   { value: 'Native Hawaiian or Other Pacific Islander', label: 'Native Hawaiian or Other Pacific Islander' },
                   { value: 'White', label: 'White' },
-                  { value: 'I do not wish to provide', label: 'I do not wish to provide this information' }
+                  { value: 'I do not wish to provide', label: 'I do not wish to provide' }
                 ]}
               />
+
+              {/* Co-Borrower Demographics */}
+              {formData['Borrower - Has Co-Borrower'] === 'Yes' && (
+                <>
+                  <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
+                    <h4 className="font-semibold text-gray-700 mb-3">Co-Borrower Demographics</h4>
+                  </div>
+                  <SelectField label="Co-Borrower Ethnicity" name="Dem - Co-Borrower Ethnicity" value={formData['Dem - Co-Borrower Ethnicity']} onChange={updateField}
+                    options={[
+                      { value: 'Hispanic or Latino', label: 'Hispanic or Latino' },
+                      { value: 'Not Hispanic or Latino', label: 'Not Hispanic or Latino' },
+                      { value: 'I do not wish to provide', label: 'I do not wish to provide' }
+                    ]}
+                  />
+                  {formData['Dem - Co-Borrower Ethnicity'] === 'Hispanic or Latino' && (
+                    <SelectField label="Co-Borrower Ethnicity Detail" name="Dem - Co-Borrower Ethnicity Detail" value={formData['Dem - Co-Borrower Ethnicity Detail']} onChange={updateField}
+                      options={[
+                        { value: 'Mexican', label: 'Mexican' },
+                        { value: 'Puerto Rican', label: 'Puerto Rican' },
+                        { value: 'Cuban', label: 'Cuban' },
+                        { value: 'Other Hispanic or Latino', label: 'Other Hispanic or Latino' }
+                      ]}
+                    />
+                  )}
+                  <SelectField label="Co-Borrower Sex" name="Dem - Co-Borrower Sex" value={formData['Dem - Co-Borrower Sex']} onChange={updateField}
+                    options={[
+                      { value: 'Male', label: 'Male' },
+                      { value: 'Female', label: 'Female' },
+                      { value: 'I do not wish to provide', label: 'I do not wish to provide' }
+                    ]}
+                  />
+                  <SelectField label="Co-Borrower Race" name="Dem - Co-Borrower Race" value={formData['Dem - Co-Borrower Race']} onChange={updateField}
+                    options={[
+                      { value: 'American Indian or Alaska Native', label: 'American Indian or Alaska Native' },
+                      { value: 'Asian', label: 'Asian' },
+                      { value: 'Black or African American', label: 'Black or African American' },
+                      { value: 'Native Hawaiian or Other Pacific Islander', label: 'Native Hawaiian or Other Pacific Islander' },
+                      { value: 'White', label: 'White' },
+                      { value: 'I do not wish to provide', label: 'I do not wish to provide' }
+                    ]}
+                  />
+                </>
+              )}
             </SectionCard>
             )}
 
@@ -889,10 +997,7 @@ function Stage2Content() {
 
             {/* Navigation Buttons */}
             <div className="mt-6 flex items-center justify-between gap-4">
-              <button
-                onClick={goBack}
-                className="flex items-center gap-2 text-gray-600 hover:text-gray-800 font-medium py-3 px-6 rounded-xl border-2 border-gray-300 hover:border-gray-400 transition-colors"
-              >
+              <button onClick={goBack} className="flex items-center gap-2 text-gray-600 hover:text-gray-800 font-medium py-3 px-6 rounded-xl border-2 border-gray-300 hover:border-gray-400 transition-colors">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
@@ -900,23 +1005,16 @@ function Stage2Content() {
               </button>
 
               {currentStep < totalSteps - 1 ? (
-                <button
-                  onClick={goNext}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all text-center"
-                >
+                <button onClick={goNext} className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all text-center">
                   Continue
                 </button>
               ) : (
-                <button
-                  onClick={handleSubmit}
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all text-center"
-                >
+                <button onClick={handleSubmit} className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all text-center">
                   Submit Application
                 </button>
               )}
             </div>
 
-            {/* Exit ramp */}
             <div className="text-center mt-4">
               <a href="tel:1-888-885-7789" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
                 Need help? Call 1-888-885-7789
@@ -936,8 +1034,6 @@ function Stage2Content() {
             />
           </div>
         </div>
-
-        {/* Mobile: Hide desktop grid, show as single column */}
 
       </div>
     </div>

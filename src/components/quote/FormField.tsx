@@ -341,6 +341,64 @@ export function RadioField({
   );
 }
 
+// Checkbox Group (multi-select)
+interface CheckboxGroupFieldProps extends BaseFieldProps {
+  options: { value: string; label: string; description?: string }[];
+  inline?: boolean;
+}
+
+export function CheckboxGroupField({
+  label,
+  name,
+  value,
+  onChange,
+  required = false,
+  options,
+  inline = false,
+  className = '',
+  disabled = false
+}: CheckboxGroupFieldProps) {
+  const selected: string[] = Array.isArray(value) ? value : value ? [value] : [];
+
+  const toggle = (optValue: string) => {
+    const next = selected.includes(optValue)
+      ? selected.filter(v => v !== optValue)
+      : [...selected, optValue];
+    onChange(name, next);
+  };
+
+  return (
+    <div className={className}>
+      <label className="block text-sm font-medium text-gray-700 mb-3">
+        {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      <div className={inline ? 'flex flex-wrap gap-3' : 'space-y-3'}>
+        {options.map((opt) => (
+          <label
+            key={opt.value}
+            className={`flex items-start cursor-pointer ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <input
+              type="checkbox"
+              checked={selected.includes(opt.value)}
+              onChange={() => toggle(opt.value)}
+              disabled={disabled}
+              className="mt-1 mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <div>
+              <div className="font-medium text-gray-900">{opt.label}</div>
+              {opt.description && (
+                <div className="text-sm text-gray-600">{opt.description}</div>
+              )}
+            </div>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Textarea
 interface TextareaFieldProps extends BaseFieldProps {
   placeholder?: string;
