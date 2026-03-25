@@ -168,8 +168,8 @@ export default function ResultsPage() {
   };
 
   const handleGetCustomQuote = () => {
-    // Stage 1 data already in localStorage - Stage 2 reads it from there
-    router.push('/quote/stage2');
+    // Stage 1 data already in localStorage - verify phone first, then Stage 2
+    router.push('/quote/verify');
   };
 
   if (!loaded) {

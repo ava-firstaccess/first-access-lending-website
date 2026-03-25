@@ -42,8 +42,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate 6-digit code
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    // Generate 4-digit code
+    const code = String(Math.floor(1000 + Math.random() * 9000));
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 min expiry
 
     const supabase = getSupabaseAdmin();
