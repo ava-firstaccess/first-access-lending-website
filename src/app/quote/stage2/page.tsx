@@ -1,7 +1,7 @@
 // Stage 2: Full 1003 Application Form
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import SectionCard from '@/components/quote/SectionCard';
 import QuoteBuilder from '@/components/quote/QuoteBuilder';
@@ -21,6 +21,26 @@ import visibilityRules from '@/data/dynamic_form_rules.json';
 interface FormData {
   [key: string]: any;
 }
+
+const US_STATES = [
+  { value: 'AL', label: 'Alabama' }, { value: 'AK', label: 'Alaska' }, { value: 'AZ', label: 'Arizona' },
+  { value: 'AR', label: 'Arkansas' }, { value: 'CA', label: 'California' }, { value: 'CO', label: 'Colorado' },
+  { value: 'CT', label: 'Connecticut' }, { value: 'DE', label: 'Delaware' }, { value: 'DC', label: 'District of Columbia' },
+  { value: 'FL', label: 'Florida' }, { value: 'GA', label: 'Georgia' }, { value: 'HI', label: 'Hawaii' },
+  { value: 'ID', label: 'Idaho' }, { value: 'IL', label: 'Illinois' }, { value: 'IN', label: 'Indiana' },
+  { value: 'IA', label: 'Iowa' }, { value: 'KS', label: 'Kansas' }, { value: 'KY', label: 'Kentucky' },
+  { value: 'LA', label: 'Louisiana' }, { value: 'ME', label: 'Maine' }, { value: 'MD', label: 'Maryland' },
+  { value: 'MA', label: 'Massachusetts' }, { value: 'MI', label: 'Michigan' }, { value: 'MN', label: 'Minnesota' },
+  { value: 'MS', label: 'Mississippi' }, { value: 'MO', label: 'Missouri' }, { value: 'MT', label: 'Montana' },
+  { value: 'NE', label: 'Nebraska' }, { value: 'NV', label: 'Nevada' }, { value: 'NH', label: 'New Hampshire' },
+  { value: 'NJ', label: 'New Jersey' }, { value: 'NM', label: 'New Mexico' }, { value: 'NY', label: 'New York' },
+  { value: 'NC', label: 'North Carolina' }, { value: 'ND', label: 'North Dakota' }, { value: 'OH', label: 'Ohio' },
+  { value: 'OK', label: 'Oklahoma' }, { value: 'OR', label: 'Oregon' }, { value: 'PA', label: 'Pennsylvania' },
+  { value: 'RI', label: 'Rhode Island' }, { value: 'SC', label: 'South Carolina' }, { value: 'SD', label: 'South Dakota' },
+  { value: 'TN', label: 'Tennessee' }, { value: 'TX', label: 'Texas' }, { value: 'UT', label: 'Utah' },
+  { value: 'VT', label: 'Vermont' }, { value: 'VA', label: 'Virginia' }, { value: 'WA', label: 'Washington' },
+  { value: 'WV', label: 'West Virginia' }, { value: 'WI', label: 'Wisconsin' }, { value: 'WY', label: 'Wyoming' }
+];
 
 function Stage2Content() {
   const router = useRouter();
@@ -45,21 +65,25 @@ function Stage2Content() {
     }
   }, [searchParams]);
 
-  // Auto-save progress to localStorage
+  // Auto-save progress to localStorage (debounced to prevent stutter)
+  const saveTimerRef = useRef<NodeJS.Timeout>(undefined);
+  const savingTimerRef = useRef<NodeJS.Timeout>(undefined);
   useEffect(() => {
     if (Object.keys(formData).length > 0) {
-      const timer = setTimeout(() => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
         localStorage.setItem('stage2-progress', JSON.stringify(formData));
         setIsSaving(true);
-        setTimeout(() => setIsSaving(false), 1000);
-      }, 500);
-      return () => clearTimeout(timer);
+        if (savingTimerRef.current) clearTimeout(savingTimerRef.current);
+        savingTimerRef.current = setTimeout(() => setIsSaving(false), 1000);
+      }, 1500);
+      return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
     }
   }, [formData]);
 
-  const updateField = (name: string, value: any) => {
+  const updateField = useCallback((name: string, value: any) => {
     setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  }, []);
 
   const rules = visibilityRules.rules as VisibilityRule[];
 
@@ -354,17 +378,46 @@ function Stage2Content() {
                 value={formData['Borrower - Current Address State']}
                 onChange={updateField}
                 required
-                options={[
-                  { value: 'CA', label: 'California' },
-                  { value: 'NY', label: 'New York' },
-                  { value: 'TX', label: 'Texas' },
-                  { value: 'FL', label: 'Florida' }
-                  // Add all states
-                ]}
+                options={US_STATES}
               />
               <TextField label="Zip Code" name="Borrower - Current Address Zip" value={formData['Borrower - Current Address Zip']} onChange={updateField} required autoComplete="postal-code" />
               <NumberField label="Years at Address" name="Borrower - Years in Current Home" value={formData['Borrower - Years in Current Home']} onChange={updateField} required min={0} max={99} />
               <NumberField label="Months at Address" name="Borrower - Months in Current Home" value={formData['Borrower - Months in Current Home']} onChange={updateField} required min={0} max={11} />
+
+              {/* Prior Address - shows when less than 2 years at current address */}
+              {(Number(formData['Borrower - Years in Current Home']) < 2) && formData['Borrower - Years in Current Home'] !== undefined && formData['Borrower - Years in Current Home'] !== '' && (
+                <>
+                  <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
+                    <h4 className="font-semibold text-gray-700 mb-1">Prior Address</h4>
+                    <p className="text-sm text-gray-500 mb-3">Required when less than 2 years at current address</p>
+                  </div>
+                  <SelectField
+                    label="Prior Housing Type"
+                    name="Borrower - Prior Housing Ownership Type"
+                    value={formData['Borrower - Prior Housing Ownership Type']}
+                    onChange={updateField}
+                    required
+                    options={[
+                      { value: 'Own', label: 'Own' },
+                      { value: 'Rent', label: 'Rent' },
+                      { value: 'Living Rent Free', label: 'Living Rent Free' }
+                    ]}
+                  />
+                  <TextField label="Street Address" name="Borrower - Prior Address Line 1" value={formData['Borrower - Prior Address Line 1']} onChange={updateField} required className="md:col-span-2" autoComplete="street-address" />
+                  <TextField label="City" name="Borrower - Prior Address City" value={formData['Borrower - Prior Address City']} onChange={updateField} required autoComplete="address-level2" />
+                  <SelectField
+                    label="State"
+                    name="Borrower - Prior Address - State"
+                    value={formData['Borrower - Prior Address - State']}
+                    onChange={updateField}
+                    required
+                    options={US_STATES}
+                  />
+                  <TextField label="Zip Code" name="Borrower - Prior Address Zip" value={formData['Borrower - Prior Address Zip']} onChange={updateField} required autoComplete="postal-code" />
+                  <NumberField label="Years at Prior Address" name="Borrower - Years at Prior Address" value={formData['Borrower - Years at Prior Address']} onChange={updateField} required min={0} max={99} />
+                  <NumberField label="Months at Prior Address" name="Borrower - Months at Prior Address" value={formData['Borrower - Months at Prior Address']} onChange={updateField} required min={0} max={11} />
+                </>
+              )}
             </SectionCard>
             )}
 
@@ -529,6 +582,9 @@ function Stage2Content() {
                       { value: 'No', label: 'No' }
                     ]}
                   />
+                  {formData['Current Loan - Mortgage Insurance Present'] === 'Yes' && (
+                    <CurrencyField label="Monthly PMI Amount" name="Current Loan - PMI Amount" value={formData['Current Loan - PMI Amount']} onChange={updateField} placeholder="Monthly MI payment" />
+                  )}
                   <RadioField
                     label="Taxes & Insurance Escrowed?"
                     name="Current Loan - Escrowed"
@@ -540,6 +596,12 @@ function Stage2Content() {
                       { value: 'No', label: 'No' }
                     ]}
                   />
+                  {formData['Current Loan - Escrowed'] === 'No' && (
+                    <>
+                      <CurrencyField label="Annual Property Taxes" name="Current Loan - Annual Taxes" value={formData['Current Loan - Annual Taxes']} onChange={updateField} required placeholder="Yearly tax amount" />
+                      <CurrencyField label="Annual Homeowners Insurance" name="Current Loan - Annual HOI" value={formData['Current Loan - Annual HOI']} onChange={updateField} required placeholder="Yearly insurance premium" />
+                    </>
+                  )}
                   <RadioField
                     label="HOA Dues?"
                     name="Current Loan - Pay HOA"
@@ -617,8 +679,32 @@ function Stage2Content() {
               />
               {formData['Owns Other Properties'] === 'Yes' && (
                 <>
-                  <NumberField label="Number of Properties" name="Number of Other Properties" value={formData['Number of Other Properties']} onChange={updateField} min={1} max={10} />
-                  <TextareaField label="Notes (addresses, values)" name="Other Properties - Notes" value={formData['Other Properties - Notes']} onChange={updateField} className="md:col-span-2" rows={3} />
+                  <NumberField label="How many other properties?" name="Number of Other Properties" value={formData['Number of Other Properties']} onChange={updateField} min={1} max={5} required />
+                  
+                  {/* Dynamic property address fields based on count */}
+                  {Array.from({ length: Math.min(Number(formData['Number of Other Properties']) || 0, 5) }, (_, i) => {
+                    const n = i + 1;
+                    return (
+                      <div key={`prop-${n}`} className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
+                        <h4 className="font-semibold text-gray-700 mb-3">Property {n}</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <TextField label="Address" name={`Other Properties - Address ${n}`} value={formData[`Other Properties - Address ${n}`]} onChange={updateField} required className="md:col-span-2" autoComplete="street-address" />
+                          <RadioField
+                            label="Do you escrow this property?"
+                            name={`Other Properties - Address ${n} Escrow`}
+                            value={formData[`Other Properties - Address ${n} Escrow`]}
+                            onChange={updateField}
+                            required
+                            inline
+                            options={[
+                              { value: 'Yes', label: 'Yes' },
+                              { value: 'No', label: 'No' }
+                            ]}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </>
               )}
             </SectionCard>
