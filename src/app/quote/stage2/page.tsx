@@ -140,7 +140,7 @@ function RaceField({ prefix, formData, onChange }: {
   );
 }
 
-// Synced Annual/Monthly currency pair - editing one auto-calculates the other
+// Synced Annual/Monthly currency pair - compact inline toggle
 function AnnualMonthlyField({ label, namePrefix, formData, onChange, required = false }: {
   label: string;
   namePrefix: string;
@@ -150,24 +150,73 @@ function AnnualMonthlyField({ label, namePrefix, formData, onChange, required = 
 }) {
   const annualKey = `${namePrefix} - Annual`;
   const monthlyKey = `${namePrefix} - Monthly`;
+  const [mode, setMode] = useState<'monthly' | 'annual'>('monthly');
 
-  const handleAnnualChange = (name: string, value: any) => {
-    onChange(name, value);
-    if (value !== undefined && value !== null && value !== '') {
-      onChange(monthlyKey, Math.round((Number(value) / 12) * 100) / 100);
+  const monthlyVal = formData[monthlyKey] ?? '';
+  const annualVal = formData[annualKey] ?? '';
+
+  const handleChange = (raw: string) => {
+    const cleaned = raw.replace(/[^0-9.]/g, '');
+    const num = parseFloat(cleaned) || 0;
+    if (mode === 'monthly') {
+      onChange(monthlyKey, cleaned);
+      onChange(annualKey, cleaned ? Math.round(num * 12) : '');
+    } else {
+      onChange(annualKey, cleaned);
+      onChange(monthlyKey, cleaned ? Math.round((num / 12) * 100) / 100 : '');
     }
   };
-  const handleMonthlyChange = (name: string, value: any) => {
-    onChange(name, value);
-    if (value !== undefined && value !== null && value !== '') {
-      onChange(annualKey, Math.round(Number(value) * 12 * 100) / 100);
-    }
-  };
+
+  const displayValue = mode === 'monthly' ? monthlyVal : annualVal;
+  const derivedValue = mode === 'monthly'
+    ? (annualVal ? `$${Number(annualVal).toLocaleString()}/yr` : '')
+    : (monthlyVal ? `$${Number(monthlyVal).toLocaleString()}/mo` : '');
 
   return (
-    <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-      <CurrencyField label={`${label} (Annual)`} name={annualKey} value={formData[annualKey]} onChange={handleAnnualChange} required={required} placeholder="Yearly" />
-      <CurrencyField label={`${label} (Monthly)`} name={monthlyKey} value={formData[monthlyKey]} onChange={handleMonthlyChange} required={required} placeholder="Monthly" />
+    <div className="md:col-span-2">
+      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+        {label} {required && <span className="text-red-400">*</span>}
+      </label>
+      <div className="flex items-center rounded-xl border-2 border-gray-300 focus-within:border-blue-600 bg-white transition-colors overflow-hidden">
+        {/* Toggle */}
+        <div className="flex shrink-0 border-r border-gray-200">
+          <button
+            type="button"
+            onClick={() => setMode('monthly')}
+            className={`px-3 py-3 text-xs font-semibold uppercase tracking-wide transition-colors ${
+              mode === 'monthly' ? 'bg-blue-50 text-blue-700' : 'text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            /mo
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('annual')}
+            className={`px-3 py-3 text-xs font-semibold uppercase tracking-wide transition-colors ${
+              mode === 'annual' ? 'bg-blue-50 text-blue-700' : 'text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            /yr
+          </button>
+        </div>
+        {/* Dollar sign + input */}
+        <span className="pl-3 text-lg text-gray-400">$</span>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={displayValue}
+          onChange={(e) => handleChange(e.target.value)}
+          placeholder="0"
+          required={required}
+          className="flex-1 px-2 py-3 text-lg font-semibold text-gray-900 bg-transparent outline-none placeholder:text-gray-300"
+        />
+        {/* Derived value */}
+        {derivedValue && (
+          <span className="pr-3 text-sm text-gray-400 whitespace-nowrap">
+            = {derivedValue}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
