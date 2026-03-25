@@ -249,6 +249,10 @@ export default function VerifyPage() {
                     'Send Verification Code'
                   )}
                 </button>
+
+                <p className="text-xs text-gray-400 mt-4 text-center leading-relaxed">
+                  This verification is only to confirm your identity. Entering your number here will <span className="font-medium text-gray-500">not</span> opt you in to marketing calls or texts. If you previously opted in to receive communications from us, we may still reach out separately.
+                </p>
               </div>
             </>
           )}
