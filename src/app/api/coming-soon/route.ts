@@ -7,8 +7,8 @@ const GHL_BASE = 'https://services.leadconnectorhq.com';
 const LOCATION_ID = 'pqK0BqXrQ5smZEkID6fP';
 
 // TODO: Replace with actual pipeline/stage IDs once created in GHL
-const COMING_SOON_PIPELINE_ID = process.env.GHL_COMING_SOON_PIPELINE_ID || '';
-const COMING_SOON_STAGE_ID = process.env.GHL_COMING_SOON_STAGE_ID || '';
+const COMING_SOON_PIPELINE_ID = (process.env.GHL_COMING_SOON_PIPELINE_ID || '').trim();
+const COMING_SOON_STAGE_ID = (process.env.GHL_COMING_SOON_STAGE_ID || '').trim();
 
 const STATE_NAMES: Record<string, string> = {
   AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
