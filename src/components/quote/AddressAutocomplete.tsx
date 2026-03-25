@@ -117,19 +117,25 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
           width: 100%;
           display: block;
         }
+        gmp-place-autocomplete {
+          border: 2px solid #d1d5db;
+          border-radius: 0.75rem;
+          background: white;
+          transition: border-color 0.15s;
+          overflow: hidden;
+        }
+        gmp-place-autocomplete:focus-within {
+          border-color: #2563eb;
+        }
         gmp-place-autocomplete input {
           width: 100%;
           padding: 0.75rem 1rem;
           font-size: 1.125rem;
-          border: 2px solid #d1d5db;
+          border: none;
           border-radius: 0.75rem;
           outline: none;
-          transition: border-color 0.15s;
           font-family: inherit;
-          background: white;
-        }
-        gmp-place-autocomplete input:focus {
-          border-color: #2563eb;
+          background: transparent;
         }
       `}</style>
     </div>
