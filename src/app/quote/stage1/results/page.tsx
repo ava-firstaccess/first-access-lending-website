@@ -19,6 +19,7 @@ function calcQuote(
   creditScore: number,
   propertyType: string,
   drawTerm: number,
+  totalTerm: number,
   cashOutAmount: number,
   cesTerm: number = 20
 ): QuoteCalc {
@@ -43,7 +44,6 @@ function calcQuote(
     else if (drawTerm === 5) baseRate -= 0.25;
   } else if (product === 'CES') {
     baseRate = 8.00;
-    // 30-year term gets a slightly higher rate
     if (cesTerm === 30) baseRate += 0.25;
   }
 
@@ -61,52 +61,45 @@ function calcQuote(
 
   if (maxAvailable > 0) {
     if (product === 'CES') {
-      // Fully amortizing P&I for closed-end second
       const n = cesTerm * 12;
       monthlyPayment = Math.round(maxAvailable * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
+    } else if (product === 'HELOC') {
+      // Interest-only during draw period
+      monthlyPayment = Math.round(maxAvailable * monthlyRate);
     } else {
-      // Interest-only for HELOC and others
       monthlyPayment = Math.round(maxAvailable * monthlyRate);
     }
   }
 
-  return {
-    maxAvailable,
-    rate,
-    monthlyPayment,
-    maxLtv,
-    rateType: product === 'HELOC' ? 'Variable' : 'Fixed'
-  };
+  return { maxAvailable, rate, monthlyPayment, maxLtv, rateType: product === 'HELOC' ? 'Variable' : 'Fixed' };
 }
 
-function QuoteColumn({ label, quote, highlight, paymentLabel, termToggle }: {
-  label: string;
-  quote: QuoteCalc;
-  highlight: boolean;
-  paymentLabel?: string;
-  termToggle?: React.ReactNode;
+function calcRepaymentPayment(balance: number, rate: number, repaymentYears: number): number {
+  const monthlyRate = rate / 100 / 12;
+  const n = repaymentYears * 12;
+  if (balance <= 0 || n <= 0) return 0;
+  return Math.round(balance * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
+}
+
+// Pill toggle component
+function PillToggle({ options, value, onChange }: {
+  options: { label: string; value: number }[];
+  value: number;
+  onChange: (v: number) => void;
 }) {
-  const ringClass = highlight ? 'ring-2 ring-blue-400' : '';
   return (
-    <div className={`bg-white rounded-xl p-6 ${ringClass}`}>
-      <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">{label}</h3>
-      {termToggle && <div className="mb-4">{termToggle}</div>}
-      <div className="space-y-4">
-        <div className="bg-blue-50 rounded-lg p-4 text-center">
-          <div className="text-xs text-blue-600 font-medium mb-1">Max Available</div>
-          <div className="text-2xl font-bold text-blue-900">${quote.maxAvailable.toLocaleString()}</div>
-        </div>
-        <div className="bg-green-50 rounded-lg p-4 text-center">
-          <div className="text-xs text-green-600 font-medium mb-1">Estimated Rate</div>
-          <div className="text-2xl font-bold text-green-900">{quote.rate.toFixed(2)}%</div>
-          <div className="text-xs text-green-600 mt-0.5">{quote.rateType}</div>
-        </div>
-        <div className="bg-orange-50 rounded-lg p-4 text-center">
-          <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly</div>
-          <div className="text-2xl font-bold text-orange-900">${quote.monthlyPayment.toLocaleString()}</div>
-          <div className="text-xs text-orange-600 mt-0.5">{paymentLabel || 'Interest only'}</div>
-        </div>
-      </div>
+    <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+      {options.map(opt => (
+        <button
+          key={opt.value}
+          onClick={() => onChange(opt.value)}
+          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+            value === opt.value ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -115,13 +108,17 @@ export default function ResultsPage() {
   const router = useRouter();
   const [loaded, setLoaded] = useState(false);
   const [stage1, setStage1] = useState<Record<string, any>>({});
-  const [cesTerm, setCesTerm] = useState<20 | 30>(20);
+  const [cesTerm, setCesTerm] = useState<number>(20);
+  const [helocTotalTerm, setHelocTotalTerm] = useState<number>(20);
+  const [helocDrawTerm, setHelocDrawTerm] = useState<number>(5);
 
   useEffect(() => {
     const raw = localStorage.getItem('stage1-data');
     if (raw) {
       try {
-        setStage1(JSON.parse(raw));
+        const parsed = JSON.parse(raw);
+        setStage1(parsed);
+        if (parsed.drawTerm) setHelocDrawTerm(Number(parsed.drawTerm));
       } catch {
         router.push('/quote/stage1');
         return;
@@ -138,38 +135,36 @@ export default function ResultsPage() {
   const loanBalance = Number(stage1.loanBalance) || 0;
   const creditScore = Number(stage1.creditScore) || 720;
   const propertyType = String(stage1.propertyType || 'Primary');
-  const drawTerm = Number(stage1.drawTerm) || 5;
   const cashOutAmount = Number(stage1.cashOutAmount) || 0;
   const propertyAddress = String(stage1.propertyAddress || '');
 
-  const primaryQuote = useMemo(() =>
-    calcQuote(product, propertyValue, loanBalance, creditScore, propertyType, drawTerm, cashOutAmount, product === 'CES' ? cesTerm : 20),
-    [product, propertyValue, loanBalance, creditScore, propertyType, drawTerm, cashOutAmount, cesTerm]
+  const helocQuote = useMemo(() =>
+    calcQuote('HELOC', propertyValue, loanBalance, creditScore, propertyType, helocDrawTerm, helocTotalTerm, cashOutAmount),
+    [propertyValue, loanBalance, creditScore, propertyType, helocDrawTerm, helocTotalTerm, cashOutAmount]
   );
 
-  const altProduct = product === 'HELOC' ? 'CES' : product === 'CES' ? 'HELOC' : null;
-  const altQuote = useMemo(() =>
-    altProduct ? calcQuote(altProduct, propertyValue, loanBalance, creditScore, propertyType, 5, cashOutAmount, altProduct === 'CES' ? cesTerm : 20) : null,
-    [altProduct, propertyValue, loanBalance, creditScore, propertyType, cashOutAmount, cesTerm]
+  const cesQuote = useMemo(() =>
+    calcQuote('CES', propertyValue, loanBalance, creditScore, propertyType, 0, cesTerm, cashOutAmount, cesTerm),
+    [propertyValue, loanBalance, creditScore, propertyType, cashOutAmount, cesTerm]
   );
 
-  const productLabels: Record<string, string> = {
-    'HELOC': 'HELOC',
-    'CES': 'Closed-End Second',
-    'CashOut': 'Cash-Out Refinance',
-    'NoCashRefi': 'Rate & Term Refinance'
-  };
+  const helocRepaymentYears = helocTotalTerm - helocDrawTerm;
+  const helocRepaymentPayment = useMemo(() =>
+    calcRepaymentPayment(helocQuote.maxAvailable, helocQuote.rate, helocRepaymentYears),
+    [helocQuote.maxAvailable, helocQuote.rate, helocRepaymentYears]
+  );
+
+  const isRefi = product === 'CashOut' || product === 'NoCashRefi';
+  const refiQuote = useMemo(() =>
+    isRefi ? calcQuote(product, propertyValue, loanBalance, creditScore, propertyType, 0, 30, cashOutAmount) : null,
+    [isRefi, product, propertyValue, loanBalance, creditScore, propertyType, cashOutAmount]
+  );
 
   const productFullLabels: Record<string, string> = {
     'HELOC': 'Home Equity Line of Credit',
     'CES': 'Closed-End Second Mortgage',
     'CashOut': 'Cash-Out Refinance',
     'NoCashRefi': 'Rate & Term Refinance'
-  };
-
-  const handleGetCustomQuote = () => {
-    // Stage 1 data already in localStorage - verify phone first, then Stage 2
-    router.push('/quote/verify');
   };
 
   if (!loaded) {
@@ -183,7 +178,6 @@ export default function ResultsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50 py-8">
       <div className="container mx-auto px-4 max-w-4xl">
-
         <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12">
 
           {/* Header */}
@@ -200,7 +194,7 @@ export default function ResultsPage() {
             <p className="text-gray-600">Based on the information you provided</p>
           </div>
 
-          {/* CTA at top */}
+          {/* CTA */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 mb-8 text-center">
             <p className="text-blue-100 text-sm mb-3">
               This is a preliminary estimate. To get your exact, customized rate, continue with a full application.
@@ -208,99 +202,145 @@ export default function ResultsPage() {
               <span className="font-medium text-white">100% automated - no phone calls unless you want them.</span>
             </p>
             <button
-              onClick={handleGetCustomQuote}
+              onClick={() => router.push('/quote/verify')}
               className="bg-white text-blue-700 font-bold py-3 px-8 rounded-xl shadow-lg hover:shadow-xl hover:bg-blue-50 transition-all text-lg"
             >
               Get Your Custom Rate Quote &rarr;
             </button>
           </div>
 
-          {/* Quote Numbers - Side by side if cross-sell available */}
-          {altProduct && altQuote ? (
-            <div className="grid md:grid-cols-2 gap-6 mb-8">
-              {/* Determine which column is HELOC and which is CES */}
-              {product === 'HELOC' ? (
-                <>
-                  <QuoteColumn label="HELOC" quote={primaryQuote} highlight={true} paymentLabel="Interest only" />
-                  <QuoteColumn
-                    label="Closed-End Second"
-                    quote={altQuote}
-                    highlight={false}
-                    paymentLabel={`P&I / ${cesTerm}-year fixed`}
-                    termToggle={
-                      <div className="flex justify-center gap-1 bg-gray-100 rounded-lg p-1">
-                        <button
-                          onClick={() => setCesTerm(20)}
-                          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${cesTerm === 20 ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                          20-Year
-                        </button>
-                        <button
-                          onClick={() => setCesTerm(30)}
-                          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${cesTerm === 30 ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                          30-Year
-                        </button>
-                      </div>
-                    }
-                  />
-                </>
-              ) : (
-                <>
-                  <QuoteColumn
-                    label="Closed-End Second"
-                    quote={primaryQuote}
-                    highlight={true}
-                    paymentLabel={`P&I / ${cesTerm}-year fixed`}
-                    termToggle={
-                      <div className="flex justify-center gap-1 bg-gray-100 rounded-lg p-1">
-                        <button
-                          onClick={() => setCesTerm(20)}
-                          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${cesTerm === 20 ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                          20-Year
-                        </button>
-                        <button
-                          onClick={() => setCesTerm(30)}
-                          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${cesTerm === 30 ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                          30-Year
-                        </button>
-                      </div>
-                    }
-                  />
-                  <QuoteColumn label="HELOC" quote={altQuote} highlight={false} paymentLabel="Interest only" />
-                </>
-              )}
-            </div>
-          ) : (
+          {/* ═══════════════════════════════════════════════ */}
+          {/* HELOC + CES Side by Side (for HELOC or CES selections) */}
+          {/* ═══════════════════════════════════════════════ */}
+          {!isRefi && (
+            <>
+              {/* Shared top row: Max Available (same for both) */}
+              <div className="bg-blue-50 rounded-xl p-5 text-center mb-6">
+                <div className="text-sm text-blue-600 font-medium mb-1">Max Available Equity</div>
+                <div className="text-3xl font-bold text-blue-900">${helocQuote.maxAvailable.toLocaleString()}</div>
+                <div className="text-xs text-blue-500 mt-1">Up to {(helocQuote.maxLtv * 100).toFixed(0)}% CLTV</div>
+              </div>
+
+              {/* Two columns */}
+              <div className="grid md:grid-cols-2 gap-6 mb-8">
+
+                {/* HELOC Column */}
+                <div className={`rounded-xl border-2 p-6 ${product === 'HELOC' ? 'border-blue-400 bg-blue-50/30' : 'border-gray-200'}`}>
+                  {product === 'HELOC' && (
+                    <div className="text-xs font-bold text-blue-600 uppercase tracking-wide mb-2 text-center">Your Selection</div>
+                  )}
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">HELOC</h3>
+
+                  {/* Term Toggles */}
+                  <div className="space-y-3 mb-5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500 font-medium">Total Term</span>
+                      <PillToggle
+                        options={[{ label: '20yr', value: 20 }, { label: '30yr', value: 30 }]}
+                        value={helocTotalTerm}
+                        onChange={setHelocTotalTerm}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500 font-medium">Draw Period</span>
+                      <PillToggle
+                        options={[{ label: '3yr', value: 3 }, { label: '5yr', value: 5 }, { label: '10yr', value: 10 }]}
+                        value={helocDrawTerm}
+                        onChange={(v) => setHelocDrawTerm(Math.min(v, helocTotalTerm - 5))}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Rate + Payments on same row */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-sm text-gray-600">Rate</span>
+                      <span className="text-xl font-bold text-gray-900">{helocQuote.rate.toFixed(2)}% <span className="text-xs font-normal text-gray-500">Variable</span></span>
+                    </div>
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-sm text-gray-600">Draw Payment</span>
+                      <span className="text-xl font-bold text-gray-900">${helocQuote.monthlyPayment.toLocaleString()}<span className="text-xs font-normal text-gray-500">/mo</span></span>
+                    </div>
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-sm text-gray-600">Repayment</span>
+                      <span className="text-xl font-bold text-gray-900">${helocRepaymentPayment.toLocaleString()}<span className="text-xs font-normal text-gray-500">/mo</span></span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CES Column */}
+                <div className={`rounded-xl border-2 p-6 ${product === 'CES' ? 'border-blue-400 bg-blue-50/30' : 'border-gray-200'}`}>
+                  {product === 'CES' && (
+                    <div className="text-xs font-bold text-blue-600 uppercase tracking-wide mb-2 text-center">Your Selection</div>
+                  )}
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">Closed-End Second</h3>
+
+                  {/* Term Toggle */}
+                  <div className="space-y-3 mb-5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500 font-medium">Term</span>
+                      <PillToggle
+                        options={[{ label: '20yr', value: 20 }, { label: '30yr', value: 30 }]}
+                        value={cesTerm}
+                        onChange={setCesTerm}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Rate + Payment */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-sm text-gray-600">Rate</span>
+                      <span className="text-xl font-bold text-gray-900">{cesQuote.rate.toFixed(2)}% <span className="text-xs font-normal text-gray-500">Fixed</span></span>
+                    </div>
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-sm text-gray-600">Monthly Payment</span>
+                      <span className="text-xl font-bold text-gray-900">${cesQuote.monthlyPayment.toLocaleString()}<span className="text-xs font-normal text-gray-500">/mo</span></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* HELOC Explainer */}
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-8">
+                <h4 className="font-semibold text-amber-900 mb-2 flex items-center gap-2">
+                  <span>📋</span> How a HELOC Works
+                </h4>
+                <ul className="text-sm text-amber-800 space-y-2">
+                  <li><strong>Draw Period ({helocDrawTerm} years):</strong> Interest-only payments. Access your funds as needed, up to your credit limit. You only pay interest on what you use.</li>
+                  <li><strong>No Prepayment Penalty:</strong> Pay down or pay off your balance at any time with no fees.</li>
+                  <li><strong>Repayment Period ({helocRepaymentYears} years):</strong> After the draw period ends, whatever balance remains converts to a fully amortizing principal &amp; interest payment over the remaining {helocRepaymentYears} years.</li>
+                  <li><strong>Example:</strong> {helocDrawTerm}-year draw + {helocRepaymentYears}-year repayment = {helocTotalTerm}-year total term.</li>
+                </ul>
+              </div>
+
+              {/* CES vs HELOC comparison note */}
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-8">
+                <p className="text-sm text-gray-700 text-center">
+                  💡 A <strong>HELOC</strong> gives you a revolving credit line (draw as needed, variable rate). A <strong>Closed-End Second</strong> is a lump sum with a fixed rate and fixed monthly payment from day one.
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* ═══════════════════════════════════════════════ */}
+          {/* Refinance (single product) */}
+          {/* ═══════════════════════════════════════════════ */}
+          {isRefi && refiQuote && (
             <div className="grid md:grid-cols-3 gap-6 mb-8">
               <div className="bg-blue-50 rounded-xl p-6 text-center">
                 <div className="text-sm text-blue-600 font-medium mb-1">Max Available</div>
-                <div className="text-3xl md:text-4xl font-bold text-blue-900">${primaryQuote.maxAvailable.toLocaleString()}</div>
+                <div className="text-3xl md:text-4xl font-bold text-blue-900">${refiQuote.maxAvailable.toLocaleString()}</div>
               </div>
               <div className="bg-green-50 rounded-xl p-6 text-center">
                 <div className="text-sm text-green-600 font-medium mb-1">Estimated Rate</div>
-                <div className="text-3xl md:text-4xl font-bold text-green-900">{primaryQuote.rate.toFixed(2)}%</div>
-                <div className="text-xs text-green-600 mt-1">{primaryQuote.rateType}</div>
+                <div className="text-3xl md:text-4xl font-bold text-green-900">{refiQuote.rate.toFixed(2)}%</div>
+                <div className="text-xs text-green-600 mt-1">{refiQuote.rateType}</div>
               </div>
               <div className="bg-orange-50 rounded-xl p-6 text-center">
                 <div className="text-sm text-orange-600 font-medium mb-1">Est. Monthly Payment</div>
-                <div className="text-3xl md:text-4xl font-bold text-orange-900">${primaryQuote.monthlyPayment.toLocaleString()}</div>
-                <div className="text-xs text-orange-600 mt-1">Interest only</div>
+                <div className="text-3xl md:text-4xl font-bold text-orange-900">${refiQuote.monthlyPayment.toLocaleString()}</div>
               </div>
-            </div>
-          )}
-
-          {/* HELOC/CES comparison note */}
-          {altProduct && altQuote && (
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-8">
-              <p className="text-sm text-gray-700 text-center">
-                {product === 'HELOC'
-                  ? '💡 A HELOC gives you a revolving credit line (draw as needed, variable rate). A Closed-End Second is a lump sum with a fixed rate.'
-                  : '💡 A Closed-End Second gives you a lump sum with a fixed rate. A HELOC gives you a revolving credit line (draw as needed, variable rate).'
-                }
-              </p>
             </div>
           )}
 
@@ -315,10 +355,6 @@ export default function ResultsPage() {
               <div><span className="text-gray-500">Current Balance:</span> <span className="font-medium">${loanBalance.toLocaleString()}</span></div>
               <div><span className="text-gray-500">Credit Score:</span> <span className="font-medium">{creditScore}</span></div>
               <div><span className="text-gray-500">Property Type:</span> <span className="font-medium">{propertyType}</span></div>
-              <div><span className="text-gray-500">CLTV:</span> <span className="font-medium">{((loanBalance + primaryQuote.maxAvailable) / propertyValue * 100).toFixed(1)}%</span></div>
-              {product === 'HELOC' && (
-                <div><span className="text-gray-500">Draw Period:</span> <span className="font-medium">{drawTerm} years</span></div>
-              )}
             </div>
           </div>
 
@@ -337,12 +373,13 @@ export default function ResultsPage() {
 
           {/* Disclaimer */}
           <p className="text-xs text-gray-400 mt-8 text-center leading-relaxed">
-            This is a preliminary estimate based on self-reported information. Actual rates, terms, and
-            availability depend on verified credit, income, property value, and investor guidelines.
-            Not a commitment to lend. NMLS# [Your NMLS]. Equal Housing Lender.
+            This is a preliminary estimate for informational purposes only and does not constitute a Loan Estimate 
+            under TRID. We offer many programs and your actual terms may differ. Rates, fees, and availability depend 
+            on verified credit, income, property value, and investor guidelines. Your full disclosures, which we can 
+            deliver fully automated, should be relied upon for complete and accurate loan information.
+            Not a commitment to lend. NMLS #1988098. Equal Housing Lender.
           </p>
         </div>
-
       </div>
     </div>
   );
