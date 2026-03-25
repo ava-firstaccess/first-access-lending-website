@@ -375,12 +375,16 @@ function buildCustomFields(formData: Record<string, any>): Array<{ id: string; f
         // Clean value: strip wrapping quotes, parse stringified JSON
         let cleanValue: any = value;
         if (typeof cleanValue === 'string') {
-          // Handle double-JSON-encoded strings like '"1990-02-29"'
           if (cleanValue.startsWith('"') && cleanValue.endsWith('"')) {
             try { cleanValue = JSON.parse(cleanValue); } catch { /* keep as-is */ }
           }
           if (typeof cleanValue === 'string') {
             cleanValue = cleanValue.replace(/^"+|"+$/g, '').trim();
+          }
+          // Convert ISO dates (YYYY-MM-DD) to GHL format (MM/DD/YYYY)
+          if (typeof cleanValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(cleanValue)) {
+            const [y, m, d] = cleanValue.split('-');
+            cleanValue = `${m}/${d}/${y}`;
           }
         }
         fields.push({ id: ghlId, field_value: cleanValue });
@@ -393,7 +397,8 @@ function buildCustomFields(formData: Record<string, any>): Array<{ id: string; f
     fields.push({ id: 'sfN0Toy3wc5AJwytPi4v', field_value: 'GetAccess Website' });
   }
   if (!fields.some(f => f.id === '0UoSSP8TCoVpcAMveBUt')) {
-    fields.push({ id: '0UoSSP8TCoVpcAMveBUt', field_value: new Date().toISOString().split('T')[0] });
+    const now = new Date();
+    fields.push({ id: '0UoSSP8TCoVpcAMveBUt', field_value: `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')}/${now.getFullYear()}` });
   }
 
   return fields;
