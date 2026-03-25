@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { LOGO_BASE64 } from '@/lib/logo-base64';
+const LOGO_URL = 'https://first-access-lending-website.vercel.app/logo.png';
 
 // Coming Soon: create/find GHL contact, create/move opportunity to Coming Soon pipeline, send email
 
@@ -54,7 +54,7 @@ function buildComingSoonEmail(firstName: string, stateName: string): string {
           <!-- Header with Logo -->
           <tr>
             <td style="background:linear-gradient(135deg,#1e40af,#3b82f6);padding:28px 40px;text-align:center;">
-              <img src="${LOGO_BASE64}" alt="First Access Lending" style="height:55px;display:inline-block;" />
+              <img src="${LOGO_URL}" alt="First Access Lending" style="height:55px;display:inline-block;" />
             </td>
           </tr>
           <!-- Body -->
