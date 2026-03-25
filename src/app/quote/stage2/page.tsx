@@ -185,7 +185,7 @@ function Stage2Content() {
   const isFirstLienProduct = stage1Product === 'CashOut' || stage1Product === 'NoCashRefi';
   const isPrimary = stage1PropertyType === 'Primary';
 
-  // Load Stage 1 data from localStorage
+  // Load Stage 1 data from localStorage, then try GHL prefill
   useEffect(() => {
     const stage1Raw = localStorage.getItem('stage1-data');
     const stage1Data: FormData = stage1Raw ? JSON.parse(stage1Raw) : {};
@@ -200,12 +200,28 @@ function Stage2Content() {
 
     // Merge with any saved progress from localStorage
     const savedData = localStorage.getItem('stage2-progress');
-    if (savedData) {
-      const parsed = JSON.parse(savedData);
-      setFormData({ ...stage1Data, ...parsed });
-    } else {
-      setFormData(stage1Data);
-    }
+    const localData = savedData ? { ...stage1Data, ...JSON.parse(savedData) } : stage1Data;
+    setFormData(localData);
+
+    // Try to prefill from GHL (if authenticated via OTP)
+    fetch('/api/auth/prefill')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.found && data.fields) {
+          // Merge GHL data under local data (local overrides GHL so user edits aren't lost)
+          setFormData(prev => {
+            const merged = { ...data.fields, ...prev };
+            // But for empty fields, prefer GHL data
+            for (const [key, value] of Object.entries(data.fields)) {
+              if (!prev[key] || prev[key] === '' || prev[key] === undefined) {
+                merged[key] = value;
+              }
+            }
+            return merged;
+          });
+        }
+      })
+      .catch(() => { /* Not authenticated or GHL unavailable - continue with local data */ });
   }, []);
 
   // Auto-save progress to localStorage (debounced)
