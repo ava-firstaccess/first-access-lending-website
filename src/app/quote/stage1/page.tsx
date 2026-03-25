@@ -32,19 +32,21 @@ interface Stage1Data {
 
 // Question flow depends on product + property type selections
 function getQuestionFlow(data: Stage1Data): string[] {
-  const flow: string[] = ['product', 'address', 'propertyValue', 'loanBalance', 'structureType'];
-  
+  const flow: string[] = ['product', 'address', 'structureType'];
+
   // Condo gets unit #, multi-family gets unit count
   if (data.structureType === 'Condo' || data.structureType === 'Multi-Family') {
     flow.push('unitInfo');
   }
 
-  flow.push('creditScore', 'propertyType');
+  flow.push('propertyType');
 
-  // Only ask occupancy for 2nd Home (Primary = owner-occupied, Investment = not owner-occupied)
+  // Only ask occupancy for 2nd Home
   if (data.propertyType === '2nd Home') {
     flow.push('occupancy');
   }
+
+  flow.push('propertyValue', 'loanBalance', 'creditScore');
 
   // Cash-Out Refi: ask desired cash out amount
   if (data.product === 'CashOut') {
