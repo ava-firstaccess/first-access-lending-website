@@ -23,6 +23,7 @@ function ComingSoonContent() {
   const router = useRouter();
   const stateCode = searchParams.get('state') || '';
   const stateName = STATE_NAMES[stateCode] || stateCode;
+  const address = searchParams.get('address') || '';
 
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -47,6 +48,7 @@ function ComingSoonContent() {
           firstName: firstName || undefined,
           lastName: lastName || undefined,
           state: stateCode,
+          address: address || undefined,
         }),
       });
 

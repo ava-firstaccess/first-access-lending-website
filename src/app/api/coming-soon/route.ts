@@ -108,7 +108,7 @@ function buildComingSoonEmail(firstName: string, stateName: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, firstName, lastName, phone, state } = await req.json();
+    const { email, firstName, lastName, phone, state, address } = await req.json();
 
     if (!email || !state) {
       return NextResponse.json({ error: 'Email and state required' }, { status: 400 });
@@ -157,8 +157,10 @@ export async function POST(req: NextRequest) {
         lastName: lastName || undefined,
         tags: ['coming-soon', `state-${state.toLowerCase()}`],
       };
-      if (phone) {
-        createBody.phone = normalizePhone(phone);
+      if (phone) createBody.phone = normalizePhone(phone);
+      if (address) {
+        createBody.address1 = address;
+        createBody.state = state;
       }
 
       const createRes = await fetch(`${GHL_BASE}/contacts/`, {
@@ -191,8 +193,11 @@ export async function POST(req: NextRequest) {
         pipelineStageId: COMING_SOON_STAGE_ID,
         locationId: LOCATION_ID,
         contactId,
-        name: `Coming Soon - ${stateName} - ${email}`,
+        name: `Coming Soon - ${stateName} - ${[firstName, lastName].filter(Boolean).join(' ') || email}`,
         status: 'open',
+        customFields: address ? [
+          { id: 'gEax09qKcNqzc9u3LUO2', fieldValue: address }  // Subject Property - Street Address
+        ] : undefined,
       };
 
       const oppRes = await fetch(`${GHL_BASE}/opportunities/`, {

@@ -266,7 +266,7 @@ export default function Stage1() {
               onChange={(address, state) => {
                 setData(prev => ({ ...prev, propertyAddress: address, propertyState: state }));
                 if (state && !LICENSED_STATES.has(state)) {
-                  router.push(`/quote/coming-soon?state=${encodeURIComponent(state)}`);
+                  router.push(`/quote/coming-soon?state=${encodeURIComponent(state)}&address=${encodeURIComponent(address)}`);
                   return;
                 }
               }}
