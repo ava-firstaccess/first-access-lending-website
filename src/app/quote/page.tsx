@@ -1,12 +1,9 @@
 // Landing Page - Entry Point for Quote App
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 
-export default function Home() {
-  const [showAuthModal, setShowAuthModal] = useState(false);
-
+export default function QuoteLanding() {
   return (
     <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-orange-50">
       <div className="max-w-lg w-full mx-4 space-y-6">
@@ -24,11 +21,27 @@ export default function Home() {
         {/* Two Entry Cards */}
         <div className="space-y-4">
           
+          {/* New? Get Started - Primary CTA */}
+          <Link href="/quote/stage1" className="block group">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-lg hover:shadow-xl transition-all p-6 border-2 border-transparent hover:scale-[1.02]">
+              <div className="flex items-center justify-between">
+                <div className="text-left">
+                  <h2 className="text-xl font-semibold text-white">
+                    Get a Quick Quote
+                  </h2>
+                  <p className="text-sm text-blue-100 mt-1">
+                    See what you qualify for in 2 minutes — no login needed
+                  </p>
+                </div>
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </div>
+            </div>
+          </Link>
+
           {/* Already Working With Us */}
-          <button
-            onClick={() => setShowAuthModal(true)}
-            className="w-full group"
-          >
+          <Link href="/quote/verify" className="block group">
             <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all p-6 border-2 border-blue-100 hover:border-blue-300">
               <div className="flex items-center justify-between">
                 <div className="text-left">
@@ -36,29 +49,10 @@ export default function Home() {
                     Already working with us?
                   </h2>
                   <p className="text-sm text-gray-600 mt-1">
-                    Sign in with your phone to continue
+                    Continue your application — verify with your phone
                   </p>
                 </div>
                 <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </div>
-            </div>
-          </button>
-
-          {/* New? Get Started */}
-          <Link href="/quote/stage1" className="block group">
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-lg hover:shadow-xl transition-all p-6 border-2 border-transparent hover:scale-[1.02]">
-              <div className="flex items-center justify-between">
-                <div className="text-left">
-                  <h2 className="text-xl font-semibold text-white">
-                    New? Get started
-                  </h2>
-                  <p className="text-sm text-blue-100 mt-1">
-                    See what you qualify for in 2 minutes
-                  </p>
-                </div>
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
               </div>
@@ -86,37 +80,10 @@ export default function Home() {
         {/* Footer Disclaimer */}
         <div className="text-center text-xs text-gray-500 pt-4">
           <p>First Access Lending • NMLS #12345</p>
-          <p className="mt-1">Licensed in all 50 states</p>
+          <p className="mt-1">Equal Housing Lender</p>
         </div>
 
       </div>
-
-      {/* Auth Modal (will build this next) */}
-      {showAuthModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 relative">
-            <button
-              onClick={() => setShowAuthModal(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            
-            <h2 className="text-2xl font-bold mb-4">Sign in</h2>
-            <p className="text-gray-600 mb-6">
-              We'll send a verification code to your phone
-            </p>
-            
-            {/* Phone Auth Component - TODO */}
-            <div className="text-center text-gray-500 py-8">
-              Auth component coming next...
-            </div>
-          </div>
-        </div>
-      )}
-
     </main>
   );
 }
