@@ -132,8 +132,31 @@ export default function VerifyPage() {
         return;
       }
 
-      // Success - redirect to Stage 2
-      router.push('/quote/stage2');
+      // Success - fetch prefill data, store in localStorage, redirect to Stage 1
+      try {
+        const prefillRes = await fetch('/api/auth/prefill');
+        if (prefillRes.ok) {
+          const prefillData = await prefillRes.json();
+          if (prefillData.found) {
+            if (prefillData.stage1Fields && Object.keys(prefillData.stage1Fields).length > 0) {
+              localStorage.setItem('stage1Prefill', JSON.stringify(prefillData.stage1Fields));
+            }
+            if (prefillData.stage2Fields && Object.keys(prefillData.stage2Fields).length > 0) {
+              localStorage.setItem('stage2Prefill', JSON.stringify(prefillData.stage2Fields));
+            }
+          }
+        }
+      } catch (prefillErr) {
+        console.error('Prefill fetch failed (non-blocking):', prefillErr);
+      }
+
+      // If we have Stage 1 data, start there so they review/confirm the quote
+      const hasStage1 = localStorage.getItem('stage1Prefill');
+      if (hasStage1) {
+        router.push('/quote/stage1?prefilled=1');
+      } else {
+        router.push('/quote/stage2');
+      }
 
     } catch {
       setError('Network error. Please try again.');

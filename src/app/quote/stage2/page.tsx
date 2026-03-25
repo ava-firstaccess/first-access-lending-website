@@ -203,25 +203,42 @@ function Stage2Content() {
     const localData = savedData ? { ...stage1Data, ...JSON.parse(savedData) } : stage1Data;
     setFormData(localData);
 
-    // Try to prefill from GHL (if authenticated via OTP)
+    // Try to load GHL prefill from localStorage (set by verify page)
+    try {
+      const stage2Prefill = localStorage.getItem('stage2Prefill');
+      if (stage2Prefill) {
+        const ghlData = JSON.parse(stage2Prefill);
+        setFormData(prev => {
+          const merged = { ...ghlData, ...prev };
+          // For empty fields, prefer GHL data
+          for (const [key, value] of Object.entries(ghlData)) {
+            if (!prev[key] || prev[key] === '' || prev[key] === undefined) {
+              merged[key] = value as any;
+            }
+          }
+          return merged;
+        });
+        localStorage.removeItem('stage2Prefill'); // consume once
+      }
+    } catch { /* No prefill data available */ }
+
+    // Fallback: try API directly (if authenticated but no localStorage prefill)
     fetch('/api/auth/prefill')
       .then(res => res.ok ? res.json() : null)
       .then(data => {
-        if (data?.found && data.fields) {
-          // Merge GHL data under local data (local overrides GHL so user edits aren't lost)
+        if (data?.found && data.stage2Fields) {
           setFormData(prev => {
-            const merged = { ...data.fields, ...prev };
-            // But for empty fields, prefer GHL data
-            for (const [key, value] of Object.entries(data.fields)) {
+            const merged = { ...data.stage2Fields, ...prev };
+            for (const [key, value] of Object.entries(data.stage2Fields)) {
               if (!prev[key] || prev[key] === '' || prev[key] === undefined) {
-                merged[key] = value;
+                merged[key] = value as any;
               }
             }
             return merged;
           });
         }
       })
-      .catch(() => { /* Not authenticated or GHL unavailable - continue with local data */ });
+      .catch(() => { /* Not authenticated or GHL unavailable */ });
   }, []);
 
   // Auto-save progress to localStorage (debounced)

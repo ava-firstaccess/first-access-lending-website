@@ -53,11 +53,27 @@ export default function Stage1() {
   const [data, setData] = useState<Stage1Data>({});
   const [animating, setAnimating] = useState(false);
   const [bounceRef, setBounceRef] = useState<string | null>(null);
+  const [prefilled, setPrefilled] = useState(false);
   const [quote, setQuote] = useState({
     maxAvailable: 0,
     rateRange: { min: 0, max: 0 },
     monthlyPayment: 0
   });
+
+  // Load prefill data from localStorage (set by verify page after OTP)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('stage1Prefill');
+      if (stored) {
+        const prefillData = JSON.parse(stored) as Partial<Stage1Data>;
+        setData(prev => ({ ...prev, ...prefillData }));
+        setPrefilled(true);
+        localStorage.removeItem('stage1Prefill'); // consume once
+      }
+    } catch (e) {
+      console.error('Failed to load stage1 prefill:', e);
+    }
+  }, []);
 
   const flow = getQuestionFlow(data);
   const currentQuestion = flow[step];
