@@ -330,9 +330,36 @@ function Stage2Content() {
   const isSectionCompleted = (sectionFields: { name: string; required?: boolean }[]) =>
     isSectionComplete(sectionFields, formData, rules);
 
+  const [submitting, setSubmitting] = useState(false);
+  const [submitResult, setSubmitResult] = useState<{ success: boolean; message: string } | null>(null);
+
   const handleSubmit = async () => {
-    console.log('Submitting form data:', formData);
-    alert('Form submitted! (API integration pending)');
+    setSubmitting(true);
+    setSubmitResult(null);
+
+    try {
+      const res = await fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formData }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setSubmitResult({ success: false, message: data.error || 'Submission failed. Please try again.' });
+        setSubmitting(false);
+        return;
+      }
+
+      setSubmitResult({ success: true, message: data.message || 'Application submitted successfully!' });
+      // Clear saved progress
+      localStorage.removeItem('stage2-progress');
+      localStorage.removeItem('stage1-data');
+    } catch {
+      setSubmitResult({ success: false, message: 'Network error. Please check your connection and try again.' });
+    }
+    setSubmitting(false);
   };
 
   const handleBackToResults = () => {
@@ -1209,9 +1236,27 @@ function Stage2Content() {
                   Continue
                 </button>
               ) : (
-                <button onClick={handleSubmit} className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all text-center">
-                  Submit Application
+                <button
+                  onClick={handleSubmit}
+                  disabled={submitting || submitResult?.success}
+                  className={`flex-1 font-semibold py-3 px-6 rounded-xl shadow-lg transition-all text-center ${
+                    submitResult?.success
+                      ? 'bg-green-500 text-white cursor-default'
+                      : submitting
+                      ? 'bg-gray-400 text-white cursor-wait'
+                      : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white hover:shadow-xl'
+                  }`}
+                >
+                  {submitResult?.success ? '✓ Submitted' : submitting ? 'Submitting...' : 'Submit Application'}
                 </button>
+              )}
+
+              {submitResult && (
+                <div className={`mt-3 p-3 rounded-lg text-sm ${
+                  submitResult.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+                }`}>
+                  {submitResult.message}
+                </div>
               )}
             </div>
 
