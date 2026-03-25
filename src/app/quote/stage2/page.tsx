@@ -359,13 +359,48 @@ function Stage2Content() {
       { name: 'Title - Will Be Held As', required: true }
     ],
     currentLoan: [
-      { name: 'Current Loan - Free & Clear', required: true }
+      { name: 'Current Loan - Free & Clear', required: true },
+      // Conditional: if not free & clear
+      ...(formData['Current Loan - Free & Clear'] === 'No' ? [
+        { name: 'Current Loan - First Mortgage Balance', required: true },
+        { name: 'Current Loan - Monthly Payment', required: true },
+      ] : []),
     ],
     otherProperties: [
-      { name: 'Owns Other Properties', required: true }
+      { name: 'Owns Other Properties', required: true },
+      ...(formData['Owns Other Properties'] === 'Yes' ? [
+        { name: 'Number of Other Properties', required: true },
+        // Dynamic REO fields based on count
+        ...Array.from({ length: Math.min(Number(formData['Number of Other Properties']) || 0, 5) }, (_, i) => {
+          const n = i + 1;
+          return [
+            { name: `Other Properties - Address ${n}`, required: true },
+            { name: `Other Properties - Address ${n} Escrow`, required: true },
+            ...(formData[`Other Properties - Address ${n} Escrow`] === 'No' ? [
+              { name: `Other Properties - ${n} Taxes - Monthly`, required: true },
+              { name: `Other Properties - ${n} Insurance - Monthly`, required: true },
+            ] : []),
+            { name: `Other Properties - Address ${n} HOA`, required: true },
+            ...(formData[`Other Properties - Address ${n} HOA`] === 'Yes' ? [
+              { name: `Other Properties - ${n} HOA Amount`, required: true },
+            ] : []),
+          ];
+        }).flat(),
+      ] : []),
     ],
     employmentIncome: [
-      { name: 'Borrower - Employment Status', required: true }
+      { name: 'Borrower - Employment Status', required: true },
+      // Conditional: if employed, require employer info
+      ...(formData['Borrower - Employment Status'] === 'Employed' || formData['Borrower - Employment Status'] === 'Self-Employed' ? [
+        { name: 'Borrower - Employer Name', required: true },
+        { name: 'Borrower - Job Title', required: true },
+        { name: 'Borrower - Years at Employer', required: true },
+        { name: 'Borrower - Monthly Base Income', required: true },
+      ] : []),
+      // Conditional: if overtime selected, require OT amount
+      ...(formData['Borrower - Variable Income Types']?.includes?.('Overtime') || formData['Borrower - Variable Income Types'] === 'Overtime' ? [
+        { name: 'Borrower - Overtime Monthly Income', required: true },
+      ] : []),
     ],
     assets: [
       { name: 'Assets - Account Type', required: true },
@@ -1144,7 +1179,7 @@ function Stage2Content() {
                             label="Do you pay HOA?"
                             name={hoaKey}
                             value={formData[hoaKey]}
-                            onChange={updateField} inline
+                            onChange={updateField} required inline
                             options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
                           />
                           {formData[hoaKey] === 'Yes' && (
@@ -1361,7 +1396,7 @@ function Stage2Content() {
                       : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white hover:shadow-xl'
                   }`}
                 >
-                  {submitResult?.success ? '✓ Submitted' : submitting ? 'Submitting...' : 'Submit Application'}
+                  {submitResult?.success ? '✓ Submitted' : submitting ? 'Submitting...' : 'Submit to Get Access!'}
                 </button>
               )}
 

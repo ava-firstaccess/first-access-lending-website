@@ -397,7 +397,7 @@ async function createOpportunity(contactId: string, formData: Record<string, any
     pipelineId: GHL_PIPELINE_ID,
     locationId: GHL_LOCATION_ID,
     name,
-    stageId: GHL_STAGE_APP_COMPLETED,
+    pipelineStageId: GHL_STAGE_APP_COMPLETED,
     status: 'open',
     contactId,
     customFields: buildCustomFields(formData),
@@ -413,7 +413,6 @@ async function createOpportunity(contactId: string, formData: Record<string, any
 // Update opportunity
 async function updateOpportunity(oppId: string, formData: Record<string, any>) {
   const body = {
-    stageId: GHL_STAGE_APP_COMPLETED,
     customFields: buildCustomFields(formData),
   };
 
