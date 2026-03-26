@@ -81,6 +81,40 @@ function calcRepaymentPayment(balance: number, rate: number, repaymentYears: num
   return Math.round(balance * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
 }
 
+// Loan amount slider component
+function LoanAmountSlider({ value, max, min, onChange }: {
+  value: number;
+  max: number;
+  min: number;
+  onChange: (v: number) => void;
+}) {
+  const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-gray-500 font-medium">Your Loan Amount</span>
+        <span className="text-lg font-bold text-gray-900">${value.toLocaleString()}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={1000}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+        style={{
+          background: `linear-gradient(to right, #3b82f6 ${pct}%, #e5e7eb ${pct}%)`
+        }}
+      />
+      <div className="flex justify-between text-[10px] text-gray-400">
+        <span>${min.toLocaleString()}</span>
+        <span>${max.toLocaleString()} max</span>
+      </div>
+    </div>
+  );
+}
+
 // Pill toggle component
 function PillToggle({ options, value, onChange }: {
   options: { label: string; value: number }[];
@@ -111,6 +145,8 @@ export default function ResultsPage() {
   const [cesTerm, setCesTerm] = useState<number>(20);
   const [helocTotalTerm, setHelocTotalTerm] = useState<number>(20);
   const [helocDrawTerm, setHelocDrawTerm] = useState<number>(5);
+  const [helocLoanAmount, setHelocLoanAmount] = useState<number | null>(null);
+  const [cesLoanAmount, setCesLoanAmount] = useState<number | null>(null);
   const skipOtp = process.env.NEXT_PUBLIC_SKIP_OTP === 'true';
 
   useEffect(() => {
@@ -149,10 +185,52 @@ export default function ResultsPage() {
     [propertyValue, loanBalance, creditScore, propertyType, cashOutAmount, cesTerm]
   );
 
+  // Initialize loan amounts to max when quotes change
+  useEffect(() => {
+    if (helocQuote.maxAvailable > 0 && helocLoanAmount === null) {
+      setHelocLoanAmount(helocQuote.maxAvailable);
+    }
+  }, [helocQuote.maxAvailable, helocLoanAmount]);
+
+  useEffect(() => {
+    if (cesQuote.maxAvailable > 0 && cesLoanAmount === null) {
+      setCesLoanAmount(cesQuote.maxAvailable);
+    }
+  }, [cesQuote.maxAvailable, cesLoanAmount]);
+
+  // Clamp loan amounts to max when terms change
+  useEffect(() => {
+    if (helocLoanAmount !== null && helocLoanAmount > helocQuote.maxAvailable) {
+      setHelocLoanAmount(helocQuote.maxAvailable);
+    }
+  }, [helocQuote.maxAvailable, helocLoanAmount]);
+
+  useEffect(() => {
+    if (cesLoanAmount !== null && cesLoanAmount > cesQuote.maxAvailable) {
+      setCesLoanAmount(cesQuote.maxAvailable);
+    }
+  }, [cesQuote.maxAvailable, cesLoanAmount]);
+
+  const effectiveHelocAmount = helocLoanAmount ?? helocQuote.maxAvailable;
+  const effectiveCesAmount = cesLoanAmount ?? cesQuote.maxAvailable;
+
+  // Recalculate payments based on chosen loan amount
+  const helocChosenPayment = useMemo(() => {
+    const monthlyRate = helocQuote.rate / 100 / 12;
+    return Math.round(effectiveHelocAmount * monthlyRate);
+  }, [effectiveHelocAmount, helocQuote.rate]);
+
+  const cesChosenPayment = useMemo(() => {
+    const monthlyRate = cesQuote.rate / 100 / 12;
+    const n = cesTerm * 12;
+    if (effectiveCesAmount <= 0 || n <= 0) return 0;
+    return Math.round(effectiveCesAmount * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
+  }, [effectiveCesAmount, cesQuote.rate, cesTerm]);
+
   const helocRepaymentYears = helocTotalTerm - helocDrawTerm;
   const helocRepaymentPayment = useMemo(() =>
-    calcRepaymentPayment(helocQuote.maxAvailable, helocQuote.rate, helocRepaymentYears),
-    [helocQuote.maxAvailable, helocQuote.rate, helocRepaymentYears]
+    calcRepaymentPayment(effectiveHelocAmount, helocQuote.rate, helocRepaymentYears),
+    [effectiveHelocAmount, helocQuote.rate, helocRepaymentYears]
   );
 
   const isRefi = product === 'CashOut' || product === 'NoCashRefi';
@@ -228,6 +306,16 @@ export default function ResultsPage() {
                     <div className="text-2xl font-bold text-blue-900">${helocQuote.maxAvailable.toLocaleString()}</div>
                   </div>
 
+                  {/* Loan Amount Slider */}
+                  <div className="mb-5 bg-gray-50 rounded-lg p-4">
+                    <LoanAmountSlider
+                      value={effectiveHelocAmount}
+                      max={helocQuote.maxAvailable}
+                      min={Math.min(10000, helocQuote.maxAvailable)}
+                      onChange={setHelocLoanAmount}
+                    />
+                  </div>
+
                   {/* Term Toggles */}
                   <div className="space-y-3 mb-5">
                     <div className="flex items-center justify-between">
@@ -257,7 +345,7 @@ export default function ResultsPage() {
                     </div>
                     <div className="bg-orange-50 rounded-lg p-4 text-center">
                       <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly (Draw Period)</div>
-                      <div className="text-2xl font-bold text-orange-900">${helocQuote.monthlyPayment.toLocaleString()}</div>
+                      <div className="text-2xl font-bold text-orange-900">${helocChosenPayment.toLocaleString()}</div>
                       <div className="text-xs text-orange-600 mt-0.5">Interest only</div>
                     </div>
 
@@ -267,6 +355,8 @@ export default function ResultsPage() {
                         s1.product = 'HELOC';
                         s1.helocTotalTerm = String(helocTotalTerm);
                         s1.helocDrawTerm = String(helocDrawTerm);
+                        s1.desiredLoanAmount = String(effectiveHelocAmount);
+                        s1.maxAvailable = String(helocQuote.maxAvailable);
                         localStorage.setItem('stage1-data', JSON.stringify(s1));
                         router.push(skipOtp ? '/quote/stage2' : '/quote/verify');
                       }}
@@ -286,6 +376,16 @@ export default function ResultsPage() {
                   <div className="bg-blue-50 rounded-lg p-4 text-center mb-5">
                     <div className="text-xs text-blue-600 font-medium mb-1">Max Available</div>
                     <div className="text-2xl font-bold text-blue-900">${cesQuote.maxAvailable.toLocaleString()}</div>
+                  </div>
+
+                  {/* Loan Amount Slider */}
+                  <div className="mb-5 bg-gray-50 rounded-lg p-4">
+                    <LoanAmountSlider
+                      value={effectiveCesAmount}
+                      max={cesQuote.maxAvailable}
+                      min={Math.min(10000, cesQuote.maxAvailable)}
+                      onChange={setCesLoanAmount}
+                    />
                   </div>
 
                   {/* Term Toggle */}
@@ -309,7 +409,7 @@ export default function ResultsPage() {
                     </div>
                     <div className="bg-orange-50 rounded-lg p-4 text-center">
                       <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly Payment</div>
-                      <div className="text-2xl font-bold text-orange-900">${cesQuote.monthlyPayment.toLocaleString()}</div>
+                      <div className="text-2xl font-bold text-orange-900">${cesChosenPayment.toLocaleString()}</div>
                       <div className="text-xs text-orange-600 mt-0.5">Principal &amp; Interest</div>
                     </div>
 
@@ -318,6 +418,8 @@ export default function ResultsPage() {
                         const s1 = JSON.parse(localStorage.getItem('stage1-data') || '{}');
                         s1.product = 'CES';
                         s1.cesTerm = String(cesTerm);
+                        s1.desiredLoanAmount = String(effectiveCesAmount);
+                        s1.maxAvailable = String(cesQuote.maxAvailable);
                         localStorage.setItem('stage1-data', JSON.stringify(s1));
                         router.push(skipOtp ? '/quote/stage2' : '/quote/verify');
                       }}
