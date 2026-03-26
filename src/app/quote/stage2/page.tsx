@@ -452,13 +452,6 @@ function Stage2Content() {
       { name: 'Dec - Bankruptcy / Short Sale / Foreclosure', required: true },
       { name: 'Dec - Borrower Co-Signer on Note', required: true },
       { name: 'Dec - Borrower Obligated Alimony/Support', required: true },
-      { name: 'Dec - Borrower US Citizen', required: true },
-      { name: 'Dec - Borrower Intend to Occupy', required: true },
-      { name: 'Dec - Borrower Ownership Interest 3 Years', required: true },
-      // Primary residence question only for purchase (not HELOC/CES/Refi)
-      ...(formData['product'] !== 'HELOC' && formData['product'] !== 'CES' && formData['product'] !== 'CashOut' && formData['product'] !== 'NoCashRefi' ? [
-        { name: 'Dec - Primary Residence Last 3 Years', required: true }
-      ] : []),
     ],
     demographics: [
       { name: 'Dem - Borrower Ethnicity', required: false }
@@ -745,27 +738,7 @@ function Stage2Content() {
           </>
         )}
 
-        {/* Alimony / Child Support */}
-        {hasAnyEmployment(person) && (
-          <>
-            <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2" />
-            <RadioField
-              label="Do you pay alimony or child support?"
-              name={`${person} - Alimony or Child Support`}
-              value={formData[`${person} - Alimony or Child Support`]}
-              onChange={updateField}
-              inline
-              options={[
-                { value: 'Yes', label: 'Yes' },
-                { value: 'No', label: 'No' }
-              ]}
-              className="md:col-span-2"
-            />
-            {formData[`${person} - Alimony or Child Support`] === 'Yes' && (
-              <CurrencyField label="Monthly Payment" name={`${person} - Alimony/Child Support Monthly Payment`} value={formData[`${person} - Alimony/Child Support Monthly Payment`]} onChange={updateField} required />
-            )}
-          </>
-        )}
+        {/* Alimony / Child Support - moved to Declarations section */}
       </>
     );
   };
@@ -1340,29 +1313,8 @@ function Stage2Content() {
               <RadioField label="Are you a co-signer or endorser on any note?" name="Dec - Borrower Co-Signer on Note" value={formData['Dec - Borrower Co-Signer on Note']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
 
               <RadioField label="Are you obligated to pay alimony, child support, or separate maintenance?" name="Dec - Borrower Obligated Alimony/Support" value={formData['Dec - Borrower Obligated Alimony/Support']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
-
-              <RadioField label="Are you a U.S. citizen?" name="Dec - Borrower US Citizen" value={formData['Dec - Borrower US Citizen']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
-              {formData['Dec - Borrower US Citizen'] === 'No' && (
-                <RadioField label="Are you a permanent resident alien?" name="Dec - Borrower Permanent Resident" value={formData['Dec - Borrower Permanent Resident']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
-              )}
-
-              <RadioField label="Do you intend to occupy the property as your primary residence?" name="Dec - Borrower Intend to Occupy" value={formData['Dec - Borrower Intend to Occupy']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
-
-              <RadioField label="Have you had an ownership interest in a property in the last 3 years?" name="Dec - Borrower Ownership Interest 3 Years" value={formData['Dec - Borrower Ownership Interest 3 Years']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
-              {formData['Dec - Borrower Ownership Interest 3 Years'] === 'Yes' && (
-                <SelectField label="What type of property did you own?" name="Dec - Borrower Prior Property Type" value={formData['Dec - Borrower Prior Property Type']} onChange={updateField}
-                  options={[
-                    { value: 'Primary Residence', label: 'Primary Residence' },
-                    { value: 'Second Home', label: 'Second Home' },
-                    { value: 'Investment Property', label: 'Investment Property' },
-                    { value: 'FHA Primary Residence', label: 'FHA Primary Residence' }
-                  ]}
-                />
-              )}
-
-              {/* Primary residence last 3 years - ONLY for purchase transactions */}
-              {(stage1Product === 'CashOut' || stage1Product === 'NoCashRefi') ? null : (
-                <RadioField label="Will this be your primary residence for the next 12 months?" name="Dec - Primary Residence Last 3 Years" value={formData['Dec - Primary Residence Last 3 Years']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+              {formData['Dec - Borrower Obligated Alimony/Support'] === 'Yes' && (
+                <CurrencyField label="Monthly Alimony/Child Support/Maintenance Amount" name="Dec - Borrower Alimony/Support Amount" value={formData['Dec - Borrower Alimony/Support Amount']} onChange={updateField} required />
               )}
 
               {/* Co-Borrower Declarations */}
@@ -1399,9 +1351,10 @@ function Stage2Content() {
                         </>
                       )}
 
-                      <RadioField label="Co-Borrower: Are you a U.S. citizen?" name="Dec - Co-Borrower US Citizen" value={formData['Dec - Co-Borrower US Citizen']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
-                      <RadioField label="Co-Borrower: Do you intend to occupy the property as primary residence?" name="Dec - Co-Borrower Intend to Occupy" value={formData['Dec - Co-Borrower Intend to Occupy']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
-                      <RadioField label="Co-Borrower: Ownership interest in a property in the last 3 years?" name="Dec - Co-Borrower Ownership Interest 3 Years" value={formData['Dec - Co-Borrower Ownership Interest 3 Years']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+                      <RadioField label="Co-Borrower: Obligated to pay alimony, child support, or separate maintenance?" name="Dec - Co-Borrower Obligated Alimony/Support" value={formData['Dec - Co-Borrower Obligated Alimony/Support']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+                      {formData['Dec - Co-Borrower Obligated Alimony/Support'] === 'Yes' && (
+                        <CurrencyField label="Co-Borrower Monthly Alimony/Support Amount" name="Dec - Co-Borrower Alimony/Support Amount" value={formData['Dec - Co-Borrower Alimony/Support Amount']} onChange={updateField} required />
+                      )}
                     </>
                   )}
                 </>
