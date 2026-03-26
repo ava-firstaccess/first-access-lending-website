@@ -31,6 +31,25 @@ export async function POST(req: NextRequest) {
       userAgent: userAgent || undefined,
     };
 
+    // ── Write permanent analytics event (survives 30-day retention) ──
+    const [stage, stepName] = (currentStep || '').split(':');
+    await supabase
+      .from('analytics_events')
+      .insert({
+        anonymous_id: anonymousId || sessionToken || 'unknown',
+        session_stage: stage || 'unknown',
+        step_name: stepName || currentStep || 'unknown',
+        step_number: stepNumber ?? null,
+        total_steps: totalSteps ?? null,
+        referrer: referrer || null,
+        user_agent: userAgent || null,
+      })
+      .then(({ error }) => {
+        if (error) console.error('Analytics insert error (non-fatal):', error.message);
+      });
+
+    // ── Also update ephemeral applications table for real-time form data ──
+
     // Authenticated user (has session from OTP)
     if (sessionToken) {
       const { data: app } = await supabase
