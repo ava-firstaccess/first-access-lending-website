@@ -210,11 +210,11 @@ function AnnualMonthlyField({ label, namePrefix, formData, onChange, required = 
           required={required}
           className="flex-1 px-2 py-3 text-lg font-semibold text-gray-900 bg-transparent outline-none placeholder:text-gray-300"
         />
+        {/* Derived value inline in the field */}
+        {derivedValue && (
+          <span className="pr-3 text-xs text-gray-400 whitespace-nowrap">= {derivedValue}</span>
+        )}
       </div>
-      {/* Derived value below */}
-      {derivedValue && (
-        <p className="text-xs text-gray-400 mt-1 text-right">= {derivedValue}</p>
-      )}
     </div>
   );
 }
@@ -243,6 +243,35 @@ function Stage2Content() {
       stage1Data['Current Loan - First Mortgage Balance'] = parseFloat(stage1Data.loanBalance);
     } else {
       stage1Data['Current Loan - Free & Clear'] = 'Yes';
+    }
+
+    // Auto-populate current address from subject property if primary residence
+    if (stage1Data.propertyType === 'Primary' && stage1Data.propertyAddress) {
+      if (!stage1Data['Borrower - Current Address']) {
+        stage1Data['Borrower - Current Address'] = stage1Data.propertyAddress;
+      }
+      if (!stage1Data['Borrower - Housing Ownership Type']) {
+        stage1Data['Borrower - Housing Ownership Type'] = 'Own';
+      }
+    }
+
+    // Auto-populate structure type from Stage 1 selection
+    if (stage1Data.structureType && !stage1Data['Subject Property - Structure Type']) {
+      const structureMap: Record<string, string> = {
+        'SFR': 'Single Family',
+        'Condo': 'Condo',
+        'Townhouse': 'Townhouse',
+        'Multi-Family': 'Multi-Family',
+        'PUD': 'Single Family', // PUD mapped to Single Family
+      };
+      stage1Data['Subject Property - Structure Type'] = structureMap[stage1Data.structureType] || '';
+    }
+    // Auto-populate unit number and unit count from Stage 1
+    if (stage1Data.unitNumber && !stage1Data['Subject Property - Unit Number']) {
+      stage1Data['Subject Property - Unit Number'] = stage1Data.unitNumber;
+    }
+    if (stage1Data.numberOfUnits && !stage1Data['Subject Property - Units']) {
+      stage1Data['Subject Property - Units'] = stage1Data.numberOfUnits;
     }
 
     // Merge with any saved progress from localStorage
@@ -408,7 +437,15 @@ function Stage2Content() {
     declarations: [
       { name: 'Dec - Judgments / Federal Debt / Delinquent', required: true },
       { name: 'Dec - Bankruptcy / Short Sale / Foreclosure', required: true },
-      { name: 'Dec - Primary Residence Last 3 Years', required: true }
+      { name: 'Dec - Borrower Co-Signer on Note', required: true },
+      { name: 'Dec - Borrower Obligated Alimony/Support', required: true },
+      { name: 'Dec - Borrower US Citizen', required: true },
+      { name: 'Dec - Borrower Intend to Occupy', required: true },
+      { name: 'Dec - Borrower Ownership Interest 3 Years', required: true },
+      // Primary residence question only for purchase (not HELOC/CES/Refi)
+      ...(formData['product'] !== 'HELOC' && formData['product'] !== 'CES' && formData['product'] !== 'CashOut' && formData['product'] !== 'NoCashRefi' ? [
+        { name: 'Dec - Primary Residence Last 3 Years', required: true }
+      ] : []),
     ],
     demographics: [
       { name: 'Dem - Borrower Ethnicity', required: false }
@@ -476,7 +513,23 @@ function Stage2Content() {
   const currentSectionKey = sectionOrder[currentStep]?.key || 'borrowerInfo';
   const progress = ((currentStep + 1) / (totalSteps + 1)) * 100;
 
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
   const goNext = () => {
+    // Validate required fields in current section before advancing
+    const currentFields = sections[currentSectionKey as keyof typeof sections];
+    if (currentFields) {
+      const missing = currentFields
+        .filter((f: { name: string; required?: boolean }) => f.required && (!formData[f.name] || formData[f.name] === ''))
+        .map((f: { name: string; required?: boolean }) => f.name);
+      if (missing.length > 0) {
+        setValidationErrors(missing);
+        // Scroll to top to show error message
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+    }
+    setValidationErrors([]);
     if (currentStep < totalSteps - 1) {
       setCurrentStep(prev => prev + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -484,6 +537,7 @@ function Stage2Content() {
   };
 
   const goBack = () => {
+    setValidationErrors([]);
     if (currentStep > 0) {
       setCurrentStep(prev => prev - 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -732,6 +786,18 @@ function Stage2Content() {
                 <div className="bg-gradient-to-r from-blue-500 to-blue-600 h-2.5 rounded-full transition-all duration-500 ease-out" style={{ width: `${((currentStep + 1) / totalSteps) * 100}%` }} />
               </div>
             </div>
+
+            {/* Validation errors */}
+            {validationErrors.length > 0 && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+                <p className="text-sm font-semibold text-red-700 mb-1">Please complete the required fields:</p>
+                <ul className="text-sm text-red-600 list-disc list-inside">
+                  {validationErrors.map((field) => (
+                    <li key={field}>{field.replace(/^(Borrower - |Subject Property - |Title - |Current Loan - |Dec - |Assets - )/, '')}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <form autoComplete="on" onSubmit={(e) => e.preventDefault()}>
 
@@ -1234,6 +1300,7 @@ function Stage2Content() {
             ═══════════════════════════════════════════════ */}
             {currentSectionKey === 'declarations' && (
             <SectionCard title="Declarations" description="Required disclosure questions" isComplete={isSectionCompleted(sections.declarations)} defaultOpen={true} sectionNumber={currentStep + 1}>
+              {/* 1003 Section V declarations */}
               <RadioField label="Outstanding judgments, federal debt, delinquent accounts, or party to a lawsuit?" name="Dec - Judgments / Federal Debt / Delinquent" value={formData['Dec - Judgments / Federal Debt / Delinquent']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
               {formData['Dec - Judgments / Federal Debt / Delinquent'] === 'Yes' && (
                 <>
@@ -1256,7 +1323,34 @@ function Stage2Content() {
                 </>
               )}
 
-              <RadioField label="Primary residence in last 3 years?" name="Dec - Primary Residence Last 3 Years" value={formData['Dec - Primary Residence Last 3 Years']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+              {/* Additional 1003 declarations */}
+              <RadioField label="Are you a co-signer or endorser on any note?" name="Dec - Borrower Co-Signer on Note" value={formData['Dec - Borrower Co-Signer on Note']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+
+              <RadioField label="Are you obligated to pay alimony, child support, or separate maintenance?" name="Dec - Borrower Obligated Alimony/Support" value={formData['Dec - Borrower Obligated Alimony/Support']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+
+              <RadioField label="Are you a U.S. citizen?" name="Dec - Borrower US Citizen" value={formData['Dec - Borrower US Citizen']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+              {formData['Dec - Borrower US Citizen'] === 'No' && (
+                <RadioField label="Are you a permanent resident alien?" name="Dec - Borrower Permanent Resident" value={formData['Dec - Borrower Permanent Resident']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+              )}
+
+              <RadioField label="Do you intend to occupy the property as your primary residence?" name="Dec - Borrower Intend to Occupy" value={formData['Dec - Borrower Intend to Occupy']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+
+              <RadioField label="Have you had an ownership interest in a property in the last 3 years?" name="Dec - Borrower Ownership Interest 3 Years" value={formData['Dec - Borrower Ownership Interest 3 Years']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+              {formData['Dec - Borrower Ownership Interest 3 Years'] === 'Yes' && (
+                <SelectField label="What type of property did you own?" name="Dec - Borrower Prior Property Type" value={formData['Dec - Borrower Prior Property Type']} onChange={updateField}
+                  options={[
+                    { value: 'Primary Residence', label: 'Primary Residence' },
+                    { value: 'Second Home', label: 'Second Home' },
+                    { value: 'Investment Property', label: 'Investment Property' },
+                    { value: 'FHA Primary Residence', label: 'FHA Primary Residence' }
+                  ]}
+                />
+              )}
+
+              {/* Primary residence last 3 years - ONLY for purchase transactions */}
+              {(stage1Product === 'CashOut' || stage1Product === 'NoCashRefi') ? null : (
+                <RadioField label="Will this be your primary residence for the next 12 months?" name="Dec - Primary Residence Last 3 Years" value={formData['Dec - Primary Residence Last 3 Years']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+              )}
 
               {/* Co-Borrower Declarations */}
               {formData['Borrower - Has Co-Borrower'] === 'Yes' && (
@@ -1292,7 +1386,9 @@ function Stage2Content() {
                         </>
                       )}
 
-                      <RadioField label="Co-Borrower: Primary residence in last 3 years?" name="Dec - Co-Borrower Primary Residence Last 3 Years" value={formData['Dec - Co-Borrower Primary Residence Last 3 Years']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+                      <RadioField label="Co-Borrower: Are you a U.S. citizen?" name="Dec - Co-Borrower US Citizen" value={formData['Dec - Co-Borrower US Citizen']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+                      <RadioField label="Co-Borrower: Do you intend to occupy the property as primary residence?" name="Dec - Co-Borrower Intend to Occupy" value={formData['Dec - Co-Borrower Intend to Occupy']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
+                      <RadioField label="Co-Borrower: Ownership interest in a property in the last 3 years?" name="Dec - Co-Borrower Ownership Interest 3 Years" value={formData['Dec - Co-Borrower Ownership Interest 3 Years']} onChange={updateField} required inline options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]} className="md:col-span-2" />
                     </>
                   )}
                 </>
@@ -1394,7 +1490,7 @@ function Stage2Content() {
                       : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white hover:shadow-xl'
                   }`}
                 >
-                  {submitResult?.success ? '✓ Submitted' : submitting ? 'Submitting...' : 'Submit to Get Access!'}
+                  {submitResult?.success ? '✓ Submitted' : submitting ? 'Submitting...' : 'Get Access: Next Step — Validation'}
                 </button>
               )}
 
