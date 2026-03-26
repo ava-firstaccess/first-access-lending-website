@@ -54,15 +54,25 @@ function LoanAmountSlider({ value, max, min, onChange }: {
 }
 
 function parseAddress(fullAddress: string): { street: string; zipcode: string } {
-  // Try to extract zipcode from end of address
-  const zipMatch = fullAddress.match(/(\d{5})(-\d{4})?$/);
+  // Try to extract zipcode from anywhere in the address
+  const zipMatch = fullAddress.match(/\b(\d{5})(-\d{4})?\b/);
   if (zipMatch) {
+    // Remove the zip and everything after it for the street
+    const idx = fullAddress.indexOf(zipMatch[0]);
+    const street = fullAddress.substring(0, idx).replace(/,?\s*$/, '').trim();
     return {
-      street: fullAddress.replace(/,?\s*\d{5}(-\d{4})?$/, '').trim(),
+      street: street || fullAddress.split(',')[0].trim(),
       zipcode: zipMatch[1],
     };
   }
-  // Fallback: return full address, empty zip
+  
+  // Try splitting by comma - "123 Main St, Baltimore, MD" format
+  const parts = fullAddress.split(',').map(p => p.trim());
+  if (parts.length >= 1) {
+    // Return just the street portion, no zip
+    return { street: parts[0], zipcode: '' };
+  }
+  
   return { street: fullAddress, zipcode: '' };
 }
 
@@ -131,12 +141,33 @@ export default function Stage3Page() {
     try {
       const { street, zipcode } = parseAddress(propertyAddress);
 
+      // Try to extract city and state from address parts
+      const addressParts = propertyAddress.split(',').map((p: string) => p.trim());
+      let city = '';
+      let state = '';
+      if (addressParts.length >= 3) {
+        city = addressParts[1]; // "Baltimore"
+        // State might be "MD 21230" or just "MD"
+        const stateZip = addressParts[2].trim().split(/\s+/);
+        state = stateZip[0]; // "MD"
+      } else if (addressParts.length === 2) {
+        // Could be "Baltimore, MD" format
+        const stateZip = addressParts[1].trim().split(/\s+/);
+        if (stateZip[0].length === 2) {
+          state = stateZip[0];
+        } else {
+          city = addressParts[1];
+        }
+      }
+
       const res = await fetch('/api/verify-value', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           address: street,
           zipcode: zipcode || stage1.zipcode || '',
+          city: city || '',
+          state: state || stage1.propertyState || '',
           statedValue: propertyValue,
           loanBalance,
           creditScore,

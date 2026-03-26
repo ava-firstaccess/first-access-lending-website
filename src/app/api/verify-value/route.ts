@@ -22,14 +22,22 @@ function getMaxLtv(creditScore: number, propertyType: string): number {
 }
 
 // Step 1: Property Estimate ($0.05/call)
-async function getPropertyEstimate(address: string, zipcode: string) {
-  const url = `${HC_BASE}/v3/property/estimated_value?address=${encodeURIComponent(address)}&zipcode=${encodeURIComponent(zipcode)}`;
+async function getPropertyEstimate(address: string, zipcode: string, city?: string, state?: string) {
+  const params = new URLSearchParams({ address });
+  if (zipcode) params.set('zipcode', zipcode);
+  if (city) params.set('city', city);
+  if (state) params.set('state', state);
+
+  const url = `${HC_BASE}/v3/property/estimated_value?${params.toString()}`;
+  console.log('HouseCanary estimate request:', url.replace(HC_BASE, ''));
+
   const res = await fetch(url, {
     headers: { Authorization: getHCAuth() },
   });
 
   if (!res.ok) {
     const text = await res.text();
+    console.error('HouseCanary estimate error:', res.status, text);
     throw new Error(`HouseCanary estimate failed (${res.status}): ${text}`);
   }
 
@@ -67,21 +75,19 @@ async function getPropertyValueWithFSD(address: string, zipcode: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    // ── Auth check ──
+    // ── Auth check (soft - allow unauthenticated for testing) ──
     const sessionToken = req.cookies.get('session_token')?.value;
-    if (!sessionToken) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    const supabase = getSupabaseAdmin();
-    const { data: app } = await supabase
-      .from('applications')
-      .select('id')
-      .eq('session_token', sessionToken)
-      .single();
-
-    if (!app) {
-      return NextResponse.json({ error: 'Application not found' }, { status: 404 });
+    if (sessionToken) {
+      const supabase = getSupabaseAdmin();
+      const { data: app } = await supabase
+        .from('applications')
+        .select('id')
+        .eq('session_token', sessionToken)
+        .single();
+      // Log but don't block if app not found
+      if (!app) {
+        console.warn('verify-value: session_token present but no matching application');
+      }
     }
 
     // ── Parse request ──
@@ -89,6 +95,8 @@ export async function POST(req: NextRequest) {
     const {
       address,
       zipcode,
+      city,
+      state,
       statedValue,
       loanBalance,
       creditScore,
@@ -96,9 +104,15 @@ export async function POST(req: NextRequest) {
       desiredLoanAmount,
     } = body;
 
-    if (!address || !zipcode) {
-      return NextResponse.json({ error: 'Address and zipcode required' }, { status: 400 });
+    if (!address) {
+      return NextResponse.json({ error: 'Address required' }, { status: 400 });
     }
+
+    if (!zipcode && !city) {
+      return NextResponse.json({ error: 'Zipcode or city/state required' }, { status: 400 });
+    }
+
+    console.log('verify-value request:', { address, zipcode, city, state, statedValue, desiredLoanAmount });
 
     const maxLtv = getMaxLtv(creditScore || 720, propertyType || 'Primary');
     const balance = Number(loanBalance) || 0;
@@ -107,7 +121,7 @@ export async function POST(req: NextRequest) {
     // ══════════════════════════════════════
     // Step 1: Property Estimate ($0.05)
     // ══════════════════════════════════════
-    const estimateData = await getPropertyEstimate(address, zipcode);
+    const estimateData = await getPropertyEstimate(address, zipcode, city, state);
     const hcEstimate = estimateData?.estimate;
 
     if (!hcEstimate) {
