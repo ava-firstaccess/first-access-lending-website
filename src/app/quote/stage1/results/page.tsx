@@ -273,20 +273,10 @@ export default function ResultsPage() {
             <p className="text-gray-600">Based on the information you provided</p>
           </div>
 
-          {/* CTA */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 mb-8 text-center">
-            <p className="text-blue-100 text-sm mb-3">
-              This is a preliminary estimate. To get your exact, customized rate, continue with a full application.
-              <br />
-              <span className="font-medium text-white">100% automated - no phone calls unless you want them.</span>
-            </p>
-            <button
-              onClick={() => router.push(skipOtp ? '/quote/stage2' : '/quote/verify')}
-              className="bg-white text-blue-700 font-bold py-3 px-8 rounded-xl shadow-lg hover:shadow-xl hover:bg-blue-50 transition-all text-lg"
-            >
-              Get Your Custom Rate Quote &rarr;
-            </button>
-          </div>
+          {/* Subheading note */}
+          <p className="text-center text-sm text-gray-500 mb-8">
+            Select your preferred product below to continue. 100% automated — no phone calls unless you want them.
+          </p>
 
           {/* ═══════════════════════════════════════════════ */}
           {/* HELOC + CES Side by Side (for HELOC or CES selections) */}

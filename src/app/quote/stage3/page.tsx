@@ -211,9 +211,13 @@ export default function Stage3Page() {
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">
                   Verify Your Property Value
                 </h1>
-                <p className="text-gray-600">
+                <p className="text-gray-600 mb-4">
                   We&apos;ll validate your property&apos;s current market value using AI-powered analytics
                 </p>
+                <div className="inline-flex items-center gap-2 bg-green-50 text-green-700 px-5 py-2.5 rounded-full text-sm font-semibold border border-green-200">
+                  <span className="text-lg">🏡</span>
+                  89% of our 2nd liens don&apos;t require an appraisal!
+                </div>
               </div>
 
               {/* Stated value card */}
@@ -440,9 +444,12 @@ export default function Stage3Page() {
                 {showDisagree && (
                   <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
                     <h3 className="text-xl font-bold text-gray-900 mb-2">AI can only do so much!</h3>
+                    <p className="text-sm text-gray-600 mb-3 leading-relaxed">
+                      Remember, <strong className="text-green-700">89% of our 2nd liens close without an appraisal</strong>.
+                      Our expert loan officers have additional tools and access to maximize your home&apos;s value and find the right solution.
+                    </p>
                     <p className="text-sm text-gray-600 mb-5 leading-relaxed">
-                      Our expert loan officers have additional tools and access to maximize your home&apos;s value.
-                      Let us take a closer look.
+                      Our human team can problem solve — let us take a closer look.
                     </p>
 
                     <div className="flex items-start gap-3 text-left mb-5 bg-white rounded-lg p-4">
