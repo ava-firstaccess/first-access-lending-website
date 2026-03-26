@@ -443,27 +443,27 @@ async function updateOpportunity(oppId: string, formData: Record<string, any>) {
 export async function POST(req: NextRequest) {
   try {
     // ── Auth check ──
+    // TODO: RE-ENABLE BEFORE LAUNCH - temporarily bypassed for testing
     const sessionToken = req.cookies.get('session_token')?.value;
-    if (!sessionToken) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
     const supabase = getSupabaseAdmin();
+    let app: any = null;
 
-    // Get application
-    const { data: app, error: appErr } = await supabase
-      .from('applications')
-      .select('id, phone, form_data')
-      .eq('session_token', sessionToken)
-      .single();
+    if (sessionToken) {
+      // Authenticated flow: look up existing application
+      const { data, error: appErr } = await supabase
+        .from('applications')
+        .select('id, phone, form_data')
+        .eq('session_token', sessionToken)
+        .single();
 
-    if (appErr || !app) {
-      return NextResponse.json({ error: 'Application not found' }, { status: 404 });
+      if (!appErr && data) {
+        app = data;
+      }
     }
 
     // Get submitted form data (merge with any stored data)
     const { formData: submittedData } = await req.json();
-    const mergedData = { ...(app.form_data || {}), ...(submittedData || {}) };
+    const mergedData = { ...(app?.form_data || {}), ...(submittedData || {}) };
 
     // ── 1. Save final data to Supabase (STRIP SSN/DOB for compliance) ──
     const sensitiveFields = [
@@ -475,15 +475,33 @@ export async function POST(req: NextRequest) {
     const supabaseData = { ...mergedData };
     sensitiveFields.forEach(field => delete supabaseData[field]);
 
-    await supabase
-      .from('applications')
-      .update({
-        form_data: supabaseData, // Stored WITHOUT SSN/DOB
-        stage: 'submitted',
-        status: 'submitted',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', app.id);
+    if (app) {
+      // Update existing application
+      await supabase
+        .from('applications')
+        .update({
+          form_data: supabaseData,
+          stage: 'submitted',
+          status: 'submitted',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', app.id);
+    } else {
+      // No authenticated session - create a new application record for testing
+      // TODO: RE-ENABLE AUTH BEFORE LAUNCH
+      const phone = submittedData?.['Borrower - Phone'] || 'test-user';
+      const { data: newApp } = await supabase
+        .from('applications')
+        .insert({
+          phone,
+          form_data: supabaseData,
+          stage: 'submitted',
+          status: 'submitted',
+        })
+        .select('id')
+        .single();
+      if (newApp) app = newApp;
+    }
 
     // ── 2. Upsert GHL contact ──
     let contact = await findContactByPhone(app.phone);
@@ -510,16 +528,18 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 4. Update Supabase with GHL IDs ──
-    await supabase
-      .from('applications')
-      .update({
-        form_data: {
-          ...mergedData,
-          _contactId: contactId,
-          _opportunityId: opportunityId,
-        },
-      })
-      .eq('id', app.id);
+    if (app?.id) {
+      await supabase
+        .from('applications')
+        .update({
+          form_data: {
+            ...supabaseData,
+            _contactId: contactId,
+            _opportunityId: opportunityId,
+          },
+        })
+        .eq('id', app.id);
+    }
 
     return NextResponse.json({
       success: true,
