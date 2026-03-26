@@ -264,8 +264,8 @@ export default function Stage1() {
           >
             <AddressAutocomplete
               value={data.propertyAddress || ''}
-              onChange={(address, state) => {
-                setData(prev => ({ ...prev, propertyAddress: address, propertyState: state }));
+              onChange={(address, state, zipcode, city) => {
+                setData(prev => ({ ...prev, propertyAddress: address, propertyState: state, propertyZipcode: zipcode, propertyCity: city }));
                 if (state && !LICENSED_STATES.has(state)) {
                   router.push(`/quote/coming-soon?state=${encodeURIComponent(state)}&address=${encodeURIComponent(address)}`);
                   return;

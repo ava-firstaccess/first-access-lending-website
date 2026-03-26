@@ -139,25 +139,16 @@ export default function Stage3Page() {
     setShowDisagree(false);
 
     try {
-      const { street, zipcode } = parseAddress(propertyAddress);
+      // Use stored zipcode/city from Google Places, fall back to parsing
+      const { street, zipcode: parsedZip } = parseAddress(propertyAddress);
+      const zipcode = stage1.propertyZipcode || parsedZip || '';
+      const city = stage1.propertyCity || '';
+      const state = stage1.propertyState || '';
 
-      // Try to extract city and state from address parts
-      const addressParts = propertyAddress.split(',').map((p: string) => p.trim());
-      let city = '';
-      let state = '';
-      if (addressParts.length >= 3) {
-        city = addressParts[1]; // "Baltimore"
-        // State might be "MD 21230" or just "MD"
-        const stateZip = addressParts[2].trim().split(/\s+/);
-        state = stateZip[0]; // "MD"
-      } else if (addressParts.length === 2) {
-        // Could be "Baltimore, MD" format
-        const stateZip = addressParts[1].trim().split(/\s+/);
-        if (stateZip[0].length === 2) {
-          state = stateZip[0];
-        } else {
-          city = addressParts[1];
-        }
+      console.log('Stage 3 verify request:', { street, zipcode, city, state });
+
+      if (!zipcode) {
+        console.warn('No zipcode available - HC API requires it');
       }
 
       const res = await fetch('/api/verify-value', {
@@ -165,9 +156,9 @@ export default function Stage3Page() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           address: street,
-          zipcode: zipcode || stage1.zipcode || '',
-          city: city || '',
-          state: state || stage1.propertyState || '',
+          zipcode,
+          city,
+          state,
           statedValue: propertyValue,
           loanBalance,
           creditScore,
@@ -340,10 +331,10 @@ export default function Stage3Page() {
                 ) : (
                   <>
                     <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                      Unable to Verify
+                      Unable to Verify Automatically
                     </h1>
                     <p className="text-gray-600">
-                      We couldn&apos;t retrieve valuation data for this property.
+                      We couldn&apos;t retrieve automated valuation data, but our team can help!
                     </p>
                   </>
                 )}
@@ -526,16 +517,62 @@ export default function Stage3Page() {
           {/* ERROR STATE */}
           {/* ══════════════════════════════════════ */}
           {status === 'error' && (
-            <div className="text-center py-12">
+            <div className="text-center py-8">
               <div className="text-4xl mb-4">⚠️</div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Verification Error</h2>
-              <p className="text-gray-500 mb-6">{result?.error || 'Something went wrong. Please try again.'}</p>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Unable to Verify Automatically</h2>
+              <p className="text-gray-500 mb-6">We couldn&apos;t retrieve automated valuation data for this property, but that&apos;s okay!</p>
+              
               <button
                 onClick={() => setStatus('pre')}
-                className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-all"
+                className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-all mb-6"
               >
                 Try Again
               </button>
+
+              <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">AI can only do so much!</h3>
+                <p className="text-sm text-gray-600 mb-3 leading-relaxed">
+                  Remember, <strong className="text-green-700">89% of our 2nd liens close without an appraisal</strong>.
+                  Our expert loan officers have additional tools and access to maximize your home&apos;s value and find the right solution.
+                </p>
+                <p className="text-sm text-gray-600 mb-5 leading-relaxed">
+                  Our human team can problem solve — let us take a closer look.
+                </p>
+
+                <div className="flex items-start gap-3 text-left mb-5 bg-white rounded-lg p-4">
+                  <input
+                    type="checkbox"
+                    id="marketing-opt-in-error"
+                    checked={optIn}
+                    onChange={(e) => setOptIn(e.target.checked)}
+                    className="mt-1 flex-shrink-0 h-4 w-4 text-blue-600 rounded"
+                  />
+                  <label htmlFor="marketing-opt-in-error" className="text-[11px] text-gray-500 leading-relaxed cursor-pointer">
+                    By opting in, you agree to receive calls, texts, and emails from First Access Lending and its affiliates.
+                    Standard message and data rates may apply. Consent is not a condition of purchase.
+                    You may opt out at any time by replying STOP.
+                  </label>
+                </div>
+
+                <a
+                  href={optIn ? 'https://calendly.com/firstaccesslending/getaccess' : '#'}
+                  onClick={(e) => {
+                    if (!optIn) {
+                      e.preventDefault();
+                      alert('Please check the opt-in box to continue');
+                    }
+                  }}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white transition-all ${
+                    optIn
+                      ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-xl cursor-pointer'
+                      : 'bg-gray-300 cursor-not-allowed'
+                  }`}
+                >
+                  📞 Schedule a Call with the Team
+                </a>
+              </div>
             </div>
           )}
 

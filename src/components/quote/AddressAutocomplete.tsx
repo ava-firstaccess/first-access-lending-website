@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react';
 
 interface AddressAutocompleteProps {
   value: string;
-  onChange: (address: string, state?: string) => void;
+  onChange: (address: string, state?: string, zipcode?: string, city?: string) => void;
   placeholder?: string;
   className?: string;
 }
@@ -65,17 +65,24 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
             const place = e.placePrediction.toPlace();
             await place.fetchFields({ fields: ['formattedAddress', 'addressComponents'] });
             const address = place.formattedAddress || ac.value || '';
-            // Extract state from address components
+            // Extract state, zipcode, and city from address components
             let state: string | undefined;
+            let zipcode: string | undefined;
+            let city: string | undefined;
             if (place.addressComponents) {
               for (const comp of place.addressComponents) {
                 if (comp.types?.includes('administrative_area_level_1')) {
                   state = comp.shortText || comp.short_name || undefined;
-                  break;
+                }
+                if (comp.types?.includes('postal_code')) {
+                  zipcode = comp.longText || comp.long_name || undefined;
+                }
+                if (comp.types?.includes('locality')) {
+                  city = comp.longText || comp.long_name || undefined;
                 }
               }
             }
-            if (address) onChangeRef.current(address, state);
+            if (address) onChangeRef.current(address, state, zipcode, city);
           } catch (err) {
             const fallback = ac.value || '';
             if (fallback) onChangeRef.current(fallback);
