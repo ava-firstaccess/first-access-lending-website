@@ -465,11 +465,20 @@ export async function POST(req: NextRequest) {
     const { formData: submittedData } = await req.json();
     const mergedData = { ...(app.form_data || {}), ...(submittedData || {}) };
 
-    // ── 1. Save final data to Supabase ──
+    // ── 1. Save final data to Supabase (STRIP SSN/DOB for compliance) ──
+    const sensitiveFields = [
+      'Borrower - SSN',
+      'Borrower - Date of Birth',
+      'Co-Borrower - SSN',
+      'Co-Borrower - Date of Birth',
+    ];
+    const supabaseData = { ...mergedData };
+    sensitiveFields.forEach(field => delete supabaseData[field]);
+
     await supabase
       .from('applications')
       .update({
-        form_data: mergedData,
+        form_data: supabaseData, // Stored WITHOUT SSN/DOB
         stage: 'submitted',
         status: 'submitted',
         updated_at: new Date().toISOString(),
