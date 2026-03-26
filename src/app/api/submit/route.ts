@@ -503,7 +503,9 @@ export async function POST(req: NextRequest) {
       if (newApp) app = newApp;
     }
 
-    // ── 2. Upsert GHL contact ──
+    // ── 2. GHL upsert (PAUSED for testing) ──
+    // TODO: RE-ENABLE GHL BEFORE LAUNCH
+    /*
     const phone = app?.phone || mergedData['Borrower - Phone'] || submittedData?.['Borrower - Phone'] || '';
     let contact = await findContactByPhone(phone);
     let contactId: string;
@@ -541,15 +543,12 @@ export async function POST(req: NextRequest) {
         })
         .eq('id', app.id);
     }
+    */
 
     return NextResponse.json({
       success: true,
-      contactId,
-      opportunityId,
-      isNew: !contact,
-      message: existingOpp
-        ? 'Application updated in CRM'
-        : 'New application created in CRM',
+      applicationId: app?.id || null,
+      message: 'Application saved to Supabase (GHL paused for testing)',
     });
   } catch (err: any) {
     console.error('Submit error:', err);
