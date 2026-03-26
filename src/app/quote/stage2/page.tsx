@@ -255,6 +255,19 @@ function Stage2Content() {
       }
     }
 
+    // Set default values that are shown visually but need to exist in formData
+    const occupancyMap: Record<string, string> = {
+      'Primary': 'Primary Residence',
+      'Investment': 'Investment Property',
+      '2nd Home': 'Second Home',
+    };
+    if (!stage1Data['Subject Property - Occupancy'] && stage1Data.propertyType) {
+      stage1Data['Subject Property - Occupancy'] = occupancyMap[stage1Data.propertyType] || '';
+    }
+    if (!stage1Data['Stated Property Value'] && stage1Data.propertyValue) {
+      stage1Data['Stated Property Value'] = stage1Data.propertyValue;
+    }
+
     // Auto-populate structure type from Stage 1 selection
     if (stage1Data.structureType && !stage1Data['Subject Property - Structure Type']) {
       const structureMap: Record<string, string> = {
