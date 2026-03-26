@@ -520,7 +520,7 @@ function Stage2Content() {
     const currentFields = sections[currentSectionKey as keyof typeof sections];
     if (currentFields) {
       const missing = currentFields
-        .filter((f: { name: string; required?: boolean }) => f.required && (!formData[f.name] || formData[f.name] === ''))
+        .filter((f: { name: string; required?: boolean }) => f.required && (formData[f.name] === undefined || formData[f.name] === null || formData[f.name] === ''))
         .map((f: { name: string; required?: boolean }) => f.name);
       if (missing.length > 0) {
         setValidationErrors(missing);
