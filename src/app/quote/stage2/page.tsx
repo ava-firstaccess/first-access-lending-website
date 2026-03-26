@@ -19,6 +19,7 @@ import {
 } from '@/components/quote/FormField';
 import { isFieldVisible, isSectionComplete, VisibilityRule } from '@/components/quote/ConditionalEngine';
 import visibilityRules from '@/data/dynamic_form_rules.json';
+import { useStepTracker } from '@/hooks/useStepTracker';
 
 interface FormData {
   [key: string]: any;
@@ -346,6 +347,8 @@ function Stage2Content() {
     setFormData(prev => ({ ...prev, [name]: value }));
   }, []);
 
+  const { trackStep } = useStepTracker('stage2');
+
   const rules = visibilityRules.rules as VisibilityRule[];
   const isVisible = (fieldName: string) => isFieldVisible(fieldName, formData, rules);
 
@@ -536,6 +539,10 @@ function Stage2Content() {
       }
     }
     setValidationErrors([]);
+
+    // Track step completion to Supabase (async, non-blocking)
+    trackStep(currentSectionKey, currentStep, totalSteps, formData);
+
     if (currentStep < totalSteps - 1) {
       setCurrentStep(prev => prev + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });

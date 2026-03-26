@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import QuestionCard from '@/components/quote/QuestionCard';
 import QuoteBuilder from '@/components/quote/QuoteBuilder';
 import AddressAutocomplete from '@/components/quote/AddressAutocomplete';
+import { useStepTracker } from '@/hooks/useStepTracker';
 
 type ProductType = 'HELOC' | 'CES' | 'CashOut' | 'NoCashRefi';
 
@@ -83,6 +84,8 @@ export default function Stage1() {
       console.error('Failed to load stage1 prefill:', e);
     }
   }, []);
+
+  const { trackStep } = useStepTracker('stage1');
 
   const flow = getQuestionFlow(data);
   const currentQuestion = flow[step];
@@ -184,6 +187,11 @@ export default function Stage1() {
 
   const goForward = useCallback(() => {
     const nextFlow = getQuestionFlow(data);
+
+    // Track this step completion to Supabase (async, non-blocking)
+    const completedStep = nextFlow[step] || 'unknown';
+    trackStep(completedStep, step, nextFlow.length, data);
+
     if (step + 1 >= nextFlow.length) {
       // Store Stage 1 data in localStorage (clean URLs, no size limits)
       const stage1Clean = Object.fromEntries(
@@ -194,7 +202,7 @@ export default function Stage1() {
     } else {
       setStep(prev => prev + 1);
     }
-  }, [step, data, router]);
+  }, [step, data, router, trackStep]);
 
   const goBack = () => {
     if (step > 0) setStep(prev => prev - 1);
