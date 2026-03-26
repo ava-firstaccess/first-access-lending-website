@@ -5,12 +5,9 @@ import { getSupabaseAdmin } from '@/lib/supabase';
  * Real-time application tracking - saves progress on each step transition.
  * Supports both anonymous (Stage 1) and authenticated (Stage 2) users.
  * 
- * Anonymous tracking uses a phone placeholder with the anonymousId embedded,
- * since the `phone` column is NOT NULL. Format: `anon:<uuid>`
- * When user later verifies via OTP, we can link their anonymous record.
- * 
- * Tracking metadata (referrer, userAgent, stepHistory) stored inside form_data JSONB
- * under `_tracking` key to avoid schema changes.
+ * Two tables:
+ * - analytics_events: permanent, one row per step (conversion funnel)
+ * - applications: ephemeral (30-day retention), stores full form data
  */
 export async function POST(req: NextRequest) {
   try {
@@ -21,24 +18,14 @@ export async function POST(req: NextRequest) {
     const supabase = getSupabaseAdmin();
     const now = new Date().toISOString();
 
-    // Build tracking metadata to embed in form_data
-    const trackingMeta = {
-      currentStep,
-      stepNumber,
-      totalSteps,
-      lastActiveAt: now,
-      referrer: referrer || undefined,
-      userAgent: userAgent || undefined,
-    };
-
-    // ── Write permanent analytics event (survives 30-day retention) ──
-    const [stage, stepName] = (currentStep || '').split(':');
-    await supabase
+    // ── 1. Write permanent analytics event (survives 30-day retention) ──
+    const [stage, stepName] = (currentStep || ':').split(':');
+    supabase
       .from('analytics_events')
       .insert({
         anonymous_id: anonymousId || sessionToken || 'unknown',
         session_stage: stage || 'unknown',
-        step_name: stepName || currentStep || 'unknown',
+        step_name: stepName || 'unknown',
         step_number: stepNumber ?? null,
         total_steps: totalSteps ?? null,
         referrer: referrer || null,
@@ -48,7 +35,7 @@ export async function POST(req: NextRequest) {
         if (error) console.error('Analytics insert error (non-fatal):', error.message);
       });
 
-    // ── Also update ephemeral applications table for real-time form data ──
+    // ── 2. Update ephemeral applications table with form data ──
 
     // Authenticated user (has session from OTP)
     if (sessionToken) {
@@ -59,7 +46,7 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (app) {
-        const mergedData = { ...(app.form_data || {}), ...(formData || {}), _tracking: trackingMeta };
+        const mergedData = { ...(app.form_data || {}), ...(formData || {}) };
 
         await supabase
           .from('applications')
@@ -74,26 +61,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Anonymous user - use anonymousId
+    // Anonymous user - use proper anonymous_id column
     if (!anonymousId) {
       return NextResponse.json({ error: 'anonymousId required for anonymous tracking' }, { status: 400 });
     }
 
-    // Anonymous phone placeholder (NOT NULL constraint workaround)
-    const anonPhone = `anon:${anonymousId}`;
-
-    // Check for existing anonymous application by phone placeholder
+    // Find existing anonymous application
     const { data: existing } = await supabase
       .from('applications')
       .select('id, form_data')
-      .eq('phone', anonPhone)
+      .eq('anonymous_id', anonymousId)
       .eq('status', 'in_progress')
       .order('updated_at', { ascending: false })
       .limit(1)
       .single();
 
     if (existing) {
-      const mergedData = { ...(existing.form_data || {}), ...(formData || {}), _tracking: trackingMeta };
+      const mergedData = { ...(existing.form_data || {}), ...(formData || {}) };
 
       await supabase
         .from('applications')
@@ -106,15 +90,15 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({ success: true, applicationId: existing.id, mode: 'anonymous-update' });
     } else {
-      const initialData = { ...(formData || {}), _tracking: { ...trackingMeta, createdAt: now } };
-
       const { data: newApp, error: createError } = await supabase
         .from('applications')
         .insert({
-          phone: anonPhone,
+          anonymous_id: anonymousId,
           status: 'in_progress',
-          form_data: initialData,
+          form_data: formData || {},
           stage: currentStep || 'stage1:start',
+          referrer: referrer || null,
+          user_agent: userAgent || null,
         })
         .select('id')
         .single();
