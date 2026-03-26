@@ -504,14 +504,15 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 2. Upsert GHL contact ──
-    let contact = await findContactByPhone(app.phone);
+    const phone = app?.phone || mergedData['Borrower - Phone'] || submittedData?.['Borrower - Phone'] || '';
+    let contact = await findContactByPhone(phone);
     let contactId: string;
 
     if (contact) {
       contactId = contact.id;
       await updateContact(contactId, mergedData);
     } else {
-      const newContact = await createContact(mergedData, app.phone);
+      const newContact = await createContact(mergedData, phone);
       contactId = newContact.id;
     }
 
