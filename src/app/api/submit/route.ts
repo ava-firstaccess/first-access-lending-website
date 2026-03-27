@@ -221,6 +221,11 @@ const FORM_TO_GHL: Record<string, string> = {
   'Lead Sub Source': 'YXtEqxNwJFgiefTVHgHA',
   'Lead Type': 'pJ58b0TPXI1aTc8SjkAD',
   'Application Date': '0UoSSP8TCoVpcAMveBUt',
+
+  // Fields found in GHL schema but previously missing from mapping
+  'Ages of Dependents': 'aaBg2aIKYGWgE7KpGayE',
+  'Borrower - Variable Income Types': 'rUv5xWd6bDUo2juLly3y',
+  'Co-Borrower - Variable Income Types': '5QUt23Fp6lbp7vmBrz0G',
 };
 
 // ── Form field name aliases ──
@@ -299,6 +304,9 @@ const SKIP_FIELDS = new Set([
   'product', 'propertyValue', 'loanBalance', 'creditScore',
   'propertyType', 'occupancy', 'cashOut', 'cashOutAmount',
   'drawTerm', 'propertyAddress', '_creditScoreInput',
+  // Stage 1 fields handled explicitly in buildCustomFields
+  'propertyState', 'propertyCity', 'propertyZipcode',
+  'structureType', 'numberOfUnits',
 ]);
 
 async function ghlFetch(path: string, options: RequestInit = {}) {
@@ -434,6 +442,23 @@ function buildCustomFields(formData: Record<string, any>): Array<{ id: string; f
   // Map occupancy
   if (formData.occupancy) {
     fields.push({ id: 'DQnzQRDmFmVYzHSjzCNZ', field_value: formData.occupancy });
+  }
+
+  // Map address components from stage 1
+  if (formData.propertyState) {
+    fields.push({ id: 'sxpWnvYijRZUlM1xaUpn', field_value: formData.propertyState }); // Subject Property - State
+  }
+  if (formData.propertyCity) {
+    fields.push({ id: 'sNRWwqWfqLIvUMDN2TEu', field_value: formData.propertyCity }); // Subject Property - City
+  }
+  if (formData.propertyZipcode) {
+    fields.push({ id: 'sAFIQAWKxmTaowpcnFvP', field_value: formData.propertyZipcode }); // Subject Property - Zip
+  }
+  if (formData.structureType) {
+    fields.push({ id: 'lhE9uWIcp8jD11nBwdr8', field_value: formData.structureType }); // Structure Type
+  }
+  if (formData.numberOfUnits) {
+    fields.push({ id: 'sjXbqICEqFBZoMJZOgDM', field_value: formData.numberOfUnits }); // Number of Units
   }
 
   // Map all Stage 2 form fields (check both direct FORM_TO_GHL keys and aliased names)
