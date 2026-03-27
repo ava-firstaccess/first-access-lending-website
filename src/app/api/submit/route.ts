@@ -223,6 +223,76 @@ const FORM_TO_GHL: Record<string, string> = {
   'Application Date': '0UoSSP8TCoVpcAMveBUt',
 };
 
+// ── Form field name aliases ──
+// Maps webapp form names → FORM_TO_GHL key names (when they differ)
+const FORM_NAME_ALIASES: Record<string, string> = {
+  // Borrower identity
+  'Borrower - SSN': 'Borrower - Social Security Number',
+  'Borrower - First Name': 'Borrower - First Name',  // contact-level (handled separately)
+  'Borrower - Last Name': 'Borrower - Last Name',
+  'Borrower - Phone': 'Borrower - Phone',
+  'Borrower - Email': 'Borrower - Email',
+
+  // Borrower income (form uses Annual/Monthly split, GHL uses single monthly)
+  'Borrower - Base Income - Monthly': 'Borrower - Monthly Base Income',
+  'Borrower - Self-Employed Income - Monthly': 'Borrower - Self-Employed Monthly Business Income',
+  'Borrower - Self-Employed 25%+ Ownership': 'Borrower - Self-Employed 25%+ Owner',
+
+  // Co-Borrower income
+  'Co-Borrower - Base Income - Monthly': 'Co-Borrower - Monthly Base Income',
+  'Co-Borrower - Self-Employed Income - Monthly': 'Co-Borrower - Self-Employed Monthly Business Income',
+  'Co-Borrower - Self-Employed 25%+ Ownership': 'Co-Borrower - Self-Employed 25%+ Owner',
+
+  // Prior address
+  'Borrower - Prior Address': 'Borrower - Prior Address Line 1',
+  'Borrower - Years at Prior Address': 'Borrower - Years in Prior Home',
+  'Borrower - Months at Prior Address': 'Borrower - Months in Prior Home',
+
+  // Subject property
+  'Subject Property - Occupancy': 'Subject Property - Occupancy Use',
+  'Subject Property - Units': 'Subject Property - Number of Units',
+
+  // Current loan
+  'Current Loan - HOA Dues': 'Current Loan - Monthly HOA Dues',
+  'Current Loan - PMI Amount': 'Current Loan - Mortgage Insurance Amount',
+  'Current Loan - Taxes - Monthly': 'Current Loan - Monthly Taxes',
+  'Current Loan - HOI - Monthly': 'Current Loan - Monthly HOI',
+
+  // Title
+  'Title - Current Title Held As': 'Current Title Held As',
+  'Title - Will Be Held As': 'Title Will Be Held As',
+
+  // Assets
+  'Assets - Retirement Total': 'Assets - Retirement Accounts Total',
+
+  // Declarations (form uses shorter names)
+  'Dec - Judgments / Federal Debt / Delinquent': 'Dec - Judgments / Federal Debt / Lawsuits',
+  'Dec - Bankruptcy / Short Sale / Foreclosure': 'Dec - Bankruptcy / Short Sale / Foreclosure (Last 7 Years)',
+  'Dec - Borrower Co-Signer on Note': 'Dec - Co-Signer/Guarantor (Any Undisclosed Debt)',
+  'Dec - Borrower Delinquent/Default Federal Debt': 'Dec - Borrower Delinquent/Default on Federal Debt',
+  'Dec - Borrower Party to Lawsuit': 'Dec - Borrower Party to Lawsuit with Financial Liability',
+  'Dec - Borrower Short Sale / Pre-Foreclosure': 'Dec - Borrower Short Sale / Pre-Foreclosure Sale (Last 7 Years)',
+  'Dec - Borrower Property Foreclosure': 'Dec - Borrower Property Foreclosed (Last 7 Years)',
+  'Dec - Borrower Obligated Alimony/Support': 'Alimony or Child Support',
+  'Dec - Borrower Alimony/Support Amount': 'Alimony/Child Support Monthly Payment',
+  'Dec - Co-Borrower Judgments / Federal Debt / Delinquent': 'Dec - Co-Borrower Outstanding Judgments',
+  'Dec - Co-Borrower Bankruptcy / Short Sale / Foreclosure': 'Dec - Co-Borrower Bankruptcy (Last 7 Years)',
+  'Dec - Co-Borrower Delinquent/Default Federal Debt': 'Dec - Co-Borrower Delinquent/Default on Federal Debt',
+  'Dec - Co-Borrower Party to Lawsuit': 'Dec - Co-Borrower Party to Lawsuit with Financial Liability',
+  'Dec - Co-Borrower Short Sale / Pre-Foreclosure': 'Dec - Co-Borrower Short Sale / Pre-Foreclosure Sale (Last 7 Years)',
+  'Dec - Co-Borrower Deed in Lieu': 'Dec - Co-Borrower Deed in Lieu (Last 7 Years)',
+  'Dec - Co-Borrower Property Foreclosure': 'Dec - Co-Borrower Property Foreclosed (Last 7 Years)',
+
+  // Other Properties (form uses "Escrow", GHL uses "Escrowed")
+  'Other Properties - Address 1 Escrow': 'Other Properties - Address 1 Escrowed',
+  'Other Properties - Address 2 Escrow': 'Other Properties - Address 2 Escrowed',
+  'Other Properties - Address 3 Escrow': 'Other Properties - Address 3 Escrowed',
+
+  // Demographics (form has extra spaces)
+  'Dem - Borrower  Race': 'Dem - Borrower Race',
+  'Dem - Co-Borrower  Race': 'Dem - Co-Borrower Race',
+};
+
 // Fields that are internal/metadata and should NOT be sent to GHL
 const SKIP_FIELDS = new Set([
   '_opportunityName', '_opportunityId', '_contactId',
@@ -366,29 +436,57 @@ function buildCustomFields(formData: Record<string, any>): Array<{ id: string; f
     fields.push({ id: 'DQnzQRDmFmVYzHSjzCNZ', field_value: formData.occupancy });
   }
 
-  // Map all Stage 2 form fields
+  // Map all Stage 2 form fields (check both direct FORM_TO_GHL keys and aliased names)
+  const processedGhlIds = new Set(fields.map(f => f.id));
+
+  // First pass: map form data keys through aliases to find GHL IDs
+  for (const [formKey, formValue] of Object.entries(formData)) {
+    if (formValue === undefined || formValue === null || String(formValue).trim() === '') continue;
+    if (SKIP_FIELDS.has(formKey)) continue;
+
+    // Resolve alias: form name → GHL mapping name
+    const ghlKey = FORM_NAME_ALIASES[formKey] || formKey;
+    const ghlId = FORM_TO_GHL[ghlKey];
+    if (!ghlId || processedGhlIds.has(ghlId)) continue;
+
+    // Clean value
+    let cleanValue: any = formValue;
+    if (typeof cleanValue === 'string') {
+      if (cleanValue.startsWith('"') && cleanValue.endsWith('"')) {
+        try { cleanValue = JSON.parse(cleanValue); } catch { /* keep as-is */ }
+      }
+      if (typeof cleanValue === 'string') {
+        cleanValue = cleanValue.replace(/^"+|"+$/g, '').trim();
+      }
+      if (typeof cleanValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(cleanValue)) {
+        const [y, m, d] = cleanValue.split('-');
+        cleanValue = `${m}-${d}-${y}`;
+      }
+    }
+    fields.push({ id: ghlId, field_value: cleanValue });
+    processedGhlIds.add(ghlId);
+  }
+
+  // Second pass: direct FORM_TO_GHL keys (backward compat, skip already-processed)
   for (const [formField, ghlId] of Object.entries(FORM_TO_GHL)) {
+    if (processedGhlIds.has(ghlId)) continue;
     const value = formData[formField];
     if (value !== undefined && value !== null && String(value).trim() !== '') {
-      // Don't duplicate fields we already set from Stage 1
-      if (!fields.some(f => f.id === ghlId)) {
-        // Clean value: strip wrapping quotes, parse stringified JSON
-        let cleanValue: any = value;
-        if (typeof cleanValue === 'string') {
-          if (cleanValue.startsWith('"') && cleanValue.endsWith('"')) {
-            try { cleanValue = JSON.parse(cleanValue); } catch { /* keep as-is */ }
-          }
-          if (typeof cleanValue === 'string') {
-            cleanValue = cleanValue.replace(/^"+|"+$/g, '').trim();
-          }
-          // Convert ISO dates (YYYY-MM-DD) to GHL format (MM-DD-YYYY)
-          if (typeof cleanValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(cleanValue)) {
-            const [y, m, d] = cleanValue.split('-');
-            cleanValue = `${m}-${d}-${y}`;
-          }
+      let cleanValue: any = value;
+      if (typeof cleanValue === 'string') {
+        if (cleanValue.startsWith('"') && cleanValue.endsWith('"')) {
+          try { cleanValue = JSON.parse(cleanValue); } catch { /* keep as-is */ }
         }
-        fields.push({ id: ghlId, field_value: cleanValue });
+        if (typeof cleanValue === 'string') {
+          cleanValue = cleanValue.replace(/^"+|"+$/g, '').trim();
+        }
+        if (typeof cleanValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(cleanValue)) {
+          const [y, m, d] = cleanValue.split('-');
+          cleanValue = `${m}-${d}-${y}`;
+        }
       }
+      fields.push({ id: ghlId, field_value: cleanValue });
+      processedGhlIds.add(ghlId);
     }
   }
 
