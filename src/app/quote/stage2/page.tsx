@@ -15,7 +15,8 @@ import {
   RadioField,
   CheckboxGroupField,
   TextareaField,
-  SSNField
+  SSNField,
+  PhoneField
 } from '@/components/quote/FormField';
 import { isFieldVisible, isSectionComplete, VisibilityRule } from '@/components/quote/ConditionalEngine';
 import visibilityRules from '@/data/dynamic_form_rules.json';
@@ -168,6 +169,13 @@ function AnnualMonthlyField({ label, namePrefix, formData, onChange, required = 
     }
   };
 
+  // When toggling mode, keep the original number in the input field (don't convert)
+  const handleModeSwitch = (newMode: 'monthly' | 'annual') => {
+    if (newMode === mode) return;
+    // Don't recalculate - just switch which field is displayed
+    setMode(newMode);
+  };
+
   const displayValue = mode === 'monthly' ? monthlyVal : annualVal;
   const derivedValue = mode === 'monthly'
     ? (annualVal ? `$${Number(annualVal).toLocaleString()}/yr` : '')
@@ -183,7 +191,7 @@ function AnnualMonthlyField({ label, namePrefix, formData, onChange, required = 
         <div className="flex shrink-0 border-r border-gray-200">
           <button
             type="button"
-            onClick={() => setMode('monthly')}
+            onClick={() => handleModeSwitch('monthly')}
             className={`px-3 py-3 text-xs font-semibold uppercase tracking-wide transition-colors ${
               mode === 'monthly' ? 'bg-blue-50 text-blue-700' : 'text-gray-400 hover:text-gray-600'
             }`}
@@ -192,7 +200,7 @@ function AnnualMonthlyField({ label, namePrefix, formData, onChange, required = 
           </button>
           <button
             type="button"
-            onClick={() => setMode('annual')}
+            onClick={() => handleModeSwitch('annual')}
             className={`px-3 py-3 text-xs font-semibold uppercase tracking-wide transition-colors ${
               mode === 'annual' ? 'bg-blue-50 text-blue-700' : 'text-gray-400 hover:text-gray-600'
             }`}
@@ -352,14 +360,17 @@ function Stage2Content() {
   const rules = visibilityRules.rules as VisibilityRule[];
   const isVisible = (fieldName: string) => isFieldVisible(fieldName, formData, rules);
 
-  // Helper: are any of these employment types selected?
+  // Helper: check employment status (now single-select string)
   const hasEmploymentType = (person: string, type: string) => {
-    const types = formData[`${person} - Employment Status`];
-    return Array.isArray(types) ? types.includes(type) : types === type;
+    const status = formData[`${person} - Employment Status`];
+    // Handle legacy array values from old submissions
+    if (Array.isArray(status)) return status.includes(type);
+    return status === type;
   };
   const hasAnyEmployment = (person: string) => {
-    const types = formData[`${person} - Employment Status`];
-    return Array.isArray(types) ? types.length > 0 : !!types;
+    const status = formData[`${person} - Employment Status`];
+    if (Array.isArray(status)) return status.length > 0;
+    return !!status;
   };
   const hasVariableIncome = (person: string, type: string) => {
     const types = formData[`${person} - Variable Income Types`];
@@ -379,8 +390,7 @@ function Stage2Content() {
       { name: 'Borrower - Last Name', required: true },
       { name: 'Borrower - Phone', required: true },
       { name: 'Borrower - Email', required: true },
-      { name: 'Borrower - Date of Birth', required: true },
-      { name: 'Borrower - SSN', required: true },
+      // DOB and SSN collected post-submission during credit validation
       { name: 'Borrower - Citizenship Status', required: true },
       { name: 'Borrower - Has Co-Borrower', required: true }
     ],
@@ -560,17 +570,106 @@ function Stage2Content() {
     }
   };
 
+  // ─── Single Job Block (reusable for primary + additional jobs) ───
+  const renderJobBlock = (person: 'Borrower' | 'Co-Borrower', jobIndex: number, isSelfEmployed: boolean) => {
+    const suffix = jobIndex === 0 ? '' : ` - Job ${jobIndex + 1}`;
+    const prefix = `${person}${suffix}`;
+    const labelPrefix = jobIndex === 0 ? '' : `Job ${jobIndex + 1}: `;
+
+    return (
+      <div key={`job-${person}-${jobIndex}`}>
+        {jobIndex > 0 && (
+          <div className="md:col-span-2 border-t-2 border-blue-200 pt-4 mt-4 flex items-center justify-between">
+            <h4 className="font-semibold text-gray-700">{labelPrefix}{isSelfEmployed ? 'Business Details' : 'Employer Details'}</h4>
+            <button
+              type="button"
+              onClick={() => {
+                // Remove this job's fields
+                const keysToRemove = [
+                  `${prefix} - Employer Name`, `${prefix} - Job Title`,
+                  `${prefix} - Years at Employer`, `${prefix} - Months at Employer`,
+                  `${prefix} - Pay Type`, `${prefix} - Hourly Rate`,
+                  `${prefix} - Self-Employed 25%+ Ownership`,
+                ];
+                setFormData(prev => {
+                  const next = { ...prev };
+                  keysToRemove.forEach(k => delete next[k]);
+                  // Decrement job count
+                  const countKey = `${person} - Additional Jobs`;
+                  next[countKey] = Math.max(0, (Number(next[countKey]) || 0) - 1);
+                  return next;
+                });
+              }}
+              className="text-sm text-red-500 hover:text-red-700 font-medium"
+            >
+              Remove
+            </button>
+          </div>
+        )}
+        {jobIndex === 0 && (
+          <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
+            <h4 className="font-semibold text-gray-700 mb-1">
+              {isSelfEmployed ? 'Business Details' : 'Employer Details'}
+            </h4>
+          </div>
+        )}
+        <TextField label={isSelfEmployed ? `${labelPrefix}Business Name` : `${labelPrefix}Employer Name`} name={`${prefix} - Employer Name`} value={formData[`${prefix} - Employer Name`]} onChange={updateField} required />
+        <TextField label={`${labelPrefix}Job Title / Position`} name={`${prefix} - Job Title`} value={formData[`${prefix} - Job Title`]} onChange={updateField} required />
+        <NumberField label="Years at Employer" name={`${prefix} - Years at Employer`} value={formData[`${prefix} - Years at Employer`]} onChange={updateField} required min={0} max={99} />
+        <NumberField label="Months at Employer" name={`${prefix} - Months at Employer`} value={formData[`${prefix} - Months at Employer`]} onChange={updateField} required min={0} max={11} />
+        {jobIndex === 0 && (
+          <NumberField label="Years in Line of Work" name={`${person} - Years in Line of Work`} value={formData[`${person} - Years in Line of Work`]} onChange={updateField} required min={0} max={99} />
+        )}
+
+        {isSelfEmployed && (
+          <RadioField
+            label="Own 25% or more of the business?"
+            name={`${prefix} - Self-Employed 25%+ Ownership`}
+            value={formData[`${prefix} - Self-Employed 25%+ Ownership`]}
+            onChange={updateField}
+            required
+            inline
+            options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
+          />
+        )}
+
+        <SelectField
+          label="Pay Type"
+          name={`${prefix} - Pay Type`}
+          value={formData[`${prefix} - Pay Type`]}
+          onChange={updateField}
+          required
+          options={[{ value: 'Salary', label: 'Salary' }, { value: 'Hourly', label: 'Hourly' }]}
+        />
+
+        {formData[`${prefix} - Pay Type`] === 'Hourly' && (
+          <CurrencyField label="Hourly Rate" name={`${prefix} - Hourly Rate`} value={formData[`${prefix} - Hourly Rate`]} onChange={updateField} required placeholder="Per hour" />
+        )}
+
+        <AnnualMonthlyField
+          label={isSelfEmployed ? 'Net Business Income' : 'Base Income'}
+          namePrefix={isSelfEmployed ? `${prefix} - Self-Employed Income` : `${prefix} - Base Income`}
+          formData={formData}
+          onChange={updateField}
+          required
+        />
+      </div>
+    );
+  };
+
   // ─── Employment & Income Section (per person) ───
   const renderEmploymentFields = (person: 'Borrower' | 'Co-Borrower') => {
-    const isEmployed = hasEmploymentType(person, 'Employed');
-    const isSelfEmployed = hasEmploymentType(person, 'Self-Employed');
-    const isRetired = hasEmploymentType(person, 'Retired');
-    const isNotEmployed = hasEmploymentType(person, 'Not Employed');
+    const empStatus = formData[`${person} - Employment Status`];
+    const isEmployed = empStatus === 'Employed';
+    const isSelfEmployed = empStatus === 'Self-Employed';
+    const isRetired = empStatus === 'Retired';
+    const isNotEmployed = empStatus === 'Not Employed';
     const showEmployerFields = isEmployed || isSelfEmployed;
+    const additionalJobs = Number(formData[`${person} - Additional Jobs`]) || 0;
 
     return (
       <>
-        <CheckboxGroupField
+        <SelectField
           label={`${person === 'Borrower' ? 'Your' : "Co-Borrower's"} Employment Status`}
           name={`${person} - Employment Status`}
           value={formData[`${person} - Employment Status`]}
@@ -585,61 +684,33 @@ function Stage2Content() {
           className="md:col-span-2"
         />
 
-        {/* ── Employed / Self-Employed fields ── */}
+        {/* ── Primary Job ── */}
+        {showEmployerFields && renderJobBlock(person, 0, isSelfEmployed)}
+
+        {/* ── Additional Jobs ── */}
+        {showEmployerFields && Array.from({ length: additionalJobs }, (_, i) => (
+          renderJobBlock(person, i + 1, isSelfEmployed)
+        ))}
+
+        {/* Add Job Button */}
+        {showEmployerFields && (
+          <div className="md:col-span-2 pt-2">
+            <button
+              type="button"
+              onClick={() => updateField(`${person} - Additional Jobs`, additionalJobs + 1)}
+              className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Additional Job {isSelfEmployed ? '/ Business' : ''}
+            </button>
+          </div>
+        )}
+
+        {/* Variable Income (only for primary job) */}
         {showEmployerFields && (
           <>
-            <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
-              <h4 className="font-semibold text-gray-700 mb-1">
-                {isSelfEmployed && !isEmployed ? 'Business Details' : 'Employer Details'}
-              </h4>
-            </div>
-            <TextField label={isSelfEmployed && !isEmployed ? 'Business Name' : 'Employer Name'} name={`${person} - Employer Name`} value={formData[`${person} - Employer Name`]} onChange={updateField} required />
-            <TextField label="Job Title / Position" name={`${person} - Job Title`} value={formData[`${person} - Job Title`]} onChange={updateField} required />
-            <NumberField label="Years at Employer" name={`${person} - Years at Employer`} value={formData[`${person} - Years at Employer`]} onChange={updateField} required min={0} max={99} />
-            <NumberField label="Months at Employer" name={`${person} - Months at Employer`} value={formData[`${person} - Months at Employer`]} onChange={updateField} required min={0} max={11} />
-            <NumberField label="Years in Line of Work" name={`${person} - Years in Line of Work`} value={formData[`${person} - Years in Line of Work`]} onChange={updateField} required min={0} max={99} />
-
-            {isSelfEmployed && (
-              <RadioField
-                label="Do you own 25% or more of the business?"
-                name={`${person} - Self-Employed 25%+ Ownership`}
-                value={formData[`${person} - Self-Employed 25%+ Ownership`]}
-                onChange={updateField}
-                required
-                inline
-                options={[
-                  { value: 'Yes', label: 'Yes' },
-                  { value: 'No', label: 'No' }
-                ]}
-              />
-            )}
-
-            {/* Pay Type */}
-            <SelectField
-              label="Pay Type"
-              name={`${person} - Pay Type`}
-              value={formData[`${person} - Pay Type`]}
-              onChange={updateField}
-              required
-              options={[
-                { value: 'Salary', label: 'Salary' },
-                { value: 'Hourly', label: 'Hourly' }
-              ]}
-            />
-
-            {formData[`${person} - Pay Type`] === 'Hourly' && (
-              <CurrencyField label="Hourly Rate" name={`${person} - Hourly Rate`} value={formData[`${person} - Hourly Rate`]} onChange={updateField} required placeholder="Per hour" />
-            )}
-
-            <AnnualMonthlyField
-              label={isSelfEmployed && !isEmployed ? 'Net Business Income' : 'Base Income'}
-              namePrefix={isSelfEmployed && !isEmployed ? `${person} - Self-Employed Income` : `${person} - Base Income`}
-              formData={formData}
-              onChange={updateField}
-              required
-            />
-
-            {/* Variable Income */}
             <CheckboxGroupField
               label="Additional Income Types"
               name={`${person} - Variable Income Types`}
@@ -667,45 +738,45 @@ function Stage2Content() {
             {hasVariableIncome(person, 'Other') && (
               <CurrencyField label="Other Monthly Income" name={`${person} - Other Monthly Income`} value={formData[`${person} - Other Monthly Income`]} onChange={updateField} required />
             )}
-
-            {/* Previous Employers - chain until cumulative >= 2 years */}
-            {(() => {
-              if (formData[`${person} - Years at Employer`] === undefined || formData[`${person} - Years at Employer`] === '') return null;
-              const currentYrs = Number(formData[`${person} - Years at Employer`]) || 0;
-              const currentMos = Number(formData[`${person} - Months at Employer`]) || 0;
-              let cumulative = currentYrs + currentMos / 12;
-              const jobs = [];
-              
-              for (let i = 1; i <= 4 && cumulative < 2; i++) {
-                const suffix = i === 1 ? '' : ` ${i}`;
-                const nameKey = `${person} - Previous Employer Name${suffix}`;
-                const posKey = `${person} - Previous Employer Position${suffix}`;
-                const yrsKey = `${person} - Years at Previous Employer${suffix}`;
-                const mosKey = `${person} - Months at Previous Employer${suffix}`;
-                
-                jobs.push(
-                  <div key={`prev-job-${i}`}>
-                    <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
-                      <h4 className="font-semibold text-gray-700 mb-1">Previous Employer {i > 1 ? i : ''}</h4>
-                      <p className="text-sm text-gray-500 mb-3">Need 2 years of employment history</p>
-                    </div>
-                    <TextField label="Employer Name" name={nameKey} value={formData[nameKey]} onChange={updateField} required />
-                    <TextField label="Position" name={posKey} value={formData[posKey]} onChange={updateField} required />
-                    <NumberField label="Years" name={yrsKey} value={formData[yrsKey]} onChange={updateField} required min={0} max={99} />
-                    <NumberField label="Months" name={mosKey} value={formData[mosKey]} onChange={updateField} required min={0} max={11} />
-                  </div>
-                );
-                
-                const prevYrs = Number(formData[yrsKey]) || 0;
-                const prevMos = Number(formData[mosKey]) || 0;
-                cumulative += prevYrs + prevMos / 12;
-                if (!formData[yrsKey] && formData[yrsKey] !== 0) break;
-              }
-              
-              return jobs;
-            })()}
           </>
         )}
+
+        {/* Previous Employers - chain until cumulative >= 2 years */}
+        {showEmployerFields && (() => {
+          if (formData[`${person} - Years at Employer`] === undefined || formData[`${person} - Years at Employer`] === '') return null;
+          const currentYrs = Number(formData[`${person} - Years at Employer`]) || 0;
+          const currentMos = Number(formData[`${person} - Months at Employer`]) || 0;
+          let cumulative = currentYrs + currentMos / 12;
+          const jobs = [];
+          
+          for (let i = 1; i <= 4 && cumulative < 2; i++) {
+            const suffix = i === 1 ? '' : ` ${i}`;
+            const nameKey = `${person} - Previous Employer Name${suffix}`;
+            const posKey = `${person} - Previous Employer Position${suffix}`;
+            const yrsKey = `${person} - Years at Previous Employer${suffix}`;
+            const mosKey = `${person} - Months at Previous Employer${suffix}`;
+            
+            jobs.push(
+              <div key={`prev-job-${i}`}>
+                <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
+                  <h4 className="font-semibold text-gray-700 mb-1">Previous Employer {i > 1 ? i : ''}</h4>
+                  <p className="text-sm text-gray-500 mb-3">Need 2 years of employment history</p>
+                </div>
+                <TextField label="Employer Name" name={nameKey} value={formData[nameKey]} onChange={updateField} required />
+                <TextField label="Position" name={posKey} value={formData[posKey]} onChange={updateField} required />
+                <NumberField label="Years" name={yrsKey} value={formData[yrsKey]} onChange={updateField} required min={0} max={99} />
+                <NumberField label="Months" name={mosKey} value={formData[mosKey]} onChange={updateField} required min={0} max={11} />
+              </div>
+            );
+            
+            const prevYrs = Number(formData[yrsKey]) || 0;
+            const prevMos = Number(formData[mosKey]) || 0;
+            cumulative += prevYrs + prevMos / 12;
+            if (!formData[yrsKey] && formData[yrsKey] !== 0) break;
+          }
+          
+          return jobs;
+        })()}
 
         {/* ── Retired / Not Employed: Other Income ── */}
         {(isRetired || isNotEmployed) && !showEmployerFields && (
@@ -720,7 +791,6 @@ function Stage2Content() {
         {/* Other Income chain (shows for Retired, Not Employed, or anyone who wants to add) */}
         {(isRetired || isNotEmployed || showEmployerFields) && (
           <>
-            {/* Only show header for employed folks since retired/not-employed already have one */}
             {showEmployerFields && (
               <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
                 <h4 className="font-semibold text-gray-700 mb-1">Other Income Sources</h4>
@@ -745,8 +815,6 @@ function Stage2Content() {
             )}
           </>
         )}
-
-        {/* Alimony / Child Support - moved to Declarations section */}
       </>
     );
   };
@@ -857,10 +925,9 @@ function Stage2Content() {
             <SectionCard title="Borrower Information" description="Your personal details" isComplete={isSectionCompleted(sections.borrowerInfo)} defaultOpen={true} sectionNumber={currentStep + 1}>
               <TextField label="First Name" name="Borrower - First Name" value={formData['Borrower - First Name']} onChange={updateField} required autoComplete="given-name" />
               <TextField label="Last Name" name="Borrower - Last Name" value={formData['Borrower - Last Name']} onChange={updateField} required autoComplete="family-name" />
-              <TextField type="tel" label="Phone" name="Borrower - Phone" value={formData['Borrower - Phone']} onChange={updateField} required placeholder="(555) 123-4567" autoComplete="tel" />
+              <PhoneField label="Phone" name="Borrower - Phone" value={formData['Borrower - Phone']} onChange={updateField} required />
               <TextField type="email" label="Email" name="Borrower - Email" value={formData['Borrower - Email']} onChange={updateField} required autoComplete="email" />
-              <DateField label="Date of Birth" name="Borrower - Date of Birth" value={formData['Borrower - Date of Birth']} onChange={updateField} required autoComplete="off" />
-              <SSNField label="Social Security Number" name="Borrower - SSN" value={formData['Borrower - SSN']} onChange={updateField} required />
+              {/* DOB and SSN moved to post-submission credit validation section */}
               <SelectField
                 label="Citizenship Status" name="Borrower - Citizenship Status" value={formData['Borrower - Citizenship Status']} onChange={updateField} required
                 options={[
@@ -884,7 +951,7 @@ function Stage2Content() {
                   </div>
                   <TextField label="Co-Borrower First Name" name="Co-Borrower - First Name" value={formData['Co-Borrower - First Name']} onChange={updateField} required />
                   <TextField label="Co-Borrower Last Name" name="Co-Borrower - Last Name" value={formData['Co-Borrower - Last Name']} onChange={updateField} required />
-                  <TextField type="tel" label="Co-Borrower Phone" name="Co-Borrower - Phone" value={formData['Co-Borrower - Phone']} onChange={updateField} required placeholder="(555) 123-4567" />
+                  <PhoneField label="Co-Borrower Phone" name="Co-Borrower - Phone" value={formData['Co-Borrower - Phone']} onChange={updateField} required />
                   <TextField type="email" label="Co-Borrower Email" name="Co-Borrower - Email" value={formData['Co-Borrower - Email']} onChange={updateField} required />
                   <SelectField
                     label="Co-Borrower Citizenship Status" name="Co-Borrower - Citizenship Status" value={formData['Co-Borrower - Citizenship Status']} onChange={updateField} required

@@ -440,6 +440,61 @@ interface SSNFieldProps extends BaseFieldProps {
   placeholder?: string;
 }
 
+// Phone Input - formats as (XXX) XXX-XXXX, stores digits only
+interface PhoneFieldProps extends BaseFieldProps {
+  placeholder?: string;
+  autoComplete?: string;
+}
+
+export function PhoneField({
+  label,
+  name,
+  value,
+  onChange,
+  required = false,
+  placeholder = '(555) 123-4567',
+  className = '',
+  disabled = false,
+  autoComplete = 'tel'
+}: PhoneFieldProps) {
+  const formatPhone = (val: string) => {
+    const digits = val.replace(/\D/g, '');
+    // Strip leading 1 (country code) if 11 digits
+    const d = digits.length === 11 && digits[0] === '1' ? digits.slice(1) : digits;
+    if (d.length <= 3) return d;
+    if (d.length <= 6) return `(${d.slice(0, 3)}) ${d.slice(3)}`;
+    return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6, 10)}`;
+  };
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value.replace(/\D/g, '');
+    // Store max 10 digits (strip country code if present)
+    const digits = rawValue.length === 11 && rawValue[0] === '1' ? rawValue.slice(1) : rawValue;
+    onChange(name, digits.slice(0, 10));
+  };
+
+  return (
+    <div className={className}>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      <input
+        type="tel"
+        inputMode="numeric"
+        value={value ? formatPhone(value) : ''}
+        onChange={handleChange}
+        placeholder={placeholder}
+        required={required}
+        disabled={disabled}
+        autoComplete={autoComplete}
+        maxLength={14}
+        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
+      />
+    </div>
+  );
+}
+
 export function SSNField({
   label,
   name,
