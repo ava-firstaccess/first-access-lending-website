@@ -571,7 +571,7 @@ async function updateOpportunity(oppId: string, formData: Record<string, any>) {
   return data?.opportunity || data;
 }
 
-// Mark opportunity as duplicate (move to Duplicate stage, add note)
+// Mark opportunity as duplicate (move to Duplicate stage)
 async function markAsDuplicate(oppId: string, newOppId: string, pipelineId: string) {
   const duplicateStageId = DUPLICATE_STAGES[pipelineId];
   
@@ -581,7 +581,7 @@ async function markAsDuplicate(oppId: string, newOppId: string, pipelineId: stri
     return;
   }
 
-  // Move to Duplicate stage
+  // Move to Duplicate stage and mark as abandoned
   await ghlFetch(`/opportunities/${oppId}`, {
     method: 'PUT',
     body: JSON.stringify({
@@ -590,14 +590,17 @@ async function markAsDuplicate(oppId: string, newOppId: string, pipelineId: stri
     }),
   });
 
-  // Add note explaining why
-  const today = new Date().toLocaleDateString('en-US');
-  await ghlFetch(`/opportunities/${oppId}/notes`, {
-    method: 'POST',
-    body: JSON.stringify({
-      body: `Marked as duplicate - new submission created on ${today}. New opportunity ID: ${newOppId}`,
-    }),
-  });
+  // TODO: Add note with new opportunity ID once we have Conversations scope
+  // Needs: conversations.write or conversations.message.write scope
+  // const today = new Date().toLocaleDateString('en-US');
+  // await ghlFetch(`/conversations/messages`, {
+  //   method: 'POST',
+  //   body: JSON.stringify({
+  //     type: 'Opportunity',
+  //     contactId: contactId,
+  //     message: `Marked as duplicate - new submission on ${today}. New opportunity: ${newOppId}`,
+  //   }),
+  // });
 }
 
 export async function POST(req: NextRequest) {

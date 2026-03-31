@@ -142,3 +142,10 @@
   - Should use custom branded User-Agent for production
   - Location: `src/app/api/submit/route.ts` line 318
   - Alternative: `Mozilla/5.0 (compatible; FirstAccessLending/1.0)`
+
+- **GHL Conversations scope** - Add note when marking opportunities as duplicates
+  - Currently only moves old opportunity to Duplicate stage
+  - Need to add API scope: `conversations.write` or `conversations.message.write`
+  - Will enable automatic note: "Marked as duplicate - new submission on {date}. New opportunity: {id}"
+  - Code ready (commented out in `markAsDuplicate` function)
+  - Location: `src/app/api/submit/route.ts` line ~575
