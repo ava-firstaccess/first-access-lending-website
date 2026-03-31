@@ -488,8 +488,9 @@ function Stage2Content() {
 
       setSubmitResult({ success: true, message: data.message || 'Application submitted successfully!' });
       // Clear saved progress
-      localStorage.removeItem('stage2-progress');
-      localStorage.removeItem('stage1-data');
+      // TODO: RE-ENABLE BEFORE LAUNCH - Temporarily disabled for testing
+      // localStorage.removeItem('stage2-progress');
+      // localStorage.removeItem('stage1-data');
     } catch {
       setSubmitResult({ success: false, message: 'Network error. Please check your connection and try again.' });
     }

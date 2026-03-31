@@ -34,3 +34,11 @@
 - API route to create Encompass loan from Stage 2 data
 - Map form fields to 1003 schema
 - n8n workflow for post-submission automation
+
+## Testing Cleanup (Before Launch)
+
+### Re-enable Security/Privacy Controls
+- **localStorage clearing** - Re-enable localStorage clearing on submit (stage2/page.tsx lines 491-492)
+  - Currently disabled for faster testing iterations
+  - Must be re-enabled to prevent resubmission and protect user data
+  - Location: `src/app/quote/stage2/page.tsx`
