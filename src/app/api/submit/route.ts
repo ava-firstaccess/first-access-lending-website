@@ -266,10 +266,11 @@ const FORM_NAME_ALIASES: Record<string, string> = {
   'Co-Borrower - Self-Employed Income - Monthly': 'Co-Borrower - Self-Employed Monthly Business Income',
   'Co-Borrower - Self-Employed 25%+ Ownership': 'Co-Borrower - Self-Employed 25%+ Owner',
 
-  // Prior address
-  'Borrower - Prior Address': 'Borrower - Prior Address Line 1',
+  // Prior address (form sends full Google Places string, parsed in buildCustomFields)
   'Borrower - Years at Prior Address': 'Borrower - Years in Prior Home',
   'Borrower - Months at Prior Address': 'Borrower - Months in Prior Home',
+  'Borrower - Years at Prior Address 2': 'Borrower - Years in Prior Home',  // TODO: need separate GHL fields for 2nd prior
+  'Borrower - Months at Prior Address 2': 'Borrower - Months in Prior Home',
 
   // Subject property
   'Subject Property - Occupancy': 'Subject Property - Occupancy Use',
@@ -315,7 +316,8 @@ const FORM_NAME_ALIASES: Record<string, string> = {
   'desiredLoanAmount': 'Borrower - New Loan Amount (Desired)',
   'helocDrawTerm': 'Loan Terms - HELOC Draw Term',
   'helocTotalTerm': 'Loan Terms - HELOC Total Term',
-  'Borrower - Current Address': 'Borrower - Primary Street Address',
+  'cesTerm': 'Loan Terms - CES Term',
+  'cashOutAmount': 'Loan Terms - Cash Out Amount',
 
   // Demographics (form has extra spaces)
   'Dem - Borrower  Race': 'Dem - Borrower Race',
@@ -326,11 +328,20 @@ const FORM_NAME_ALIASES: Record<string, string> = {
 const SKIP_FIELDS = new Set([
   '_opportunityName', '_opportunityId', '_contactId',
   'product', 'propertyValue', 'loanBalance', 'creditScore',
-  'propertyType', 'occupancy', 'cashOut', 'cashOutAmount',
+  'propertyType', 'occupancy', 'cashOut',
   'drawTerm', 'propertyAddress', '_creditScoreInput',
   // Stage 1 fields handled explicitly in buildCustomFields
   'propertyState', 'propertyCity', 'propertyZipcode',
   'structureType', 'numberOfUnits',
+  // Address fields parsed into components in buildCustomFields
+  'Borrower - Current Address', 'Borrower - Prior Address', 'Borrower - Prior Address 2',
+  'Other Properties - Address 1', 'Other Properties - Address 2', 'Other Properties - Address 3',
+  // Annual income fields are UI-only (monthly is what goes to GHL)
+  'Borrower - Base Income - Annual',
+  'Other Properties - 1 Taxes - Annual', 'Other Properties - 1 Insurance - Annual',
+  'Other Properties - 2 Taxes - Annual', 'Other Properties - 2 Insurance - Annual',
+  'Other Properties - 3 Taxes - Annual', 'Other Properties - 3 Insurance - Annual',
+  'maxAvailable',
 ]);
 
 async function ghlFetch(path: string, options: RequestInit = {}) {
@@ -444,8 +455,9 @@ function buildCustomFields(formData: Record<string, any>): Array<{ id: string; f
     fields.push({ id: 'ONng5zFrN8SWAytTTbIq', field_value: formData.creditScore }); // Stated Credit Score
   }
   if (formData.propertyAddress) {
-    // Parse address if it's a formatted string
-    fields.push({ id: 'gEax09qKcNqzc9u3LUO2', field_value: formData.propertyAddress }); // Subject Property Address
+    // Extract street-only from full Google Places string (e.g., "1733 Clarkson St, Baltimore, MD 21230, USA")
+    const streetOnly = formData.propertyAddress.split(',')[0]?.trim() || formData.propertyAddress;
+    fields.push({ id: 'gEax09qKcNqzc9u3LUO2', field_value: streetOnly }); // Subject Property - Street Address
   }
 
   // Map product type to Loan Purpose
@@ -484,6 +496,48 @@ function buildCustomFields(formData: Record<string, any>): Array<{ id: string; f
   }
   if (formData.numberOfUnits) {
     fields.push({ id: 'sjXbqICEqFBZoMJZOgDM', field_value: formData.numberOfUnits }); // Number of Units
+  }
+
+  // ── Address parsing helper ──
+  // Google Places returns "Street, City, State Zip, Country" - split into components
+  function parseAddress(fullAddress: string): { street: string; city: string; state: string; zip: string } {
+    const parts = fullAddress.split(',').map(p => p.trim());
+    const street = parts[0] || '';
+    const city = parts[1] || '';
+    // "MD 21230" or "ID 83864" - state + zip in one part
+    const stateZipStr = parts[2] || '';
+    const stateZipMatch = stateZipStr.match(/^([A-Z]{2})\s+(\d{5}(-\d{4})?)$/);
+    const state = stateZipMatch ? stateZipMatch[1] : stateZipStr;
+    const zip = stateZipMatch ? stateZipMatch[2] : '';
+    return { street, city, state, zip };
+  }
+
+  // Parse Borrower Current Address into components
+  if (formData['Borrower - Current Address']) {
+    const addr = parseAddress(formData['Borrower - Current Address']);
+    fields.push({ id: 'ZnteaOrxRpHGvpakt4AS', field_value: addr.street }); // Primary Street Address
+    if (addr.city) fields.push({ id: '7AW7XRQiprhYaIEulRq8', field_value: addr.city }); // Primary City
+    if (addr.state) fields.push({ id: 'ZVY4ecWAwRC9zASwEseS', field_value: addr.state }); // Primary State
+    if (addr.zip) fields.push({ id: 'lZ3ap9iuAQJVeni6y6oU', field_value: addr.zip }); // Primary Zip
+  }
+
+  // Parse Borrower Prior Address into components
+  if (formData['Borrower - Prior Address']) {
+    const addr = parseAddress(formData['Borrower - Prior Address']);
+    fields.push({ id: '8mthgG6TEE3FWPJeMYfn', field_value: addr.street }); // Prior Street Address
+    if (addr.city) fields.push({ id: 'cp4P9T1tVIznPa6jmncu', field_value: addr.city }); // Prior City
+    if (addr.state) fields.push({ id: '1IdHIAVbRLQgCvEFQSNB', field_value: addr.state }); // Prior State
+    if (addr.zip) fields.push({ id: 'wRPo7ZnWhkpUINAw4Dvb', field_value: addr.zip }); // Prior Zip
+  }
+
+  // Parse Other Properties addresses into components
+  for (let i = 1; i <= 3; i++) {
+    const addrKey = `Other Properties - Address ${i}`;
+    if (formData[addrKey]) {
+      const addr = parseAddress(formData[addrKey]);
+      // Only extract street for now - GHL stores full address in the Address field
+      fields.push({ id: FORM_TO_GHL[addrKey], field_value: addr.street });
+    }
   }
 
   // Map all Stage 2 form fields (check both direct FORM_TO_GHL keys and aliased names)
