@@ -319,6 +319,7 @@ async function ghlFetch(path: string, options: RequestInit = {}) {
       'Authorization': `Bearer ${ghlKey}`,
       'Version': GHL_VERSION,
       'Content-Type': 'application/json',
+      'User-Agent': 'n8n',
       ...(options.headers || {}),
     },
   });
