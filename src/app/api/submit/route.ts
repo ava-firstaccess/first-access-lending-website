@@ -10,6 +10,7 @@ const GHL_VERSION = '2021-07-28';
 
 // Pipeline → Duplicate stage mapping (for marking old opportunities as duplicates)
 const DUPLICATE_STAGES: Record<string, string> = {
+  'nDrCb6sRuhBMJSCW1DFz': 'fbaec583-825d-46fd-864a-9c79916ad5f7', // Coming Soon
   'sLrWXmhxdYQNwKoW2wrQ': '305659d9-7f6a-4ae5-9dae-86ad631b8a0b', // Get Access
   'HfRGKwTjkYk6wEEeHiaB': '8c388aee-6ec3-4b79-b0b9-3ec9c18f2b0c', // Pipeline
 };
