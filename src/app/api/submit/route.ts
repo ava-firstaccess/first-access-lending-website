@@ -8,6 +8,12 @@ const GHL_PIPELINE_ID = 'sLrWXmhxdYQNwKoW2wrQ';
 const GHL_STAGE_NEW_LEAD = '71528f87-6da1-4c54-b6bf-ea3129d691a2';
 const GHL_VERSION = '2021-07-28';
 
+// Pipeline → Duplicate stage mapping (for marking old opportunities as duplicates)
+const DUPLICATE_STAGES: Record<string, string> = {
+  'sLrWXmhxdYQNwKoW2wrQ': '305659d9-7f6a-4ae5-9dae-86ad631b8a0b', // Get Access
+  'HfRGKwTjkYk6wEEeHiaB': '8c388aee-6ec3-4b79-b0b9-3ec9c18f2b0c', // Pipeline
+};
+
 // ── Form field name → GHL opportunity custom field ID ──
 // Generated from GHL API: GET /locations/:id/customFields?model=opportunity
 const FORM_TO_GHL: Record<string, string> = {
@@ -564,6 +570,35 @@ async function updateOpportunity(oppId: string, formData: Record<string, any>) {
   return data?.opportunity || data;
 }
 
+// Mark opportunity as duplicate (move to Duplicate stage, add note)
+async function markAsDuplicate(oppId: string, newOppId: string, pipelineId: string) {
+  const duplicateStageId = DUPLICATE_STAGES[pipelineId];
+  
+  // If this pipeline doesn't have a Duplicate stage, skip
+  if (!duplicateStageId) {
+    console.warn(`No duplicate stage found for pipeline ${pipelineId}, skipping duplicate marking`);
+    return;
+  }
+
+  // Move to Duplicate stage
+  await ghlFetch(`/opportunities/${oppId}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      pipelineStageId: duplicateStageId,
+      status: 'abandoned',
+    }),
+  });
+
+  // Add note explaining why
+  const today = new Date().toLocaleDateString('en-US');
+  await ghlFetch(`/opportunities/${oppId}/notes`, {
+    method: 'POST',
+    body: JSON.stringify({
+      body: `Marked as duplicate - new submission created on ${today}. New opportunity ID: ${newOppId}`,
+    }),
+  });
+}
+
 export async function POST(req: NextRequest) {
   try {
     // ── Auth check ──
@@ -640,16 +675,17 @@ export async function POST(req: NextRequest) {
       contactId = newContact.id;
     }
 
-    // ── 3. Upsert GHL opportunity ──
-    let opportunityId: string;
+    // ── 3. Create GHL opportunity (always create new) ──
+    // Check if there's an existing opportunity to mark as duplicate
     const existingOpp = await findOpportunity(contactId);
+    
+    // Always create a new opportunity
+    const newOpp = await createOpportunity(contactId, mergedData);
+    const opportunityId = newOpp.id;
 
+    // Mark old opportunity as duplicate (if exists and has a Duplicate stage)
     if (existingOpp) {
-      opportunityId = existingOpp.id;
-      await updateOpportunity(opportunityId, mergedData);
-    } else {
-      const newOpp = await createOpportunity(contactId, mergedData);
-      opportunityId = newOpp.id;
+      await markAsDuplicate(existingOpp.id, opportunityId, existingOpp.pipelineId);
     }
 
     // ── 4. Update Supabase with GHL IDs ──

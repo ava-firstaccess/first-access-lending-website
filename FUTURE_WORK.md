@@ -35,6 +35,99 @@
 - Map form fields to 1003 schema
 - n8n workflow for post-submission automation
 
+## Duplicate Management (Comprehensive System)
+
+**Current State (MVP):**
+- Always creates new opportunity on each submission
+- Marks previous opportunity as duplicate (moves to "Duplicate" stage in same pipeline)
+- Adds note with new opportunity ID and date
+- Simple, prevents data loss, preserves source tracking
+
+**Needed for Production:**
+
+### Contact-Level Deduplication
+- **Phone normalization** - Standardize format before search (+1 prefix, area code handling)
+  - Strip all non-digits, handle international formats
+  - Convert to E.164 format for consistent storage
+  - Search variations: with/without +1, with/without country code
+- **Email fuzzy matching** - Handle typos, case variations, plus addressing
+  - Lowercase comparison
+  - Strip gmail dots (john.doe@gmail.com = johndoe@gmail.com)
+  - Handle plus addressing (user+tag@domain.com → user@domain.com)
+- **Multi-field matching** - Combine signals for confidence score
+  - Phone + email = 100% match
+  - Phone + name = high confidence
+  - Email + address = high confidence
+  - Name only = low confidence (manual review)
+
+### Opportunity-Level Deduplication
+- **Submission timing** - Flag rapid resubmissions (< 24 hours apart)
+  - Could be testing, browser back button, legitimate update
+  - Show diff of changed fields
+  - "Resume existing" vs "Start fresh" decision tree
+- **Data comparison** - Detect meaningful changes vs noise
+  - Track which fields changed between submissions
+  - Highlight property value/loan amount changes (material updates)
+  - Ignore timestamp/session metadata
+- **Merge strategy** - When to update vs create new
+  - If < 1 hour: likely duplicate tab, merge
+  - If 1-24 hours: likely testing/refinement, ask user
+  - If > 24 hours: likely new intent, create new (mark old as duplicate)
+  - If different product type: always create new
+
+### Manual Review Tools
+- **Duplicate dashboard** - Admin UI to review flagged duplicates
+  - Side-by-side comparison
+  - Merge action (choose winning record, migrate notes/tasks)
+  - Split action (false positive, unmark as duplicate)
+- **Auto-merge rules** - Configurable thresholds
+  - Phone + email + same product + < 1 hour = auto-merge
+  - Everything else = flag for review
+
+### Pipeline-Specific Rules
+- **"Coming Soon" pipeline** - Currently has no Duplicate stage
+  - Add Duplicate stage to all pipelines
+  - Or define fallback behavior (leave in current stage, add tag)
+- **Source preservation** - When marking as duplicate, preserve:
+  - Original pipeline (don't move to Get Access)
+  - Original assigned user
+  - Original source tags (Bankrate, direct, etc.)
+  - Only change stage within existing pipeline
+
+### Technical Implementation
+- **Duplicate detection API endpoint** - Check before submit
+  - Returns: confidence score, matched contacts, suggested action
+  - Client can show "Resume existing application?" prompt
+- **Supabase dedup table** - Track all submission attempts
+  - Link multiple submissions to same "lead cluster"
+  - Audit trail: who submitted when, what changed
+- **Background job** - Nightly scan for undetected duplicates
+  - Find contacts with multiple open opportunities
+  - Flag for manual review
+  - ML scoring based on field similarity
+
+### Data Quality
+- **Phone validation** - Verify format before creating contact
+  - Twilio Lookup API (verify number is real)
+  - Prevent fake numbers (555-555-5555)
+- **Email validation** - Check deliverability
+  - Syntax check (RFC 5322)
+  - MX record verification
+  - Disposable email detection (no tempmail.com)
+- **Address standardization** - USPS validation
+  - Geocode to lat/long for proximity matching
+  - Detect PO boxes (flag for manual review)
+
+### Reporting & Analytics
+- **Duplicate rate tracking** - Monitor over time
+  - By source (Bankrate vs direct)
+  - By time of day (late night = testing?)
+  - By user agent (mobile vs desktop)
+- **Conversion impact** - How duplicates affect funnel
+  - Do people who resubmit convert better?
+  - How long between submissions?
+  - What fields change most often?
+
 ## Testing Cleanup (Before Launch)
 
 ### Re-enable Security/Privacy Controls
