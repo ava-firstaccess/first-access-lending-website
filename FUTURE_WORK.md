@@ -42,3 +42,10 @@
   - Currently disabled for faster testing iterations
   - Must be re-enabled to prevent resubmission and protect user data
   - Location: `src/app/quote/stage2/page.tsx`
+
+### API Cleanup
+- **GHL User-Agent header** - Change from `n8n` to `FirstAccessLending-WebApp/1.0`
+  - Currently using "n8n" to bypass Cloudflare filtering (temporary workaround)
+  - Should use custom branded User-Agent for production
+  - Location: `src/app/api/submit/route.ts` line 318
+  - Alternative: `Mozilla/5.0 (compatible; FirstAccessLending/1.0)`
