@@ -128,6 +128,15 @@
   - How long between submissions?
   - What fields change most often?
 
+## Compliance
+
+### Cookie Warning / Privacy Banner
+- Add cookie consent banner (GDPR/CCPA compliance)
+- Audit current cookie usage (analytics, session, tracking)
+- Implement opt-in/opt-out controls
+- Privacy policy link in banner
+- Check state-specific requirements (California CCPA, Virginia VCDPA, etc.)
+
 ## Testing Cleanup (Before Launch)
 
 ### Re-enable Security/Privacy Controls
