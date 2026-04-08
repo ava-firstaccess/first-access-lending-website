@@ -513,8 +513,8 @@ function Stage2Content() {
 
       setSubmitResult({ success: true, message: data.message || 'Application submitted successfully!' });
 
-      if (data?.applicationId && data?.sessionToken) {
-        router.push(`/quote/validate?applicationId=${encodeURIComponent(data.applicationId)}&sessionToken=${encodeURIComponent(data.sessionToken)}`);
+      if (data?.applicationId) {
+        router.push(`/quote/validate?applicationId=${encodeURIComponent(data.applicationId)}`);
         return;
       }
 

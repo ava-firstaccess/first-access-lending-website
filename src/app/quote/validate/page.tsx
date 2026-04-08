@@ -78,9 +78,11 @@ export default function ValidatePage() {
       let hydratedData: any = null;
       let stage1Data: any = null;
 
-      if (applicationId && sessionToken) {
+      if (applicationId) {
         try {
-          const res = await fetch(`/api/application?applicationId=${encodeURIComponent(applicationId)}&sessionToken=${encodeURIComponent(sessionToken)}`);
+          const qs = new URLSearchParams({ applicationId });
+          if (sessionToken) qs.set('sessionToken', sessionToken);
+          const res = await fetch(`/api/application?${qs.toString()}`);
           if (res.ok) {
             const payload = await res.json();
             hydratedData = payload?.application?.form_data || payload?.form_data || null;
