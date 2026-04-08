@@ -234,7 +234,7 @@ export default function Stage3Page() {
   const valueDiffPct = propertyValue > 0 ? (valueDiff / propertyValue) * 100 : 0;
   const valueIncreased = valueDiff > 0;
   const newMax = result?.newMaxLoan || 0;
-  const oldMax = Number(stage1.maxAvailable) || desiredLoanAmount;
+  const oldMax = Number(stage1.verifiedMaxAvailable || stage1.maxAvailable || desiredLoanAmount || 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50 py-8">

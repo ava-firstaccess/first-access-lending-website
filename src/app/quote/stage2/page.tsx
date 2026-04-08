@@ -1624,6 +1624,7 @@ function Stage2Content() {
           <div className="lg:col-span-1">
             <QuoteBuilder
               maxAvailable={maxAvailable}
+              desiredLoanAmount={Number(formData.desiredLoanAmount || 0)}
               rateRange={{ min: sidebarRate, max: sidebarRate + 0.5 }}
               monthlyPayment={monthlyPayment}
               progress={progress}

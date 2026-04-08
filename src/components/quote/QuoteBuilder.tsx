@@ -3,6 +3,7 @@
 
 interface QuoteBuilderProps {
   maxAvailable?: number;
+  desiredLoanAmount?: number;
   rateRange?: { min: number; max: number };
   monthlyPayment?: number;
   progress: number;
@@ -11,6 +12,7 @@ interface QuoteBuilderProps {
 
 export default function QuoteBuilder({
   maxAvailable,
+  desiredLoanAmount,
   rateRange,
   monthlyPayment,
   progress,
@@ -54,6 +56,16 @@ export default function QuoteBuilder({
           )}
         </div>
 
+        {/* Desired Loan Amount */}
+        {stage === 'stage2' && (
+          <div>
+            <label className="text-sm text-gray-600 block mb-1">Desired Loan Amount</label>
+            <div className={`text-2xl font-bold ${desiredLoanAmount ? 'text-gray-900' : 'text-gray-300'}`}>
+              {desiredLoanAmount ? formatCurrency(desiredLoanAmount) : '$—'}
+            </div>
+          </div>
+        )}
+
         {/* Rate Range */}
         <div>
           <label className="text-sm text-gray-600 block mb-1">
@@ -63,7 +75,7 @@ export default function QuoteBuilder({
             {rateRange 
               ? stage === 'stage1' 
                 ? `${formatRate(rateRange.min)} - ${formatRate(rateRange.max)}`
-                : formatRate(rateRange.min) // Exact rate in stage2
+                : formatRate(rateRange.min)
               : '—%'
             }
           </div>
