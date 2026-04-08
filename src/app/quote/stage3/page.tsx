@@ -4,7 +4,7 @@
 import { useRouter } from 'next/navigation';
 import React, { useState, useEffect, useMemo } from 'react';
 
-type ValidationStep = 'credit' | 'mortgages' | 'updated-quote' | 'closing-costs';
+type ValidationStep = 'avm' | 'credit' | 'mortgages' | 'updated-quote' | 'closing-costs';
 
 type VerifyResult = {
   tier: 'estimate' | 'verified' | 'low_confidence' | 'no_data' | 'error';
@@ -81,6 +81,7 @@ function parseAddress(fullAddress: string): { street: string; zipcode: string } 
 export default function Stage3Page() {
   const router = useRouter();
   const steps: { key: ValidationStep; label: string; icon: string }[] = [
+    { key: 'avm', label: 'Property Verification', icon: '🏠' },
     { key: 'credit', label: 'Credit Check', icon: '📊' },
     { key: 'mortgages', label: 'Mortgages', icon: '🏦' },
     { key: 'updated-quote', label: 'Updated Quote', icon: '💰' },
