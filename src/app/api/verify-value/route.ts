@@ -3,6 +3,39 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 
 const HC_BASE = 'https://api.housecanary.com';
 
+function normalizeAddressKey(address: string, zipcode?: string, city?: string, state?: string) {
+  const raw = [address || '', zipcode || '', city || '', state || '']
+    .join('|')
+    .toLowerCase()
+    .replace(/[^a-z0-9|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return raw;
+}
+
+async function getCachedAvmResult(supabase: any, addressKey: string) {
+  const { data, error } = await supabase
+    .from('avm_cache')
+    .select('*')
+    .eq('address_key', addressKey)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.warn('avm_cache lookup failed:', error.message);
+    return null;
+  }
+  return data;
+}
+
+async function saveCachedAvmResult(supabase: any, payload: any) {
+  const { error } = await supabase.from('avm_cache').insert(payload);
+  if (error) {
+    console.warn('avm_cache insert failed:', error.message);
+  }
+}
+
+
 function getHCAuth(): string {
   const key = process.env.HOUSECANARY_API_KEY;
   const secret = process.env.HOUSECANARY_API_SECRET;
@@ -77,8 +110,8 @@ export async function POST(req: NextRequest) {
   try {
     // ── Auth check (soft - allow unauthenticated for testing) ──
     const sessionToken = req.cookies.get('session_token')?.value;
+    const supabase = getSupabaseAdmin();
     if (sessionToken) {
-      const supabase = getSupabaseAdmin();
       const { data: app } = await supabase
         .from('applications')
         .select('id')
@@ -114,6 +147,14 @@ export async function POST(req: NextRequest) {
 
     console.log('verify-value request:', { address, zipcode, city, state, statedValue, desiredLoanAmount });
 
+    const addressKey = normalizeAddressKey(address, zipcode, city, state);
+    const cached = await getCachedAvmResult(supabase, addressKey);
+    if (cached) {
+      console.log('verify-value cache hit:', { addressKey, tier: cached.tier });
+      return NextResponse.json(cached.response_payload);
+    }
+    console.log('verify-value cache miss:', { addressKey });
+
     const maxLtv = getMaxLtv(creditScore || 720, propertyType || 'Primary');
     const balance = Number(loanBalance) || 0;
     const desired = Number(desiredLoanAmount) || 0;
@@ -125,11 +166,26 @@ export async function POST(req: NextRequest) {
     const hcEstimate = estimateData?.estimate;
 
     if (!hcEstimate) {
-      return NextResponse.json({
+      const responsePayload = {
         tier: 'no_data',
         error: 'Unable to estimate property value',
         needsHuman: true,
+      };
+      await saveCachedAvmResult(supabase, {
+        address_key: addressKey,
+        address,
+        zipcode: zipcode || null,
+        city: city || null,
+        state: state || null,
+        tier: 'no_data',
+        hc_estimate: null,
+        hc_value: null,
+        fsd: null,
+        new_max_loan: null,
+        max_ltv: maxLtv,
+        response_payload: responsePayload,
       });
+      return NextResponse.json(responsePayload);
     }
 
     const newMaxLoan = Math.max(0, (hcEstimate * maxLtv) - balance);
@@ -142,7 +198,7 @@ export async function POST(req: NextRequest) {
 
     if (!withinThreshold) {
       // Loan amount too far off or too small - exit ramp
-      return NextResponse.json({
+      const responsePayload = {
         tier: 'estimate',
         hcValue: hcEstimate,
         statedValue: Number(statedValue),
@@ -151,7 +207,22 @@ export async function POST(req: NextRequest) {
         desiredLoanAmount: desired,
         loanDiffPct: Math.round(loanDiffPct * 100),
         needsHuman: true,
+      };
+      await saveCachedAvmResult(supabase, {
+        address_key: addressKey,
+        address,
+        zipcode: zipcode || null,
+        city: city || null,
+        state: state || null,
+        tier: 'estimate',
+        hc_estimate: hcEstimate,
+        hc_value: null,
+        fsd: null,
+        new_max_loan: Math.round(newMaxLoan),
+        max_ltv: maxLtv,
+        response_payload: responsePayload,
       });
+      return NextResponse.json(responsePayload);
     }
 
     // ══════════════════════════════════════
@@ -167,7 +238,7 @@ export async function POST(req: NextRequest) {
       // ══════════════════════════════════════
       // High confidence - accept value
       // ══════════════════════════════════════
-      return NextResponse.json({
+      const responsePayload = {
         tier: 'verified',
         hcValue: Math.round(verifiedValue),
         statedValue: Number(statedValue),
@@ -177,12 +248,27 @@ export async function POST(req: NextRequest) {
         newMaxLoan: Math.round(verifiedMaxLoan),
         maxLtv,
         desiredLoanAmount: desired,
+      };
+      await saveCachedAvmResult(supabase, {
+        address_key: addressKey,
+        address,
+        zipcode: zipcode || null,
+        city: city || null,
+        state: state || null,
+        tier: 'verified',
+        hc_estimate: hcEstimate,
+        hc_value: Math.round(verifiedValue),
+        fsd: fsdData.fsd,
+        new_max_loan: Math.round(verifiedMaxLoan),
+        max_ltv: maxLtv,
+        response_payload: responsePayload,
       });
+      return NextResponse.json(responsePayload);
     } else {
       // ══════════════════════════════════════
       // Low confidence - needs Clear Capital
       // ══════════════════════════════════════
-      return NextResponse.json({
+      const responsePayload = {
         tier: 'low_confidence',
         hcValue: Math.round(verifiedValue),
         statedValue: Number(statedValue),
@@ -193,7 +279,22 @@ export async function POST(req: NextRequest) {
         maxLtv,
         desiredLoanAmount: desired,
         needsClearCapital: true,
+      };
+      await saveCachedAvmResult(supabase, {
+        address_key: addressKey,
+        address,
+        zipcode: zipcode || null,
+        city: city || null,
+        state: state || null,
+        tier: 'low_confidence',
+        hc_estimate: hcEstimate,
+        hc_value: Math.round(verifiedValue),
+        fsd: fsdData.fsd,
+        new_max_loan: Math.round(verifiedMaxLoan),
+        max_ltv: maxLtv,
+        response_payload: responsePayload,
       });
+      return NextResponse.json(responsePayload);
     }
   } catch (err: any) {
     console.error('Verify value error:', err);
