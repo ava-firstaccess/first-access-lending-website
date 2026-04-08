@@ -87,20 +87,25 @@ export default function Stage3Page() {
   const [optIn, setOptIn] = useState(false);
 
   useEffect(() => {
-    const raw = localStorage.getItem('stage1-data');
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        setStage1(parsed);
-        setLoanAmount(Number(parsed.desiredLoanAmount) || 0);
-      } catch {
-        router.push('/quote/stage1');
-        return;
-      }
-    } else {
+    const stage1Raw = localStorage.getItem('stage1-data');
+    const stage2Raw = localStorage.getItem('stage2-progress');
+
+    if (!stage1Raw && !stage2Raw) {
       router.push('/quote/stage1');
       return;
     }
+
+    try {
+      const stage1Parsed = stage1Raw ? JSON.parse(stage1Raw) : {};
+      const stage2Parsed = stage2Raw ? JSON.parse(stage2Raw) : {};
+      const merged = { ...stage1Parsed, ...stage2Parsed };
+      setStage1(merged);
+      setLoanAmount(Number(merged.desiredLoanAmount) || 0);
+    } catch {
+      router.push('/quote/stage1');
+      return;
+    }
+
     setLoaded(true);
   }, [router]);
 
@@ -185,14 +190,24 @@ export default function Stage3Page() {
   function handleContinue() {
     // Save updated values to localStorage
     const s1 = JSON.parse(localStorage.getItem('stage1-data') || '{}');
+    const s2 = JSON.parse(localStorage.getItem('stage2-progress') || '{}');
+
     if (result?.hcValue) {
       s1.verifiedPropertyValue = String(result.hcValue);
+      s2.verifiedPropertyValue = String(result.hcValue);
     }
+
     s1.desiredLoanAmount = String(loanAmount);
-    s1.verifiedMaxAvailable = String(result?.newMaxLoan || s1.maxAvailable);
+    s2.desiredLoanAmount = String(loanAmount);
+    s1.verifiedMaxAvailable = String(result?.newMaxLoan || s1.maxAvailable || s2.maxAvailable);
+    s2.verifiedMaxAvailable = String(result?.newMaxLoan || s2.maxAvailable || s1.maxAvailable);
     s1.verificationTier = result?.tier;
+    s2.verificationTier = result?.tier;
     s1.verificationFsd = result?.fsd ? String(result.fsd) : undefined;
+    s2.verificationFsd = result?.fsd ? String(result.fsd) : undefined;
+
     localStorage.setItem('stage1-data', JSON.stringify(s1));
+    localStorage.setItem('stage2-progress', JSON.stringify(s2));
 
     // Continue into the post-verification validation flow
     router.push('/quote/validate');
