@@ -4,6 +4,8 @@
 import { useRouter } from 'next/navigation';
 import React, { useState, useEffect, useMemo } from 'react';
 
+type ValidationStep = 'credit' | 'mortgages' | 'updated-quote' | 'closing-costs';
+
 type VerifyResult = {
   tier: 'estimate' | 'verified' | 'low_confidence' | 'no_data' | 'error';
   hcValue?: number;
@@ -78,6 +80,12 @@ function parseAddress(fullAddress: string): { street: string; zipcode: string } 
 
 export default function Stage3Page() {
   const router = useRouter();
+  const steps: { key: ValidationStep; label: string; icon: string }[] = [
+    { key: 'credit', label: 'Credit Check', icon: '📊' },
+    { key: 'mortgages', label: 'Mortgages', icon: '🏦' },
+    { key: 'updated-quote', label: 'Updated Quote', icon: '💰' },
+    { key: 'closing-costs', label: 'Closing Costs', icon: '📋' },
+  ];
   const [loaded, setLoaded] = useState(false);
   const [stage1, setStage1] = useState<Record<string, any>>({});
   const [status, setStatus] = useState<'pre' | 'loading' | 'done' | 'error'>('pre');
@@ -229,7 +237,37 @@ export default function Stage3Page() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50 py-8">
-      <div className="container mx-auto px-4 max-w-2xl">
+      <div className="container mx-auto px-4 max-w-3xl">
+
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Verifying Your Application</h1>
+          <p className="text-gray-600">A few quick checks to finalize your quote.</p>
+        </div>
+
+        <div className="mb-8 bg-white rounded-xl shadow-sm p-4">
+          <div className="flex items-center justify-between">
+            {steps.map((step, i) => (
+              <React.Fragment key={step.key}>
+                <div className="flex flex-col items-center gap-1">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all ${
+                    i === 0 ? 'bg-blue-600 text-white ring-4 ring-blue-100' : 'bg-gray-100 text-gray-400'
+                  }`}>
+                    {step.icon}
+                  </div>
+                  <span className={`text-xs font-medium hidden md:block ${
+                    i === 0 ? 'text-gray-700' : 'text-gray-400'
+                  }`}>
+                    {step.label}
+                  </span>
+                </div>
+                {i < steps.length - 1 && (
+                  <div className="flex-1 h-0.5 mx-2 bg-gray-200" />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+
         <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12">
 
           {/* ══════════════════════════════════════ */}
@@ -517,9 +555,7 @@ export default function Stage3Page() {
                         className="mt-1 flex-shrink-0 h-4 w-4 text-blue-600 rounded"
                       />
                       <label htmlFor="marketing-opt-in" className="text-[11px] text-gray-500 leading-relaxed cursor-pointer">
-                        By opting in, you agree to receive calls, texts, and emails from First Access Lending and its affiliates.
-                        Standard message and data rates may apply. Consent is not a condition of purchase.
-                        You may opt out at any time by replying STOP.
+                        By submitting the inquiry, I expressly consent to receive communications via automatic telephone dialing system or by artificial/pre-recorded message, email, or by text message from First Access Lending or their agents at the telephone number above (even if my number is currently listed on any state, federal, local, or corporate Do Not Call list) including my wireless number if provided, for the purpose of receiving information on mortgage products and services. Message frequency varies. Carrier message and data rates may apply. Reply HELP to a text message for help. Reply STOP to a text message to opt out. I understand that my consent is not required as a condition of purchasing any goods or services and that I may revoke my consent at any time by email to info@firstaccesslending.com or calling 1-855-605-8811. I also acknowledge that I have read and agree to the Privacy Policy and Terms and Condition. For help or additional info contact info@firstaccesslending.com.
                       </label>
                     </div>
 
@@ -582,9 +618,7 @@ export default function Stage3Page() {
                     className="mt-1 flex-shrink-0 h-4 w-4 text-blue-600 rounded"
                   />
                   <label htmlFor="marketing-opt-in-error" className="text-[11px] text-gray-500 leading-relaxed cursor-pointer">
-                    By opting in, you agree to receive calls, texts, and emails from First Access Lending and its affiliates.
-                    Standard message and data rates may apply. Consent is not a condition of purchase.
-                    You may opt out at any time by replying STOP.
+                    By submitting the inquiry, I expressly consent to receive communications via automatic telephone dialing system or by artificial/pre-recorded message, email, or by text message from First Access Lending or their agents at the telephone number above (even if my number is currently listed on any state, federal, local, or corporate Do Not Call list) including my wireless number if provided, for the purpose of receiving information on mortgage products and services. Message frequency varies. Carrier message and data rates may apply. Reply HELP to a text message for help. Reply STOP to a text message to opt out. I understand that my consent is not required as a condition of purchasing any goods or services and that I may revoke my consent at any time by email to info@firstaccesslending.com or calling 1-855-605-8811. I also acknowledge that I have read and agree to the Privacy Policy and Terms and Condition. For help or additional info contact info@firstaccesslending.com.
                   </label>
                 </div>
 

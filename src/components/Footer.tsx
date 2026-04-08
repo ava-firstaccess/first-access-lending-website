@@ -16,7 +16,7 @@ export default function Footer() {
               📧 Email Us
             </a>
             <a 
-              href="tel:+1234567890"
+              href="tel:1-888-885-7789"
               className="bg-[#0283DB] text-white px-8 py-4 rounded-xl font-bold hover:bg-[#0EF0F0] hover:text-[#003961] hover:scale-105 transition-all"
             >
               📞 Call Now

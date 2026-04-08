@@ -3,6 +3,7 @@
 
 import { useRouter } from 'next/navigation';
 import React, { useState, useEffect, useMemo } from 'react';
+import { TextField, PhoneField } from '@/components/quote/FormField';
 
 interface QuoteCalc {
   maxAvailable: number;
@@ -142,6 +143,15 @@ export default function ResultsPage() {
   const router = useRouter();
   const [loaded, setLoaded] = useState(false);
   const [stage1, setStage1] = useState<Record<string, any>>({});
+  const [leadForm, setLeadForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+  });
+  const [leadSubmitting, setLeadSubmitting] = useState(false);
+  const [leadSubmitted, setLeadSubmitted] = useState(false);
+  const [leadError, setLeadError] = useState<string | null>(null);
   const [cesTerm, setCesTerm] = useState<number>(20);
   const [helocTotalTerm, setHelocTotalTerm] = useState<number>(20);
   const [helocDrawTerm, setHelocDrawTerm] = useState<number>(5);
@@ -245,6 +255,49 @@ export default function ResultsPage() {
     'CashOut': 'Cash-Out Refinance',
     'NoCashRefi': 'Rate & Term Refinance'
   };
+
+  const consentText = "By submitting the inquiry, I expressly consent to receive communications via automatic telephone dialing system or by artificial/pre-recorded message, email, or by text message from First Access Lending or their agents at the telephone number above (even if my number is currently listed on any state, federal, local, or corporate Do Not Call list) including my wireless number if provided, for the purpose of receiving information on mortgage products and services. Message frequency varies. Carrier message and data rates may apply. Reply HELP to a text message for help. Reply STOP to a text message to opt out. I understand that my consent is not required as a condition of purchasing any goods or services and that I may revoke my consent at any time by email to info@firstaccesslending.com or calling 1-855-605-8811. I also acknowledge that I have read and agree to the Privacy Policy and Terms and Condition. For help or additional info contact info@firstaccesslending.com.";
+
+  async function handleRefiLeadSubmit() {
+    setLeadError(null);
+    if (!leadForm.firstName || !leadForm.lastName || !leadForm.email || !leadForm.phone) {
+      setLeadError('Please complete all contact fields.');
+      return;
+    }
+
+    setLeadSubmitting(true);
+    try {
+      const payload = {
+        formData: {
+          ...stage1,
+          product: product,
+          firstName: leadForm.firstName,
+          lastName: leadForm.lastName,
+          email: leadForm.email,
+          phone: leadForm.phone,
+          source: 'Refi Coming Soon Lead Capture',
+          consentLanguage: consentText,
+        }
+      };
+
+      const res = await fetch('/api/coming-soon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || 'Unable to submit your request');
+      }
+
+      setLeadSubmitted(true);
+    } catch (err: any) {
+      setLeadError(err.message || 'Unable to submit your request');
+    } finally {
+      setLeadSubmitting(false);
+    }
+  }
 
   if (!loaded) {
     return (
@@ -448,21 +501,69 @@ export default function ResultsPage() {
           {/* Refinance (single product) */}
           {/* ═══════════════════════════════════════════════ */}
           {isRefi && refiQuote && (
-            <div className="grid md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-blue-50 rounded-xl p-6 text-center">
-                <div className="text-sm text-blue-600 font-medium mb-1">Max Available</div>
-                <div className="text-3xl md:text-4xl font-bold text-blue-900">${refiQuote.maxAvailable.toLocaleString()}</div>
+            <>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-6 text-center">
+                <div className="text-sm font-semibold text-amber-800 mb-2">Instant rate quote for this product type coming soon</div>
+                <p className="text-sm text-amber-700 leading-relaxed">
+                  We&apos;re still finalizing the automated instant-quote flow for {productFullLabels[product]}. You can still submit your scenario now and our team will follow up with next steps and options.
+                </p>
               </div>
-              <div className="bg-green-50 rounded-xl p-6 text-center">
-                <div className="text-sm text-green-600 font-medium mb-1">Estimated Rate</div>
-                <div className="text-3xl md:text-4xl font-bold text-green-900">{refiQuote.rate.toFixed(2)}%</div>
-                <div className="text-xs text-green-600 mt-1">{refiQuote.rateType}</div>
+
+              <div className="grid md:grid-cols-3 gap-6 mb-8 opacity-75">
+                <div className="bg-blue-50 rounded-xl p-6 text-center">
+                  <div className="text-sm text-blue-600 font-medium mb-1">Estimated Max Available</div>
+                  <div className="text-3xl md:text-4xl font-bold text-blue-900">${refiQuote.maxAvailable.toLocaleString()}</div>
+                </div>
+                <div className="bg-green-50 rounded-xl p-6 text-center">
+                  <div className="text-sm text-green-600 font-medium mb-1">Estimated Rate</div>
+                  <div className="text-3xl md:text-4xl font-bold text-green-900">{refiQuote.rate.toFixed(2)}%</div>
+                  <div className="text-xs text-green-600 mt-1">{refiQuote.rateType}</div>
+                </div>
+                <div className="bg-orange-50 rounded-xl p-6 text-center">
+                  <div className="text-sm text-orange-600 font-medium mb-1">Estimated Monthly Payment</div>
+                  <div className="text-3xl md:text-4xl font-bold text-orange-900">${refiQuote.monthlyPayment.toLocaleString()}</div>
+                </div>
               </div>
-              <div className="bg-orange-50 rounded-xl p-6 text-center">
-                <div className="text-sm text-orange-600 font-medium mb-1">Est. Monthly Payment</div>
-                <div className="text-3xl md:text-4xl font-bold text-orange-900">${refiQuote.monthlyPayment.toLocaleString()}</div>
+
+              <div className="bg-white border-2 border-blue-100 rounded-2xl p-6 mb-8">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Get Matched With a Loan Specialist</h3>
+                <p className="text-sm text-gray-600 mb-5">Tell us where to reach you and we&apos;ll follow up about this refinance scenario.</p>
+
+                {leadSubmitted ? (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
+                    <div className="text-lg font-semibold text-green-800 mb-1">Thanks, we got it.</div>
+                    <p className="text-sm text-green-700">Your refinance inquiry was submitted and our team will follow up soon.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <TextField label="First Name" name="firstName" value={leadForm.firstName} onChange={(name, value) => setLeadForm(prev => ({ ...prev, [name]: value }))} required />
+                      <TextField label="Last Name" name="lastName" value={leadForm.lastName} onChange={(name, value) => setLeadForm(prev => ({ ...prev, [name]: value }))} required />
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <TextField label="Email" name="email" type="email" value={leadForm.email} onChange={(name, value) => setLeadForm(prev => ({ ...prev, [name]: value }))} required />
+                      <PhoneField label="Phone" name="phone" value={leadForm.phone} onChange={(name, value) => setLeadForm(prev => ({ ...prev, [name]: value }))} required />
+                    </div>
+
+                    <p className="text-[11px] text-gray-500 leading-relaxed">
+                      {consentText}
+                    </p>
+
+                    {leadError && (
+                      <div className="text-sm text-red-600">{leadError}</div>
+                    )}
+
+                    <button
+                      onClick={handleRefiLeadSubmit}
+                      disabled={leadSubmitting}
+                      className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:opacity-60 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all"
+                    >
+                      {leadSubmitting ? 'Submitting...' : 'Submit Inquiry →'}
+                    </button>
+                  </div>
+                )}
               </div>
-            </div>
+            </>
           )}
 
           {/* Summary */}
