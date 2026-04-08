@@ -463,13 +463,17 @@ export default function Stage3Page() {
                 </div>
               )}
 
-              {/* Continue button (for verified tier) */}
-              {result.tier === 'verified' && (
+              {/* Continue button for any successful non-error outcome with an available amount */}
+              {newMax > 0 && (result.tier === 'verified' || result.tier === 'estimate' || result.tier === 'low_confidence') && (
                 <button
                   onClick={handleContinue}
-                  className="w-full py-4 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all text-lg mb-4"
+                  className={`w-full py-4 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all text-lg mb-4 ${
+                    result.tier === 'verified'
+                      ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
+                      : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
+                  }`}
                 >
-                  Continue with ${loanAmount.toLocaleString()} →
+                  Submit and Continue with ${loanAmount.toLocaleString()} →
                 </button>
               )}
 
@@ -477,7 +481,7 @@ export default function Stage3Page() {
               {result.tier === 'low_confidence' && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-4 text-center">
                   <p className="text-sm text-amber-800 mb-3">
-                    Additional verification via Clear Capital is coming soon. In the meantime, our loan officers can help.
+                    Additional verification via Clear Capital is coming soon. You can still continue to the next validation step now, or have our loan officers help.
                   </p>
                 </div>
               )}
