@@ -194,9 +194,8 @@ export default function Stage3Page() {
     s1.verificationFsd = result?.fsd ? String(result.fsd) : undefined;
     localStorage.setItem('stage1-data', JSON.stringify(s1));
 
-    // Navigate to next stage (placeholder for now)
-    // TODO: Route to document upload or disclosures
-    router.push('/quote/stage2'); // Temporary - will change when Stage 4/5 are built
+    // Continue into the post-verification validation flow
+    router.push('/quote/validate');
   }
 
   if (!loaded) {

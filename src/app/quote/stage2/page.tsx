@@ -514,7 +514,7 @@ function Stage2Content() {
       setSubmitResult({ success: true, message: data.message || 'Application submitted successfully!' });
 
       if (data?.applicationId) {
-        router.push(`/quote/validate?applicationId=${encodeURIComponent(data.applicationId)}`);
+        router.push(`/quote/stage3?applicationId=${encodeURIComponent(data.applicationId)}`);
         return;
       }
 
