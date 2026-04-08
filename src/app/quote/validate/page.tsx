@@ -134,12 +134,13 @@ export default function ValidatePage() {
     hydrate();
   }, []);
 
-  const steps: { key: ValidationStep; label: string; icon: string }[] = [
+  const steps = [
+    { key: 'avm', label: 'Property Verification', icon: '🏠' },
     { key: 'credit', label: 'Credit Check', icon: '📊' },
     { key: 'mortgages', label: 'Mortgages', icon: '🏦' },
     { key: 'updated-quote', label: 'Updated Quote', icon: '💰' },
     { key: 'closing-costs', label: 'Closing Costs', icon: '📋' },
-  ];
+  ] as const;
 
   const currentStepIndex = steps.findIndex(s => s.key === currentStep);
   const hasCoBorrower = formData['Borrower - Has Co-Borrower'] === 'Yes';
@@ -202,9 +203,9 @@ export default function ValidatePage() {
             {steps.map((step, i) => (
               <React.Fragment key={step.key}>
                 <button
-                  onClick={() => i <= currentStepIndex ? goToStep(step.key) : null}
+                  onClick={() => (step.key !== 'avm' && i <= currentStepIndex) ? goToStep(step.key) : null}
                   className={`flex flex-col items-center gap-1 transition-colors ${
-                    i <= currentStepIndex ? 'cursor-pointer' : 'cursor-default'
+                    step.key !== 'avm' && i <= currentStepIndex ? 'cursor-pointer' : 'cursor-default'
                   }`}
                 >
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all ${
