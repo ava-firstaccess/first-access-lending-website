@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { SSNField, PhoneField } from '@/components/quote/FormField';
 
-type ValidationStep = 'avm' | 'credit' | 'mortgages' | 'updated-quote' | 'closing-costs';
+type ValidationStep = 'credit' | 'mortgages' | 'updated-quote' | 'closing-costs';
 
 // Mock data types (will be replaced with API responses)
 interface AVMResult {
@@ -37,7 +37,7 @@ interface ClosingCostItem {
 
 export default function ValidatePage() {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState<ValidationStep>('avm');
+  const [currentStep, setCurrentStep] = useState<ValidationStep>('credit');
   const [loading, setLoading] = useState(false);
 
   // Form data from submission
@@ -51,7 +51,6 @@ export default function ValidatePage() {
 
   // AVM results
   const [avmResult, setAvmResult] = useState<AVMResult | null>(null);
-  const [avmChecking, setAvmChecking] = useState(true);
 
   // Credit results
   const [mortgages, setMortgages] = useState<Mortgage[]>([]);
@@ -119,23 +118,23 @@ export default function ValidatePage() {
       }
 
       const statedValue = Number((hydratedData || stage1Data || {}).propertyValue || 0);
-      setTimeout(() => {
-        setAvmChecking(false);
+      const verifiedValue = Number((hydratedData || stage1Data || {}).verifiedPropertyValue || 0);
+      const verificationFsd = Number((hydratedData || stage1Data || {}).verificationFsd || 0);
+      if (verifiedValue || statedValue) {
         setAvmResult({
-          estimatedValue: 465000,
-          confidenceScore: 92,
+          estimatedValue: verifiedValue || statedValue,
+          confidenceScore: verificationFsd ? Math.max(0, Math.round((1 - verificationFsd) * 100)) : 92,
           statedValue,
-          difference: statedValue ? 465000 - statedValue : 15000,
-          differencePercent: statedValue ? Number((((465000 - statedValue) / statedValue) * 100).toFixed(1)) : 3.3,
+          difference: verifiedValue && statedValue ? verifiedValue - statedValue : 0,
+          differencePercent: verifiedValue && statedValue ? Number((((verifiedValue - statedValue) / statedValue) * 100).toFixed(1)) : 0,
         });
-      }, 2500);
+      }
     };
 
     hydrate();
   }, []);
 
   const steps: { key: ValidationStep; label: string; icon: string }[] = [
-    { key: 'avm', label: 'Home Value', icon: '🏠' },
     { key: 'credit', label: 'Credit Check', icon: '📊' },
     { key: 'mortgages', label: 'Mortgages', icon: '🏦' },
     { key: 'updated-quote', label: 'Updated Quote', icon: '💰' },
@@ -232,69 +231,6 @@ export default function ValidatePage() {
             ))}
           </div>
         </div>
-
-        {/* ═══════════════════════════════════════════════
-            STEP 1: AVM / HOME VALUE CHECK
-        ═══════════════════════════════════════════════ */}
-        {currentStep === 'avm' && (
-          <div className="bg-white rounded-2xl shadow-md p-8">
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-                <span className="text-3xl">🏠</span>
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Checking Home Value</h2>
-              <p className="text-gray-600">We're verifying your property value with market data.</p>
-            </div>
-
-            {avmChecking ? (
-              <div className="text-center py-12">
-                <div className="inline-flex items-center gap-3 text-blue-600">
-                  <svg className="animate-spin w-6 h-6" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  <span className="text-lg font-medium">Analyzing property data...</span>
-                </div>
-                <p className="text-sm text-gray-500 mt-4">Checking multiple valuation sources</p>
-              </div>
-            ) : avmResult && (
-              <>
-                <div className="grid grid-cols-2 gap-4 mb-8">
-                  <div className="bg-gray-50 rounded-xl p-5 text-center">
-                    <p className="text-sm text-gray-500 mb-1">Your Estimate</p>
-                    <p className="text-2xl font-bold text-gray-900">${avmResult.statedValue.toLocaleString()}</p>
-                  </div>
-                  <div className="bg-blue-50 rounded-xl p-5 text-center">
-                    <p className="text-sm text-blue-600 mb-1">Market Value</p>
-                    <p className="text-2xl font-bold text-blue-700">${avmResult.estimatedValue.toLocaleString()}</p>
-                    <p className="text-xs text-blue-500 mt-1">{avmResult.confidenceScore}% confidence</p>
-                  </div>
-                </div>
-
-                {Math.abs(avmResult.differencePercent) <= 10 ? (
-                  <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 text-center">
-                    <p className="text-green-700 font-semibold">✓ Your estimate is within range</p>
-                    <p className="text-green-600 text-sm">Market data supports your stated value.</p>
-                  </div>
-                ) : (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-center">
-                    <p className="text-amber-700 font-semibold">⚠ Value Adjustment</p>
-                    <p className="text-amber-600 text-sm">
-                      Market data suggests a different value. Your available cash may be updated.
-                    </p>
-                  </div>
-                )}
-
-                <button
-                  onClick={() => goToStep('credit')}
-                  className="w-full py-4 px-6 rounded-xl font-semibold text-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all"
-                >
-                  Continue to Credit Check →
-                </button>
-              </>
-            )}
-          </div>
-        )}
 
         {/* ═══════════════════════════════════════════════
             STEP 2: CREDIT PULL (DOB + SSN)
