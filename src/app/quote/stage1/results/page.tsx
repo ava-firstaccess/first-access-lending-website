@@ -509,19 +509,10 @@ export default function ResultsPage() {
                 </p>
               </div>
 
-              <div className="grid md:grid-cols-3 gap-6 mb-8 opacity-75">
+              <div className="max-w-md mx-auto mb-8 opacity-90">
                 <div className="bg-blue-50 rounded-xl p-6 text-center">
                   <div className="text-sm text-blue-600 font-medium mb-1">Estimated Max Available</div>
                   <div className="text-3xl md:text-4xl font-bold text-blue-900">${refiQuote.maxAvailable.toLocaleString()}</div>
-                </div>
-                <div className="bg-green-50 rounded-xl p-6 text-center">
-                  <div className="text-sm text-green-600 font-medium mb-1">Estimated Rate</div>
-                  <div className="text-3xl md:text-4xl font-bold text-green-900">{refiQuote.rate.toFixed(2)}%</div>
-                  <div className="text-xs text-green-600 mt-1">{refiQuote.rateType}</div>
-                </div>
-                <div className="bg-orange-50 rounded-xl p-6 text-center">
-                  <div className="text-sm text-orange-600 font-medium mb-1">Estimated Monthly Payment</div>
-                  <div className="text-3xl md:text-4xl font-bold text-orange-900">${refiQuote.monthlyPayment.toLocaleString()}</div>
                 </div>
               </div>
 

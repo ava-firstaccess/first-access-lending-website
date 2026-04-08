@@ -257,15 +257,6 @@ export default function Stage1() {
               <SelectButton field="product" value="NoCashRefi" optionKey="nocash"
                 label="Rate & Term Refinance" desc="Lower your rate or change your term, no cash out" />
             </div>
-
-            {(data.product === 'CashOut' || data.product === 'NoCashRefi') && (
-              <div className="mt-5 bg-amber-50 border border-amber-200 rounded-xl p-4 text-left">
-                <div className="text-sm font-semibold text-amber-800 mb-1">Instant rate quote for this product type coming soon</div>
-                <p className="text-sm text-amber-700 leading-relaxed">
-                  You can still continue with the same questions now. At the end, we&apos;ll collect your contact info and match you with a loan specialist for next steps.
-                </p>
-              </div>
-            )}
           </QuestionCard>
         );
 
