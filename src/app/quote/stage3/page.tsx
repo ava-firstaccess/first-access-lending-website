@@ -317,15 +317,31 @@ export default function Stage3Page() {
                   </>
                 ) : result.tier === 'estimate' || result.needsHuman ? (
                   <>
-                    <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-700 px-4 py-2 rounded-full text-sm font-semibold mb-4">
-                      ⚠️ Value Mismatch
-                    </div>
-                    <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                      Your Loan Amount Needs Adjustment
-                    </h1>
-                    <p className="text-gray-600">
-                      Based on the validated property value, your requested loan amount is outside the available range.
-                    </p>
+                    {valueIncreased ? (
+                      <>
+                        <div className="inline-flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-semibold mb-4">
+                          🎉 Higher Verified Value
+                        </div>
+                        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                          Good News: More Cash May Be Available
+                        </h1>
+                        <p className="text-gray-600">
+                          Based on the validated property value, your home may qualify for additional cash out. Review the updated amount below.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-700 px-4 py-2 rounded-full text-sm font-semibold mb-4">
+                          ⚠️ Value Mismatch
+                        </div>
+                        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                          Your Loan Amount Needs Adjustment
+                        </h1>
+                        <p className="text-gray-600">
+                          Based on the validated property value, your requested loan amount is outside the available range.
+                        </p>
+                      </>
+                    )}
                   </>
                 ) : (
                   <>
