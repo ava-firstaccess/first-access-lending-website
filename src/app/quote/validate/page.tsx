@@ -4,7 +4,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { SSNField, PhoneField } from '@/components/quote/FormField';
 
 type ValidationStep = 'avm' | 'credit' | 'mortgages' | 'updated-quote' | 'closing-costs';
@@ -37,7 +37,6 @@ interface ClosingCostItem {
 
 export default function ValidatePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [currentStep, setCurrentStep] = useState<ValidationStep>('avm');
   const [loading, setLoading] = useState(false);
 
@@ -72,8 +71,9 @@ export default function ValidatePage() {
 
   useEffect(() => {
     const hydrate = async () => {
-      const applicationId = searchParams.get('applicationId');
-      const sessionToken = searchParams.get('sessionToken');
+      const params = new URLSearchParams(window.location.search);
+      const applicationId = params.get('applicationId');
+      const sessionToken = params.get('sessionToken');
 
       let hydratedData: any = null;
       let stage1Data: any = null;
@@ -130,7 +130,7 @@ export default function ValidatePage() {
     };
 
     hydrate();
-  }, [searchParams]);
+  }, []);
 
   const steps: { key: ValidationStep; label: string; icon: string }[] = [
     { key: 'avm', label: 'Home Value', icon: '🏠' },
