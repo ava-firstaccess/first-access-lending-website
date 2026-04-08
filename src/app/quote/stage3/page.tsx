@@ -126,18 +126,41 @@ export default function Stage3Page() {
   const product = String(stage1.product || 'HELOC');
   const desiredLoanAmount = Number(stage1.desiredLoanAmount) || 0;
 
+  function getRateForScenario(maxAvailableForPricing: number) {
+    const baseRate = product === 'HELOC' ? 7.25 : 8.0;
+    const creditAdj = creditScore >= 720 ? 0 : creditScore >= 680 ? 0.25 : creditScore >= 640 ? 0.5 : 1.0;
+    const propertyAdj: Record<string, number> = { Primary: 0, Investment: 0.5, '2nd Home': 0.25 };
+    let ltvAdj = 0;
+
+    if (maxAvailableForPricing > 0) {
+      const combinedLtv = (loanBalance + maxAvailableForPricing) / Math.max(propertyValue, 1);
+      if (combinedLtv > 0.85) ltvAdj = 0.5;
+      else if (combinedLtv > 0.80) ltvAdj = 0.25;
+    }
+
+    return baseRate + creditAdj + (propertyAdj[propertyType] || 0) + ltvAdj;
+  }
+
+  const previousRate = useMemo(() => getRateForScenario(desiredLoanAmount), [desiredLoanAmount, product, creditScore, propertyType, loanBalance, propertyValue]);
+  const updatedRate = useMemo(() => {
+    const validatedValue = result?.hcValue || propertyValue;
+    const effectiveMax = result?.newMaxLoan || desiredLoanAmount;
+    const baseRate = product === 'HELOC' ? 7.25 : 8.0;
+    const creditAdj = creditScore >= 720 ? 0 : creditScore >= 680 ? 0.25 : creditScore >= 640 ? 0.5 : 1.0;
+    const propertyAdj: Record<string, number> = { Primary: 0, Investment: 0.5, '2nd Home': 0.25 };
+    let ltvAdj = 0;
+    if (effectiveMax > 0) {
+      const combinedLtv = (loanBalance + effectiveMax) / Math.max(validatedValue, 1);
+      if (combinedLtv > 0.85) ltvAdj = 0.5;
+      else if (combinedLtv > 0.80) ltvAdj = 0.25;
+    }
+    return baseRate + creditAdj + (propertyAdj[propertyType] || 0) + ltvAdj;
+  }, [result, propertyValue, desiredLoanAmount, product, creditScore, propertyType, loanBalance]);
+
   // Calculate monthly payment for chosen amount
   const monthlyPayment = useMemo(() => {
     if (loanAmount <= 0) return 0;
-    const baseRate = product === 'HELOC' ? 7.25 : 8.00;
-    let creditAdj = 0;
-    if (creditScore >= 720) creditAdj = 0;
-    else if (creditScore >= 680) creditAdj = 0.25;
-    else if (creditScore >= 640) creditAdj = 0.50;
-    else creditAdj = 1.00;
-    const propertyAdj: Record<string, number> = { 'Primary': 0, 'Investment': 0.50, '2nd Home': 0.25 };
-    const rate = baseRate + creditAdj + (propertyAdj[propertyType] || 0);
-    const monthlyRate = rate / 100 / 12;
+    const monthlyRate = updatedRate / 100 / 12;
 
     if (product === 'HELOC') {
       return Math.round(loanAmount * monthlyRate);
@@ -146,7 +169,7 @@ export default function Stage3Page() {
       const n = cesTerm * 12;
       return Math.round(loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
     }
-  }, [loanAmount, product, creditScore, propertyType, stage1.cesTerm]);
+  }, [loanAmount, product, updatedRate, stage1.cesTerm]);
 
   async function handleValidate() {
     setStatus('loading');
@@ -465,7 +488,7 @@ export default function Stage3Page() {
 
               {/* Max Available comparison */}
               {result.newMaxLoan !== undefined && (
-                <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="grid grid-cols-2 gap-3 mb-4">
                   <div className="bg-gray-100 rounded-xl p-4 text-center border border-gray-200">
                     <div className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Previous Max</div>
                     <div className="text-xl font-bold text-gray-400 line-through">${oldMax.toLocaleString()}</div>
@@ -482,6 +505,24 @@ export default function Stage3Page() {
                   </div>
                 </div>
               )}
+
+              {/* Rate comparison */}
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="bg-gray-100 rounded-xl p-4 text-center border border-gray-200">
+                  <div className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Previous Rate</div>
+                  <div className="text-xl font-bold text-gray-400 line-through">{previousRate.toFixed(2)}%</div>
+                </div>
+                <div className={`rounded-xl p-4 text-center border-2 ${
+                  updatedRate <= previousRate
+                    ? 'bg-green-50 border-green-300'
+                    : 'bg-amber-50 border-amber-300'
+                }`}>
+                  <div className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Updated Rate</div>
+                  <div className={`text-xl font-bold ${updatedRate <= previousRate ? 'text-green-700' : 'text-amber-700'}`}>
+                    {updatedRate.toFixed(2)}%
+                  </div>
+                </div>
+              </div>
 
               {/* Loan amount slider (for verified/estimate tiers) */}
               {newMax > 0 && (result.tier === 'verified' || result.tier === 'estimate' || result.tier === 'low_confidence') && (
