@@ -4,7 +4,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { SSNField, PhoneField } from '@/components/quote/FormField';
 
 type ValidationStep = 'avm' | 'credit' | 'mortgages' | 'updated-quote' | 'closing-costs';
@@ -37,6 +37,7 @@ interface ClosingCostItem {
 
 export default function ValidatePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [currentStep, setCurrentStep] = useState<ValidationStep>('avm');
   const [loading, setLoading] = useState(false);
 
@@ -70,42 +71,66 @@ export default function ValidatePage() {
   const [properties, setProperties] = useState<{ address: string; index: number }[]>([]);
 
   useEffect(() => {
-    // Load form data from localStorage
-    const stage2Raw = localStorage.getItem('stage2-progress');
-    const stage1Raw = localStorage.getItem('stage1-data');
-    if (stage2Raw) {
-      const data = { ...(stage1Raw ? JSON.parse(stage1Raw) : {}), ...JSON.parse(stage2Raw) };
-      setFormData(data);
+    const hydrate = async () => {
+      const applicationId = searchParams.get('applicationId');
+      const sessionToken = searchParams.get('sessionToken');
 
-      // Build property list
-      const props = [];
-      if (data.propertyAddress) {
-        props.push({ address: data.propertyAddress, index: 0 });
+      let hydratedData: any = null;
+      let stage1Data: any = null;
+
+      if (applicationId && sessionToken) {
+        try {
+          const res = await fetch(`/api/application?applicationId=${encodeURIComponent(applicationId)}&sessionToken=${encodeURIComponent(sessionToken)}`);
+          if (res.ok) {
+            const payload = await res.json();
+            hydratedData = payload?.application?.form_data || payload?.form_data || null;
+          }
+        } catch (err) {
+          console.error('Failed to hydrate validation page from application API', err);
+        }
       }
-      const numOther = Number(data['Number of Other Properties']) || 0;
-      for (let i = 1; i <= numOther; i++) {
-        const addr = data[`Other Properties - Address ${i}`];
-        if (addr) props.push({ address: addr, index: i });
+
+      if (!hydratedData) {
+        const stage2Raw = localStorage.getItem('stage2-progress');
+        const stage1Raw = localStorage.getItem('stage1-data');
+        stage1Data = stage1Raw ? JSON.parse(stage1Raw) : null;
+        if (stage2Raw) {
+          hydratedData = { ...(stage1Data || {}), ...JSON.parse(stage2Raw) };
+        }
       }
-      setProperties(props);
 
-      // Set original values
-      setOriginalCashAvailable(Number(data.desiredLoanAmount) || Number(data.maxAvailable) || 0);
-    }
+      if (hydratedData) {
+        setFormData(hydratedData);
 
-    // Simulate AVM check starting
-    setTimeout(() => {
-      setAvmChecking(false);
-      // This will be replaced with real HouseCanary API call
-      setAvmResult({
-        estimatedValue: 465000,
-        confidenceScore: 92,
-        statedValue: Number(stage1Raw ? JSON.parse(stage1Raw).propertyValue : 0),
-        difference: 15000,
-        differencePercent: 3.3,
-      });
-    }, 2500);
-  }, []);
+        const props = [];
+        if (hydratedData.propertyAddress) {
+          props.push({ address: hydratedData.propertyAddress, index: 0 });
+        }
+        const numOther = Number(hydratedData['Number of Other Properties']) || 0;
+        for (let i = 1; i <= numOther; i++) {
+          const addr = hydratedData[`Other Properties - Address ${i}`];
+          if (addr) props.push({ address: addr, index: i });
+        }
+        setProperties(props);
+        setOriginalCashAvailable(Number(hydratedData.desiredLoanAmount) || Number(hydratedData.maxAvailable) || 0);
+        setOriginalRate(Number(hydratedData.interestRate) || 0);
+      }
+
+      const statedValue = Number((hydratedData || stage1Data || {}).propertyValue || 0);
+      setTimeout(() => {
+        setAvmChecking(false);
+        setAvmResult({
+          estimatedValue: 465000,
+          confidenceScore: 92,
+          statedValue,
+          difference: statedValue ? 465000 - statedValue : 15000,
+          differencePercent: statedValue ? Number((((465000 - statedValue) / statedValue) * 100).toFixed(1)) : 3.3,
+        });
+      }, 2500);
+    };
+
+    hydrate();
+  }, [searchParams]);
 
   const steps: { key: ValidationStep; label: string; icon: string }[] = [
     { key: 'avm', label: 'Home Value', icon: '🏠' },

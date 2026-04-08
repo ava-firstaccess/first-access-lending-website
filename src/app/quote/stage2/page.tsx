@@ -512,6 +512,12 @@ function Stage2Content() {
       }
 
       setSubmitResult({ success: true, message: data.message || 'Application submitted successfully!' });
+
+      if (data?.applicationId && data?.sessionToken) {
+        router.push(`/quote/validate?applicationId=${encodeURIComponent(data.applicationId)}&sessionToken=${encodeURIComponent(data.sessionToken)}`);
+        return;
+      }
+
       // Clear saved progress
       // TODO: RE-ENABLE BEFORE LAUNCH - Temporarily disabled for testing
       // localStorage.removeItem('stage2-progress');
