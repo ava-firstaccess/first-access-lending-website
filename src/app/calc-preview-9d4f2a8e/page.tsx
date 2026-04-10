@@ -334,9 +334,9 @@ export default function MortgageCalculator() {
                     <button
                       onClick={() => {
                         setLoanType('conventional');
-                        // Enforce 5% minimum for conventional
-                        if (downPaymentPercent < 5) {
-                          handleDownPaymentPercentChange(5);
+                        // Enforce 3% minimum for conventional
+                        if (downPaymentPercent < 3) {
+                          handleDownPaymentPercentChange(3);
                         }
                       }}
                       className={`flex-1 px-4 py-3 rounded-lg font-medium transition ${
@@ -455,9 +455,9 @@ export default function MortgageCalculator() {
                         : '⚠️ FHA MIP required (all FHA loans)'}
                     </p>
                   )}
-                  {loanType === 'conventional' && downPaymentPercent < 5 && (
+                  {loanType === 'conventional' && downPaymentPercent < 3 && (
                     <p className="mt-1 text-xs text-red-600">
-                      ⚠️ Conventional loans require minimum 5% down payment
+                      ⚠️ Conventional loans require minimum 3% down payment
                     </p>
                   )}
                   {loanType === 'fha' && downPaymentPercent < 3.5 && (
