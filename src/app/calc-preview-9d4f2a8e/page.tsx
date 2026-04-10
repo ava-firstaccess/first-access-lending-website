@@ -69,8 +69,8 @@ const US_STATES = [
 export default function MortgageCalculator() {
   // Mortgage inputs
   const [homePrice, setHomePrice] = useState<number>(400000);
-  const [downPayment, setDownPayment] = useState<number>(12000); // 3% default
-  const [downPaymentPercent, setDownPaymentPercent] = useState<number>(3); // 3% default
+  const [downPayment, setDownPayment] = useState<number>(20000); // 5% default, 3% minimum
+  const [downPaymentPercent, setDownPaymentPercent] = useState<number>(5); // 5% default, 3% minimum
   const [interestRate, setInterestRate] = useState<number>(0); // Will be populated by API
   const [loanTerm, setLoanTerm] = useState<number>(30);
   const [propertyTaxRate, setPropertyTaxRate] = useState<number>(1.2);
