@@ -182,7 +182,7 @@ export default function MortgageCalculator() {
     (monthlyRate * Math.pow(1 + monthlyRate, numPayments)) / 
     (Math.pow(1 + monthlyRate, numPayments) - 1);
 
-  const monthlyPropertyTax = (homePrice * (propertyTaxRate / 100)) / 12;
+  const monthlyPropertyTax = propertyTaxAnnual / 12;
   const monthlyInsurance = homeInsurance / 12;
   const monthlyHOA = hoaFees;
   
