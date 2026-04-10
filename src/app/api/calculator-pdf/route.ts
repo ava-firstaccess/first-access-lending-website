@@ -418,7 +418,7 @@ function generatePDFHTML(data: any): string {
     
     <p style="margin-top: 12px;">
       <strong>Assumptions:</strong> Conventional PMI: 0.17% for &lt;90% LTV, 0.24% for 90-95% LTV. FHA MIP: 0.80% for ≤95% LTV, 0.85% for &gt;95% LTV 
-      (does not include upfront MIP). Minimum down payment: 5% conventional, 3.5% FHA. Actual rates vary by credit score, loan amount, and lender. 
+      (does not include upfront MIP). Minimum down payment: 3% conventional, 3.5% FHA. Actual rates vary by credit score, loan amount, and lender. 
       State tax rates are simplified estimates. SALT deduction capped at $10,000. PMI deductibility phases out for AGI above $100,000. 
       Actual results may vary significantly based on credit profile, loan type, property location, and individual tax circumstances. Tax laws change frequently.
     </p>

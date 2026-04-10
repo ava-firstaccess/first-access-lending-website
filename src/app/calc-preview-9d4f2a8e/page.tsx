@@ -69,8 +69,8 @@ const US_STATES = [
 export default function MortgageCalculator() {
   // Mortgage inputs
   const [homePrice, setHomePrice] = useState<number>(400000);
-  const [downPayment, setDownPayment] = useState<number>(20000); // 5% default
-  const [downPaymentPercent, setDownPaymentPercent] = useState<number>(5); // 5% default
+  const [downPayment, setDownPayment] = useState<number>(12000); // 3% default
+  const [downPaymentPercent, setDownPaymentPercent] = useState<number>(3); // 3% default
   const [interestRate, setInterestRate] = useState<number>(0); // Will be populated by API
   const [loanTerm, setLoanTerm] = useState<number>(30);
   const [propertyTaxRate, setPropertyTaxRate] = useState<number>(1.2);
@@ -145,7 +145,7 @@ export default function MortgageCalculator() {
 
   const handleDownPaymentPercentChange = (value: number) => {
     // Enforce minimum down payment based on loan type
-    const minDown = loanType === 'va' ? 0 : loanType === 'fha' ? 3.5 : 5;
+    const minDown = loanType === 'va' ? 0 : loanType === 'fha' ? 3.5 : 3;
     const constrainedValue = Math.max(minDown, value);
     setDownPaymentPercent(Math.round(constrainedValue * 10) / 10); // Round to 1 decimal
     setDownPayment(Math.round((constrainedValue / 100) * homePrice));
@@ -1001,7 +1001,7 @@ export default function MortgageCalculator() {
               <p className="text-xs text-gray-600 mb-2 leading-relaxed">
                 <strong>Assumptions:</strong> Conventional PMI: 0.17% for &lt;90% LTV, 0.24% for 90-95% LTV. 
                 FHA MIP: 0.80% for ≤95% LTV, 0.85% for &gt;95% LTV (does not include upfront MIP). 
-                Minimum down payment: 5% for conventional, 3.5% for FHA. 
+                Minimum down payment: 3% for conventional, 3.5% for FHA. 
                 Actual PMI/MIP rates vary by credit score, loan amount, and lender. 
                 State tax rates are simplified marginal estimates and may not reflect actual liability. 
                 SALT deduction capped at $10,000 (federal tax law). 
