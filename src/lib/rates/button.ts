@@ -66,6 +66,7 @@ type Matrix = Array<Array<number | string | null>>;
 
 const NOTE_RATE_ROWS = ratesheet.noteRates as unknown as RateRow[];
 const CLTV_MATRIX = ratesheet.tables.cltv as { rows: string[]; columns: string[]; fullDoc: Matrix; altDoc: Matrix };
+const CASH_OUT_TABLE = ratesheet.tables.cashOut as { rows: string[]; columns: Array<string | null>; values: Matrix };
 
 const FICO_BUCKETS = [
   { max: 639, label: 'FICO 620 - 639' },
@@ -145,7 +146,7 @@ export function calculateButtonQuote(
   const cltvAdj = getMatrixValue(CLTV_MATRIX[docKey], ficoIndex, cltvIndex);
 
   const propertyAdj = getPropertyTypeAdjustment(input);
-  const cashOutAdj = input.cashOut ? 0.25 : 0;
+  const cashOutAdj = input.cashOut ? getMatrixValue(CASH_OUT_TABLE.values, 0, cltvIndex) : 0;
   const termAdj = getTermAdjustment(input, options);
 
   const llpaAdjustment = roundToThree(cltvAdj + propertyAdj + cashOutAdj + termAdj);
