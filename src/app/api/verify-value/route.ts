@@ -191,13 +191,14 @@ export async function POST(req: NextRequest) {
     const newMaxLoan = Math.max(0, (hcEstimate * maxLtv) - balance);
 
     // ══════════════════════════════════════
-    // Step 2: Check cascade conditions
+    // Step 2: Decide whether to stop, keep HC, or cascade
     // ══════════════════════════════════════
-    const loanDiffPct = desired > 0 ? Math.abs(newMaxLoan - desired) / desired : 1;
-    const withinThreshold = loanDiffPct <= 0.20 && newMaxLoan > 50000;
+    const hcRatio = desired > 0 ? newMaxLoan / desired : 0;
+    const useHouseCanaryEstimateOnly = hcRatio >= 0.8;
+    const shouldCascadeToClearCapital = hcRatio >= 0.25 && hcRatio < 0.8 && newMaxLoan >= 25000;
+    const shouldHardFail = hcRatio < 0.25 || newMaxLoan < 25000;
 
-    if (!withinThreshold) {
-      // Loan amount too far off or too small - exit ramp
+    if (useHouseCanaryEstimateOnly) {
       const responsePayload = {
         tier: 'estimate',
         hcValue: hcEstimate,
@@ -205,7 +206,67 @@ export async function POST(req: NextRequest) {
         newMaxLoan: Math.round(newMaxLoan),
         maxLtv,
         desiredLoanAmount: desired,
-        loanDiffPct: Math.round(loanDiffPct * 100),
+        hcRatio: Number(hcRatio.toFixed(4)),
+        cascadeDecision: 'use_hc',
+        needsHuman: false,
+      };
+      await saveCachedAvmResult(supabase, {
+        address_key: addressKey,
+        address,
+        zipcode: zipcode || null,
+        city: city || null,
+        state: state || null,
+        tier: 'estimate',
+        hc_estimate: hcEstimate,
+        hc_value: null,
+        fsd: null,
+        new_max_loan: Math.round(newMaxLoan),
+        max_ltv: maxLtv,
+        response_payload: responsePayload,
+      });
+      return NextResponse.json(responsePayload);
+    }
+
+    if (shouldHardFail) {
+      const responsePayload = {
+        tier: 'estimate',
+        hcValue: hcEstimate,
+        statedValue: Number(statedValue),
+        newMaxLoan: Math.round(newMaxLoan),
+        maxLtv,
+        desiredLoanAmount: desired,
+        hcRatio: Number(hcRatio.toFixed(4)),
+        cascadeDecision: 'hard_fail_no_cc',
+        needsHuman: true,
+      };
+      await saveCachedAvmResult(supabase, {
+        address_key: addressKey,
+        address,
+        zipcode: zipcode || null,
+        city: city || null,
+        state: state || null,
+        tier: 'estimate',
+        hc_estimate: hcEstimate,
+        hc_value: null,
+        fsd: null,
+        new_max_loan: Math.round(newMaxLoan),
+        max_ltv: maxLtv,
+        response_payload: responsePayload,
+      });
+      return NextResponse.json(responsePayload);
+    }
+
+    // Borderline miss: continue to next paid valuation layer
+    if (!shouldCascadeToClearCapital) {
+      const responsePayload = {
+        tier: 'estimate',
+        hcValue: hcEstimate,
+        statedValue: Number(statedValue),
+        newMaxLoan: Math.round(newMaxLoan),
+        maxLtv,
+        desiredLoanAmount: desired,
+        hcRatio: Number(hcRatio.toFixed(4)),
+        cascadeDecision: 'manual_review',
         needsHuman: true,
       };
       await saveCachedAvmResult(supabase, {
