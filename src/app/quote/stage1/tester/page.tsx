@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { calculateButtonStage1Quote, getTargetPurchasePriceForLoanAmount, solveButtonStage1TargetRate, type ButtonStage1Input } from '@/lib/rates/button';
+import { calculateButtonStage1Quote, evaluateButtonStage1Eligibility, getTargetPurchasePriceForLoanAmount, solveButtonStage1TargetRate, type ButtonStage1Input } from '@/lib/rates/button';
 
 const defaultInput: ButtonStage1Input = {
   product: 'HELOC',
@@ -26,6 +26,7 @@ export default function Stage1TesterPage() {
     return getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0));
   }, [input.desiredLoanAmount, targetPriceOverride]);
 
+  const eligibility = useMemo(() => evaluateButtonStage1Eligibility(input, input.desiredLoanAmount), [input]);
   const quote = useMemo(() => calculateButtonStage1Quote(input), [input]);
   const targetQuote = useMemo(() => solveButtonStage1TargetRate(input, {
     targetPrice: effectiveTargetPrice,
@@ -129,6 +130,19 @@ export default function Stage1TesterPage() {
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-semibold text-slate-900">Output</h2>
+            <div className={`mb-4 rounded-2xl border p-4 ${eligibility.eligible ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}>
+              <div className={`text-sm font-semibold ${eligibility.eligible ? 'text-emerald-900' : 'text-red-900'}`}>
+                {eligibility.eligible ? 'Eligible' : 'Ineligible'}
+              </div>
+              <div className="mt-1 text-sm text-slate-700">
+                Resulting CLTV: {(eligibility.resultingCltv * 100).toFixed(2)}% • Max Available: ${Math.round(eligibility.maxAvailable).toLocaleString()}
+              </div>
+              {!eligibility.eligible && (
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-900">
+                  {eligibility.reasons.map(reason => <li key={reason}>{reason}</li>)}
+                </ul>
+              )}
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <Metric label="Max Available" value={`$${Math.round(quote.maxAvailable).toLocaleString()}`} />
               <Metric label="Rate" value={`${quote.rate.toFixed(3)}%`} />
@@ -154,7 +168,7 @@ export default function Stage1TesterPage() {
 
             <div className="mt-6">
               <div className="mb-2 text-sm font-medium text-slate-700">Raw JSON</div>
-              <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100">{JSON.stringify({ input, quote, targetQuote }, null, 2)}</pre>
+              <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100">{JSON.stringify({ input, eligibility, quote, targetQuote }, null, 2)}</pre>
             </div>
           </div>
         </div>

@@ -61,6 +61,13 @@ export interface ButtonTargetRateQuote extends ButtonQuote {
   withinTolerance: boolean;
 }
 
+export interface ButtonEligibilityResult {
+  eligible: boolean;
+  reasons: string[];
+  maxAvailable: number;
+  resultingCltv: number;
+}
+
 type RateRow = {
   noteRate: number;
   prices: {
@@ -204,11 +211,40 @@ export function calculateButtonStage1Quote(
   return calculateButtonQuote(buildButtonStage1PricingInput(stage1), options);
 }
 
+export function evaluateButtonEligibility(input: ButtonPricingInput, selectedLoanAmount?: number): ButtonEligibilityResult {
+  const reasons: string[] = [];
+  const maxAvailable = calculateMaxAvailable(input);
+  const requested = Math.max(0, selectedLoanAmount ?? input.desiredLoanAmount ?? 0);
+
+  if (input.creditScore < 620) {
+    reasons.push('Credit score is below the current supported Button pricing range.');
+  }
+
+  if (input.resultingCltv > 0.9) {
+    reasons.push('Resulting CLTV is above the current supported Button pricing range.');
+  }
+
+  if (requested > maxAvailable) {
+    reasons.push('Desired loan amount exceeds the current max available amount.');
+  }
+
+  return {
+    eligible: reasons.length === 0,
+    reasons,
+    maxAvailable,
+    resultingCltv: input.resultingCltv,
+  };
+}
+
 export function getTargetPurchasePriceForLoanAmount(loanAmount: number): number {
   const amount = Math.max(0, loanAmount);
   const match = SECOND_LIEN_MARGIN_TARGETS.find(row => amount >= row.min && amount <= row.max);
   const backendFee = match?.backendFee ?? SECOND_LIEN_MARGIN_TARGETS[SECOND_LIEN_MARGIN_TARGETS.length - 1].backendFee;
   return roundToThree(100 + backendFee * 100);
+}
+
+export function evaluateButtonStage1Eligibility(stage1: ButtonStage1Input, selectedLoanAmount?: number): ButtonEligibilityResult {
+  return evaluateButtonEligibility(buildButtonStage1PricingInput(stage1), selectedLoanAmount);
 }
 
 export function solveButtonStage1TargetRate(
