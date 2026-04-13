@@ -82,6 +82,8 @@ const NOTE_RATE_ROWS = ratesheet.noteRates as unknown as RateRow[];
 const CLTV_MATRIX = ratesheet.tables.cltv as { rows: string[]; columns: string[]; fullDoc: Matrix; altDoc: Matrix };
 const CASH_OUT_TABLE = ratesheet.tables.cashOut as { rows: string[]; columns: Array<string | null>; values: Matrix };
 
+const BUTTON_MAX_PURCHASE_PRICE = 105;
+
 const SECOND_LIEN_MARGIN_TARGETS = [
   { min: 0, max: 100000, backendFee: 0.06 },
   { min: 100000, max: 150000, backendFee: 0.06 },
@@ -169,7 +171,7 @@ export function calculateButtonQuote(
 ): ButtonQuote {
   const maxAvailable = calculateMaxAvailable(input);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? maxAvailable);
-  const targetPrice = options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount);
+  const targetPrice = Math.min(options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), BUTTON_MAX_PURCHASE_PRICE);
   const docKey = input.docType === 'Bank Statement' ? 'altDoc' : 'fullDoc';
 
   const ficoIndex = getFicoBucketIndex(input.creditScore);
@@ -181,7 +183,7 @@ export function calculateButtonQuote(
   const termAdj = getTermAdjustment(input, options);
 
   const llpaAdjustment = roundToThree(cltvAdj + propertyAdj + cashOutAdj + termAdj);
-  const selected = pickNoteRate(input.product, docKey, llpaAdjustment, targetPrice);
+  const selected = pickNoteRateAtOrBelowTarget(input.product, docKey, llpaAdjustment, targetPrice);
 
   const monthlyPayment = calculateMonthlyPayment(input.product, selected.noteRate, selected.purchasePrice, selectedLoanAmount, options);
 
@@ -261,7 +263,7 @@ export function solveButtonStage1TargetRate(
   const input = buildButtonStage1PricingInput(stage1);
   const docKey = input.docType === 'Bank Statement' ? 'altDoc' : 'fullDoc';
   const selectedLoanAmount = Math.max(0, options.selectedLoanAmount ?? input.desiredLoanAmount ?? calculateMaxAvailable(input));
-  const targetPrice = options.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount);
+  const targetPrice = Math.min(options.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), BUTTON_MAX_PURCHASE_PRICE);
   const tolerance = options.tolerance ?? 0.125;
 
   const ficoIndex = getFicoBucketIndex(input.creditScore);
