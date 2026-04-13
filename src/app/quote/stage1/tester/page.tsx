@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { calculateButtonStage1Quote, solveButtonStage1TargetRate, type ButtonStage1Input } from '@/lib/rates/button';
+import { calculateButtonStage1Quote, getTargetPurchasePriceForLoanAmount, solveButtonStage1TargetRate, type ButtonStage1Input } from '@/lib/rates/button';
 
 const defaultInput: ButtonStage1Input = {
   product: 'HELOC',
@@ -18,15 +18,20 @@ const defaultInput: ButtonStage1Input = {
 
 export default function Stage1TesterPage() {
   const [input, setInput] = useState<ButtonStage1Input>(defaultInput);
-  const [targetPrice, setTargetPrice] = useState(106);
+  const [targetPriceOverride, setTargetPriceOverride] = useState<string>('');
   const [tolerance, setTolerance] = useState(0.125);
+
+  const effectiveTargetPrice = useMemo(() => {
+    if (targetPriceOverride.trim()) return Number(targetPriceOverride);
+    return getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0));
+  }, [input.desiredLoanAmount, targetPriceOverride]);
 
   const quote = useMemo(() => calculateButtonStage1Quote(input), [input]);
   const targetQuote = useMemo(() => solveButtonStage1TargetRate(input, {
-    targetPrice,
+    targetPrice: effectiveTargetPrice,
     tolerance,
     selectedLoanAmount: input.desiredLoanAmount,
-  }), [input, targetPrice, tolerance]);
+  }), [input, effectiveTargetPrice, tolerance]);
 
   function update<K extends keyof ButtonStage1Input>(key: K, value: ButtonStage1Input[K]) {
     setInput(prev => ({ ...prev, [key]: value }));
@@ -110,8 +115,9 @@ export default function Stage1TesterPage() {
               </label>
 
               <label className="text-sm">
-                <div className="mb-1 font-medium text-slate-700">Target Purchase Price</div>
-                <input type="number" step="0.001" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={targetPrice} onChange={e => setTargetPrice(Number(e.target.value))} />
+                <div className="mb-1 font-medium text-slate-700">Target Purchase Price Override</div>
+                <input type="number" step="0.001" placeholder={String(getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0)))} className="w-full rounded-lg border border-slate-300 px-3 py-2" value={targetPriceOverride} onChange={e => setTargetPriceOverride(e.target.value)} />
+                <div className="mt-1 text-xs text-slate-500">Auto target from loan amount: {effectiveTargetPrice.toFixed(3)}</div>
               </label>
 
               <label className="text-sm">

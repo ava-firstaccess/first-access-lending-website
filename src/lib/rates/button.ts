@@ -75,6 +75,23 @@ const NOTE_RATE_ROWS = ratesheet.noteRates as unknown as RateRow[];
 const CLTV_MATRIX = ratesheet.tables.cltv as { rows: string[]; columns: string[]; fullDoc: Matrix; altDoc: Matrix };
 const CASH_OUT_TABLE = ratesheet.tables.cashOut as { rows: string[]; columns: Array<string | null>; values: Matrix };
 
+const SECOND_LIEN_MARGIN_TARGETS = [
+  { min: 0, max: 100000, backendFee: 0.06 },
+  { min: 100000, max: 150000, backendFee: 0.06 },
+  { min: 150000, max: 200000, backendFee: 0.05 },
+  { min: 200000, max: 250000, backendFee: 0.045 },
+  { min: 250000, max: 300000, backendFee: 0.04 },
+  { min: 300000, max: 350000, backendFee: 0.035 },
+  { min: 350000, max: 400000, backendFee: 0.0325 },
+  { min: 400000, max: 450000, backendFee: 0.03 },
+  { min: 450000, max: 500000, backendFee: 0.0275 },
+  { min: 500000, max: 600000, backendFee: 0.025 },
+  { min: 600000, max: 700000, backendFee: 0.02 },
+  { min: 700000, max: 800000, backendFee: 0.02 },
+  { min: 800000, max: 900000, backendFee: 0.02 },
+  { min: 900000, max: 1000000, backendFee: 0.02 },
+] as const;
+
 const FICO_BUCKETS = [
   { max: 639, label: 'FICO 620 - 639' },
   { max: 659, label: 'FICO 640 - 659' },
@@ -145,7 +162,7 @@ export function calculateButtonQuote(
 ): ButtonQuote {
   const maxAvailable = calculateMaxAvailable(input);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? maxAvailable);
-  const targetPrice = options?.targetPrice ?? 100;
+  const targetPrice = options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount);
   const docKey = input.docType === 'Bank Statement' ? 'altDoc' : 'fullDoc';
 
   const ficoIndex = getFicoBucketIndex(input.creditScore);
@@ -187,6 +204,13 @@ export function calculateButtonStage1Quote(
   return calculateButtonQuote(buildButtonStage1PricingInput(stage1), options);
 }
 
+export function getTargetPurchasePriceForLoanAmount(loanAmount: number): number {
+  const amount = Math.max(0, loanAmount);
+  const match = SECOND_LIEN_MARGIN_TARGETS.find(row => amount >= row.min && amount <= row.max);
+  const backendFee = match?.backendFee ?? SECOND_LIEN_MARGIN_TARGETS[SECOND_LIEN_MARGIN_TARGETS.length - 1].backendFee;
+  return roundToThree(100 + backendFee * 100);
+}
+
 export function solveButtonStage1TargetRate(
   stage1: ButtonStage1Input,
   options: {
@@ -201,7 +225,7 @@ export function solveButtonStage1TargetRate(
   const input = buildButtonStage1PricingInput(stage1);
   const docKey = input.docType === 'Bank Statement' ? 'altDoc' : 'fullDoc';
   const selectedLoanAmount = Math.max(0, options.selectedLoanAmount ?? input.desiredLoanAmount ?? calculateMaxAvailable(input));
-  const targetPrice = options.targetPrice;
+  const targetPrice = options.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount);
   const tolerance = options.tolerance ?? 0.125;
 
   const ficoIndex = getFicoBucketIndex(input.creditScore);
