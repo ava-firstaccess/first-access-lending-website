@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "button:generate": "python3 scripts/generate-button-ratesheet-data.py",
+    "button:verify": "python3 scripts/verify-button-ratesheet.py"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.0",
