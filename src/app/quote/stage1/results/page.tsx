@@ -4,6 +4,7 @@
 import { useRouter } from 'next/navigation';
 import React, { useState, useEffect, useMemo } from 'react';
 import { TextField, PhoneField } from '@/components/quote/FormField';
+import { calculateButtonStage1Quote } from '@/lib/rates/button';
 
 interface QuoteCalc {
   maxAvailable: number;
@@ -20,8 +21,6 @@ function calcQuote(
   creditScore: number,
   propertyType: string,
   drawTerm: number,
-  totalTerm: number,
-  cashOutAmount: number,
   cesTerm: number = 20
 ): QuoteCalc {
   let maxLtv = 0.80;
@@ -65,7 +64,6 @@ function calcQuote(
       const n = cesTerm * 12;
       monthlyPayment = Math.round(maxAvailable * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
     } else if (product === 'HELOC') {
-      // Interest-only during draw period
       monthlyPayment = Math.round(maxAvailable * monthlyRate);
     } else {
       monthlyPayment = Math.round(maxAvailable * monthlyRate);
@@ -73,13 +71,6 @@ function calcQuote(
   }
 
   return { maxAvailable, rate, monthlyPayment, maxLtv, rateType: product === 'HELOC' ? 'Variable' : 'Fixed' };
-}
-
-function calcRepaymentPayment(balance: number, rate: number, repaymentYears: number): number {
-  const monthlyRate = rate / 100 / 12;
-  const n = repaymentYears * 12;
-  if (balance <= 0 || n <= 0) return 0;
-  return Math.round(balance * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
 }
 
 // Loan amount slider component
@@ -139,10 +130,25 @@ function PillToggle({ options, value, onChange }: {
   );
 }
 
+interface Stage1Data {
+  product?: string;
+  propertyState?: string;
+  propertyAddress?: string;
+  propertyValue?: number;
+  loanBalance?: number;
+  creditScore?: number;
+  propertyType?: string;
+  occupancy?: string;
+  structureType?: string;
+  numberOfUnits?: number;
+  cashOutAmount?: number;
+  drawTerm?: number;
+}
+
 export default function ResultsPage() {
   const router = useRouter();
   const [loaded, setLoaded] = useState(false);
-  const [stage1, setStage1] = useState<Record<string, any>>({});
+  const [stage1, setStage1] = useState<Stage1Data>({});
   const [leadForm, setLeadForm] = useState({
     firstName: '',
     lastName: '',
@@ -182,17 +188,54 @@ export default function ResultsPage() {
   const loanBalance = Number(stage1.loanBalance) || 0;
   const creditScore = Number(stage1.creditScore) || 720;
   const propertyType = String(stage1.propertyType || 'Primary');
-  const cashOutAmount = Number(stage1.cashOutAmount) || 0;
   const propertyAddress = String(stage1.propertyAddress || '');
-
+  const propertyOccupancy = String(stage1.occupancy || 'Owner-Occupied');
+  const structureType = String(stage1.structureType || 'SFR');
+  const numberOfUnits = Number(stage1.numberOfUnits || 1);
+  const cashOutAmount = Number(stage1.cashOutAmount) || 0;
   const helocQuote = useMemo(() =>
-    calcQuote('HELOC', propertyValue, loanBalance, creditScore, propertyType, helocDrawTerm, helocTotalTerm, cashOutAmount),
-    [propertyValue, loanBalance, creditScore, propertyType, helocDrawTerm, helocTotalTerm, cashOutAmount]
+    calculateButtonStage1Quote(
+      {
+        product: 'HELOC',
+        propertyState: String(stage1.propertyState || ''),
+        propertyValue,
+        loanBalance,
+        desiredLoanAmount: cashOutAmount,
+        creditScore,
+        occupancy: propertyOccupancy,
+        structureType,
+        numberOfUnits,
+        cashOut: Boolean(cashOutAmount > 0),
+      },
+      {
+        selectedLoanAmount: helocLoanAmount ?? undefined,
+        helocDrawTermYears: helocDrawTerm,
+        helocTotalTermYears: helocTotalTerm,
+      }
+    ),
+    [propertyValue, loanBalance, creditScore, propertyOccupancy, structureType, numberOfUnits, cashOutAmount, helocDrawTerm, helocTotalTerm, helocLoanAmount, stage1.propertyState]
   );
 
   const cesQuote = useMemo(() =>
-    calcQuote('CES', propertyValue, loanBalance, creditScore, propertyType, 0, cesTerm, cashOutAmount, cesTerm),
-    [propertyValue, loanBalance, creditScore, propertyType, cashOutAmount, cesTerm]
+    calculateButtonStage1Quote(
+      {
+        product: 'CES',
+        propertyState: String(stage1.propertyState || ''),
+        propertyValue,
+        loanBalance,
+        desiredLoanAmount: cashOutAmount,
+        creditScore,
+        occupancy: propertyOccupancy,
+        structureType,
+        numberOfUnits,
+        cashOut: Boolean(cashOutAmount > 0),
+      },
+      {
+        selectedLoanAmount: cesLoanAmount ?? undefined,
+        cesTermYears: cesTerm,
+      }
+    ),
+    [propertyValue, loanBalance, creditScore, propertyOccupancy, structureType, numberOfUnits, cashOutAmount, cesTerm, cesLoanAmount, stage1.propertyState]
   );
 
   // Initialize loan amounts to max when quotes change
@@ -225,28 +268,12 @@ export default function ResultsPage() {
   const effectiveCesAmount = cesLoanAmount ?? cesQuote.maxAvailable;
 
   // Recalculate payments based on chosen loan amount
-  const helocChosenPayment = useMemo(() => {
-    const monthlyRate = helocQuote.rate / 100 / 12;
-    return Math.round(effectiveHelocAmount * monthlyRate);
-  }, [effectiveHelocAmount, helocQuote.rate]);
-
-  const cesChosenPayment = useMemo(() => {
-    const monthlyRate = cesQuote.rate / 100 / 12;
-    const n = cesTerm * 12;
-    if (effectiveCesAmount <= 0 || n <= 0) return 0;
-    return Math.round(effectiveCesAmount * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
-  }, [effectiveCesAmount, cesQuote.rate, cesTerm]);
-
   const helocRepaymentYears = helocTotalTerm - helocDrawTerm;
-  const helocRepaymentPayment = useMemo(() =>
-    calcRepaymentPayment(effectiveHelocAmount, helocQuote.rate, helocRepaymentYears),
-    [effectiveHelocAmount, helocQuote.rate, helocRepaymentYears]
-  );
 
   const isRefi = product === 'CashOut' || product === 'NoCashRefi';
   const refiQuote = useMemo(() =>
-    isRefi ? calcQuote(product, propertyValue, loanBalance, creditScore, propertyType, 0, 30, cashOutAmount) : null,
-    [isRefi, product, propertyValue, loanBalance, creditScore, propertyType, cashOutAmount]
+    isRefi ? calcQuote(product, propertyValue, loanBalance, creditScore, propertyType, 0) : null,
+    [isRefi, product, propertyValue, loanBalance, creditScore, propertyType]
   );
 
   const productFullLabels: Record<string, string> = {
@@ -292,8 +319,8 @@ export default function ResultsPage() {
       }
 
       setLeadSubmitted(true);
-    } catch (err: any) {
-      setLeadError(err.message || 'Unable to submit your request');
+    } catch (err) {
+      setLeadError(err instanceof Error ? err.message : 'Unable to submit your request');
     } finally {
       setLeadSubmitting(false);
     }
@@ -388,7 +415,7 @@ export default function ResultsPage() {
                     </div>
                     <div className="bg-orange-50 rounded-lg p-4 text-center">
                       <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly (Draw Period)</div>
-                      <div className="text-2xl font-bold text-orange-900">${helocChosenPayment.toLocaleString()}</div>
+                      <div className="text-2xl font-bold text-orange-900">${helocQuote.monthlyPayment.toLocaleString()}</div>
                       <div className="text-xs text-orange-600 mt-0.5">Interest only</div>
                     </div>
 
@@ -452,7 +479,7 @@ export default function ResultsPage() {
                     </div>
                     <div className="bg-orange-50 rounded-lg p-4 text-center">
                       <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly Payment</div>
-                      <div className="text-2xl font-bold text-orange-900">${cesChosenPayment.toLocaleString()}</div>
+                      <div className="text-2xl font-bold text-orange-900">${cesQuote.monthlyPayment.toLocaleString()}</div>
                       <div className="text-xs text-orange-600 mt-0.5">Principal &amp; Interest</div>
                     </div>
 
