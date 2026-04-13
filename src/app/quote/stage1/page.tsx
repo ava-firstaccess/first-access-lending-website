@@ -7,6 +7,7 @@ import QuestionCard from '@/components/quote/QuestionCard';
 import QuoteBuilder from '@/components/quote/QuoteBuilder';
 import AddressAutocomplete from '@/components/quote/AddressAutocomplete';
 import { useStepTracker } from '@/hooks/useStepTracker';
+import { calculateButtonStage1Quote } from '@/lib/rates/button';
 
 type ProductType = 'HELOC' | 'CES' | 'CashOut' | 'NoCashRefi';
 
@@ -129,39 +130,34 @@ export default function Stage1() {
       maxAvailable = Math.max(0, maxLoan - currentBalance);
     }
 
-    // Rate adjustments
-    let baseRate = 7.50;
-    
-    // Product adjustments
-    if (product === 'HELOC') {
-      baseRate = 7.25; // Variable rate, slightly lower start
-    } else if (product === 'CES') {
-      baseRate = 8.00; // Fixed rate, slightly higher
+    if (product === 'HELOC' || product === 'CES') {
+      const buttonQuote = calculateButtonStage1Quote({
+        product,
+        propertyState: data.propertyState,
+        propertyValue,
+        loanBalance: currentBalance,
+        desiredLoanAmount: cashOutAmount || 0,
+        creditScore: score,
+        occupancy: propType,
+        structureType: data.structureType,
+        numberOfUnits: data.numberOfUnits,
+        cashOut: Boolean(cashOutAmount && cashOutAmount > 0),
+      });
+
+      setQuote({
+        maxAvailable: Math.round(buttonQuote.maxAvailable),
+        rateRange: { min: buttonQuote.rate, max: buttonQuote.rate },
+        monthlyPayment: Math.round(buttonQuote.monthlyPayment)
+      });
+      return;
     }
-    
-    // Credit adjustments
-    let creditAdj = 0;
-    if (score >= 720) creditAdj = 0;
-    else if (score >= 680) creditAdj = 0.25;
-    else if (score >= 640) creditAdj = 0.50;
-    else creditAdj = 1.00;
 
-    const propertyAdj: Record<string, number> = {
-      'Primary': 0.00,
-      'Investment': 0.50,
-      '2nd Home': 0.25
-    };
-
-    const rate = baseRate + creditAdj + (propertyAdj[propType] || 0);
-    const rateRange = { min: rate, max: rate + 0.5 };
-
-    // Payment calc
-    const monthlyRate = rate / 100 / 12;
+    const monthlyRate = 7.5 / 100 / 12;
     const monthlyPayment = maxAvailable > 0 ? maxAvailable * monthlyRate : 0;
 
     setQuote({
       maxAvailable: Math.round(maxAvailable),
-      rateRange,
+      rateRange: { min: 7.5, max: 8.0 },
       monthlyPayment: Math.round(monthlyPayment)
     });
   };
@@ -211,7 +207,7 @@ export default function Stage1() {
   // Selection button with bounce animation
   const SelectButton = ({ field, value, label, desc, optionKey }: {
     field: keyof Stage1Data;
-    value: any;
+    value: string | number | boolean;
     label: string;
     desc?: string;
     optionKey: string;
