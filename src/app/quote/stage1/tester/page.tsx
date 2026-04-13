@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { calculateButtonStage1Quote, type ButtonStage1Input } from '@/lib/rates/button';
+import { calculateButtonStage1Quote, solveButtonStage1TargetRate, type ButtonStage1Input } from '@/lib/rates/button';
 
 const defaultInput: ButtonStage1Input = {
   product: 'HELOC',
@@ -18,8 +18,15 @@ const defaultInput: ButtonStage1Input = {
 
 export default function Stage1TesterPage() {
   const [input, setInput] = useState<ButtonStage1Input>(defaultInput);
+  const [targetPrice, setTargetPrice] = useState(106);
+  const [tolerance, setTolerance] = useState(0.125);
 
   const quote = useMemo(() => calculateButtonStage1Quote(input), [input]);
+  const targetQuote = useMemo(() => solveButtonStage1TargetRate(input, {
+    targetPrice,
+    tolerance,
+    selectedLoanAmount: input.desiredLoanAmount,
+  }), [input, targetPrice, tolerance]);
 
   function update<K extends keyof ButtonStage1Input>(key: K, value: ButtonStage1Input[K]) {
     setInput(prev => ({ ...prev, [key]: value }));
@@ -101,6 +108,16 @@ export default function Stage1TesterPage() {
                 <input type="checkbox" checked={Boolean(input.cashOut)} onChange={e => update('cashOut', e.target.checked)} />
                 Cash out
               </label>
+
+              <label className="text-sm">
+                <div className="mb-1 font-medium text-slate-700">Target Purchase Price</div>
+                <input type="number" step="0.001" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={targetPrice} onChange={e => setTargetPrice(Number(e.target.value))} />
+              </label>
+
+              <label className="text-sm">
+                <div className="mb-1 font-medium text-slate-700">Tolerance</div>
+                <input type="number" step="0.001" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={tolerance} onChange={e => setTolerance(Number(e.target.value))} />
+              </label>
             </div>
           </div>
 
@@ -117,9 +134,21 @@ export default function Stage1TesterPage() {
               <Metric label="LLPA Adj" value={quote.llpaAdjustment.toFixed(3)} />
             </div>
 
+            <div className="mt-6 rounded-2xl border border-orange-200 bg-orange-50 p-4">
+              <div className="mb-3 text-sm font-semibold text-orange-900">Target Margin Solver</div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Metric label="Target Price" value={targetQuote.targetPrice.toFixed(3)} />
+                <Metric label="Solved Rate" value={`${targetQuote.rate.toFixed(3)}%`} />
+                <Metric label="Solved Purchase Price" value={targetQuote.purchasePrice.toFixed(3)} />
+                <Metric label="Delta From Target" value={targetQuote.deltaFromTarget.toFixed(3)} />
+                <Metric label="Within Tolerance" value={targetQuote.withinTolerance ? 'Yes' : 'No'} />
+                <Metric label="Tolerance" value={targetQuote.tolerance.toFixed(3)} />
+              </div>
+            </div>
+
             <div className="mt-6">
               <div className="mb-2 text-sm font-medium text-slate-700">Raw JSON</div>
-              <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100">{JSON.stringify({ input, quote }, null, 2)}</pre>
+              <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100">{JSON.stringify({ input, quote, targetQuote }, null, 2)}</pre>
             </div>
           </div>
         </div>

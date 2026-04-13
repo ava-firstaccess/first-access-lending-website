@@ -54,6 +54,13 @@ export interface ButtonQuote {
   basePrice: number;
 }
 
+export interface ButtonTargetRateQuote extends ButtonQuote {
+  targetPrice: number;
+  tolerance: number;
+  deltaFromTarget: number;
+  withinTolerance: boolean;
+}
+
 type RateRow = {
   noteRate: number;
   prices: {
@@ -180,6 +187,52 @@ export function calculateButtonStage1Quote(
   return calculateButtonQuote(buildButtonStage1PricingInput(stage1), options);
 }
 
+export function solveButtonStage1TargetRate(
+  stage1: ButtonStage1Input,
+  options: {
+    targetPrice: number;
+    tolerance?: number;
+    selectedLoanAmount?: number;
+    helocDrawTermYears?: number;
+    helocTotalTermYears?: number;
+    cesTermYears?: number;
+  }
+): ButtonTargetRateQuote {
+  const input = buildButtonStage1PricingInput(stage1);
+  const docKey = input.docType === 'Bank Statement' ? 'altDoc' : 'fullDoc';
+  const selectedLoanAmount = Math.max(0, options.selectedLoanAmount ?? input.desiredLoanAmount ?? calculateMaxAvailable(input));
+  const targetPrice = options.targetPrice;
+  const tolerance = options.tolerance ?? 0.125;
+
+  const ficoIndex = getFicoBucketIndex(input.creditScore);
+  const cltvIndex = getCltvBucketIndex(input.resultingCltv);
+  const cltvAdj = getMatrixValue(CLTV_MATRIX[docKey], ficoIndex, cltvIndex);
+  const propertyAdj = getPropertyTypeAdjustment(input);
+  const cashOutAdj = input.cashOut ? getMatrixValue(CASH_OUT_TABLE.values, 0, cltvIndex) : 0;
+  const termAdj = getTermAdjustment(input, options);
+  const llpaAdjustment = roundToThree(cltvAdj + propertyAdj + cashOutAdj + termAdj);
+
+  const selected = pickNoteRateAtOrBelowTarget(input.product, docKey, llpaAdjustment, targetPrice);
+  const monthlyPayment = calculateMonthlyPayment(input.product, selected.noteRate, selected.purchasePrice, selectedLoanAmount, options);
+  const deltaFromTarget = roundToThree(targetPrice - selected.purchasePrice);
+
+  return {
+    maxAvailable: calculateMaxAvailable(input),
+    rate: selected.noteRate,
+    monthlyPayment,
+    maxLtv: calculateMaxLtv(input.creditScore, input.occupancy),
+    rateType: input.product === 'HELOC' ? 'Variable' : 'Fixed',
+    noteRate: selected.noteRate,
+    purchasePrice: roundToThree(selected.purchasePrice),
+    llpaAdjustment,
+    basePrice: selected.basePrice,
+    targetPrice,
+    tolerance,
+    deltaFromTarget,
+    withinTolerance: deltaFromTarget >= 0 && deltaFromTarget <= tolerance,
+  };
+}
+
 function calculateMaxAvailable(input: ButtonPricingInput): number {
   const maxLtv = calculateMaxLtv(input.creditScore, input.occupancy);
   const maxLoan = input.propertyValue * maxLtv;
@@ -220,6 +273,36 @@ function pickNoteRate(
   }
 
   return best;
+}
+
+function pickNoteRateAtOrBelowTarget(
+  product: ButtonProduct,
+  docKey: 'fullDoc' | 'altDoc',
+  llpaAdjustment: number,
+  targetPrice: number
+): { noteRate: number; basePrice: number; purchasePrice: number } {
+  let bestUnder: { noteRate: number; basePrice: number; purchasePrice: number } | null = null;
+  let fallback = { noteRate: NOTE_RATE_ROWS[0].noteRate, basePrice: basePriceFor(NOTE_RATE_ROWS[0], product, docKey), purchasePrice: 0 };
+  let fallbackDelta = Number.POSITIVE_INFINITY;
+
+  for (const row of NOTE_RATE_ROWS) {
+    const basePrice = basePriceFor(row, product, docKey);
+    const purchasePrice = roundToThree(basePrice + llpaAdjustment);
+
+    if (purchasePrice <= targetPrice) {
+      if (!bestUnder || purchasePrice > bestUnder.purchasePrice) {
+        bestUnder = { noteRate: row.noteRate, basePrice, purchasePrice };
+      }
+    }
+
+    const delta = Math.abs(purchasePrice - targetPrice);
+    if (delta < fallbackDelta || (delta === fallbackDelta && purchasePrice > fallback.purchasePrice)) {
+      fallback = { noteRate: row.noteRate, basePrice, purchasePrice };
+      fallbackDelta = delta;
+    }
+  }
+
+  return bestUnder ?? fallback;
 }
 
 function basePriceFor(row: RateRow, product: ButtonProduct, docKey: 'fullDoc' | 'altDoc'): number {
