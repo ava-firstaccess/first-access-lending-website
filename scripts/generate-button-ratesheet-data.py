@@ -82,20 +82,20 @@ def main() -> None:
             },
             'draw': {
                 'heloc': {
-                    'rows': [ws.cell(r, 1).value for r in range(32, 36)],
-                    'columns': [ws.cell(31, c).value for c in range(2, 4)],
-                    'values': [[ws.cell(r, c).value for c in range(2, 4)] for r in range(32, 36)],
+                    'rows': [ws.cell(r, 6).value for r in range(44, 45)],
+                    'columns': [ws.cell(12, c).value for c in range(7, 14)],
+                    'values': matrix(ws, 44, 44),
                 },
                 'nonHeloc': {
-                    'rows': [ws.cell(r, 1).value for r in range(32, 36)],
-                    'columns': [ws.cell(31, c).value for c in range(2, 4)],
-                    'values': [[ws.cell(r, c).value for c in range(2, 4)] for r in range(32, 36)],
+                    'rows': [ws.cell(r, 6).value for r in range(45, 48)],
+                    'columns': [ws.cell(12, c).value for c in range(7, 14)],
+                    'values': matrix(ws, 45, 47),
                 },
             },
             'maturity': {
-                'rows': [ws.cell(r, 1).value for r in range(38, 43)],
-                'columns': [ws.cell(37, c).value for c in range(2, 4)],
-                'values': [[ws.cell(r, c).value for c in range(2, 4)] for r in range(38, 43)],
+                'rows': [ws.cell(r, 6).value for r in range(48, 52)],
+                'columns': [ws.cell(12, c).value for c in range(7, 14)],
+                'values': matrix(ws, 48, 51),
             },
             'balance': {
                 'rows': [ws.cell(r, 1).value for r in range(52, 59)],

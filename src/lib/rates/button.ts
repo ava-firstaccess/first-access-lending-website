@@ -1,4 +1,5 @@
 import ratesheet from './button-ratesheet.json';
+import type { Stage1AdjustmentLine } from './shared';
 
 export type ButtonProduct = 'HELOC' | 'CES';
 export type ButtonDocType = 'Full Doc' | 'Bank Statement';
@@ -40,6 +41,7 @@ export interface ButtonStage1Input {
   structureType?: string;
   numberOfUnits?: number;
   cashOut?: boolean;
+  buttonTermYears?: 10 | 15 | 25 | 30;
 }
 
 export interface ButtonQuote {
@@ -52,6 +54,7 @@ export interface ButtonQuote {
   purchasePrice: number;
   llpaAdjustment: number;
   basePrice: number;
+  adjustments: Stage1AdjustmentLine[];
 }
 
 export interface ButtonTargetRateQuote extends ButtonQuote {
@@ -81,6 +84,9 @@ type Matrix = Array<Array<number | string | null>>;
 const NOTE_RATE_ROWS = ratesheet.noteRates as unknown as RateRow[];
 const CLTV_MATRIX = ratesheet.tables.cltv as { rows: string[]; columns: string[]; fullDoc: Matrix; altDoc: Matrix };
 const CASH_OUT_TABLE = ratesheet.tables.cashOut as { rows: string[]; columns: Array<string | null>; values: Matrix };
+const OCCUPANCY_TABLE = ratesheet.tables.occupancy as { rows: string[]; columns: Array<string | number | null>; values: Matrix };
+const UNIT_COUNT_TABLE = ratesheet.tables.unitCount as { rows: string[]; columns: Array<string | number | null>; values: Matrix };
+const MATURITY_TABLE = ratesheet.tables.maturity as { rows: string[]; columns: Array<string | number | null>; values: Matrix };
 
 const BUTTON_MAX_PURCHASE_PRICE = 105;
 
@@ -178,11 +184,8 @@ export function calculateButtonQuote(
   const cltvIndex = getCltvBucketIndex(input.resultingCltv);
   const cltvAdj = getMatrixValue(CLTV_MATRIX[docKey], ficoIndex, cltvIndex);
 
-  const propertyAdj = getPropertyTypeAdjustment(input);
-  const cashOutAdj = input.cashOut ? getMatrixValue(CASH_OUT_TABLE.values, 0, cltvIndex) : 0;
-  const termAdj = getTermAdjustment(input, options);
-
-  const llpaAdjustment = roundToThree(cltvAdj + propertyAdj + cashOutAdj + termAdj);
+  const adjustments = buildAdjustmentLines(input, cltvIndex, options);
+  const llpaAdjustment = roundToThree(cltvAdj + adjustments.reduce((sum, row) => sum + row.value, 0));
   const selected = pickNoteRateAtOrBelowTarget(input.product, docKey, llpaAdjustment, targetPrice);
 
   const monthlyPayment = calculateMonthlyPayment(input.product, selected.noteRate, selected.purchasePrice, selectedLoanAmount, options);
@@ -197,6 +200,7 @@ export function calculateButtonQuote(
     purchasePrice: roundToThree(selected.purchasePrice),
     llpaAdjustment,
     basePrice: selected.basePrice,
+    adjustments,
   };
 }
 
@@ -272,10 +276,8 @@ export function solveButtonStage1TargetRate(
   const ficoIndex = getFicoBucketIndex(input.creditScore);
   const cltvIndex = getCltvBucketIndex(input.resultingCltv);
   const cltvAdj = getMatrixValue(CLTV_MATRIX[docKey], ficoIndex, cltvIndex);
-  const propertyAdj = getPropertyTypeAdjustment(input);
-  const cashOutAdj = input.cashOut ? getMatrixValue(CASH_OUT_TABLE.values, 0, cltvIndex) : 0;
-  const termAdj = getTermAdjustment(input, options);
-  const llpaAdjustment = roundToThree(cltvAdj + propertyAdj + cashOutAdj + termAdj);
+  const adjustments = buildAdjustmentLines(input, cltvIndex, options);
+  const llpaAdjustment = roundToThree(cltvAdj + adjustments.reduce((sum, row) => sum + row.value, 0));
 
   const selected = pickNoteRateAtOrBelowTarget(input.product, docKey, llpaAdjustment, targetPrice);
   const monthlyPayment = calculateMonthlyPayment(input.product, selected.noteRate, selected.purchasePrice, selectedLoanAmount, options);
@@ -291,6 +293,7 @@ export function solveButtonStage1TargetRate(
     purchasePrice: roundToThree(selected.purchasePrice),
     llpaAdjustment,
     basePrice: selected.basePrice,
+    adjustments,
     targetPrice,
     tolerance,
     deltaFromTarget,
@@ -400,36 +403,60 @@ function calculateMonthlyPayment(
   return roundToNearestDollar(selectedLoanAmount * monthlyRate);
 }
 
-function getPropertyTypeAdjustment(input: ButtonPricingInput): number {
-  const occupancy = normalizeOccupancy(input.occupancy);
-  const propertyType = String(input.structureType || '').toLowerCase();
-
-  let adj = 0;
-  if (occupancy === 'Second Home') adj += 0.25;
-  if (occupancy === 'Investor') adj += 0.50;
-  if (propertyType.includes('condo')) adj += 0.125;
-  if (input.unitCount > 1) adj += 0.125;
-  return adj;
-}
-
-function getTermAdjustment(
+function buildAdjustmentLines(
   input: ButtonPricingInput,
+  cltvIndex: number,
   options?: {
     helocDrawTermYears?: number;
     helocTotalTermYears?: number;
     cesTermYears?: number;
   }
-): number {
-  if (input.product === 'HELOC') {
-    const drawTerm = options?.helocDrawTermYears ?? 5;
-    if (drawTerm <= 3) return -0.5;
-    if (drawTerm <= 5) return -0.25;
-    return 0;
+): Stage1AdjustmentLine[] {
+  const adjustments: Stage1AdjustmentLine[] = [];
+  const occupancy = normalizeOccupancy(input.occupancy);
+  const normalizedStructure = normalizeStructureType(input.structureType);
+
+  if (occupancy === 'Second Home') {
+    adjustments.push({ label: 'Second Home', value: getLookupValue(OCCUPANCY_TABLE, 'Second Home', cltvIndex) });
+  } else if (occupancy === 'Investor') {
+    adjustments.push({ label: 'Investor', value: getLookupValue(OCCUPANCY_TABLE, 'Investor', cltvIndex) });
   }
 
-  const cesTerm = options?.cesTermYears ?? 20;
-  if (cesTerm >= 30) return 0.25;
-  return 0;
+  if (normalizedStructure === '2-4 Unit' || input.unitCount > 1) {
+    adjustments.push({ label: '2-4 Unit', value: getLookupValue(UNIT_COUNT_TABLE, '2-4 Unit', cltvIndex) });
+  }
+
+  if (input.cashOut) {
+    adjustments.push({ label: 'Cash Out', value: getMatrixValue(CASH_OUT_TABLE.values, 0, cltvIndex) });
+  }
+
+  const termAdjustment = getTermAdjustment(input, cltvIndex, options);
+  if (termAdjustment) {
+    adjustments.push(termAdjustment);
+  }
+
+  return adjustments.filter(row => row.value !== 0);
+}
+
+function getTermAdjustment(
+  input: ButtonPricingInput,
+  cltvIndex: number,
+  options?: {
+    helocDrawTermYears?: number;
+    helocTotalTermYears?: number;
+    cesTermYears?: number;
+  }
+): Stage1AdjustmentLine | null {
+  if (input.product === 'HELOC') {
+    return null;
+  }
+
+  const cesTerm = options?.cesTermYears ?? 30;
+  const label = `${cesTerm} Year Term`;
+  return {
+    label,
+    value: getLookupValue(MATURITY_TABLE, label, cltvIndex),
+  };
 }
 
 function getFicoBucketIndex(score: number): number {
@@ -471,8 +498,14 @@ function normalizeStructureType(structureType?: string): string {
   if (value.includes('condo')) return 'Condo';
   if (value.includes('town')) return 'Townhome';
   if (value.includes('pud')) return 'PUD';
-  if (value.includes('multi')) return '2-4 Unit';
+  if (value.includes('multi') || value.includes('2-4') || value.includes('2 to 4')) return '2-4 Unit';
   return 'SFR';
+}
+
+function getLookupValue(table: { rows: string[]; values: Matrix }, rowLabel: string, colIndex: number): number {
+  const rowIndex = table.rows.findIndex(row => String(row).trim().toLowerCase() === rowLabel.trim().toLowerCase());
+  if (rowIndex === -1) return 0;
+  return getMatrixValue(table.values, rowIndex, colIndex);
 }
 
 function roundToThree(value: number): number {

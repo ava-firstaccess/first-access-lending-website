@@ -14,6 +14,7 @@ type TesterInput = ButtonStage1Input & {
   osbProduct?: OsbProduct;
   osbLockPeriodDays?: OsbLockPeriod;
   helocDrawTermYears?: 3 | 5 | 10;
+  buttonTermYears?: 10 | 15 | 25 | 30;
 };
 
 const defaultInput: TesterInput = {
@@ -24,6 +25,7 @@ const defaultInput: TesterInput = {
   osbProduct: '30 Year Maturity',
   osbLockPeriodDays: 45,
   helocDrawTermYears: 5,
+  buttonTermYears: 30,
   propertyState: 'CA',
   propertyValue: 750000,
   loanBalance: 250000,
@@ -49,11 +51,15 @@ export default function Stage1TesterPage() {
   const activeResult = useMemo<Stage1PricingEngineResult>(() => {
     if (engine === 'Button') {
       const eligibility = evaluateButtonStage1Eligibility(input, input.desiredLoanAmount);
-      const quote = calculateButtonStage1Quote(input);
+      const quote = calculateButtonStage1Quote(input, {
+        selectedLoanAmount: input.desiredLoanAmount,
+        cesTermYears: input.buttonTermYears,
+      });
       const targetQuote = solveButtonStage1TargetRate(input, {
         targetPrice: effectiveTargetPrice,
         tolerance,
         selectedLoanAmount: input.desiredLoanAmount,
+        cesTermYears: input.buttonTermYears,
       });
 
       return {
@@ -70,7 +76,7 @@ export default function Stage1TesterPage() {
           purchasePrice: quote.purchasePrice,
           basePrice: quote.basePrice,
           llpaAdjustment: quote.llpaAdjustment,
-          adjustments: [],
+          adjustments: quote.adjustments,
         },
         targetQuote: {
           engine: 'Button',
@@ -84,7 +90,7 @@ export default function Stage1TesterPage() {
           purchasePrice: targetQuote.purchasePrice,
           basePrice: targetQuote.basePrice,
           llpaAdjustment: targetQuote.llpaAdjustment,
-          adjustments: [],
+          adjustments: targetQuote.adjustments,
           targetPrice: targetQuote.targetPrice,
           tolerance: targetQuote.tolerance,
           deltaFromTarget: targetQuote.deltaFromTarget,
@@ -286,13 +292,33 @@ export default function Stage1TesterPage() {
             <h2 className="mb-4 text-lg font-semibold text-slate-900">Inputs</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               {engine === 'Button' ? (
-                <label className="text-sm">
-                  <div className="mb-1 font-medium text-slate-700">Product</div>
-                  <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.product} onChange={e => update('product', e.target.value)}>
-                    <option value="HELOC">HELOC</option>
-                    <option value="CES">CES</option>
-                  </select>
-                </label>
+                <>
+                  <label className="text-sm">
+                    <div className="mb-1 font-medium text-slate-700">Product</div>
+                    <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.product} onChange={e => update('product', e.target.value)}>
+                      <option value="HELOC">HELOC</option>
+                      <option value="CES">CES</option>
+                    </select>
+                  </label>
+                  {input.product === 'CES' && (
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <div className="mb-1 font-medium text-slate-700">Button Term</div>
+                        <TermToggle
+                          label="Button Term"
+                          value={String(input.buttonTermYears ?? 30)}
+                          options={[
+                            { value: '10', label: '10 Year' },
+                            { value: '15', label: '15 Year' },
+                            { value: '25', label: '25 Year' },
+                            { value: '30', label: '30 Year' },
+                          ]}
+                          onChange={value => update('buttonTermYears', Number(value) as 10 | 15 | 25 | 30)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : engine === 'Vista' ? (
                 <div className="space-y-3 text-sm sm:col-span-2">
                   <div>
