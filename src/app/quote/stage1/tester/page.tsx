@@ -294,26 +294,40 @@ export default function Stage1TesterPage() {
                   </select>
                 </label>
               ) : engine === 'Vista' ? (
-                <label className="text-sm">
-                  <div className="mb-1 font-medium text-slate-700">Vista Product</div>
-                  <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.vistaProduct} onChange={e => update('vistaProduct', e.target.value as VistaProduct)}>
-                    <option value="30yr Fixed">30yr Fixed</option>
-                    <option value="20yr Fixed">20yr Fixed</option>
-                    <option value="15yr Fixed">15yr Fixed</option>
-                    <option value="10yr Fixed">10yr Fixed</option>
-                    <option value="30/15yr Balloon">30/15yr Balloon</option>
-                    <option value="40/15yr Balloon">40/15yr Balloon</option>
-                  </select>
-                </label>
+                <div className="space-y-3 text-sm sm:col-span-2">
+                  <div>
+                    <div className="mb-1 font-medium text-slate-700">Vista Product</div>
+                    <TermToggle
+                      label="Vista Term"
+                      value={input.vistaProduct ?? '30yr Fixed'}
+                      options={[
+                        { value: '30yr Fixed', label: '30 Fixed' },
+                        { value: '20yr Fixed', label: '20 Fixed' },
+                        { value: '15yr Fixed', label: '15 Fixed' },
+                        { value: '10yr Fixed', label: '10 Fixed' },
+                        { value: '30/15yr Balloon', label: '30/15 Balloon' },
+                        { value: '40/15yr Balloon', label: '40/15 Balloon' },
+                      ]}
+                      onChange={value => update('vistaProduct', value as VistaProduct)}
+                    />
+                  </div>
+                </div>
               ) : engine === 'NewRez' ? (
-                <label className="text-sm">
-                  <div className="mb-1 font-medium text-slate-700">NewRez Product</div>
-                  <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.newrezProduct} onChange={e => update('newrezProduct', e.target.value as NewRezProduct)}>
-                    <option value="30 Year Fixed">30 Year Fixed</option>
-                    <option value="20 Year Fixed">20 Year Fixed</option>
-                    <option value="15 Year Fixed">15 Year Fixed</option>
-                  </select>
-                </label>
+                <div className="space-y-3 text-sm sm:col-span-2">
+                  <div>
+                    <div className="mb-1 font-medium text-slate-700">NewRez Product</div>
+                    <TermToggle
+                      label="NewRez Term"
+                      value={input.newrezProduct ?? '30 Year Fixed'}
+                      options={[
+                        { value: '30 Year Fixed', label: '30 Year' },
+                        { value: '20 Year Fixed', label: '20 Year' },
+                        { value: '15 Year Fixed', label: '15 Year' },
+                      ]}
+                      onChange={value => update('newrezProduct', value as NewRezProduct)}
+                    />
+                  </div>
+                </div>
               ) : (
                 <>
                   <label className="text-sm">
@@ -323,24 +337,27 @@ export default function Stage1TesterPage() {
                       <option value="2nd Liens">2nd Liens</option>
                     </select>
                   </label>
-                  <label className="text-sm">
-                    <div className="mb-1 font-medium text-slate-700">OSB Product</div>
-                    <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.osbProduct} onChange={e => update('osbProduct', e.target.value as OsbProduct)}>
-                      {input.osbProgram === 'HELOC' ? (
-                        <>
-                          <option value="20 Year Maturity">20 Year Maturity</option>
-                          <option value="30 Year Maturity">30 Year Maturity</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="Fixed 10">Fixed 10</option>
-                          <option value="Fixed 15">Fixed 15</option>
-                          <option value="Fixed 20">Fixed 20</option>
-                          <option value="Fixed 30">Fixed 30</option>
-                        </>
-                      )}
-                    </select>
-                  </label>
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <div className="mb-1 font-medium text-slate-700">OSB Product</div>
+                      <TermToggle
+                        label="OSB Term"
+                        value={input.osbProduct ?? (input.osbProgram === 'HELOC' ? '30 Year Maturity' : 'Fixed 30')}
+                        options={input.osbProgram === 'HELOC'
+                          ? [
+                              { value: '20 Year Maturity', label: '20 Year' },
+                              { value: '30 Year Maturity', label: '30 Year' },
+                            ]
+                          : [
+                              { value: 'Fixed 10', label: '10 Year' },
+                              { value: 'Fixed 15', label: '15 Year' },
+                              { value: 'Fixed 20', label: '20 Year' },
+                              { value: 'Fixed 30', label: '30 Year' },
+                            ]}
+                        onChange={value => update('osbProduct', value as OsbProduct)}
+                      />
+                    </div>
+                  </div>
                 </>
               )}
 
@@ -523,6 +540,36 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div className="rounded-xl bg-slate-50 p-3">
       <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
       <div className="mt-1 text-lg font-semibold text-slate-900">{value}</div>
+    </div>
+  );
+}
+
+function TermToggle({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="flex flex-wrap gap-2 rounded-2xl bg-slate-100 p-1">
+        {options.map(option => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${value === option.value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
