@@ -2,10 +2,14 @@
 
 import { useMemo, useState } from 'react';
 import { calculateButtonStage1Quote, evaluateButtonStage1Eligibility, getTargetPurchasePriceForLoanAmount, solveButtonStage1TargetRate, type ButtonStage1Input } from '@/lib/rates/button';
-import { solveNewRezStage1TargetRate } from '@/lib/rates/newrez';
+import { calculateVistaStage1Quote, evaluateVistaStage1Eligibility, solveVistaStage1TargetRate, type VistaProduct } from '@/lib/rates/vista';
 
-const defaultInput: ButtonStage1Input = {
+type PricingEngine = 'Button' | 'Vista';
+type TesterInput = ButtonStage1Input & { vistaProduct?: VistaProduct };
+
+const defaultInput: TesterInput = {
   product: 'HELOC',
+  vistaProduct: '30yr Fixed',
   propertyState: 'CA',
   propertyValue: 750000,
   loanBalance: 250000,
@@ -18,7 +22,8 @@ const defaultInput: ButtonStage1Input = {
 };
 
 export default function Stage1TesterPage() {
-  const [input, setInput] = useState<ButtonStage1Input>(defaultInput);
+  const [engine, setEngine] = useState<PricingEngine>('Button');
+  const [input, setInput] = useState<TesterInput>(defaultInput);
   const [targetPriceOverride, setTargetPriceOverride] = useState<string>('');
   const [tolerance, setTolerance] = useState(0.125);
 
@@ -27,44 +32,81 @@ export default function Stage1TesterPage() {
     return getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0));
   }, [input.desiredLoanAmount, targetPriceOverride]);
 
-  const eligibility = useMemo(() => evaluateButtonStage1Eligibility(input, input.desiredLoanAmount), [input]);
-  const quote = useMemo(() => calculateButtonStage1Quote(input), [input]);
-  const targetQuote = useMemo(() => solveButtonStage1TargetRate(input, {
+  const buttonEligibility = useMemo(() => evaluateButtonStage1Eligibility(input, input.desiredLoanAmount), [input]);
+  const buttonQuote = useMemo(() => calculateButtonStage1Quote(input), [input]);
+  const buttonTargetQuote = useMemo(() => solveButtonStage1TargetRate(input, {
     targetPrice: effectiveTargetPrice,
     tolerance,
     selectedLoanAmount: input.desiredLoanAmount,
   }), [input, effectiveTargetPrice, tolerance]);
-  const newRezQuote = useMemo(() => solveNewRezStage1TargetRate(input, {
-    targetPrice: effectiveTargetPrice,
-    tolerance: 0.5,
-    selectedLoanAmount: input.desiredLoanAmount,
-  }), [input, effectiveTargetPrice]);
 
-  function update<K extends keyof ButtonStage1Input>(key: K, value: ButtonStage1Input[K]) {
+  const vistaEligibility = useMemo(() => evaluateVistaStage1Eligibility(input, input.desiredLoanAmount), [input]);
+  const vistaQuote = useMemo(() => calculateVistaStage1Quote(input, {
+    selectedLoanAmount: input.desiredLoanAmount,
+    targetPrice: effectiveTargetPrice,
+  }), [input, effectiveTargetPrice]);
+  const vistaTargetQuote = useMemo(() => solveVistaStage1TargetRate(input, {
+    targetPrice: effectiveTargetPrice,
+    tolerance,
+    selectedLoanAmount: input.desiredLoanAmount,
+  }), [input, effectiveTargetPrice, tolerance]);
+
+  const eligibility = engine === 'Button' ? buttonEligibility : vistaEligibility;
+  const quote = engine === 'Button' ? buttonQuote : vistaQuote;
+  const targetQuote = engine === 'Button' ? buttonTargetQuote : vistaTargetQuote;
+
+  function update<K extends keyof TesterInput>(key: K, value: TesterInput[K]) {
     setInput(prev => ({ ...prev, [key]: value }));
   }
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Stage 1 Button Pricer Tester</h1>
-          <p className="mt-2 text-sm text-slate-600">
-            Quick one-page harness for the current stage 1 Button-backed pricing logic.
-          </p>
+      <div className="mx-auto max-w-6xl space-y-6">
+        <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Stage 1 Pricing Tester</h1>
+            <p className="mt-2 text-sm text-slate-600">
+              Internal harness for stage 1 pricing logic. Button stays intact, and Vista now exposes the execution path needed to hit target margin.
+            </p>
+          </div>
+          <div className="flex gap-2 rounded-2xl bg-slate-100 p-1">
+            {(['Button', 'Vista'] as PricingEngine[]).map(option => (
+              <button
+                key={option}
+                onClick={() => setEngine(option)}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${engine === option ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 xl:grid-cols-[1.1fr,0.9fr]">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-semibold text-slate-900">Inputs</h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="text-sm">
-                <div className="mb-1 font-medium text-slate-700">Product</div>
-                <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.product} onChange={e => update('product', e.target.value)}>
-                  <option value="HELOC">HELOC</option>
-                  <option value="CES">CES</option>
-                </select>
-              </label>
+              {engine === 'Button' ? (
+                <label className="text-sm">
+                  <div className="mb-1 font-medium text-slate-700">Product</div>
+                  <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.product} onChange={e => update('product', e.target.value)}>
+                    <option value="HELOC">HELOC</option>
+                    <option value="CES">CES</option>
+                  </select>
+                </label>
+              ) : (
+                <label className="text-sm">
+                  <div className="mb-1 font-medium text-slate-700">Vista Product</div>
+                  <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.vistaProduct} onChange={e => update('vistaProduct', e.target.value as VistaProduct)}>
+                    <option value="30yr Fixed">30yr Fixed</option>
+                    <option value="20yr Fixed">20yr Fixed</option>
+                    <option value="15yr Fixed">15yr Fixed</option>
+                    <option value="10yr Fixed">10yr Fixed</option>
+                    <option value="20yr IO">20yr IO</option>
+                    <option value="30yr IO">30yr IO</option>
+                  </select>
+                </label>
+              )}
 
               <label className="text-sm">
                 <div className="mb-1 font-medium text-slate-700">State</div>
@@ -134,68 +176,66 @@ export default function Stage1TesterPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">Output</h2>
-            <div className={`mb-4 rounded-2xl border p-4 ${eligibility.eligible ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}>
-              <div className={`text-sm font-semibold ${eligibility.eligible ? 'text-emerald-900' : 'text-red-900'}`}>
-                {eligibility.eligible ? 'Eligible' : 'Ineligible'}
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-4 text-lg font-semibold text-slate-900">Output</h2>
+              <div className={`mb-4 rounded-2xl border p-4 ${eligibility.eligible ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}>
+                <div className={`text-sm font-semibold ${eligibility.eligible ? 'text-emerald-900' : 'text-red-900'}`}>
+                  {eligibility.eligible ? 'Eligible' : 'Ineligible'}
+                </div>
+                <div className="mt-1 text-sm text-slate-700">
+                  Resulting CLTV: {(eligibility.resultingCltv * 100).toFixed(2)}% • Max Available: ${Math.round(eligibility.maxAvailable).toLocaleString()}
+                </div>
+                {!eligibility.eligible && (
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-900">
+                    {eligibility.reasons.map(reason => <li key={reason}>{reason}</li>)}
+                  </ul>
+                )}
               </div>
-              <div className="mt-1 text-sm text-slate-700">
-                Resulting CLTV: {(eligibility.resultingCltv * 100).toFixed(2)}% • Max Available: ${Math.round(eligibility.maxAvailable).toLocaleString()}
-              </div>
-              {!eligibility.eligible && (
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-900">
-                  {eligibility.reasons.map(reason => <li key={reason}>{reason}</li>)}
-                </ul>
-              )}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Metric label="Max Available" value={`$${Math.round(quote.maxAvailable).toLocaleString()}`} />
-              <Metric label="Rate" value={`${quote.rate.toFixed(3)}%`} />
-              <Metric label="Monthly Payment" value={`$${Math.round(quote.monthlyPayment).toLocaleString()}`} />
-              <Metric label="Max LTV" value={`${(quote.maxLtv * 100).toFixed(1)}%`} />
-              <Metric label="Note Rate" value={`${quote.noteRate.toFixed(3)}%`} />
-              <Metric label="Purchase Price" value={quote.purchasePrice.toFixed(3)} />
-              <Metric label="Base Price" value={quote.basePrice.toFixed(3)} />
-              <Metric label="LLPA Adj" value={quote.llpaAdjustment.toFixed(3)} />
-            </div>
 
-            <div className="mt-6 rounded-2xl border border-orange-200 bg-orange-50 p-4">
-              <div className="mb-3 text-sm font-semibold text-orange-900">Button Target Margin Solver</div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Metric label="Target Price" value={targetQuote.targetPrice.toFixed(3)} />
-                <Metric label="Solved Rate" value={`${targetQuote.rate.toFixed(3)}%`} />
-                <Metric label="Solved Purchase Price" value={targetQuote.purchasePrice.toFixed(3)} />
-                <Metric label="Delta From Target" value={targetQuote.deltaFromTarget.toFixed(3)} />
-                <Metric label="Within Tolerance" value={targetQuote.withinTolerance ? 'Yes' : 'No'} />
-                <Metric label="Tolerance" value={targetQuote.tolerance.toFixed(3)} />
+                <Metric label="Max Available" value={`$${Math.round(quote.maxAvailable).toLocaleString()}`} />
+                <Metric label="Rate" value={`${quote.rate.toFixed(3)}%`} />
+                <Metric label="Monthly Payment" value={`$${Math.round(quote.monthlyPayment).toLocaleString()}`} />
+                <Metric label="Max LTV" value={`${(quote.maxLtv * 100).toFixed(1)}%`} />
+                <Metric label="Note Rate" value={`${quote.noteRate.toFixed(3)}%`} />
+                <Metric label="Purchase Price" value={quote.purchasePrice.toFixed(3)} />
+                <Metric label="Base Price" value={quote.basePrice.toFixed(3)} />
+                <Metric label="LLPA Adj" value={quote.llpaAdjustment.toFixed(3)} />
               </div>
-            </div>
 
-            <div className="mt-6 rounded-2xl border border-cyan-200 bg-cyan-50 p-4">
-              <div className="mb-3 text-sm font-semibold text-cyan-900">NewRez Execution</div>
-              <div className="mb-3 text-xs text-cyan-900">Best execution = highest price not over target and within 0.500, then lowest note rate.</div>
-              {newRezQuote.eligible ? (
+              <div className="mt-6 rounded-2xl border border-orange-200 bg-orange-50 p-4">
+                <div className="mb-3 text-sm font-semibold text-orange-900">Target Margin Solver</div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Metric label="Target Price" value={newRezQuote.targetPrice.toFixed(3)} />
-                  <Metric label="Target Cap" value={newRezQuote.cappedTargetPrice.toFixed(3)} />
-                  <Metric label="Note Rate" value={newRezQuote.noteRate !== null ? `${newRezQuote.noteRate.toFixed(3)}%` : 'N/A'} />
-                  <Metric label="Selected Column" value={newRezQuote.selectedColumn ?? 'N/A'} />
-                  <Metric label="Base Price" value={newRezQuote.basePrice?.toFixed(3) ?? 'N/A'} />
-                  <Metric label="LLPA Adj" value={newRezQuote.llpaAdjustment?.toFixed(3) ?? 'N/A'} />
-                  <Metric label="Purchase Price" value={newRezQuote.purchasePrice?.toFixed(3) ?? 'N/A'} />
-                  <Metric label="Delta From Target" value={newRezQuote.deltaFromTarget?.toFixed(3) ?? 'N/A'} />
+                  <Metric label="Target Price" value={targetQuote.targetPrice.toFixed(3)} />
+                  <Metric label="Solved Rate" value={`${targetQuote.rate.toFixed(3)}%`} />
+                  <Metric label="Solved Purchase Price" value={targetQuote.purchasePrice.toFixed(3)} />
+                  <Metric label="Base Price @ Solved Rate" value={targetQuote.basePrice.toFixed(3)} />
+                  <Metric label="LLPA Adj @ Solved Rate" value={targetQuote.llpaAdjustment.toFixed(3)} />
+                  <Metric label="Delta From Target" value={targetQuote.deltaFromTarget.toFixed(3)} />
+                  <Metric label="Within Tolerance" value={targetQuote.withinTolerance ? 'Yes' : 'No'} />
+                  <Metric label="Tolerance" value={targetQuote.tolerance.toFixed(3)} />
                 </div>
-              ) : (
-                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-                  {newRezQuote.reasons.join(' ')}
+              </div>
+
+              {engine === 'Vista' && (
+                <div className="mt-6 rounded-2xl border border-sky-200 bg-sky-50 p-4">
+                  <div className="mb-3 text-sm font-semibold text-sky-900">Vista Execution Details</div>
+                  <div className="space-y-2">
+                    {vistaQuote.adjustments.map(row => (
+                      <div key={`${row.label}-${row.value}`} className="flex items-center justify-between rounded-xl bg-white/80 px-3 py-2 text-sm">
+                        <span className="text-slate-700">{row.label}</span>
+                        <span className={`font-semibold ${row.value > 0 ? 'text-emerald-700' : row.value < 0 ? 'text-rose-700' : 'text-slate-600'}`}>{row.value.toFixed(3)}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
-            </div>
 
-            <div className="mt-6">
-              <div className="mb-2 text-sm font-medium text-slate-700">Raw JSON</div>
-              <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100">{JSON.stringify({ input, eligibility, quote, targetQuote, newRezQuote }, null, 2)}</pre>
+              <div className="mt-6">
+                <div className="mb-2 text-sm font-medium text-slate-700">Raw JSON</div>
+                <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100">{JSON.stringify({ engine, input, eligibility, quote, targetQuote }, null, 2)}</pre>
+              </div>
             </div>
           </div>
         </div>
