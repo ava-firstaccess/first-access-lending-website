@@ -1,145 +1,369 @@
-import { getBackendFeeForLoanAmount, getTargetPurchasePriceForLoanAmount, type ButtonStage1Input } from './button';
+import ratesheet from './newrez-ratesheet.json';
+import { getTargetPurchasePriceForLoanAmount, type ButtonStage1Input } from './button';
 
-const NEWREZ_MAX_PURCHASE_PRICE = 106;
-const NEWREZ_TOLERANCE = 0.5;
+export type NewRezProduct = '15 Year Fixed' | '20 Year Fixed' | '30 Year Fixed';
+export type NewRezEndSeconds = 'BE15' | 'BE30' | 'BE45' | 'BE60' | 'BE75' | 'BE90';
 
-const NEWREZ_COLUMNS = ['BE15', 'BE30', 'BE45', 'BE60'] as const;
-export type NewRezColumn = (typeof NEWREZ_COLUMNS)[number];
+export interface NewRezPricingInput {
+  product: NewRezProduct;
+  propertyState: string;
+  propertyValue: number;
+  loanBalance: number;
+  desiredLoanAmount: number;
+  resultingLoanAmount: number;
+  resultingCltv: number;
+  creditScore: number;
+  occupancy: string;
+  structureType: string;
+  unitCount: number;
+  cashOut: boolean;
+  selfEmployed: boolean;
+  dti: number | null;
+}
 
-const RATE_ROWS = [
-  { noteRate: 5.125, prices: { BE15: 97.711, BE30: 97.633, BE45: 97.588, BE60: 97.523 } },
-  { noteRate: 5.25, prices: { BE15: 97.992, BE30: 97.914, BE45: 97.869, BE60: 97.804 } },
-  { noteRate: 5.375, prices: { BE15: 98.704, BE30: 98.626, BE45: 98.581, BE60: 98.516 } },
-  { noteRate: 5.49, prices: { BE15: 99.338, BE30: 99.260, BE45: 99.215, BE60: 99.15 } },
-  { noteRate: 5.625, prices: { BE15: 99.394, BE30: 99.316, BE45: 99.271, BE60: 99.206 } },
-  { noteRate: 5.75, prices: { BE15: 99.919, BE30: 99.841, BE45: 99.796, BE60: 99.731 } },
-  { noteRate: 5.875, prices: { BE15: 100.119, BE30: 100.041, BE45: 99.996, BE60: 99.931 } },
-  { noteRate: 5.99, prices: { BE15: 100.801, BE30: 100.723, BE45: 100.678, BE60: 100.613 } },
-  { noteRate: 6.125, prices: { BE15: 101.405, BE30: 101.327, BE45: 101.282, BE60: 101.217 } },
-  { noteRate: 6.25, prices: { BE15: 101.455, BE30: 101.377, BE45: 101.332, BE60: 101.267 } },
-  { noteRate: 6.375, prices: { BE15: 102.135, BE30: 102.057, BE45: 102.012, BE60: 101.947 } },
-  { noteRate: 6.49, prices: { BE15: 102.175, BE30: 102.097, BE45: 102.052, BE60: 101.987 } },
-  { noteRate: 6.625, prices: { BE15: 102.373, BE30: 102.295, BE45: 102.25, BE60: 102.185 } },
-  { noteRate: 6.75, prices: { BE15: 102.479, BE30: 102.401, BE45: 102.356, BE60: 102.291 } },
-  { noteRate: 6.875, prices: { BE15: 102.822, BE30: 102.744, BE45: 102.699, BE60: 102.634 } },
-  { noteRate: 6.99, prices: { BE15: 102.941, BE30: 102.863, BE45: 102.818, BE60: 102.753 } },
-  { noteRate: 7.125, prices: { BE15: 103.114, BE30: 103.036, BE45: 102.991, BE60: 102.926 } },
-  { noteRate: 7.25, prices: { BE15: 103.575, BE30: 103.497, BE45: 103.452, BE60: 103.387 } },
-  { noteRate: 7.375, prices: { BE15: 104.021, BE30: 103.943, BE45: 103.898, BE60: 103.833 } },
-  { noteRate: 7.49, prices: { BE15: 104.046, BE30: 103.968, BE45: 103.923, BE60: 103.858 } },
-] as const;
+export interface NewRezAdjustmentLine {
+  label: string;
+  value: number;
+}
 
 export interface NewRezQuote {
-  noteRate: number;
+  program: 'NewRez';
+  product: NewRezProduct;
+  endSeconds: NewRezEndSeconds;
+  maxAvailable: number;
+  maxLtv: number;
   rate: number;
+  noteRate: number;
+  rateType: string;
+  monthlyPayment: number;
   basePrice: number;
   llpaAdjustment: number;
   purchasePrice: number;
-  selectedColumn: NewRezColumn;
+  adjustments: NewRezAdjustmentLine[];
 }
 
 export interface NewRezTargetRateQuote extends NewRezQuote {
   targetPrice: number;
-  cappedTargetPrice: number;
   tolerance: number;
-  backendFee: number;
   deltaFromTarget: number;
   withinTolerance: boolean;
 }
 
-export interface NewRezExecutionResult {
-  targetPrice: number;
-  cappedTargetPrice: number;
-  tolerance: number;
-  backendFee: number;
+export interface NewRezEligibilityResult {
   eligible: boolean;
   reasons: string[];
-  selectedColumn: NewRezColumn | null;
-  noteRate: number | null;
-  rate: number | null;
-  basePrice: number | null;
-  llpaAdjustment: number | null;
-  purchasePrice: number | null;
-  deltaFromTarget: number | null;
-  withinTolerance: boolean;
+  maxAvailable: number;
+  resultingCltv: number;
 }
 
-export function calculateNewRezQuote(loanAmount: number, options?: { targetPrice?: number; tolerance?: number }): NewRezExecutionResult {
-  const backendFee = getBackendFeeForLoanAmount(loanAmount);
-  const targetPrice = roundToThree(options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(loanAmount));
-  const cappedTargetPrice = Math.min(targetPrice, NEWREZ_MAX_PURCHASE_PRICE);
-  const tolerance = options?.tolerance ?? NEWREZ_TOLERANCE;
+type JsonBucketRow = { label: string; values: Array<number | null> };
+type JsonPricingRow = { noteRate: number; prices: Record<NewRezEndSeconds, number | null> };
+type JsonProductSheet = { columns: NewRezEndSeconds[]; rows: JsonPricingRow[] };
+type JsonMatrix = { cltvBuckets: string[]; rows: JsonBucketRow[] };
+type JsonRatesheet = {
+  pricing: Record<NewRezProduct, JsonProductSheet>;
+  cltv30: JsonMatrix;
+  cltv1520: JsonMatrix;
+  additional: JsonMatrix;
+  loanAmount: JsonMatrix;
+};
 
-  const candidates: Array<NewRezTargetRateQuote> = [];
+type SelectedExecution = {
+  noteRate: number;
+  endSeconds: NewRezEndSeconds;
+  basePrice: number;
+  purchasePrice: number;
+  deltaFromTarget: number;
+  withinTolerance: boolean;
+};
 
-  for (const row of RATE_ROWS) {
-    for (const column of NEWREZ_COLUMNS) {
-      const basePrice = row.prices[column];
-      const llpaAdjustment = 0;
-      const purchasePrice = roundToThree(basePrice + llpaAdjustment);
-      if (purchasePrice > cappedTargetPrice) continue;
-      const deltaFromTarget = roundToThree(cappedTargetPrice - purchasePrice);
-      if (deltaFromTarget <= tolerance) {
-        candidates.push({
-          noteRate: row.noteRate,
-          rate: row.noteRate,
-          basePrice,
-          llpaAdjustment,
-          purchasePrice,
-          selectedColumn: column,
-          targetPrice,
-          cappedTargetPrice,
-          tolerance,
-          backendFee,
-          deltaFromTarget,
-          withinTolerance: true,
-        });
-      }
-    }
-  }
+const DATA = ratesheet as JsonRatesheet;
 
-  candidates.sort((a, b) => {
-    if (a.noteRate !== b.noteRate) return a.noteRate - b.noteRate;
-    return b.purchasePrice - a.purchasePrice;
-  });
-
-  const best = candidates[0];
-  if (!best) {
-    return {
-      targetPrice,
-      cappedTargetPrice,
-      tolerance,
-      backendFee,
-      eligible: false,
-      reasons: [`No NewRez execution is within ${tolerance.toFixed(3)} of the target purchase price without going over.`],
-      selectedColumn: null,
-      noteRate: null,
-      rate: null,
-      basePrice: null,
-      llpaAdjustment: null,
-      purchasePrice: null,
-      deltaFromTarget: null,
-      withinTolerance: false,
-    };
-  }
+export function buildNewRezStage1PricingInput(stage1: ButtonStage1Input & { newrezProduct?: NewRezProduct }): NewRezPricingInput {
+  const propertyValue = Number(stage1.propertyValue || 0);
+  const loanBalance = Number(stage1.loanBalance || 0);
+  const desiredLoanAmount = Number(stage1.desiredLoanAmount || 0);
+  const resultingLoanAmount = Math.max(0, loanBalance + desiredLoanAmount);
+  const resultingCltv = propertyValue > 0 ? resultingLoanAmount / propertyValue : 0;
 
   return {
-    ...best,
-    eligible: true,
-    reasons: [],
+    product: normalizeProduct(stage1.newrezProduct),
+    propertyState: String(stage1.propertyState || '').toUpperCase(),
+    propertyValue,
+    loanBalance,
+    desiredLoanAmount,
+    resultingLoanAmount,
+    resultingCltv,
+    creditScore: Number(stage1.creditScore || 0),
+    occupancy: normalizeOccupancy(stage1.occupancy),
+    structureType: normalizeStructureType(stage1.structureType),
+    unitCount: Number(stage1.numberOfUnits || 1),
+    cashOut: Boolean(stage1.cashOut),
+    selfEmployed: false,
+    dti: null,
   };
 }
 
-export function calculateNewRezExecution(loanAmount: number): NewRezExecutionResult {
-  return calculateNewRezQuote(loanAmount);
+export function calculateNewRezStage1Quote(
+  stage1: ButtonStage1Input & { newrezProduct?: NewRezProduct },
+  options?: { selectedLoanAmount?: number; targetPrice?: number }
+): NewRezQuote {
+  return calculateNewRezQuote(buildNewRezStage1PricingInput(stage1), options);
+}
+
+export function calculateNewRezQuote(input: NewRezPricingInput, options?: { selectedLoanAmount?: number; targetPrice?: number }): NewRezQuote {
+  const maxAvailable = calculateMaxAvailable(input);
+  const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? maxAvailable);
+  const targetPrice = options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount);
+  const adjustments = buildAdjustmentLines(input, selectedLoanAmount);
+  const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
+  const selected = pickExecution(input.product, llpaAdjustment, targetPrice, undefined);
+
+  return {
+    program: 'NewRez',
+    product: input.product,
+    endSeconds: selected.endSeconds,
+    maxAvailable,
+    maxLtv: calculateMaxLtv(input),
+    rate: selected.noteRate,
+    noteRate: selected.noteRate,
+    rateType: 'Fixed',
+    monthlyPayment: calculateMonthlyPayment(selectedLoanAmount, selected.noteRate, termYears(input.product)),
+    basePrice: selected.basePrice,
+    llpaAdjustment,
+    purchasePrice: selected.purchasePrice,
+    adjustments: [...adjustments, { label: `End Seconds: ${selected.endSeconds}`, value: 0 }],
+  };
+}
+
+export function evaluateNewRezStage1Eligibility(
+  stage1: ButtonStage1Input & { newrezProduct?: NewRezProduct },
+  selectedLoanAmount?: number
+): NewRezEligibilityResult {
+  return evaluateNewRezEligibility(buildNewRezStage1PricingInput(stage1), selectedLoanAmount);
+}
+
+export function evaluateNewRezEligibility(input: NewRezPricingInput, selectedLoanAmount?: number): NewRezEligibilityResult {
+  const reasons: string[] = [];
+  const maxAvailable = calculateMaxAvailable(input);
+  const requested = Math.max(0, selectedLoanAmount ?? input.desiredLoanAmount ?? 0);
+  const matrix = getCltvMatrix(input.product);
+
+  if (!findCreditRow(matrix, input.creditScore)) reasons.push('Credit score is outside the NewRez matrix.');
+  if (findCltvBucketIndex(matrix.cltvBuckets, input.resultingCltv) === null) reasons.push('Resulting CLTV is outside the NewRez matrix.');
+  if (findLoanAmountRow(requested) === null) reasons.push('Desired loan amount is outside the NewRez loan amount table.');
+  if (input.cashOut) reasons.push('NewRez stage 1 tester is wired to the workbook purchase / rate-term grids, not a cash-out overlay.');
+  if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
+
+  return {
+    eligible: reasons.length === 0,
+    reasons,
+    maxAvailable,
+    resultingCltv: input.resultingCltv,
+  };
 }
 
 export function solveNewRezStage1TargetRate(
-  stage1: ButtonStage1Input,
-  options?: { targetPrice?: number; tolerance?: number; selectedLoanAmount?: number }
-): NewRezExecutionResult {
-  const loanAmount = Math.max(0, options?.selectedLoanAmount ?? Number(stage1.desiredLoanAmount || 0));
-  return calculateNewRezQuote(loanAmount, options);
+  stage1: ButtonStage1Input & { newrezProduct?: NewRezProduct },
+  options: { targetPrice: number; tolerance?: number; selectedLoanAmount?: number }
+): NewRezTargetRateQuote {
+  const input = buildNewRezStage1PricingInput(stage1);
+  const maxAvailable = calculateMaxAvailable(input);
+  const selectedLoanAmount = Math.max(0, options.selectedLoanAmount ?? input.desiredLoanAmount ?? maxAvailable);
+  const targetPrice = options.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount);
+  const tolerance = options.tolerance ?? 0.125;
+  const adjustments = buildAdjustmentLines(input, selectedLoanAmount);
+  const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
+  const selected = pickExecution(input.product, llpaAdjustment, targetPrice, tolerance);
+
+  return {
+    program: 'NewRez',
+    product: input.product,
+    endSeconds: selected.endSeconds,
+    maxAvailable,
+    maxLtv: calculateMaxLtv(input),
+    rate: selected.noteRate,
+    noteRate: selected.noteRate,
+    rateType: 'Fixed',
+    monthlyPayment: calculateMonthlyPayment(selectedLoanAmount, selected.noteRate, termYears(input.product)),
+    basePrice: selected.basePrice,
+    llpaAdjustment,
+    purchasePrice: selected.purchasePrice,
+    adjustments: [...adjustments, { label: `End Seconds: ${selected.endSeconds}`, value: 0 }],
+    targetPrice: roundToThree(targetPrice),
+    tolerance,
+    deltaFromTarget: selected.deltaFromTarget,
+    withinTolerance: selected.withinTolerance,
+  };
+}
+
+function getCltvMatrix(product: NewRezProduct): JsonMatrix {
+  return product === '30 Year Fixed' ? DATA.cltv30 : DATA.cltv1520;
+}
+
+function calculateMaxAvailable(input: NewRezPricingInput): number {
+  return Math.max(0, input.propertyValue * calculateMaxLtv(input) - input.loanBalance);
+}
+
+function calculateMaxLtv(input: NewRezPricingInput): number {
+  const matrix = getCltvMatrix(input.product);
+  const row = findCreditRow(matrix, input.creditScore);
+  if (!row) return 0;
+
+  const lastEligibleIndex = row.values.reduce<number>((best, value, index) => value !== null ? index : best, -1);
+  if (lastEligibleIndex < 0) return 0;
+  return upperBoundForCltvLabel(matrix.cltvBuckets[lastEligibleIndex]) / 100;
+}
+
+function buildAdjustmentLines(input: NewRezPricingInput, selectedLoanAmount: number): NewRezAdjustmentLine[] {
+  const matrix = getCltvMatrix(input.product);
+  const cltvIndex = findCltvBucketIndex(matrix.cltvBuckets, input.resultingCltv);
+  const adjustments: NewRezAdjustmentLine[] = [];
+  if (cltvIndex === null) return adjustments;
+
+  const creditRow = findCreditRow(matrix, input.creditScore);
+  if (creditRow) {
+    adjustments.push({
+      label: `FICO / CLTV: ${creditRow.label} @ ${matrix.cltvBuckets[cltvIndex]}`,
+      value: creditRow.values[cltvIndex] ?? 0,
+    });
+  }
+
+  const occupancy = findAdditionalRow(occupancyLabel(input.occupancy));
+  if (occupancy) adjustments.push({ label: `Occupancy: ${occupancy.label}`, value: occupancy.values[cltvIndex] ?? 0 });
+
+  if (isCondo(input.structureType)) {
+    const condo = findAdditionalRow('Condo');
+    if (condo) adjustments.push({ label: 'Property Type: Condo', value: condo.values[cltvIndex] ?? 0 });
+  }
+
+  if (input.selfEmployed) {
+    const selfEmployed = findAdditionalRow('Self Employeed');
+    if (selfEmployed) adjustments.push({ label: 'Borrower: Self Employed', value: selfEmployed.values[cltvIndex] ?? 0 });
+  }
+
+  if (input.dti !== null && input.dti > 43) {
+    const dti = findAdditionalRow('DTI >43%');
+    if (dti) adjustments.push({ label: 'DTI: > 43%', value: dti.values[cltvIndex] ?? 0 });
+  }
+
+  const amount = findLoanAmountRow(selectedLoanAmount);
+  if (amount) adjustments.push({ label: `Loan Amount: ${amount.label}`, value: amount.values[cltvIndex] ?? 0 });
+
+  return adjustments.filter(row => Number.isFinite(row.value));
+}
+
+function pickExecution(product: NewRezProduct, llpaAdjustment: number, targetPrice: number, tolerance?: number): SelectedExecution {
+  const sheet = DATA.pricing[product];
+  const executions: SelectedExecution[] = [];
+
+  for (const row of sheet.rows) {
+    for (const column of sheet.columns) {
+      const basePrice = row.prices[column];
+      if (basePrice === null) continue;
+      const purchasePrice = roundToThree(basePrice + llpaAdjustment);
+      const deltaFromTarget = roundToThree(roundToThree(targetPrice) - purchasePrice);
+      executions.push({
+        noteRate: row.noteRate,
+        endSeconds: column,
+        basePrice,
+        purchasePrice,
+        deltaFromTarget,
+        withinTolerance: tolerance === undefined ? false : deltaFromTarget >= 0 && deltaFromTarget <= tolerance,
+      });
+    }
+  }
+
+  const belowOrEqual = executions
+    .filter(item => item.purchasePrice <= targetPrice)
+    .sort((a, b) => (a.noteRate - b.noteRate) || (b.purchasePrice - a.purchasePrice));
+  if (belowOrEqual.length > 0) return belowOrEqual[0];
+
+  return executions.sort((a, b) => Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget) || a.noteRate - b.noteRate)[0];
+}
+
+function findCreditRow(matrix: JsonMatrix, creditScore: number): JsonBucketRow | null {
+  return matrix.rows.find(row => matchesCreditScoreLabel(row.label, creditScore)) ?? null;
+}
+
+function findCltvBucketIndex(labels: string[], cltv: number): number | null {
+  const pct = cltv * 100;
+  for (let i = 0; i < labels.length; i += 1) {
+    const upper = upperBoundForCltvLabel(labels[i]);
+    if (pct <= upper) return i;
+  }
+  return null;
+}
+
+function findAdditionalRow(label: string): JsonBucketRow | null {
+  return DATA.additional.rows.find(row => row.label === label) ?? null;
+}
+
+function findLoanAmountRow(loanAmount: number): JsonBucketRow | null {
+  return DATA.loanAmount.rows.find(row => matchesLoanAmountLabel(row.label, loanAmount)) ?? null;
+}
+
+function matchesCreditScoreLabel(label: string, score: number): boolean {
+  const clean = label.replace(/\s+/g, '');
+  if (clean.startsWith('>=')) return score >= Number(clean.slice(2));
+  const match = clean.match(/^(\d+)-(\d+)$/);
+  if (match) return score >= Number(match[1]) && score <= Number(match[2]);
+  return false;
+}
+
+function upperBoundForCltvLabel(label: string): number {
+  if (label.startsWith('>')) return Number(label.slice(1));
+  const range = label.match(/(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)/);
+  if (range) return Number(range[2].replace('%', ''));
+  const single = label.match(/(\d+(?:\.\d+)?)/);
+  return single ? Number(single[1]) : 0;
+}
+
+function matchesLoanAmountLabel(label: string, amount: number): boolean {
+  const normalized = label.replace(/\s+/g, '');
+  if (normalized === '50000') return amount <= 50000;
+  if (normalized.includes('>$250,000')) return amount > 250000;
+  if (normalized.includes('>$100,000<=$250,000')) return amount > 100000 && amount <= 250000;
+  if (normalized.includes('>$50,000<=$100,000')) return amount > 50000 && amount <= 100000;
+  return false;
+}
+
+function calculateMonthlyPayment(loanAmount: number, noteRate: number, years: number): number {
+  const monthlyRate = noteRate / 100 / 12;
+  const payments = years * 12;
+  if (monthlyRate === 0) return loanAmount / Math.max(payments, 1);
+  const factor = Math.pow(1 + monthlyRate, payments);
+  return loanAmount * ((monthlyRate * factor) / (factor - 1));
+}
+
+function normalizeProduct(product?: string): NewRezProduct {
+  if (product === '15 Year Fixed' || product === '20 Year Fixed' || product === '30 Year Fixed') return product;
+  return '30 Year Fixed';
+}
+
+function normalizeOccupancy(value?: string): string {
+  if (value === 'Second Home' || value === 'Investment') return value;
+  return 'Owner-Occupied';
+}
+
+function normalizeStructureType(value?: string): string {
+  return String(value || 'SFR');
+}
+
+function occupancyLabel(occupancy: string): string {
+  if (occupancy === 'Second Home') return 'Second Home';
+  if (occupancy === 'Investment') return 'Investment';
+  return 'Primary';
+}
+
+function isCondo(structureType: string): boolean {
+  return structureType.toLowerCase().includes('condo');
+}
+
+function termYears(product: NewRezProduct): number {
+  if (product === '15 Year Fixed') return 15;
+  if (product === '20 Year Fixed') return 20;
+  return 30;
 }
 
 function roundToThree(value: number): number {

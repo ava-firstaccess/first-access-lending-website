@@ -1,4 +1,4 @@
-export type Stage1PricingEngine = 'Button' | 'Vista' | 'OSB';
+export type Stage1PricingEngine = 'Button' | 'Vista' | 'OSB' | 'NewRez';
 
 export type Stage1AdjustmentLine = {
   label: string;
