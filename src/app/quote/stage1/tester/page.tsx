@@ -7,6 +7,45 @@ import { calculateVistaStage1Quote, evaluateVistaStage1Eligibility, solveVistaSt
 type PricingEngine = 'Button' | 'Vista';
 type TesterInput = ButtonStage1Input & { vistaProduct?: VistaProduct };
 
+type SharedAdjustmentLine = {
+  label: string;
+  value: number;
+};
+
+type SharedEligibility = {
+  eligible: boolean;
+  reasons: string[];
+  maxAvailable: number;
+  resultingCltv: number;
+};
+
+type SharedQuote = {
+  engine: PricingEngine;
+  program: string;
+  maxAvailable: number;
+  rate: number;
+  monthlyPayment: number;
+  maxLtv: number;
+  noteRate: number;
+  purchasePrice: number;
+  basePrice: number;
+  llpaAdjustment: number;
+  adjustments: SharedAdjustmentLine[];
+};
+
+type SharedTargetQuote = SharedQuote & {
+  targetPrice: number;
+  tolerance: number;
+  deltaFromTarget: number;
+  withinTolerance: boolean;
+};
+
+type SharedEngineResult = {
+  eligibility: SharedEligibility;
+  quote: SharedQuote;
+  targetQuote: SharedTargetQuote;
+};
+
 const defaultInput: TesterInput = {
   product: 'HELOC',
   vistaProduct: '30yr Fixed',
@@ -51,9 +90,79 @@ export default function Stage1TesterPage() {
     selectedLoanAmount: input.desiredLoanAmount,
   }), [input, effectiveTargetPrice, tolerance]);
 
-  const eligibility = engine === 'Button' ? buttonEligibility : vistaEligibility;
-  const quote = engine === 'Button' ? buttonQuote : vistaQuote;
-  const targetQuote = engine === 'Button' ? buttonTargetQuote : vistaTargetQuote;
+  const activeResult = useMemo<SharedEngineResult>(() => {
+    if (engine === 'Button') {
+      return {
+        eligibility: buttonEligibility,
+        quote: {
+          engine: 'Button',
+          program: 'Button',
+          maxAvailable: buttonQuote.maxAvailable,
+          rate: buttonQuote.rate,
+          monthlyPayment: buttonQuote.monthlyPayment,
+          maxLtv: buttonQuote.maxLtv,
+          noteRate: buttonQuote.noteRate,
+          purchasePrice: buttonQuote.purchasePrice,
+          basePrice: buttonQuote.basePrice,
+          llpaAdjustment: buttonQuote.llpaAdjustment,
+          adjustments: [],
+        },
+        targetQuote: {
+          engine: 'Button',
+          program: 'Button',
+          maxAvailable: buttonTargetQuote.maxAvailable,
+          rate: buttonTargetQuote.rate,
+          monthlyPayment: buttonTargetQuote.monthlyPayment,
+          maxLtv: buttonTargetQuote.maxLtv,
+          noteRate: buttonTargetQuote.noteRate,
+          purchasePrice: buttonTargetQuote.purchasePrice,
+          basePrice: buttonTargetQuote.basePrice,
+          llpaAdjustment: buttonTargetQuote.llpaAdjustment,
+          adjustments: [],
+          targetPrice: buttonTargetQuote.targetPrice,
+          tolerance: buttonTargetQuote.tolerance,
+          deltaFromTarget: buttonTargetQuote.deltaFromTarget,
+          withinTolerance: buttonTargetQuote.withinTolerance,
+        },
+      };
+    }
+
+    return {
+      eligibility: vistaEligibility,
+      quote: {
+        engine: 'Vista',
+        program: vistaQuote.program,
+        maxAvailable: vistaQuote.maxAvailable,
+        rate: vistaQuote.rate,
+        monthlyPayment: vistaQuote.monthlyPayment,
+        maxLtv: vistaQuote.maxLtv,
+        noteRate: vistaQuote.noteRate,
+        purchasePrice: vistaQuote.purchasePrice,
+        basePrice: vistaQuote.basePrice,
+        llpaAdjustment: vistaQuote.llpaAdjustment,
+        adjustments: vistaQuote.adjustments,
+      },
+      targetQuote: {
+        engine: 'Vista',
+        program: vistaTargetQuote.program,
+        maxAvailable: vistaTargetQuote.maxAvailable,
+        rate: vistaTargetQuote.rate,
+        monthlyPayment: vistaTargetQuote.monthlyPayment,
+        maxLtv: vistaTargetQuote.maxLtv,
+        noteRate: vistaTargetQuote.noteRate,
+        purchasePrice: vistaTargetQuote.purchasePrice,
+        basePrice: vistaTargetQuote.basePrice,
+        llpaAdjustment: vistaTargetQuote.llpaAdjustment,
+        adjustments: vistaTargetQuote.adjustments,
+        targetPrice: vistaTargetQuote.targetPrice,
+        tolerance: vistaTargetQuote.tolerance,
+        deltaFromTarget: vistaTargetQuote.deltaFromTarget,
+        withinTolerance: vistaTargetQuote.withinTolerance,
+      },
+    };
+  }, [engine, buttonEligibility, buttonQuote, buttonTargetQuote, vistaEligibility, vistaQuote, vistaTargetQuote]);
+
+  const { eligibility, quote, targetQuote } = activeResult;
 
   function update<K extends keyof TesterInput>(key: K, value: TesterInput[K]) {
     setInput(prev => ({ ...prev, [key]: value }));
@@ -199,7 +308,7 @@ export default function Stage1TesterPage() {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <Metric label="Max Available" value={`$${Math.round(quote.maxAvailable).toLocaleString()}`} />
-                <Metric label="Program" value={engine === 'Vista' && 'program' in quote ? String(quote.program) : 'Button'} />
+                <Metric label="Program" value={quote.program} />
                 <Metric label="Rate" value={`${quote.rate.toFixed(3)}%`} />
                 <Metric label="Monthly Payment" value={`$${Math.round(quote.monthlyPayment).toLocaleString()}`} />
                 <Metric label="Max LTV" value={`${(quote.maxLtv * 100).toFixed(1)}%`} />
