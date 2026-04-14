@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { calculateButtonStage1Quote, evaluateButtonStage1Eligibility, getTargetPurchasePriceForLoanAmount, solveButtonStage1TargetRate, type ButtonStage1Input } from '@/lib/rates/button';
+import { solveNewRezStage1TargetRate } from '@/lib/rates/newrez';
 
 const defaultInput: ButtonStage1Input = {
   product: 'HELOC',
@@ -33,6 +34,11 @@ export default function Stage1TesterPage() {
     tolerance,
     selectedLoanAmount: input.desiredLoanAmount,
   }), [input, effectiveTargetPrice, tolerance]);
+  const newRezQuote = useMemo(() => solveNewRezStage1TargetRate(input, {
+    targetPrice: effectiveTargetPrice,
+    tolerance: 0.5,
+    selectedLoanAmount: input.desiredLoanAmount,
+  }), [input, effectiveTargetPrice]);
 
   function update<K extends keyof ButtonStage1Input>(key: K, value: ButtonStage1Input[K]) {
     setInput(prev => ({ ...prev, [key]: value }));
@@ -155,7 +161,7 @@ export default function Stage1TesterPage() {
             </div>
 
             <div className="mt-6 rounded-2xl border border-orange-200 bg-orange-50 p-4">
-              <div className="mb-3 text-sm font-semibold text-orange-900">Target Margin Solver</div>
+              <div className="mb-3 text-sm font-semibold text-orange-900">Button Target Margin Solver</div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Metric label="Target Price" value={targetQuote.targetPrice.toFixed(3)} />
                 <Metric label="Solved Rate" value={`${targetQuote.rate.toFixed(3)}%`} />
@@ -166,9 +172,30 @@ export default function Stage1TesterPage() {
               </div>
             </div>
 
+            <div className="mt-6 rounded-2xl border border-cyan-200 bg-cyan-50 p-4">
+              <div className="mb-3 text-sm font-semibold text-cyan-900">NewRez Execution</div>
+              <div className="mb-3 text-xs text-cyan-900">Best execution = highest price not over target and within 0.500, then lowest note rate.</div>
+              {newRezQuote.eligible ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Metric label="Target Price" value={newRezQuote.targetPrice.toFixed(3)} />
+                  <Metric label="Target Cap" value={newRezQuote.cappedTargetPrice.toFixed(3)} />
+                  <Metric label="Note Rate" value={newRezQuote.noteRate !== null ? `${newRezQuote.noteRate.toFixed(3)}%` : 'N/A'} />
+                  <Metric label="Selected Column" value={newRezQuote.selectedColumn ?? 'N/A'} />
+                  <Metric label="Base Price" value={newRezQuote.basePrice?.toFixed(3) ?? 'N/A'} />
+                  <Metric label="LLPA Adj" value={newRezQuote.llpaAdjustment?.toFixed(3) ?? 'N/A'} />
+                  <Metric label="Purchase Price" value={newRezQuote.purchasePrice?.toFixed(3) ?? 'N/A'} />
+                  <Metric label="Delta From Target" value={newRezQuote.deltaFromTarget?.toFixed(3) ?? 'N/A'} />
+                </div>
+              ) : (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+                  {newRezQuote.reasons.join(' ')}
+                </div>
+              )}
+            </div>
+
             <div className="mt-6">
               <div className="mb-2 text-sm font-medium text-slate-700">Raw JSON</div>
-              <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100">{JSON.stringify({ input, eligibility, quote, targetQuote }, null, 2)}</pre>
+              <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100">{JSON.stringify({ input, eligibility, quote, targetQuote, newRezQuote }, null, 2)}</pre>
             </div>
           </div>
         </div>
