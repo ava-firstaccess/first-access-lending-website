@@ -2,53 +2,25 @@
 
 import { useMemo, useState } from 'react';
 import { calculateButtonStage1Quote, evaluateButtonStage1Eligibility, getTargetPurchasePriceForLoanAmount, solveButtonStage1TargetRate, type ButtonStage1Input } from '@/lib/rates/button';
+import { buildOsbStage1PricingInput, calculateOsbStage1Quote, evaluateOsbStage1Eligibility, solveOsbStage1TargetRate, type OsbLockPeriod, type OsbProduct, type OsbProgram } from '@/lib/rates/osb';
+import { type Stage1PricingEngineResult } from '@/lib/rates/shared';
 import { calculateVistaStage1Quote, evaluateVistaStage1Eligibility, solveVistaStage1TargetRate, type VistaProduct } from '@/lib/rates/vista';
 
-type PricingEngine = 'Button' | 'Vista';
-type TesterInput = ButtonStage1Input & { vistaProduct?: VistaProduct };
-
-type SharedAdjustmentLine = {
-  label: string;
-  value: number;
-};
-
-type SharedEligibility = {
-  eligible: boolean;
-  reasons: string[];
-  maxAvailable: number;
-  resultingCltv: number;
-};
-
-type SharedQuote = {
-  engine: PricingEngine;
-  program: string;
-  maxAvailable: number;
-  rate: number;
-  monthlyPayment: number;
-  maxLtv: number;
-  noteRate: number;
-  purchasePrice: number;
-  basePrice: number;
-  llpaAdjustment: number;
-  adjustments: SharedAdjustmentLine[];
-};
-
-type SharedTargetQuote = SharedQuote & {
-  targetPrice: number;
-  tolerance: number;
-  deltaFromTarget: number;
-  withinTolerance: boolean;
-};
-
-type SharedEngineResult = {
-  eligibility: SharedEligibility;
-  quote: SharedQuote;
-  targetQuote: SharedTargetQuote;
+type TesterInput = ButtonStage1Input & {
+  vistaProduct?: VistaProduct;
+  osbProgram?: OsbProgram;
+  osbProduct?: OsbProduct;
+  osbLockPeriodDays?: OsbLockPeriod;
+  helocDrawTermYears?: 3 | 5 | 10;
 };
 
 const defaultInput: TesterInput = {
   product: 'HELOC',
   vistaProduct: '30yr Fixed',
+  osbProgram: 'HELOC',
+  osbProduct: '30 Year Maturity',
+  osbLockPeriodDays: 45,
+  helocDrawTermYears: 5,
   propertyState: 'CA',
   propertyValue: 750000,
   loanBalance: 250000,
@@ -61,7 +33,7 @@ const defaultInput: TesterInput = {
 };
 
 export default function Stage1TesterPage() {
-  const [engine, setEngine] = useState<PricingEngine>('Button');
+  const [engine, setEngine] = useState<'Button' | 'Vista' | 'OSB'>('Button');
   const [input, setInput] = useState<TesterInput>(defaultInput);
   const [targetPriceOverride, setTargetPriceOverride] = useState<string>('');
   const [tolerance, setTolerance] = useState(0.125);
@@ -71,101 +43,163 @@ export default function Stage1TesterPage() {
     return getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0));
   }, [input.desiredLoanAmount, targetPriceOverride]);
 
-  const buttonEligibility = useMemo(() => evaluateButtonStage1Eligibility(input, input.desiredLoanAmount), [input]);
-  const buttonQuote = useMemo(() => calculateButtonStage1Quote(input), [input]);
-  const buttonTargetQuote = useMemo(() => solveButtonStage1TargetRate(input, {
-    targetPrice: effectiveTargetPrice,
-    tolerance,
-    selectedLoanAmount: input.desiredLoanAmount,
-  }), [input, effectiveTargetPrice, tolerance]);
-
-  const vistaEligibility = useMemo(() => evaluateVistaStage1Eligibility(input, input.desiredLoanAmount), [input]);
-  const vistaQuote = useMemo(() => calculateVistaStage1Quote(input, {
-    selectedLoanAmount: input.desiredLoanAmount,
-    targetPrice: effectiveTargetPrice,
-  }), [input, effectiveTargetPrice]);
-  const vistaTargetQuote = useMemo(() => solveVistaStage1TargetRate(input, {
-    targetPrice: effectiveTargetPrice,
-    tolerance,
-    selectedLoanAmount: input.desiredLoanAmount,
-  }), [input, effectiveTargetPrice, tolerance]);
-
-  const activeResult = useMemo<SharedEngineResult>(() => {
+  const activeResult = useMemo<Stage1PricingEngineResult>(() => {
     if (engine === 'Button') {
+      const eligibility = evaluateButtonStage1Eligibility(input, input.desiredLoanAmount);
+      const quote = calculateButtonStage1Quote(input);
+      const targetQuote = solveButtonStage1TargetRate(input, {
+        targetPrice: effectiveTargetPrice,
+        tolerance,
+        selectedLoanAmount: input.desiredLoanAmount,
+      });
+
       return {
-        eligibility: buttonEligibility,
+        eligibility,
         quote: {
           engine: 'Button',
           program: 'Button',
-          maxAvailable: buttonQuote.maxAvailable,
-          rate: buttonQuote.rate,
-          monthlyPayment: buttonQuote.monthlyPayment,
-          maxLtv: buttonQuote.maxLtv,
-          noteRate: buttonQuote.noteRate,
-          purchasePrice: buttonQuote.purchasePrice,
-          basePrice: buttonQuote.basePrice,
-          llpaAdjustment: buttonQuote.llpaAdjustment,
+          product: String(input.product || 'HELOC'),
+          maxAvailable: quote.maxAvailable,
+          rate: quote.rate,
+          noteRate: quote.noteRate,
+          monthlyPayment: quote.monthlyPayment,
+          maxLtv: quote.maxLtv,
+          purchasePrice: quote.purchasePrice,
+          basePrice: quote.basePrice,
+          llpaAdjustment: quote.llpaAdjustment,
           adjustments: [],
         },
         targetQuote: {
           engine: 'Button',
           program: 'Button',
-          maxAvailable: buttonTargetQuote.maxAvailable,
-          rate: buttonTargetQuote.rate,
-          monthlyPayment: buttonTargetQuote.monthlyPayment,
-          maxLtv: buttonTargetQuote.maxLtv,
-          noteRate: buttonTargetQuote.noteRate,
-          purchasePrice: buttonTargetQuote.purchasePrice,
-          basePrice: buttonTargetQuote.basePrice,
-          llpaAdjustment: buttonTargetQuote.llpaAdjustment,
+          product: String(input.product || 'HELOC'),
+          maxAvailable: targetQuote.maxAvailable,
+          rate: targetQuote.rate,
+          noteRate: targetQuote.noteRate,
+          monthlyPayment: targetQuote.monthlyPayment,
+          maxLtv: targetQuote.maxLtv,
+          purchasePrice: targetQuote.purchasePrice,
+          basePrice: targetQuote.basePrice,
+          llpaAdjustment: targetQuote.llpaAdjustment,
           adjustments: [],
-          targetPrice: buttonTargetQuote.targetPrice,
-          tolerance: buttonTargetQuote.tolerance,
-          deltaFromTarget: buttonTargetQuote.deltaFromTarget,
-          withinTolerance: buttonTargetQuote.withinTolerance,
+          targetPrice: targetQuote.targetPrice,
+          tolerance: targetQuote.tolerance,
+          deltaFromTarget: targetQuote.deltaFromTarget,
+          withinTolerance: targetQuote.withinTolerance,
         },
       };
     }
 
+    if (engine === 'Vista') {
+      const eligibility = evaluateVistaStage1Eligibility(input, input.desiredLoanAmount);
+      const quote = calculateVistaStage1Quote(input, {
+        selectedLoanAmount: input.desiredLoanAmount,
+        targetPrice: effectiveTargetPrice,
+      });
+      const targetQuote = solveVistaStage1TargetRate(input, {
+        targetPrice: effectiveTargetPrice,
+        tolerance,
+        selectedLoanAmount: input.desiredLoanAmount,
+      });
+
+      return {
+        eligibility,
+        quote: {
+          engine: 'Vista',
+          program: quote.program,
+          product: quote.product,
+          maxAvailable: quote.maxAvailable,
+          rate: quote.rate,
+          noteRate: quote.noteRate,
+          monthlyPayment: quote.monthlyPayment,
+          maxLtv: quote.maxLtv,
+          purchasePrice: quote.purchasePrice,
+          basePrice: quote.basePrice,
+          llpaAdjustment: quote.llpaAdjustment,
+          adjustments: quote.adjustments,
+        },
+        targetQuote: {
+          engine: 'Vista',
+          program: targetQuote.program,
+          product: targetQuote.product,
+          maxAvailable: targetQuote.maxAvailable,
+          rate: targetQuote.rate,
+          noteRate: targetQuote.noteRate,
+          monthlyPayment: targetQuote.monthlyPayment,
+          maxLtv: targetQuote.maxLtv,
+          purchasePrice: targetQuote.purchasePrice,
+          basePrice: targetQuote.basePrice,
+          llpaAdjustment: targetQuote.llpaAdjustment,
+          adjustments: targetQuote.adjustments,
+          targetPrice: targetQuote.targetPrice,
+          tolerance: targetQuote.tolerance,
+          deltaFromTarget: targetQuote.deltaFromTarget,
+          withinTolerance: targetQuote.withinTolerance,
+        },
+      };
+    }
+
+    const eligibility = evaluateOsbStage1Eligibility(input, input.desiredLoanAmount);
+    const quote = calculateOsbStage1Quote(input, {
+      selectedLoanAmount: input.desiredLoanAmount,
+      targetPrice: effectiveTargetPrice,
+    });
+    const targetQuote = solveOsbStage1TargetRate(input, {
+      targetPrice: effectiveTargetPrice,
+      tolerance,
+      selectedLoanAmount: input.desiredLoanAmount,
+    });
+
     return {
-      eligibility: vistaEligibility,
+      eligibility,
       quote: {
-        engine: 'Vista',
-        program: vistaQuote.program,
-        maxAvailable: vistaQuote.maxAvailable,
-        rate: vistaQuote.rate,
-        monthlyPayment: vistaQuote.monthlyPayment,
-        maxLtv: vistaQuote.maxLtv,
-        noteRate: vistaQuote.noteRate,
-        purchasePrice: vistaQuote.purchasePrice,
-        basePrice: vistaQuote.basePrice,
-        llpaAdjustment: vistaQuote.llpaAdjustment,
-        adjustments: vistaQuote.adjustments,
+        engine: 'OSB',
+        program: quote.program,
+        product: quote.product,
+        maxAvailable: quote.maxAvailable,
+        rate: quote.rate,
+        noteRate: quote.noteRate,
+        monthlyPayment: quote.monthlyPayment,
+        maxLtv: quote.maxLtv,
+        purchasePrice: quote.purchasePrice,
+        basePrice: quote.basePrice,
+        llpaAdjustment: quote.llpaAdjustment,
+        adjustments: quote.adjustments,
       },
       targetQuote: {
-        engine: 'Vista',
-        program: vistaTargetQuote.program,
-        maxAvailable: vistaTargetQuote.maxAvailable,
-        rate: vistaTargetQuote.rate,
-        monthlyPayment: vistaTargetQuote.monthlyPayment,
-        maxLtv: vistaTargetQuote.maxLtv,
-        noteRate: vistaTargetQuote.noteRate,
-        purchasePrice: vistaTargetQuote.purchasePrice,
-        basePrice: vistaTargetQuote.basePrice,
-        llpaAdjustment: vistaTargetQuote.llpaAdjustment,
-        adjustments: vistaTargetQuote.adjustments,
-        targetPrice: vistaTargetQuote.targetPrice,
-        tolerance: vistaTargetQuote.tolerance,
-        deltaFromTarget: vistaTargetQuote.deltaFromTarget,
-        withinTolerance: vistaTargetQuote.withinTolerance,
+        engine: 'OSB',
+        program: targetQuote.program,
+        product: targetQuote.product,
+        maxAvailable: targetQuote.maxAvailable,
+        rate: targetQuote.rate,
+        noteRate: targetQuote.noteRate,
+        monthlyPayment: targetQuote.monthlyPayment,
+        maxLtv: targetQuote.maxLtv,
+        purchasePrice: targetQuote.purchasePrice,
+        basePrice: targetQuote.basePrice,
+        llpaAdjustment: targetQuote.llpaAdjustment,
+        adjustments: targetQuote.adjustments,
+        targetPrice: targetQuote.targetPrice,
+        tolerance: targetQuote.tolerance,
+        deltaFromTarget: targetQuote.deltaFromTarget,
+        withinTolerance: targetQuote.withinTolerance,
       },
     };
-  }, [engine, buttonEligibility, buttonQuote, buttonTargetQuote, vistaEligibility, vistaQuote, vistaTargetQuote]);
+  }, [engine, input, effectiveTargetPrice, tolerance]);
 
   const { eligibility, quote, targetQuote } = activeResult;
+  const osbDerived = useMemo(() => buildOsbStage1PricingInput(input), [input]);
 
   function update<K extends keyof TesterInput>(key: K, value: TesterInput[K]) {
     setInput(prev => ({ ...prev, [key]: value }));
+  }
+
+  function updateOsbProgram(program: OsbProgram) {
+    setInput(prev => ({
+      ...prev,
+      osbProgram: program,
+      osbProduct: program === 'HELOC' ? '30 Year Maturity' : 'Fixed 30',
+    }));
   }
 
   return (
@@ -175,14 +209,14 @@ export default function Stage1TesterPage() {
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Stage 1 Pricing Tester</h1>
             <p className="mt-2 text-sm text-slate-600">
-              Internal harness for stage 1 pricing logic. Button stays intact, and Vista now runs off parsed workbook pricing plus real Second OO and Second NOO LLPAs.
+              Internal harness for workbook-driven stage 1 pricing. Button, Vista, and OSB all adapt into the same execution contract.
             </p>
-            <div className="mt-3 text-xs font-semibold uppercase tracking-wide text-sky-700">Available engines: Button and Vista</div>
+            <div className="mt-3 text-xs font-semibold uppercase tracking-wide text-sky-700">Available engines: Button, Vista, and OSB</div>
           </div>
           <div className="flex flex-col gap-1">
             <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Engine Toggle</div>
             <div className="flex gap-2 rounded-2xl bg-slate-100 p-1">
-              {(['Button', 'Vista'] as PricingEngine[]).map(option => (
+              {(['Button', 'Vista', 'OSB'] as const).map(option => (
                 <button
                   key={option}
                   onClick={() => setEngine(option)}
@@ -207,7 +241,7 @@ export default function Stage1TesterPage() {
                     <option value="CES">CES</option>
                   </select>
                 </label>
-              ) : (
+              ) : engine === 'Vista' ? (
                 <label className="text-sm">
                   <div className="mb-1 font-medium text-slate-700">Vista Product</div>
                   <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.vistaProduct} onChange={e => update('vistaProduct', e.target.value as VistaProduct)}>
@@ -219,6 +253,34 @@ export default function Stage1TesterPage() {
                     <option value="40/15yr Balloon">40/15yr Balloon</option>
                   </select>
                 </label>
+              ) : (
+                <>
+                  <label className="text-sm">
+                    <div className="mb-1 font-medium text-slate-700">OSB Program</div>
+                    <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.osbProgram} onChange={e => updateOsbProgram(e.target.value as OsbProgram)}>
+                      <option value="HELOC">HELOC</option>
+                      <option value="2nd Liens">2nd Liens</option>
+                    </select>
+                  </label>
+                  <label className="text-sm">
+                    <div className="mb-1 font-medium text-slate-700">OSB Product</div>
+                    <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.osbProduct} onChange={e => update('osbProduct', e.target.value as OsbProduct)}>
+                      {input.osbProgram === 'HELOC' ? (
+                        <>
+                          <option value="20 Year Maturity">20 Year Maturity</option>
+                          <option value="30 Year Maturity">30 Year Maturity</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="Fixed 10">Fixed 10</option>
+                          <option value="Fixed 15">Fixed 15</option>
+                          <option value="Fixed 20">Fixed 20</option>
+                          <option value="Fixed 30">Fixed 30</option>
+                        </>
+                      )}
+                    </select>
+                  </label>
+                </>
               )}
 
               <label className="text-sm">
@@ -271,6 +333,28 @@ export default function Stage1TesterPage() {
                 <input type="number" min={1} max={4} className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.numberOfUnits ?? 1} onChange={e => update('numberOfUnits', Number(e.target.value))} />
               </label>
 
+              {engine === 'OSB' && input.osbProgram === 'HELOC' && (
+                <label className="text-sm">
+                  <div className="mb-1 font-medium text-slate-700">HELOC Draw Term</div>
+                  <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.helocDrawTermYears ?? 5} onChange={e => update('helocDrawTermYears', Number(e.target.value) as 3 | 5 | 10)}>
+                    <option value={10}>10 Years</option>
+                    <option value={5}>5 Years</option>
+                    <option value={3}>3 Years</option>
+                  </select>
+                </label>
+              )}
+
+              {engine === 'OSB' && (
+                <label className="text-sm">
+                  <div className="mb-1 font-medium text-slate-700">Lock Period</div>
+                  <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.osbLockPeriodDays ?? 45} onChange={e => update('osbLockPeriodDays', Number(e.target.value) as OsbLockPeriod)}>
+                    <option value={15}>15 day</option>
+                    <option value={45}>45 day</option>
+                    <option value={60}>60 day</option>
+                  </select>
+                </label>
+              )}
+
               <label className="flex items-center gap-2 pt-7 text-sm font-medium text-slate-700">
                 <input type="checkbox" checked={Boolean(input.cashOut)} onChange={e => update('cashOut', e.target.checked)} />
                 Cash out
@@ -307,12 +391,14 @@ export default function Stage1TesterPage() {
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <Metric label="Max Available" value={`$${Math.round(quote.maxAvailable).toLocaleString()}`} />
+                <Metric label="Engine" value={quote.engine} />
                 <Metric label="Program" value={quote.program} />
+                <Metric label="Product" value={quote.product} />
+                <Metric label="Max Available" value={`$${Math.round(quote.maxAvailable).toLocaleString()}`} />
                 <Metric label="Rate" value={`${quote.rate.toFixed(3)}%`} />
+                <Metric label="Note Rate Selected" value={`${quote.noteRate.toFixed(3)}%`} />
                 <Metric label="Monthly Payment" value={`$${Math.round(quote.monthlyPayment).toLocaleString()}`} />
                 <Metric label="Max LTV" value={`${(quote.maxLtv * 100).toFixed(1)}%`} />
-                <Metric label="Note Rate" value={`${quote.noteRate.toFixed(3)}%`} />
                 <Metric label="Purchase Price" value={quote.purchasePrice.toFixed(3)} />
                 <Metric label="Base Price" value={quote.basePrice.toFixed(3)} />
                 <Metric label="LLPA Adj" value={quote.llpaAdjustment.toFixed(3)} />
@@ -323,6 +409,7 @@ export default function Stage1TesterPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Metric label="Target Price" value={targetQuote.targetPrice.toFixed(3)} />
                   <Metric label="Solved Rate" value={`${targetQuote.rate.toFixed(3)}%`} />
+                  <Metric label="Solved Note Rate" value={`${targetQuote.noteRate.toFixed(3)}%`} />
                   <Metric label="Solved Purchase Price" value={targetQuote.purchasePrice.toFixed(3)} />
                   <Metric label="Base Price @ Solved Rate" value={targetQuote.basePrice.toFixed(3)} />
                   <Metric label="LLPA Adj @ Solved Rate" value={targetQuote.llpaAdjustment.toFixed(3)} />
@@ -332,17 +419,23 @@ export default function Stage1TesterPage() {
                 </div>
               </div>
 
-              {engine === 'Vista' && (
+              {quote.adjustments.length > 0 && (
                 <div className="mt-6 rounded-2xl border border-sky-200 bg-sky-50 p-4">
-                  <div className="mb-3 text-sm font-semibold text-sky-900">Vista Execution Details</div>
+                  <div className="mb-3 text-sm font-semibold text-sky-900">Execution Details</div>
                   <div className="space-y-2">
-                    {vistaQuote.adjustments.map(row => (
+                    {quote.adjustments.map(row => (
                       <div key={`${row.label}-${row.value}`} className="flex items-center justify-between rounded-xl bg-white/80 px-3 py-2 text-sm">
                         <span className="text-slate-700">{row.label}</span>
                         <span className={`font-semibold ${row.value > 0 ? 'text-emerald-700' : row.value < 0 ? 'text-rose-700' : 'text-slate-600'}`}>{row.value.toFixed(3)}</span>
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {engine === 'OSB' && (
+                <div className="mt-6 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
+                  Workbook sections in play: {osbDerived.program}, {quote.product}, credit / CLTV matrix, loan amount LLPAs, loan type LLPAs, property LLPAs, and {input.osbLockPeriodDays} day lock adjustment.
                 </div>
               )}
 

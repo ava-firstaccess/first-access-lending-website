@@ -1,0 +1,1894 @@
+{
+  "sourceWorkbook": "/Users/ava/Documents/GitHub/first-access-lending/getaccess/ratesheets/latest_osb.xlsm",
+  "programs": {
+    "secondLiens": {
+      "sheet": "2nd Liens",
+      "pricing": {
+        "rows": [
+          10,
+          74
+        ],
+        "rateType": "fixed-note-rate",
+        "rateColumn": 3,
+        "products": [
+          {
+            "key": "fixed10",
+            "label": "Fixed 10",
+            "column": 4
+          },
+          {
+            "key": "fixed15",
+            "label": "Fixed 15",
+            "column": 5
+          },
+          {
+            "key": "fixed20",
+            "label": "Fixed 20",
+            "column": 6
+          },
+          {
+            "key": "fixed30",
+            "label": "Fixed 30",
+            "column": 7
+          }
+        ],
+        "rowsData": [
+          {
+            "rate": 14.0,
+            "prices": {
+              "fixed10": 117.382,
+              "fixed15": 117.32,
+              "fixed20": 117.195,
+              "fixed30": 115.945
+            }
+          },
+          {
+            "rate": 13.875,
+            "prices": {
+              "fixed10": 117.257,
+              "fixed15": 117.195,
+              "fixed20": 117.07,
+              "fixed30": 115.82
+            }
+          },
+          {
+            "rate": 13.75,
+            "prices": {
+              "fixed10": 117.132,
+              "fixed15": 117.07,
+              "fixed20": 116.945,
+              "fixed30": 115.695
+            }
+          },
+          {
+            "rate": 13.625,
+            "prices": {
+              "fixed10": 117.007,
+              "fixed15": 116.945,
+              "fixed20": 116.82,
+              "fixed30": 115.57
+            }
+          },
+          {
+            "rate": 13.5,
+            "prices": {
+              "fixed10": 116.882,
+              "fixed15": 116.82,
+              "fixed20": 116.695,
+              "fixed30": 115.445
+            }
+          },
+          {
+            "rate": 13.375,
+            "prices": {
+              "fixed10": 116.757,
+              "fixed15": 116.695,
+              "fixed20": 116.57,
+              "fixed30": 115.32
+            }
+          },
+          {
+            "rate": 13.25,
+            "prices": {
+              "fixed10": 116.632,
+              "fixed15": 116.57,
+              "fixed20": 116.445,
+              "fixed30": 115.195
+            }
+          },
+          {
+            "rate": 13.125,
+            "prices": {
+              "fixed10": 116.507,
+              "fixed15": 116.445,
+              "fixed20": 116.32,
+              "fixed30": 115.07
+            }
+          },
+          {
+            "rate": 13.0,
+            "prices": {
+              "fixed10": 116.382,
+              "fixed15": 116.32,
+              "fixed20": 116.195,
+              "fixed30": 114.945
+            }
+          },
+          {
+            "rate": 12.875,
+            "prices": {
+              "fixed10": 116.257,
+              "fixed15": 116.195,
+              "fixed20": 116.07,
+              "fixed30": 114.82
+            }
+          },
+          {
+            "rate": 12.75,
+            "prices": {
+              "fixed10": 116.132,
+              "fixed15": 116.07,
+              "fixed20": 115.945,
+              "fixed30": 114.695
+            }
+          },
+          {
+            "rate": 12.625,
+            "prices": {
+              "fixed10": 116.007,
+              "fixed15": 115.945,
+              "fixed20": 115.82,
+              "fixed30": 114.57
+            }
+          },
+          {
+            "rate": 12.5,
+            "prices": {
+              "fixed10": 115.882,
+              "fixed15": 115.82,
+              "fixed20": 115.695,
+              "fixed30": 114.445
+            }
+          },
+          {
+            "rate": 12.375,
+            "prices": {
+              "fixed10": 115.757,
+              "fixed15": 115.695,
+              "fixed20": 115.57,
+              "fixed30": 114.32
+            }
+          },
+          {
+            "rate": 12.25,
+            "prices": {
+              "fixed10": 115.632,
+              "fixed15": 115.57,
+              "fixed20": 115.445,
+              "fixed30": 114.195
+            }
+          },
+          {
+            "rate": 12.125,
+            "prices": {
+              "fixed10": 115.507,
+              "fixed15": 115.445,
+              "fixed20": 115.32,
+              "fixed30": 114.07
+            }
+          },
+          {
+            "rate": 12.0,
+            "prices": {
+              "fixed10": 115.382,
+              "fixed15": 115.32,
+              "fixed20": 115.195,
+              "fixed30": 113.945
+            }
+          },
+          {
+            "rate": 11.875,
+            "prices": {
+              "fixed10": 115.257,
+              "fixed15": 115.195,
+              "fixed20": 115.07,
+              "fixed30": 113.82
+            }
+          },
+          {
+            "rate": 11.75,
+            "prices": {
+              "fixed10": 115.132,
+              "fixed15": 115.07,
+              "fixed20": 114.945,
+              "fixed30": 113.695
+            }
+          },
+          {
+            "rate": 11.625,
+            "prices": {
+              "fixed10": 115.007,
+              "fixed15": 114.945,
+              "fixed20": 114.82,
+              "fixed30": 113.57
+            }
+          },
+          {
+            "rate": 11.5,
+            "prices": {
+              "fixed10": 114.882,
+              "fixed15": 114.82,
+              "fixed20": 114.695,
+              "fixed30": 113.445
+            }
+          },
+          {
+            "rate": 11.375,
+            "prices": {
+              "fixed10": 114.695,
+              "fixed15": 114.632,
+              "fixed20": 114.507,
+              "fixed30": 113.257
+            }
+          },
+          {
+            "rate": 11.25,
+            "prices": {
+              "fixed10": 114.507,
+              "fixed15": 114.445,
+              "fixed20": 114.32,
+              "fixed30": 113.07
+            }
+          },
+          {
+            "rate": 11.125,
+            "prices": {
+              "fixed10": 114.32,
+              "fixed15": 114.257,
+              "fixed20": 114.132,
+              "fixed30": 112.882
+            }
+          },
+          {
+            "rate": 11.0,
+            "prices": {
+              "fixed10": 114.07,
+              "fixed15": 114.007,
+              "fixed20": 113.882,
+              "fixed30": 112.632
+            }
+          },
+          {
+            "rate": 10.875,
+            "prices": {
+              "fixed10": 113.82,
+              "fixed15": 113.757,
+              "fixed20": 113.632,
+              "fixed30": 112.382
+            }
+          },
+          {
+            "rate": 10.75,
+            "prices": {
+              "fixed10": 113.57,
+              "fixed15": 113.507,
+              "fixed20": 113.382,
+              "fixed30": 112.132
+            }
+          },
+          {
+            "rate": 10.625,
+            "prices": {
+              "fixed10": 113.32,
+              "fixed15": 113.257,
+              "fixed20": 113.132,
+              "fixed30": 111.882
+            }
+          },
+          {
+            "rate": 10.5,
+            "prices": {
+              "fixed10": 113.07,
+              "fixed15": 113.007,
+              "fixed20": 112.882,
+              "fixed30": 111.632
+            }
+          },
+          {
+            "rate": 10.375,
+            "prices": {
+              "fixed10": 112.82,
+              "fixed15": 112.757,
+              "fixed20": 112.632,
+              "fixed30": 111.382
+            }
+          },
+          {
+            "rate": 10.25,
+            "prices": {
+              "fixed10": 112.57,
+              "fixed15": 112.507,
+              "fixed20": 112.382,
+              "fixed30": 111.132
+            }
+          },
+          {
+            "rate": 10.125,
+            "prices": {
+              "fixed10": 112.32,
+              "fixed15": 112.257,
+              "fixed20": 112.132,
+              "fixed30": 110.882
+            }
+          },
+          {
+            "rate": 10.0,
+            "prices": {
+              "fixed10": 112.07,
+              "fixed15": 112.007,
+              "fixed20": 111.882,
+              "fixed30": 110.632
+            }
+          },
+          {
+            "rate": 9.875,
+            "prices": {
+              "fixed10": 111.82,
+              "fixed15": 111.757,
+              "fixed20": 111.632,
+              "fixed30": 110.382
+            }
+          },
+          {
+            "rate": 9.75,
+            "prices": {
+              "fixed10": 111.507,
+              "fixed15": 111.445,
+              "fixed20": 111.32,
+              "fixed30": 110.07
+            }
+          },
+          {
+            "rate": 9.625,
+            "prices": {
+              "fixed10": 111.195,
+              "fixed15": 111.132,
+              "fixed20": 111.007,
+              "fixed30": 109.757
+            }
+          },
+          {
+            "rate": 9.5,
+            "prices": {
+              "fixed10": 110.882,
+              "fixed15": 110.82,
+              "fixed20": 110.695,
+              "fixed30": 109.445
+            }
+          },
+          {
+            "rate": 9.375,
+            "prices": {
+              "fixed10": 110.57,
+              "fixed15": 110.507,
+              "fixed20": 110.382,
+              "fixed30": 109.132
+            }
+          },
+          {
+            "rate": 9.25,
+            "prices": {
+              "fixed10": 110.257,
+              "fixed15": 110.195,
+              "fixed20": 110.07,
+              "fixed30": 108.82
+            }
+          },
+          {
+            "rate": 9.125,
+            "prices": {
+              "fixed10": 109.882,
+              "fixed15": 109.882,
+              "fixed20": 109.757,
+              "fixed30": 108.507
+            }
+          },
+          {
+            "rate": 9.0,
+            "prices": {
+              "fixed10": 109.507,
+              "fixed15": 109.507,
+              "fixed20": 109.382,
+              "fixed30": 108.132
+            }
+          },
+          {
+            "rate": 8.875,
+            "prices": {
+              "fixed10": 109.132,
+              "fixed15": 109.132,
+              "fixed20": 109.007,
+              "fixed30": 107.757
+            }
+          },
+          {
+            "rate": 8.75,
+            "prices": {
+              "fixed10": 108.757,
+              "fixed15": 108.757,
+              "fixed20": 108.632,
+              "fixed30": 107.382
+            }
+          },
+          {
+            "rate": 8.625,
+            "prices": {
+              "fixed10": 108.382,
+              "fixed15": 108.382,
+              "fixed20": 108.257,
+              "fixed30": 107.007
+            }
+          },
+          {
+            "rate": 8.5,
+            "prices": {
+              "fixed10": 108.007,
+              "fixed15": 108.007,
+              "fixed20": 107.882,
+              "fixed30": 106.632
+            }
+          },
+          {
+            "rate": 8.375,
+            "prices": {
+              "fixed10": 107.57,
+              "fixed15": 107.57,
+              "fixed20": 107.445,
+              "fixed30": 106.195
+            }
+          },
+          {
+            "rate": 8.25,
+            "prices": {
+              "fixed10": 107.132,
+              "fixed15": 107.132,
+              "fixed20": 107.007,
+              "fixed30": 105.757
+            }
+          },
+          {
+            "rate": 8.125,
+            "prices": {
+              "fixed10": 106.695,
+              "fixed15": 106.695,
+              "fixed20": 106.57,
+              "fixed30": 105.32
+            }
+          },
+          {
+            "rate": 8.0,
+            "prices": {
+              "fixed10": 106.257,
+              "fixed15": 106.257,
+              "fixed20": 106.132,
+              "fixed30": 104.882
+            }
+          },
+          {
+            "rate": 7.875,
+            "prices": {
+              "fixed10": 105.757,
+              "fixed15": 105.757,
+              "fixed20": 105.632,
+              "fixed30": 104.382
+            }
+          },
+          {
+            "rate": 7.75,
+            "prices": {
+              "fixed10": 105.257,
+              "fixed15": 105.257,
+              "fixed20": 105.132,
+              "fixed30": 103.882
+            }
+          },
+          {
+            "rate": 7.625,
+            "prices": {
+              "fixed10": 104.757,
+              "fixed15": 104.757,
+              "fixed20": 104.632,
+              "fixed30": 103.382
+            }
+          },
+          {
+            "rate": 7.5,
+            "prices": {
+              "fixed10": 104.132,
+              "fixed15": 104.132,
+              "fixed20": 104.007,
+              "fixed30": 102.757
+            }
+          },
+          {
+            "rate": 7.375,
+            "prices": {
+              "fixed10": 103.507,
+              "fixed15": 103.507,
+              "fixed20": 103.382,
+              "fixed30": 102.132
+            }
+          },
+          {
+            "rate": 7.25,
+            "prices": {
+              "fixed10": 102.882,
+              "fixed15": 102.882,
+              "fixed20": 102.757,
+              "fixed30": 101.507
+            }
+          },
+          {
+            "rate": 7.125,
+            "prices": {
+              "fixed10": 102.257,
+              "fixed15": 102.257,
+              "fixed20": 102.132,
+              "fixed30": 100.882
+            }
+          },
+          {
+            "rate": 7.0,
+            "prices": {
+              "fixed10": 101.57,
+              "fixed15": 101.57,
+              "fixed20": 101.445,
+              "fixed30": 100.195
+            }
+          },
+          {
+            "rate": 6.875,
+            "prices": {
+              "fixed10": 100.882,
+              "fixed15": 100.882,
+              "fixed20": 100.757,
+              "fixed30": 99.507
+            }
+          },
+          {
+            "rate": 6.75,
+            "prices": {
+              "fixed10": 100.132,
+              "fixed15": 100.132,
+              "fixed20": 100.007,
+              "fixed30": 98.757
+            }
+          },
+          {
+            "rate": 6.625,
+            "prices": {
+              "fixed10": 99.382,
+              "fixed15": 99.382,
+              "fixed20": 99.257,
+              "fixed30": 98.007
+            }
+          },
+          {
+            "rate": 6.5,
+            "prices": {
+              "fixed10": 98.632,
+              "fixed15": 98.632,
+              "fixed20": 98.507,
+              "fixed30": 97.257
+            }
+          },
+          {
+            "rate": 6.375,
+            "prices": {
+              "fixed10": 97.757,
+              "fixed15": 97.757,
+              "fixed20": 97.632,
+              "fixed30": 96.382
+            }
+          },
+          {
+            "rate": 6.25,
+            "prices": {
+              "fixed10": 96.882,
+              "fixed15": 96.882,
+              "fixed20": 96.757,
+              "fixed30": 95.507
+            }
+          },
+          {
+            "rate": 6.125,
+            "prices": {
+              "fixed10": 96.007,
+              "fixed15": 96.007,
+              "fixed20": 95.882,
+              "fixed30": 94.632
+            }
+          },
+          {
+            "rate": 6.0,
+            "prices": {
+              "fixed10": 95.132,
+              "fixed15": 95.132,
+              "fixed20": 95.007,
+              "fixed30": 93.757
+            }
+          }
+        ]
+      },
+      "constraints": {
+        "minPrice": 98.0,
+        "maxPrice30Year": 106.0,
+        "maxPriceShorterTerm": 106.0
+      },
+      "cltvBuckets": [
+        "00.01-50",
+        "50.01-55",
+        "55.01-60",
+        "60.01-65",
+        "65.01-70",
+        "70.01-75",
+        "75.01-80",
+        "80.01-85",
+        "85.01-90"
+      ],
+      "creditMatrix": [
+        {
+          "creditScore": ">= 780",
+          "values": [
+            1.625,
+            1.5,
+            1.375,
+            1.125,
+            0.75,
+            0.125,
+            -0.75,
+            -3.0,
+            null
+          ]
+        },
+        {
+          "creditScore": "760 - 779",
+          "values": [
+            0.75,
+            0.625,
+            0.625,
+            0.125,
+            -0.125,
+            -0.875,
+            -1.625,
+            -4.25,
+            null
+          ]
+        },
+        {
+          "creditScore": "740 - 759",
+          "values": [
+            0.25,
+            0.25,
+            0.125,
+            -0.25,
+            -0.5,
+            -1.375,
+            -2.875,
+            -5.75,
+            null
+          ]
+        },
+        {
+          "creditScore": "720 - 739",
+          "values": [
+            0.0,
+            -0.25,
+            -0.375,
+            -0.75,
+            -1.125,
+            -2.125,
+            -4.0,
+            null,
+            null
+          ]
+        },
+        {
+          "creditScore": "700 - 719",
+          "values": [
+            -0.625,
+            -0.75,
+            -0.875,
+            -1.25,
+            -2.25,
+            -3.0,
+            -5.25,
+            null,
+            null
+          ]
+        },
+        {
+          "creditScore": "680 - 699",
+          "values": [
+            -1.5,
+            -1.875,
+            -2.25,
+            -2.75,
+            -4.0,
+            -5.25,
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "creditScore": "660 - 679",
+          "values": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "creditScore": "640 - 659",
+          "values": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "creditScore": "620 - 639",
+          "values": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        }
+      ],
+      "adjustments": {
+        "loanAmount": [
+          {
+            "label": "$50,000 - $100,000 (UPB)",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              -0.25,
+              null
+            ]
+          },
+          {
+            "label": "$100,001 - $150,000 (UPB)",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              -0.125,
+              null
+            ]
+          },
+          {
+            "label": "$150,001 - $250,000 (UPB)",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              null
+            ]
+          },
+          {
+            "label": "$250,001 - $350,000 (UPB)",
+            "values": [
+              0.125,
+              0.125,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              null,
+              null
+            ]
+          },
+          {
+            "label": "$350,001 - $500,000 (UPB)",
+            "values": [
+              0.125,
+              0.125,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              null,
+              null
+            ]
+          }
+        ],
+        "loanType": [
+          {
+            "label": "<=35.0% DTI",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              null
+            ]
+          },
+          {
+            "label": "35.01 - 45.0% DTI",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              null
+            ]
+          },
+          {
+            "label": "45.01 - 50.0% DTI",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              -0.125,
+              -0.25,
+              -0.375,
+              null
+            ]
+          },
+          {
+            "label": "Escrow Waiver*",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              null
+            ]
+          },
+          {
+            "label": "Piggyback/Concurrent",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              null
+            ]
+          },
+          {
+            "label": "Standalone Cash Out",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              null
+            ]
+          },
+          {
+            "label": "Second Home",
+            "values": [
+              -0.5,
+              -0.5,
+              -0.5,
+              -0.5,
+              -0.625,
+              -0.75,
+              -0.75,
+              null,
+              null
+            ]
+          },
+          {
+            "label": "Investor",
+            "values": [
+              -1.0,
+              -1.0,
+              -1.25,
+              -1.5,
+              -1.75,
+              -2.25,
+              null,
+              null,
+              null
+            ]
+          }
+        ],
+        "property": [
+          {
+            "label": "Exterior Appraisal (2055)",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              null
+            ]
+          },
+          {
+            "label": "Condo (Warrantable)",
+            "values": [
+              0.0,
+              -0.125,
+              -0.25,
+              -0.375,
+              -0.5,
+              -0.5,
+              -0.75,
+              null,
+              null
+            ]
+          },
+          {
+            "label": "Florida Condo",
+            "values": [
+              0.0,
+              -0.125,
+              -0.125,
+              -0.25,
+              -0.25,
+              -0.375,
+              -0.5,
+              null,
+              null
+            ]
+          },
+          {
+            "label": "Multi Unit",
+            "values": [
+              -0.375,
+              -0.375,
+              -0.375,
+              -0.5,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          {
+            "label": "Tier 2 States: Other*",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.25,
+              0.25,
+              0.25,
+              0.25,
+              null
+            ]
+          }
+        ]
+      },
+      "lockAdjustments": [
+        {
+          "label": "15 day",
+          "value": 0.15
+        },
+        {
+          "label": "45 day",
+          "value": -0.15
+        },
+        {
+          "label": "60 day",
+          "value": -0.3
+        }
+      ]
+    },
+    "heloc": {
+      "sheet": "HELOC",
+      "pricing": {
+        "rows": [
+          10,
+          64
+        ],
+        "rateType": "margin",
+        "rateColumn": 3,
+        "products": [
+          {
+            "key": "heloc20",
+            "label": "20 Year Maturity",
+            "column": 4
+          },
+          {
+            "key": "heloc30",
+            "label": "30 Year Maturity",
+            "column": 5
+          }
+        ],
+        "rowsData": [
+          {
+            "rate": -0.5,
+            "prices": {
+              "heloc20": 94.163,
+              "heloc30": 93.913
+            }
+          },
+          {
+            "rate": -0.375,
+            "prices": {
+              "heloc20": 94.913,
+              "heloc30": 94.663
+            }
+          },
+          {
+            "rate": -0.25,
+            "prices": {
+              "heloc20": 95.663,
+              "heloc30": 95.413
+            }
+          },
+          {
+            "rate": -0.125,
+            "prices": {
+              "heloc20": 96.413,
+              "heloc30": 96.163
+            }
+          },
+          {
+            "rate": 0.0,
+            "prices": {
+              "heloc20": 97.101,
+              "heloc30": 96.851
+            }
+          },
+          {
+            "rate": 0.125,
+            "prices": {
+              "heloc20": 97.788,
+              "heloc30": 97.538
+            }
+          },
+          {
+            "rate": 0.25,
+            "prices": {
+              "heloc20": 98.413,
+              "heloc30": 98.163
+            }
+          },
+          {
+            "rate": 0.375,
+            "prices": {
+              "heloc20": 99.038,
+              "heloc30": 98.788
+            }
+          },
+          {
+            "rate": 0.5,
+            "prices": {
+              "heloc20": 99.663,
+              "heloc30": 99.413
+            }
+          },
+          {
+            "rate": 0.625,
+            "prices": {
+              "heloc20": 100.225,
+              "heloc30": 99.975
+            }
+          },
+          {
+            "rate": 0.75,
+            "prices": {
+              "heloc20": 100.756,
+              "heloc30": 100.506
+            }
+          },
+          {
+            "rate": 0.875,
+            "prices": {
+              "heloc20": 101.288,
+              "heloc30": 101.038
+            }
+          },
+          {
+            "rate": 1.0,
+            "prices": {
+              "heloc20": 101.819,
+              "heloc30": 101.569
+            }
+          },
+          {
+            "rate": 1.125,
+            "prices": {
+              "heloc20": 102.319,
+              "heloc30": 102.069
+            }
+          },
+          {
+            "rate": 1.25,
+            "prices": {
+              "heloc20": 102.819,
+              "heloc30": 102.569
+            }
+          },
+          {
+            "rate": 1.375,
+            "prices": {
+              "heloc20": 103.288,
+              "heloc30": 103.038
+            }
+          },
+          {
+            "rate": 1.5,
+            "prices": {
+              "heloc20": 103.756,
+              "heloc30": 103.506
+            }
+          },
+          {
+            "rate": 1.625,
+            "prices": {
+              "heloc20": 104.225,
+              "heloc30": 103.975
+            }
+          },
+          {
+            "rate": 1.75,
+            "prices": {
+              "heloc20": 104.694,
+              "heloc30": 104.444
+            }
+          },
+          {
+            "rate": 1.875,
+            "prices": {
+              "heloc20": 105.163,
+              "heloc30": 104.913
+            }
+          },
+          {
+            "rate": 2.0,
+            "prices": {
+              "heloc20": 105.6,
+              "heloc30": 105.35
+            }
+          },
+          {
+            "rate": 2.125,
+            "prices": {
+              "heloc20": 106.038,
+              "heloc30": 105.788
+            }
+          },
+          {
+            "rate": 2.25,
+            "prices": {
+              "heloc20": 106.475,
+              "heloc30": 106.225
+            }
+          },
+          {
+            "rate": 2.375,
+            "prices": {
+              "heloc20": 106.913,
+              "heloc30": 106.663
+            }
+          },
+          {
+            "rate": 2.5,
+            "prices": {
+              "heloc20": 107.319,
+              "heloc30": 107.069
+            }
+          },
+          {
+            "rate": 2.625,
+            "prices": {
+              "heloc20": 107.725,
+              "heloc30": 107.475
+            }
+          },
+          {
+            "rate": 2.75,
+            "prices": {
+              "heloc20": 108.131,
+              "heloc30": 107.881
+            }
+          },
+          {
+            "rate": 2.875,
+            "prices": {
+              "heloc20": 108.538,
+              "heloc30": 108.288
+            }
+          },
+          {
+            "rate": 3.0,
+            "prices": {
+              "heloc20": 108.913,
+              "heloc30": 108.663
+            }
+          },
+          {
+            "rate": 3.125,
+            "prices": {
+              "heloc20": 109.288,
+              "heloc30": 109.038
+            }
+          },
+          {
+            "rate": 3.25,
+            "prices": {
+              "heloc20": 109.663,
+              "heloc30": 109.413
+            }
+          },
+          {
+            "rate": 3.375,
+            "prices": {
+              "heloc20": 109.975,
+              "heloc30": 109.725
+            }
+          },
+          {
+            "rate": 3.5,
+            "prices": {
+              "heloc20": 110.288,
+              "heloc30": 110.038
+            }
+          },
+          {
+            "rate": 3.625,
+            "prices": {
+              "heloc20": 110.538,
+              "heloc30": 110.288
+            }
+          },
+          {
+            "rate": 3.75,
+            "prices": {
+              "heloc20": 110.788,
+              "heloc30": 110.538
+            }
+          },
+          {
+            "rate": 3.875,
+            "prices": {
+              "heloc20": 111.038,
+              "heloc30": 110.788
+            }
+          },
+          {
+            "rate": 4.0,
+            "prices": {
+              "heloc20": 111.288,
+              "heloc30": 111.038
+            }
+          },
+          {
+            "rate": 4.125,
+            "prices": {
+              "heloc20": 111.538,
+              "heloc30": 111.288
+            }
+          },
+          {
+            "rate": 4.25,
+            "prices": {
+              "heloc20": 111.788,
+              "heloc30": 111.538
+            }
+          },
+          {
+            "rate": 4.375,
+            "prices": {
+              "heloc20": 112.038,
+              "heloc30": 111.788
+            }
+          },
+          {
+            "rate": 4.5,
+            "prices": {
+              "heloc20": 112.288,
+              "heloc30": 112.038
+            }
+          },
+          {
+            "rate": 4.625,
+            "prices": {
+              "heloc20": 112.475,
+              "heloc30": 112.225
+            }
+          },
+          {
+            "rate": 4.75,
+            "prices": {
+              "heloc20": 112.663,
+              "heloc30": 112.413
+            }
+          },
+          {
+            "rate": 4.875,
+            "prices": {
+              "heloc20": 112.85,
+              "heloc30": 112.6
+            }
+          },
+          {
+            "rate": 5.0,
+            "prices": {
+              "heloc20": 113.038,
+              "heloc30": 112.788
+            }
+          },
+          {
+            "rate": 5.125,
+            "prices": {
+              "heloc20": 113.225,
+              "heloc30": 112.975
+            }
+          },
+          {
+            "rate": 5.25,
+            "prices": {
+              "heloc20": 113.413,
+              "heloc30": 113.163
+            }
+          },
+          {
+            "rate": 5.375,
+            "prices": {
+              "heloc20": 113.6,
+              "heloc30": 113.35
+            }
+          },
+          {
+            "rate": 5.5,
+            "prices": {
+              "heloc20": 113.788,
+              "heloc30": 113.538
+            }
+          },
+          {
+            "rate": 5.625,
+            "prices": {
+              "heloc20": 113.975,
+              "heloc30": 113.725
+            }
+          },
+          {
+            "rate": 5.75,
+            "prices": {
+              "heloc20": 114.163,
+              "heloc30": 113.913
+            }
+          },
+          {
+            "rate": 5.875,
+            "prices": {
+              "heloc20": 114.35,
+              "heloc30": 114.1
+            }
+          },
+          {
+            "rate": 6.0,
+            "prices": {
+              "heloc20": 114.538,
+              "heloc30": 114.288
+            }
+          },
+          {
+            "rate": 6.125,
+            "prices": {
+              "heloc20": 114.725,
+              "heloc30": 114.475
+            }
+          },
+          {
+            "rate": 6.25,
+            "prices": {
+              "heloc20": 114.913,
+              "heloc30": 114.663
+            }
+          }
+        ]
+      },
+      "constraints": {
+        "minPrice": 98.0,
+        "maxPrice30Year": 106.0,
+        "maxPriceShorterTerm": 106.0
+      },
+      "cltvBuckets": [
+        "00.01-50",
+        "50.01-55",
+        "55.01-60",
+        "60.01-65",
+        "65.01-70",
+        "70.01-75",
+        "75.01-80",
+        "80.01-85",
+        "85.01-90"
+      ],
+      "creditMatrix": [
+        {
+          "creditScore": ">= 780",
+          "values": [
+            2.25,
+            2.25,
+            2.25,
+            1.75,
+            1.375,
+            0.625,
+            0.25,
+            -2.0,
+            null
+          ]
+        },
+        {
+          "creditScore": "760 - 779",
+          "values": [
+            2.0,
+            1.875,
+            1.75,
+            1.625,
+            1.25,
+            0.5,
+            -0.75,
+            -3.0,
+            null
+          ]
+        },
+        {
+          "creditScore": "740 - 759",
+          "values": [
+            1.375,
+            1.25,
+            1.125,
+            1.0,
+            0.875,
+            0.375,
+            -1.5,
+            -3.875,
+            null
+          ]
+        },
+        {
+          "creditScore": "720 - 739",
+          "values": [
+            0.75,
+            0.625,
+            0.5,
+            0.125,
+            0.0,
+            -0.5,
+            -2.875,
+            null,
+            null
+          ]
+        },
+        {
+          "creditScore": "700 - 719",
+          "values": [
+            0.25,
+            0.125,
+            0.0,
+            -0.375,
+            -1.125,
+            -2.625,
+            -4.0,
+            null,
+            null
+          ]
+        },
+        {
+          "creditScore": "680 - 699",
+          "values": [
+            0.0,
+            -0.125,
+            -0.375,
+            -1.75,
+            -3.25,
+            -4.5,
+            -5.125,
+            null,
+            null
+          ]
+        },
+        {
+          "creditScore": "660 - 679",
+          "values": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "creditScore": "640 - 659",
+          "values": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "creditScore": "620 - 639",
+          "values": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        }
+      ],
+      "adjustments": {
+        "drawTerm": [
+          {
+            "label": "10 Year Draw",
+            "values": [
+              0.375,
+              0.375,
+              0.375,
+              0.375,
+              0.375,
+              0.375,
+              -1.5,
+              -2.5,
+              null
+            ]
+          },
+          {
+            "label": "5 Year Draw",
+            "values": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              null
+            ]
+          },
+          {
+            "label": "3 Year Draw",
+            "values": [
+              2.0,
+              2.0,
+              2.0,
+              2.0,
+              2.0,
+              2.0,
+              2.0,
+              2.0,
+              null
+            ]
+          }
+        ],
+        "loanAmount": [
+          {
+            "label": "$20,000 - $50,000",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              -0.25,
+              -0.25,
+              -0.5,
+              null
+            ]
+          },
+          {
+            "label": "$50,001 - $100,000",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              null
+            ]
+          },
+          {
+            "label": "$100,001 - $200,000",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              null
+            ]
+          },
+          {
+            "label": "$200,001 - $300,000",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              null
+            ]
+          },
+          {
+            "label": ">$300,000",
+            "values": [
+              0.25,
+              0.25,
+              0.25,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              null
+            ]
+          }
+        ],
+        "loanType": [
+          {
+            "label": "DTI > 43%",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              null
+            ]
+          },
+          {
+            "label": "Piggyback/Concurrent",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              null
+            ]
+          },
+          {
+            "label": "Second Home",
+            "values": [
+              -0.25,
+              -0.5,
+              -0.5,
+              -0.625,
+              -0.625,
+              -0.75,
+              -1.0,
+              null,
+              null
+            ]
+          },
+          {
+            "label": "Investor",
+            "values": [
+              -1.375,
+              -1.5,
+              -2.125,
+              -2.625,
+              -3.125,
+              -3.625,
+              null,
+              null,
+              null
+            ]
+          }
+        ],
+        "property": [
+          {
+            "label": "Full Appraisal",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              null
+            ]
+          },
+          {
+            "label": "2 - 4 Unit Property",
+            "values": [
+              -0.5,
+              -0.5,
+              -0.5,
+              -0.5,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          {
+            "label": "Exterior Appraisal (2055)",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              null
+            ]
+          },
+          {
+            "label": "Condo (Warrantable)",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              -0.25,
+              -0.375,
+              -0.5,
+              -0.75,
+              null,
+              null
+            ]
+          },
+          {
+            "label": "Florida Condo",
+            "values": [
+              0.0,
+              -0.125,
+              -0.125,
+              -0.25,
+              -0.25,
+              -0.375,
+              -0.5,
+              null,
+              null
+            ]
+          },
+          {
+            "label": "1st Lien",
+            "values": [
+              0.5,
+              0.5,
+              0.5,
+              0.5,
+              0.5,
+              0.5,
+              0.5,
+              0.5,
+              null
+            ]
+          },
+          {
+            "label": "Tier 2 States: Other*",
+            "values": [
+              0.0,
+              0.0,
+              0.0,
+              0.25,
+              0.25,
+              0.25,
+              0.25,
+              0.25,
+              null
+            ]
+          }
+        ]
+      },
+      "lockAdjustments": [
+        {
+          "label": "0.15",
+          "value": null
+        },
+        {
+          "label": "-0.15",
+          "value": null
+        },
+        {
+          "label": "-0.3",
+          "value": null
+        }
+      ],
+      "armFeatures": {
+        "Index-PRIME": 0.0675,
+        "First Reset Period": "1 Month",
+        "Subsequent Reset Period": "1 Month",
+        "Max Rate": 0.18,
+        "Floor Rate": 0.04
+      }
+    }
+  }
+}
