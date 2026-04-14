@@ -68,17 +68,21 @@ export default function Stage1TesterPage() {
             <p className="mt-2 text-sm text-slate-600">
               Internal harness for stage 1 pricing logic. Button stays intact, and Vista now exposes the execution path needed to hit target margin.
             </p>
+            <div className="mt-3 text-xs font-semibold uppercase tracking-wide text-sky-700">Available engines: Button and Vista</div>
           </div>
-          <div className="flex gap-2 rounded-2xl bg-slate-100 p-1">
-            {(['Button', 'Vista'] as PricingEngine[]).map(option => (
-              <button
-                key={option}
-                onClick={() => setEngine(option)}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${engine === option ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-              >
-                {option}
-              </button>
-            ))}
+          <div className="flex flex-col gap-1">
+            <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Engine Toggle</div>
+            <div className="flex gap-2 rounded-2xl bg-slate-100 p-1">
+              {(['Button', 'Vista'] as PricingEngine[]).map(option => (
+                <button
+                  key={option}
+                  onClick={() => setEngine(option)}
+                  className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${engine === option ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
