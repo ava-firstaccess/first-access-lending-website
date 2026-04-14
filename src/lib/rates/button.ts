@@ -238,11 +238,14 @@ export function evaluateButtonEligibility(input: ButtonPricingInput, selectedLoa
   };
 }
 
-export function getTargetPurchasePriceForLoanAmount(loanAmount: number): number {
+export function getBackendFeeForLoanAmount(loanAmount: number): number {
   const amount = Math.max(0, loanAmount);
   const match = SECOND_LIEN_MARGIN_TARGETS.find(row => amount >= row.min && amount <= row.max);
-  const backendFee = match?.backendFee ?? SECOND_LIEN_MARGIN_TARGETS[SECOND_LIEN_MARGIN_TARGETS.length - 1].backendFee;
-  return roundToThree(100 + backendFee * 100);
+  return match?.backendFee ?? SECOND_LIEN_MARGIN_TARGETS[SECOND_LIEN_MARGIN_TARGETS.length - 1].backendFee;
+}
+
+export function getTargetPurchasePriceForLoanAmount(loanAmount: number): number {
+  return roundToThree(100 + getBackendFeeForLoanAmount(loanAmount) * 100);
 }
 
 export function evaluateButtonStage1Eligibility(stage1: ButtonStage1Input, selectedLoanAmount?: number): ButtonEligibilityResult {
