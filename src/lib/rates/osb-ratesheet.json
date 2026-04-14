@@ -4,32 +4,23 @@
     "secondLiens": {
       "sheet": "2nd Liens",
       "pricing": {
-        "rows": [
-          10,
-          74
-        ],
         "rateType": "fixed-note-rate",
-        "rateColumn": 3,
         "products": [
           {
             "key": "fixed10",
-            "label": "Fixed 10",
-            "column": 4
+            "label": "Fixed 10"
           },
           {
             "key": "fixed15",
-            "label": "Fixed 15",
-            "column": 5
+            "label": "Fixed 15"
           },
           {
             "key": "fixed20",
-            "label": "Fixed 20",
-            "column": 6
+            "label": "Fixed 20"
           },
           {
             "key": "fixed30",
-            "label": "Fixed 30",
-            "column": 7
+            "label": "Fixed 30"
           }
         ],
         "rowsData": [
@@ -1042,22 +1033,15 @@
     "heloc": {
       "sheet": "HELOC",
       "pricing": {
-        "rows": [
-          10,
-          64
-        ],
         "rateType": "margin",
-        "rateColumn": 3,
         "products": [
           {
             "key": "heloc20",
-            "label": "20 Year Maturity",
-            "column": 4
+            "label": "20 Year Maturity"
           },
           {
             "key": "heloc30",
-            "label": "30 Year Maturity",
-            "column": 5
+            "label": "30 Year Maturity"
           }
         ],
         "rowsData": [
