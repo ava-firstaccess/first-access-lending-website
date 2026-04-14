@@ -1,0 +1,2810 @@
+{
+  "sourceWorkbook": "/Users/ava/Documents/GitHub/first-access-lending/getaccess/ratesheets/latest_vista.xlsx",
+  "sheet": "Price",
+  "programs": {
+    "secondOO": {
+      "inputCode": "PR",
+      "inputName": "Second OO",
+      "sections": {
+        "pricing30Day": {
+          "rows": [
+            65,
+            113
+          ],
+          "rowsData": [
+            {
+              "noteRate": 12.375,
+              "basePrice": 113.5
+            },
+            {
+              "noteRate": 12.25,
+              "basePrice": 113.375
+            },
+            {
+              "noteRate": 12.125,
+              "basePrice": 113.25
+            },
+            {
+              "noteRate": 12.0,
+              "basePrice": 113.125
+            },
+            {
+              "noteRate": 11.875,
+              "basePrice": 113.0
+            },
+            {
+              "noteRate": 11.75,
+              "basePrice": 112.875
+            },
+            {
+              "noteRate": 11.625,
+              "basePrice": 112.75
+            },
+            {
+              "noteRate": 11.5,
+              "basePrice": 112.625
+            },
+            {
+              "noteRate": 11.375,
+              "basePrice": 112.5
+            },
+            {
+              "noteRate": 11.25,
+              "basePrice": 112.375
+            },
+            {
+              "noteRate": 11.125,
+              "basePrice": 112.25
+            },
+            {
+              "noteRate": 11.0,
+              "basePrice": 112.125
+            },
+            {
+              "noteRate": 10.875,
+              "basePrice": 111.875
+            },
+            {
+              "noteRate": 10.75,
+              "basePrice": 111.625
+            },
+            {
+              "noteRate": 10.625,
+              "basePrice": 111.375
+            },
+            {
+              "noteRate": 10.5,
+              "basePrice": 111.125
+            },
+            {
+              "noteRate": 10.375,
+              "basePrice": 110.875
+            },
+            {
+              "noteRate": 10.25,
+              "basePrice": 110.625
+            },
+            {
+              "noteRate": 10.125,
+              "basePrice": 110.375
+            },
+            {
+              "noteRate": 10.0,
+              "basePrice": 110.0
+            },
+            {
+              "noteRate": 9.875,
+              "basePrice": 109.625
+            },
+            {
+              "noteRate": 9.75,
+              "basePrice": 109.25
+            },
+            {
+              "noteRate": 9.625,
+              "basePrice": 108.875
+            },
+            {
+              "noteRate": 9.5,
+              "basePrice": 108.5
+            },
+            {
+              "noteRate": 9.375,
+              "basePrice": 108.125
+            },
+            {
+              "noteRate": 9.25,
+              "basePrice": 107.75
+            },
+            {
+              "noteRate": 9.125,
+              "basePrice": 107.375
+            },
+            {
+              "noteRate": 9.0,
+              "basePrice": 107.0
+            },
+            {
+              "noteRate": 8.875,
+              "basePrice": 106.625
+            },
+            {
+              "noteRate": 8.75,
+              "basePrice": 106.25
+            },
+            {
+              "noteRate": 8.625,
+              "basePrice": 105.75
+            },
+            {
+              "noteRate": 8.5,
+              "basePrice": 105.25
+            },
+            {
+              "noteRate": 8.375,
+              "basePrice": 104.75
+            },
+            {
+              "noteRate": 8.25,
+              "basePrice": 104.125
+            },
+            {
+              "noteRate": 8.125,
+              "basePrice": 103.5
+            },
+            {
+              "noteRate": 8.0,
+              "basePrice": 102.875
+            },
+            {
+              "noteRate": 7.875,
+              "basePrice": 102.25
+            },
+            {
+              "noteRate": 7.75,
+              "basePrice": 101.5
+            },
+            {
+              "noteRate": 7.625,
+              "basePrice": 100.75
+            },
+            {
+              "noteRate": 7.5,
+              "basePrice": 100.0
+            },
+            {
+              "noteRate": 7.375,
+              "basePrice": 99.25
+            }
+          ],
+          "maxPrice": {
+            "default": 105.0
+          },
+          "minPrice": {
+            "default": 98.0
+          }
+        },
+        "cltvFullDoc": {
+          "rowRange": [
+            66,
+            95
+          ],
+          "cltvBuckets": [
+            "00.01-50",
+            "50.01-55",
+            "55.01-60",
+            "60.01-65",
+            "65.01-70",
+            "70.01-75",
+            "75.01-80",
+            "80.01-85"
+          ],
+          "rows": [
+            {
+              "creditScore": "\u2265 800",
+              "values": [
+                2.625,
+                2.625,
+                2.375,
+                1.875,
+                1.625,
+                0.75,
+                -0.375,
+                -4.5
+              ]
+            },
+            {
+              "creditScore": "780 - 799",
+              "values": [
+                2.625,
+                2.625,
+                2.375,
+                1.875,
+                1.625,
+                0.625,
+                -0.5,
+                -4.75
+              ]
+            },
+            {
+              "creditScore": "760 - 779",
+              "values": [
+                2.125,
+                2.125,
+                1.875,
+                1.375,
+                1.125,
+                0.0,
+                -1.25,
+                -5.375
+              ]
+            },
+            {
+              "creditScore": "740 - 759",
+              "values": [
+                1.5,
+                1.5,
+                1.125,
+                0.875,
+                0.625,
+                -0.625,
+                -2.5,
+                -6.75
+              ]
+            },
+            {
+              "creditScore": "720 - 739",
+              "values": [
+                0.625,
+                0.625,
+                0.125,
+                -0.25,
+                -0.5,
+                -1.5,
+                -3.75,
+                -8.125
+              ]
+            },
+            {
+              "creditScore": "700 - 719",
+              "values": [
+                -0.5,
+                -0.5,
+                -1.125,
+                -1.625,
+                -2.125,
+                -2.875,
+                -5.25,
+                -9.375
+              ]
+            },
+            {
+              "creditScore": "680 - 699",
+              "values": [
+                -3.0,
+                -3.0,
+                -3.75,
+                -4.125,
+                -4.75,
+                -5.75,
+                -8.375,
+                -11.125
+              ]
+            },
+            {
+              "creditScore": "660 - 679",
+              "values": [
+                -4.25,
+                -4.375,
+                -4.875,
+                -5.5,
+                -6.0,
+                -7.25,
+                -10.25,
+                null
+              ]
+            },
+            {
+              "creditScore": "640 - 659",
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "620 - 639",
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "\u2265 800",
+              "values": [
+                0.875,
+                0.875,
+                0.625,
+                0.25,
+                0.0,
+                -1.0,
+                -1.875,
+                -5.875
+              ]
+            },
+            {
+              "creditScore": "780 - 799",
+              "values": [
+                0.875,
+                0.875,
+                0.625,
+                0.25,
+                0.0,
+                -1.125,
+                -2.0,
+                -6.125
+              ]
+            },
+            {
+              "creditScore": "760 - 779",
+              "values": [
+                0.375,
+                0.375,
+                0.125,
+                -0.25,
+                -0.5,
+                -1.75,
+                -2.75,
+                -6.75
+              ]
+            },
+            {
+              "creditScore": "740 - 759",
+              "values": [
+                0.0,
+                0.0,
+                -0.375,
+                -0.75,
+                -1.0,
+                -2.375,
+                -4.0,
+                -8.25
+              ]
+            },
+            {
+              "creditScore": "720 - 739",
+              "values": [
+                -0.625,
+                -0.625,
+                -1.125,
+                -1.625,
+                -1.875,
+                -3.0,
+                -5.125,
+                -9.625
+              ]
+            },
+            {
+              "creditScore": "700 - 719",
+              "values": [
+                -1.625,
+                -1.625,
+                -2.25,
+                -2.875,
+                -3.375,
+                -4.25,
+                -6.75,
+                -11.25
+              ]
+            },
+            {
+              "creditScore": "680 - 699",
+              "values": [
+                -4.0,
+                -4.0,
+                -4.75,
+                -5.25,
+                -5.875,
+                -7.0,
+                -9.75,
+                null
+              ]
+            },
+            {
+              "creditScore": "660 - 679",
+              "values": [
+                -5.75,
+                -5.875,
+                -6.375,
+                -7.125,
+                -7.625,
+                -9.0,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "640 - 659",
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "620 - 639",
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "\u2265 800",
+              "values": [
+                -0.5,
+                -0.5,
+                -0.75,
+                -1.375,
+                -1.625,
+                -2.75,
+                -3.75,
+                -7.875
+              ]
+            },
+            {
+              "creditScore": "780 - 799",
+              "values": [
+                -0.5,
+                -0.5,
+                -0.75,
+                -1.375,
+                -1.625,
+                -2.875,
+                -4.0,
+                -8.125
+              ]
+            },
+            {
+              "creditScore": "760 - 779",
+              "values": [
+                -1.0,
+                -1.0,
+                -1.25,
+                -1.875,
+                -2.125,
+                -3.5,
+                -4.75,
+                -8.75
+              ]
+            },
+            {
+              "creditScore": "740 - 759",
+              "values": [
+                -1.375,
+                -1.375,
+                -1.75,
+                -2.375,
+                -2.625,
+                -4.125,
+                -6.0,
+                -10.25
+              ]
+            },
+            {
+              "creditScore": "720 - 739",
+              "values": [
+                -2.125,
+                -2.125,
+                -2.625,
+                -3.375,
+                -3.625,
+                -4.875,
+                -7.25,
+                -11.875
+              ]
+            },
+            {
+              "creditScore": "700 - 719",
+              "values": [
+                -3.375,
+                -3.375,
+                -4.0,
+                -4.75,
+                -5.25,
+                -6.25,
+                -9.0,
+                null
+              ]
+            },
+            {
+              "creditScore": "680 - 699",
+              "values": [
+                -5.75,
+                -5.75,
+                -6.5,
+                -7.125,
+                -7.75,
+                -9.0,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "660 - 679",
+              "values": [
+                -7.75,
+                -7.875,
+                -8.375,
+                -9.375,
+                -9.875,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "640 - 659",
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "620 - 639",
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            }
+          ]
+        },
+        "adjustments": {
+          "bankStatement": {
+            "rows": [
+              96,
+              98
+            ],
+            "items": [
+              {
+                "label": "No Bank Stmt",
+                "lookupKey": "PT_No Bank Stmt",
+                "value": 0.0
+              },
+              {
+                "label": "12mo Bank Stmt",
+                "lookupKey": "PT_12mo Bank Stmt",
+                "value": 0.0
+              },
+              {
+                "label": "24mo Bank Stmt",
+                "lookupKey": "PT_24mo Bank Stmt",
+                "value": 0.0
+              }
+            ]
+          },
+          "term": {
+            "rows": [
+              99,
+              104
+            ],
+            "items": [
+              {
+                "label": "10yr Fixed",
+                "lookupKey": "PT_10yr Fixed",
+                "value": 0.5
+              },
+              {
+                "label": "15yr Fixed",
+                "lookupKey": "PT_15yr Fixed",
+                "value": 0.5
+              },
+              {
+                "label": "20yr Fixed",
+                "lookupKey": "PT_20yr Fixed",
+                "value": 0.5
+              },
+              {
+                "label": "30yr Fixed",
+                "lookupKey": "PT_30yr Fixed",
+                "value": 0.0
+              },
+              {
+                "label": "30/15yr Balloon",
+                "lookupKey": "PT_30/15yr Balloon",
+                "value": -0.375
+              },
+              {
+                "label": "40/15yr Balloon",
+                "lookupKey": "PT_40/15yr Balloon",
+                "value": -0.75
+              }
+            ]
+          },
+          "amortization": {
+            "rows": [
+              105,
+              106
+            ],
+            "items": [
+              {
+                "label": "Full Amortization",
+                "lookupKey": "PT_Full Amortization",
+                "value": 0.0
+              },
+              {
+                "label": "Interest-Only",
+                "lookupKey": "PT_Interest-Only",
+                "value": null
+              }
+            ]
+          },
+          "loanAmount": {
+            "rows": [
+              107,
+              127
+            ],
+            "items": [
+              {
+                "label": "000,000-050k",
+                "lookupKey": "PT_000,000-050k",
+                "value": null
+              },
+              {
+                "label": "050,001-075k",
+                "lookupKey": "PT_050,001-075k",
+                "value": -0.25
+              },
+              {
+                "label": "075,001-100k",
+                "lookupKey": "PT_075,001-100k",
+                "value": -0.125
+              },
+              {
+                "label": "100,001-125k",
+                "lookupKey": "PT_100,001-125k",
+                "value": 0.0
+              },
+              {
+                "label": "125,001-150k",
+                "lookupKey": "PT_125,001-150k",
+                "value": 0.0
+              },
+              {
+                "label": "150,001-175k",
+                "lookupKey": "PT_150,001-175k",
+                "value": 0.0
+              },
+              {
+                "label": "175,001-200k",
+                "lookupKey": "PT_175,001-200k",
+                "value": 0.0
+              },
+              {
+                "label": "200,001-300k",
+                "lookupKey": "PT_200,001-300k",
+                "value": 0.0
+              },
+              {
+                "label": "300,001-400k",
+                "lookupKey": "PT_300,001-400k",
+                "value": 0.0
+              },
+              {
+                "label": "400,001-600k",
+                "lookupKey": "PT_400,001-600k",
+                "value": 0.0
+              },
+              {
+                "label": "600,001-750k",
+                "lookupKey": "PT_600,001-750k",
+                "value": 0.0
+              },
+              {
+                "label": "750,001-850k",
+                "lookupKey": "PT_750,001-1.0m",
+                "value": -0.25
+              },
+              {
+                "label": "1,000,001-1.5m",
+                "lookupKey": "PT_1,000,001-1.5m",
+                "value": null
+              },
+              {
+                "label": "1,500,001-2.0m",
+                "lookupKey": "PT_1,500,001-2.0m",
+                "value": null
+              },
+              {
+                "label": "2,000,001-2.5m",
+                "lookupKey": "PT_2,000,001-2.5m",
+                "value": null
+              },
+              {
+                "label": "2,500,001-3.0m",
+                "lookupKey": "PT_2,500,001-3.0m",
+                "value": null
+              },
+              {
+                "label": "3,000,001-3.5m",
+                "lookupKey": "PT_3,000,001-3.5m",
+                "value": null
+              },
+              {
+                "label": "3,500,001-4.0m",
+                "lookupKey": "PT_3,500,001-4.0m",
+                "value": null
+              },
+              {
+                "label": "4,000,001-4.5m",
+                "lookupKey": "PT_4,000,001-4.5m",
+                "value": null
+              },
+              {
+                "label": "4,500,001-5.0m",
+                "lookupKey": "PT_4,500,001-5.0m",
+                "value": null
+              },
+              {
+                "label": "5,000,001+",
+                "lookupKey": "PT_5,000,001+",
+                "value": null
+              }
+            ]
+          },
+          "dti": {
+            "rows": [
+              128,
+              132
+            ],
+            "items": [
+              {
+                "label": "00.00-00",
+                "lookupKey": "PT_00.00-00",
+                "value": 0.0
+              },
+              {
+                "label": "00.01-43",
+                "lookupKey": "PT_00.01-43",
+                "value": 0.0
+              },
+              {
+                "label": "43.01-45",
+                "lookupKey": "PT_43.01-45",
+                "value": -0.25
+              },
+              {
+                "label": "45.01-50",
+                "lookupKey": "PT_45.01-50",
+                "value": -0.75
+              },
+              {
+                "label": "50.01-55",
+                "lookupKey": "PT_50.01-55",
+                "value": null
+              }
+            ]
+          },
+          "dscr": {
+            "rows": [
+              133,
+              133
+            ],
+            "items": [
+              {
+                "label": "DSCR Not Applicable",
+                "lookupKey": "PT_DSCR Not Applicable",
+                "value": 0.0
+              }
+            ]
+          },
+          "purpose": {
+            "rows": [
+              134,
+              136
+            ],
+            "items": [
+              {
+                "label": "Purchase",
+                "lookupKey": "PT_Purchase",
+                "value": 0.0
+              },
+              {
+                "label": "Rate-Term",
+                "lookupKey": "PT_Rate-Term",
+                "value": 0.0
+              },
+              {
+                "label": "Cash-Out",
+                "lookupKey": "PT_Cash-Out",
+                "value": 0.0
+              }
+            ]
+          },
+          "occupancy": {
+            "rows": [
+              137,
+              138
+            ],
+            "items": [
+              {
+                "label": "Owner Occupied",
+                "lookupKey": "PT_Owner Occupied",
+                "value": 0.0
+              },
+              {
+                "label": "Second Home",
+                "lookupKey": "PT_Second Home",
+                "value": -0.5
+              }
+            ]
+          },
+          "valuation": {
+            "rows": [
+              139,
+              140
+            ],
+            "items": [
+              {
+                "label": "Full Appraisal",
+                "lookupKey": "PT_Full Appraisal",
+                "value": 0.0
+              },
+              {
+                "label": "AVM",
+                "lookupKey": "PT_AVM",
+                "value": 0.0
+              }
+            ]
+          },
+          "state": {
+            "rows": [
+              141,
+              144
+            ],
+            "items": [
+              {
+                "label": "CA",
+                "lookupKey": "PT_CA",
+                "value": 0.0
+              },
+              {
+                "label": "GA",
+                "lookupKey": "PT_GA",
+                "value": 0.0
+              },
+              {
+                "label": "AL",
+                "lookupKey": "PT_AL",
+                "value": 0.0
+              },
+              {
+                "label": "Other",
+                "lookupKey": "PT_Non-CA",
+                "value": 0.0
+              }
+            ]
+          },
+          "propertyType": {
+            "rows": [
+              145,
+              159
+            ],
+            "items": [
+              {
+                "label": "SFR",
+                "lookupKey": "PT_SFR",
+                "value": 0.0
+              },
+              {
+                "label": "SFR-Rural",
+                "lookupKey": "PT_SFR-Rural",
+                "value": 0.0
+              },
+              {
+                "label": "PUD-Rural",
+                "lookupKey": "PT_PUD-Rural",
+                "value": 0.0
+              },
+              {
+                "label": "D-PUD",
+                "lookupKey": "PT_D-PUD",
+                "value": 0.0
+              },
+              {
+                "label": "PUD",
+                "lookupKey": "PT_PUD",
+                "value": 0.0
+              },
+              {
+                "label": "Townhouse",
+                "lookupKey": "PT_Townhouse",
+                "value": 0.0
+              },
+              {
+                "label": "Rowhouse",
+                "lookupKey": "PT_Rowhouse",
+                "value": 0.0
+              },
+              {
+                "label": "Site Condo",
+                "lookupKey": "PT_Condo-Site",
+                "value": 0.0
+              },
+              {
+                "label": "Condo-Warrantable",
+                "lookupKey": "PT_Condo-Warrantable",
+                "value": -0.25
+              },
+              {
+                "label": "Condo-NonWarrantable",
+                "lookupKey": "PT_Condo-NonWarrantable",
+                "value": null
+              },
+              {
+                "label": "2-Unit",
+                "lookupKey": "PT_2-Unit",
+                "value": -0.375
+              },
+              {
+                "label": "3-Unit",
+                "lookupKey": "PT_3-Unit",
+                "value": -0.375
+              },
+              {
+                "label": "4-Unit",
+                "lookupKey": "PT_4-Unit",
+                "value": -0.375
+              },
+              {
+                "label": "Modular",
+                "lookupKey": "PT_Modular",
+                "value": -2.0
+              },
+              {
+                "label": "Log Home",
+                "lookupKey": "PT_Log Home",
+                "value": null
+              }
+            ]
+          },
+          "citizenship": {
+            "rows": [
+              160,
+              163
+            ],
+            "items": [
+              {
+                "label": "US Citizen",
+                "lookupKey": "PT_US Citizen",
+                "value": 0.0
+              },
+              {
+                "label": "Permanent Resident Alien",
+                "lookupKey": "PT_Permanent Resident Alien",
+                "value": 0.0
+              },
+              {
+                "label": "Non-Perm Resident Alien",
+                "lookupKey": "PT_Non-Permanent Resident Alien",
+                "value": 0.0
+              },
+              {
+                "label": "Foreign National",
+                "lookupKey": "PT_Foreign National",
+                "value": null
+              }
+            ]
+          },
+          "employment": {
+            "rows": [
+              164,
+              168
+            ],
+            "items": [
+              {
+                "label": "Wage-Earner",
+                "lookupKey": "PT_Wage-Earner",
+                "value": 0.0
+              },
+              {
+                "label": "Self-Employed",
+                "lookupKey": "PT_Self-Employed",
+                "value": 0.0
+              },
+              {
+                "label": "Short-Term-Rental",
+                "lookupKey": "PT_Short-Term-Rental",
+                "value": null
+              },
+              {
+                "label": "Rental-Not-Short-Term",
+                "lookupKey": "PT_Not-Short-Term-Rental",
+                "value": null
+              },
+              {
+                "label": "Other Income",
+                "lookupKey": "PT_Other Income",
+                "value": 0.0
+              }
+            ]
+          },
+          "firstTimeBuyer": {
+            "rows": [
+              169,
+              174
+            ],
+            "items": [
+              {
+                "label": "Not FTHB or FTINV",
+                "lookupKey": "PT_Not FTHB or FTINV",
+                "value": 0.0
+              },
+              {
+                "label": "FTHB and FTINV",
+                "lookupKey": "PT_FTHB and FTINV",
+                "value": 0.0
+              },
+              {
+                "label": "FTHB-HousingHistory",
+                "lookupKey": "PT_FTHB-HousingHistory",
+                "value": 0.0
+              },
+              {
+                "label": "FTHB-NoHousingHistory",
+                "lookupKey": "PT_FTHB-NoHousingHistory",
+                "value": 0.0
+              },
+              {
+                "label": "FTINV-MtgHistory",
+                "lookupKey": "PT_FTINV-MtgHistory",
+                "value": null
+              },
+              {
+                "label": "FTINV-NoMtgHistory",
+                "lookupKey": "PT_FTINV-NoMtgHistory",
+                "value": null
+              }
+            ]
+          },
+          "housingHistory": {
+            "rows": [
+              175,
+              180
+            ],
+            "items": [
+              {
+                "label": "NoLatesx24",
+                "lookupKey": "PT_NoLatesx24",
+                "value": 0.0
+              },
+              {
+                "label": "NoLatesx12",
+                "lookupKey": "PT_NoLatesx12",
+                "value": 0.0
+              },
+              {
+                "label": "1x30x12",
+                "lookupKey": "PT_1x30x12",
+                "value": null
+              },
+              {
+                "label": "Multiple30x12",
+                "lookupKey": "PT_Multiple30x12",
+                "value": null
+              },
+              {
+                "label": "1x60x12",
+                "lookupKey": "PT_1x60x12",
+                "value": null
+              },
+              {
+                "label": "Multiple60x12",
+                "lookupKey": "PT_Multiple60x12",
+                "value": null
+              }
+            ]
+          },
+          "creditEvents": {
+            "rows": [
+              181,
+              187
+            ],
+            "items": [
+              {
+                "label": "No Events 48+",
+                "lookupKey": "PT_No Events 48mo+",
+                "value": 0.0
+              },
+              {
+                "label": "Events 36-47mo FC/SS/DIL",
+                "lookupKey": "PT_Events 36-47mo FC/SS/DIL",
+                "value": null
+              },
+              {
+                "label": "Events 24-35mo FC/SS/DIL",
+                "lookupKey": "PT_Events 24-35mo FC/SS/DIL",
+                "value": null
+              },
+              {
+                "label": "Events 12-23mo FC/SS/DIL",
+                "lookupKey": "PT_Events 12-23mo FC/SS/DIL",
+                "value": null
+              },
+              {
+                "label": "Events 36-47mo BK",
+                "lookupKey": "PT_Events 36-47mo BK",
+                "value": null
+              },
+              {
+                "label": "Events 24-35mo BK",
+                "lookupKey": "PT_Events 24-35mo BK",
+                "value": null
+              },
+              {
+                "label": "Events 12-23mo BK",
+                "lookupKey": "PT_Events 12-23mo BK",
+                "value": null
+              }
+            ]
+          },
+          "payment": {
+            "rows": [
+              188,
+              189
+            ],
+            "items": [
+              {
+                "label": "No ACH",
+                "lookupKey": "PT_No ACH",
+                "value": 0.0
+              },
+              {
+                "label": "ACH",
+                "lookupKey": "PT_ACH",
+                "value": 0.125
+              }
+            ]
+          },
+          "servicing": {
+            "rows": [
+              190,
+              191
+            ],
+            "items": [
+              {
+                "label": "Escrows",
+                "lookupKey": "PT_Escrows",
+                "value": null
+              },
+              {
+                "label": "No Escrows (No HPML)",
+                "lookupKey": "PT_No Escrows",
+                "value": 0.0
+              }
+            ]
+          },
+          "prepay": {
+            "rows": [
+              192,
+              192
+            ],
+            "items": [
+              {
+                "label": "No Prepay",
+                "lookupKey": "PT_No Prepay",
+                "value": 0.0
+              }
+            ]
+          },
+          "lockTerm": {
+            "rows": [
+              193,
+              195
+            ],
+            "items": [
+              {
+                "label": "30 Day",
+                "lookupKey": "PT_30 Day",
+                "value": 0.0
+              },
+              {
+                "label": "45 Day",
+                "lookupKey": "PT_45 Day",
+                "value": -0.25
+              },
+              {
+                "label": "60 Day",
+                "lookupKey": "PT_60 Day",
+                "value": -0.5
+              }
+            ]
+          },
+          "lockType": {
+            "rows": [
+              196,
+              197
+            ],
+            "items": [
+              {
+                "label": "Mandatory",
+                "lookupKey": "PT_Mandatory",
+                "value": 0.0
+              },
+              {
+                "label": "Best Efforts",
+                "lookupKey": "PT_Best Efforts",
+                "value": 0.0
+              }
+            ]
+          }
+        }
+      }
+    },
+    "secondNOO": {
+      "inputCode": "IR",
+      "inputName": "Second NOO",
+      "sections": {
+        "pricing30Day": {
+          "rows": [
+            210,
+            260
+          ],
+          "rowsData": [
+            {
+              "noteRate": 13.375,
+              "basePrice": 113.5
+            },
+            {
+              "noteRate": 13.25,
+              "basePrice": 113.375
+            },
+            {
+              "noteRate": 13.125,
+              "basePrice": 113.25
+            },
+            {
+              "noteRate": 13.0,
+              "basePrice": 113.125
+            },
+            {
+              "noteRate": 12.875,
+              "basePrice": 113.0
+            },
+            {
+              "noteRate": 12.75,
+              "basePrice": 112.875
+            },
+            {
+              "noteRate": 12.625,
+              "basePrice": 112.75
+            },
+            {
+              "noteRate": 12.5,
+              "basePrice": 112.625
+            },
+            {
+              "noteRate": 12.375,
+              "basePrice": 112.5
+            },
+            {
+              "noteRate": 12.25,
+              "basePrice": 112.375
+            },
+            {
+              "noteRate": 12.125,
+              "basePrice": 112.25
+            },
+            {
+              "noteRate": 12.0,
+              "basePrice": 112.125
+            },
+            {
+              "noteRate": 11.875,
+              "basePrice": 112.0
+            },
+            {
+              "noteRate": 11.75,
+              "basePrice": 111.875
+            },
+            {
+              "noteRate": 11.625,
+              "basePrice": 111.75
+            },
+            {
+              "noteRate": 11.5,
+              "basePrice": 111.625
+            },
+            {
+              "noteRate": 11.375,
+              "basePrice": 111.375
+            },
+            {
+              "noteRate": 11.25,
+              "basePrice": 111.125
+            },
+            {
+              "noteRate": 11.125,
+              "basePrice": 110.875
+            },
+            {
+              "noteRate": 11.0,
+              "basePrice": 110.625
+            },
+            {
+              "noteRate": 10.875,
+              "basePrice": 110.375
+            },
+            {
+              "noteRate": 10.75,
+              "basePrice": 110.125
+            },
+            {
+              "noteRate": 10.625,
+              "basePrice": 109.875
+            },
+            {
+              "noteRate": 10.5,
+              "basePrice": 109.625
+            },
+            {
+              "noteRate": 10.375,
+              "basePrice": 109.375
+            },
+            {
+              "noteRate": 10.25,
+              "basePrice": 109.0
+            },
+            {
+              "noteRate": 10.125,
+              "basePrice": 108.625
+            },
+            {
+              "noteRate": 10.0,
+              "basePrice": 108.25
+            },
+            {
+              "noteRate": 9.875,
+              "basePrice": 107.875
+            },
+            {
+              "noteRate": 9.75,
+              "basePrice": 107.5
+            },
+            {
+              "noteRate": 9.625,
+              "basePrice": 107.125
+            },
+            {
+              "noteRate": 9.5,
+              "basePrice": 106.75
+            },
+            {
+              "noteRate": 9.375,
+              "basePrice": 106.375
+            },
+            {
+              "noteRate": 9.25,
+              "basePrice": 105.875
+            },
+            {
+              "noteRate": 9.125,
+              "basePrice": 105.375
+            },
+            {
+              "noteRate": 9.0,
+              "basePrice": 104.75
+            },
+            {
+              "noteRate": 8.875,
+              "basePrice": 104.125
+            },
+            {
+              "noteRate": 8.75,
+              "basePrice": 103.5
+            },
+            {
+              "noteRate": 8.625,
+              "basePrice": 102.75
+            },
+            {
+              "noteRate": 8.5,
+              "basePrice": 102.0
+            },
+            {
+              "noteRate": 8.375,
+              "basePrice": 101.25
+            }
+          ],
+          "maxPrice": {
+            "No Prepay - Hard": 105.0,
+            "1yr Prepay - Hard": 105.0,
+            "2yr Prepay - Hard": 105.0,
+            "3yr Prepay - Hard": 105.5,
+            "4yr Prepay - Hard": 105.5,
+            "5yr Prepay - Hard": 105.5
+          },
+          "minPrice": {
+            "default": 98.0
+          }
+        },
+        "cltvFullDoc": {
+          "rowRange": [
+            211,
+            250
+          ],
+          "cltvBuckets": [
+            "00.01-50",
+            "50.01-55",
+            "55.01-60",
+            "60.01-65",
+            "65.01-70",
+            "70.01-75",
+            "75.01-80",
+            "None"
+          ],
+          "rows": [
+            {
+              "creditScore": "\u2265 800",
+              "values": [
+                2.625,
+                2.625,
+                2.375,
+                1.875,
+                1.625,
+                0.75,
+                -0.375,
+                null
+              ]
+            },
+            {
+              "creditScore": "780 - 799",
+              "values": [
+                2.625,
+                2.625,
+                2.375,
+                1.875,
+                1.625,
+                0.625,
+                -0.5,
+                null
+              ]
+            },
+            {
+              "creditScore": "760 - 779",
+              "values": [
+                2.125,
+                2.125,
+                1.875,
+                1.375,
+                1.125,
+                0.0,
+                -1.25,
+                null
+              ]
+            },
+            {
+              "creditScore": "740 - 759",
+              "values": [
+                1.5,
+                1.5,
+                1.125,
+                0.875,
+                0.625,
+                -0.625,
+                -2.5,
+                null
+              ]
+            },
+            {
+              "creditScore": "720 - 739",
+              "values": [
+                0.625,
+                0.625,
+                0.125,
+                -0.25,
+                -0.5,
+                -1.5,
+                -3.75,
+                null
+              ]
+            },
+            {
+              "creditScore": "700 - 719",
+              "values": [
+                -0.5,
+                -0.5,
+                -1.125,
+                -1.625,
+                -2.125,
+                -2.875,
+                -5.25,
+                null
+              ]
+            },
+            {
+              "creditScore": "680 - 699",
+              "values": [
+                -3.0,
+                -3.0,
+                -3.75,
+                -4.125,
+                -4.75,
+                -5.75,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "660 - 679",
+              "values": [
+                -4.25,
+                -4.375,
+                -4.875,
+                -5.5,
+                -6.0,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "640 - 659",
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "620 - 639",
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "\u2265 800",
+              "values": [
+                0.875,
+                0.875,
+                0.625,
+                0.25,
+                0.0,
+                -1.0,
+                -1.875,
+                null
+              ]
+            },
+            {
+              "creditScore": "780 - 799",
+              "values": [
+                0.875,
+                0.875,
+                0.625,
+                0.25,
+                0.0,
+                -1.125,
+                -2.0,
+                null
+              ]
+            },
+            {
+              "creditScore": "760 - 779",
+              "values": [
+                0.375,
+                0.375,
+                0.125,
+                -0.25,
+                -0.5,
+                -1.75,
+                -2.75,
+                null
+              ]
+            },
+            {
+              "creditScore": "740 - 759",
+              "values": [
+                0.0,
+                0.0,
+                -0.375,
+                -0.75,
+                -1.0,
+                -2.375,
+                -4.0,
+                null
+              ]
+            },
+            {
+              "creditScore": "720 - 739",
+              "values": [
+                -0.625,
+                -0.625,
+                -1.125,
+                -1.625,
+                -1.875,
+                -3.0,
+                -5.125,
+                null
+              ]
+            },
+            {
+              "creditScore": "700 - 719",
+              "values": [
+                -1.625,
+                -1.625,
+                -2.25,
+                -2.875,
+                -3.375,
+                -4.25,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "680 - 699",
+              "values": [
+                -4.0,
+                -4.0,
+                -4.75,
+                -5.25,
+                -5.875,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "660 - 679",
+              "values": [
+                -5.75,
+                -5.875,
+                -6.375,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "640 - 659",
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "620 - 639",
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "\u2265 800",
+              "values": [
+                -0.5,
+                -0.5,
+                -0.75,
+                -1.375,
+                -1.625,
+                -2.75,
+                -3.75,
+                null
+              ]
+            },
+            {
+              "creditScore": "780 - 799",
+              "values": [
+                -0.5,
+                -0.5,
+                -0.75,
+                -1.375,
+                -1.625,
+                -2.875,
+                -4.0,
+                null
+              ]
+            },
+            {
+              "creditScore": "760 - 779",
+              "values": [
+                -1.0,
+                -1.0,
+                -1.25,
+                -1.875,
+                -2.125,
+                -3.5,
+                -4.75,
+                null
+              ]
+            },
+            {
+              "creditScore": "740 - 759",
+              "values": [
+                -1.375,
+                -1.375,
+                -1.75,
+                -2.375,
+                -2.625,
+                -4.125,
+                -6.0,
+                null
+              ]
+            },
+            {
+              "creditScore": "720 - 739",
+              "values": [
+                -2.125,
+                -2.125,
+                -2.625,
+                -3.375,
+                -3.625,
+                -4.875,
+                -7.25,
+                null
+              ]
+            },
+            {
+              "creditScore": "700 - 719",
+              "values": [
+                -3.375,
+                -3.375,
+                -4.0,
+                -4.75,
+                -5.25,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "680 - 699",
+              "values": [
+                -5.75,
+                -5.75,
+                -6.5,
+                -7.125,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "660 - 679",
+              "values": [
+                -7.75,
+                -7.875,
+                -8.375,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "640 - 659",
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "620 - 639",
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "\u2265 800",
+              "values": [
+                -0.625,
+                -0.625,
+                -0.875,
+                -1.5,
+                -1.75,
+                -3.0,
+                -4.0,
+                null
+              ]
+            },
+            {
+              "creditScore": "780 - 799",
+              "values": [
+                -0.625,
+                -0.625,
+                -0.875,
+                -1.5,
+                -1.75,
+                -3.125,
+                -4.25,
+                null
+              ]
+            },
+            {
+              "creditScore": "760 - 779",
+              "values": [
+                -1.125,
+                -1.125,
+                -1.375,
+                -2.0,
+                -2.25,
+                -3.75,
+                -5.0,
+                null
+              ]
+            },
+            {
+              "creditScore": "740 - 759",
+              "values": [
+                -1.5,
+                -1.5,
+                -1.875,
+                -2.5,
+                -2.75,
+                -4.375,
+                -6.25,
+                null
+              ]
+            },
+            {
+              "creditScore": "720 - 739",
+              "values": [
+                -2.375,
+                -2.375,
+                -2.875,
+                -3.625,
+                -3.875,
+                -5.125,
+                -7.5,
+                null
+              ]
+            },
+            {
+              "creditScore": "700 - 719",
+              "values": [
+                -3.625,
+                -3.625,
+                -4.25,
+                -5.0,
+                -5.5,
+                -6.5,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "680 - 699",
+              "values": [
+                -6.25,
+                -6.25,
+                -7.0,
+                -7.625,
+                -8.25,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "660 - 679",
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "640 - 659",
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            },
+            {
+              "creditScore": "620 - 639",
+              "values": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            }
+          ]
+        },
+        "adjustments": {
+          "bankStatement": {
+            "rows": [
+              251,
+              253
+            ],
+            "items": [
+              {
+                "label": "No Bank Stmt",
+                "lookupKey": "IT_No Bank Stmt",
+                "value": 0.0
+              },
+              {
+                "label": "12mo Bank Stmt",
+                "lookupKey": "IT_12mo Bank Stmt",
+                "value": 0.0
+              },
+              {
+                "label": "24mo Bank Stmt",
+                "lookupKey": "IT_24mo Bank Stmt",
+                "value": 0.0
+              }
+            ]
+          },
+          "term": {
+            "rows": [
+              254,
+              259
+            ],
+            "items": [
+              {
+                "label": "10yr Fixed",
+                "lookupKey": "IT_10yr Fixed",
+                "value": 0.5
+              },
+              {
+                "label": "15yr Fixed",
+                "lookupKey": "IT_15yr Fixed",
+                "value": 0.5
+              },
+              {
+                "label": "20yr Fixed",
+                "lookupKey": "IT_20yr Fixed",
+                "value": 0.375
+              },
+              {
+                "label": "30yr Fixed",
+                "lookupKey": "IT_30yr Fixed",
+                "value": 0.0
+              },
+              {
+                "label": "30/15yr Balloon",
+                "lookupKey": "IT_30/15yr Balloon",
+                "value": -0.375
+              },
+              {
+                "label": "40/15yr Balloon",
+                "lookupKey": "IT_40/15yr Balloon",
+                "value": -0.75
+              }
+            ]
+          },
+          "amortization": {
+            "rows": [
+              260,
+              261
+            ],
+            "items": [
+              {
+                "label": "Full Amortization",
+                "lookupKey": "IT_Full Amortization",
+                "value": 0.0
+              },
+              {
+                "label": "Interest-Only",
+                "lookupKey": "IT_Interest-Only",
+                "value": null
+              }
+            ]
+          },
+          "loanAmount": {
+            "rows": [
+              262,
+              282
+            ],
+            "items": [
+              {
+                "label": "000,000-050k",
+                "lookupKey": "IT_000,000-050k",
+                "value": null
+              },
+              {
+                "label": "050,001-075k",
+                "lookupKey": "IT_050,001-075k",
+                "value": -0.25
+              },
+              {
+                "label": "075,001-100k",
+                "lookupKey": "IT_075,001-100k",
+                "value": -0.125
+              },
+              {
+                "label": "100,001-125k",
+                "lookupKey": "IT_100,001-125k",
+                "value": 0.0
+              },
+              {
+                "label": "125,001-150k",
+                "lookupKey": "IT_125,001-150k",
+                "value": 0.0
+              },
+              {
+                "label": "150,001-175k",
+                "lookupKey": "IT_150,001-175k",
+                "value": 0.0
+              },
+              {
+                "label": "175,001-200k",
+                "lookupKey": "IT_175,001-200k",
+                "value": 0.0
+              },
+              {
+                "label": "200,001-300k",
+                "lookupKey": "IT_200,001-300k",
+                "value": 0.0
+              },
+              {
+                "label": "300,001-400k",
+                "lookupKey": "IT_300,001-400k",
+                "value": 0.0
+              },
+              {
+                "label": "400,001-600k",
+                "lookupKey": "IT_400,001-600k",
+                "value": 0.0
+              },
+              {
+                "label": "600,001-750k",
+                "lookupKey": "IT_600,001-750k",
+                "value": 0.0
+              },
+              {
+                "label": "750,001-1.0m",
+                "lookupKey": "IT_750,001-1.0m",
+                "value": null
+              },
+              {
+                "label": "1,000,001-1.5m",
+                "lookupKey": "IT_1,000,001-1.5m",
+                "value": null
+              },
+              {
+                "label": "1,500,001-2.0m",
+                "lookupKey": "IT_1,500,001-2.0m",
+                "value": null
+              },
+              {
+                "label": "2,000,001-2.5m",
+                "lookupKey": "IT_2,000,001-2.5m",
+                "value": null
+              },
+              {
+                "label": "2,500,001-3.0m",
+                "lookupKey": "IT_2,500,001-3.0m",
+                "value": null
+              },
+              {
+                "label": "3,000,001-3.5m",
+                "lookupKey": "IT_3,000,001-3.5m",
+                "value": null
+              },
+              {
+                "label": "3,500,001-4.0m",
+                "lookupKey": "IT_3,500,001-4.0m",
+                "value": null
+              },
+              {
+                "label": "4,000,001-4.5m",
+                "lookupKey": "IT_4,000,001-4.5m",
+                "value": null
+              },
+              {
+                "label": "4,500,001-5.0m",
+                "lookupKey": "IT_4,500,001-5.0m",
+                "value": null
+              },
+              {
+                "label": "5,000,001+",
+                "lookupKey": "IT_5,000,001+",
+                "value": null
+              }
+            ]
+          },
+          "dti": {
+            "rows": [
+              283,
+              287
+            ],
+            "items": [
+              {
+                "label": "00.00-00",
+                "lookupKey": "IT_00.00-00",
+                "value": 0.0
+              },
+              {
+                "label": "00.01-43",
+                "lookupKey": "IT_00.01-43",
+                "value": 0.0
+              },
+              {
+                "label": "43.01-45",
+                "lookupKey": "IT_43.01-45",
+                "value": -0.25
+              },
+              {
+                "label": "45.01-50",
+                "lookupKey": "IT_45.01-50",
+                "value": -0.75
+              },
+              {
+                "label": "50.01-55",
+                "lookupKey": "IT_50.01-55",
+                "value": null
+              }
+            ]
+          },
+          "dscr": {
+            "rows": [
+              288,
+              294
+            ],
+            "items": [
+              {
+                "label": "DSCR Not Applicable",
+                "lookupKey": "IT_DSCR Not Applicable",
+                "value": 0.0
+              },
+              {
+                "label": "DSCR \u22651.50",
+                "lookupKey": "IT_DSCR 1.50+",
+                "value": 0.375
+              },
+              {
+                "label": "DSCR 1.25-1.49",
+                "lookupKey": "IT_DSCR 1.25-1.49",
+                "value": 0.125
+              },
+              {
+                "label": "DSCR 1.10-1.24",
+                "lookupKey": "IT_DSCR 1.10-1.24",
+                "value": -0.25
+              },
+              {
+                "label": "DSCR 1.00-1.09",
+                "lookupKey": "IT_DSCR 1.00-1.09",
+                "value": -0.625
+              },
+              {
+                "label": "DSCR 0.75-0.99",
+                "lookupKey": "IT_DSCR 0.75-0.99",
+                "value": null
+              },
+              {
+                "label": "DSCR <0.75",
+                "lookupKey": "IT_DSCR 0.00-0.75",
+                "value": null
+              }
+            ]
+          },
+          "purpose": {
+            "rows": [
+              295,
+              297
+            ],
+            "items": [
+              {
+                "label": "Purchase",
+                "lookupKey": "IT_Purchase",
+                "value": 0.0
+              },
+              {
+                "label": "Rate-Term",
+                "lookupKey": "IT_Rate-Term",
+                "value": 0.0
+              },
+              {
+                "label": "Cash-Out",
+                "lookupKey": "IT_Cash-Out",
+                "value": 0.0
+              }
+            ]
+          },
+          "occupancy": {
+            "rows": [
+              298,
+              298
+            ],
+            "items": [
+              {
+                "label": "Non Owner Occupied",
+                "lookupKey": "IT_Non Owner Occupied",
+                "value": 0.0
+              }
+            ]
+          },
+          "valuation": {
+            "rows": [
+              299,
+              300
+            ],
+            "items": [
+              {
+                "label": "Full Appraisal",
+                "lookupKey": "IT_Full Appraisal",
+                "value": 0.0
+              },
+              {
+                "label": "AVM",
+                "lookupKey": "IT_AVM",
+                "value": 0.0
+              }
+            ]
+          },
+          "state": {
+            "rows": [
+              301,
+              304
+            ],
+            "items": [
+              {
+                "label": "CA",
+                "lookupKey": "IT_CA",
+                "value": 0.0
+              },
+              {
+                "label": "GA",
+                "lookupKey": "IT_GA",
+                "value": 0.0
+              },
+              {
+                "label": "AL",
+                "lookupKey": "IT_AL",
+                "value": 0.0
+              },
+              {
+                "label": "Other",
+                "lookupKey": "IT_Non-CA",
+                "value": 0.0
+              }
+            ]
+          },
+          "propertyType": {
+            "rows": [
+              305,
+              319
+            ],
+            "items": [
+              {
+                "label": "SFR",
+                "lookupKey": "IT_SFR",
+                "value": 0.0
+              },
+              {
+                "label": "SFR-Rural",
+                "lookupKey": "IT_SFR-Rural",
+                "value": 0.0
+              },
+              {
+                "label": "PUD-Rural",
+                "lookupKey": "IT_PUD-Rural",
+                "value": 0.0
+              },
+              {
+                "label": "D-PUD",
+                "lookupKey": "IT_D-PUD",
+                "value": 0.0
+              },
+              {
+                "label": "PUD",
+                "lookupKey": "IT_PUD",
+                "value": 0.0
+              },
+              {
+                "label": "Townhouse",
+                "lookupKey": "IT_Townhouse",
+                "value": 0.0
+              },
+              {
+                "label": "Rowhouse",
+                "lookupKey": "IT_Rowhouse",
+                "value": 0.0
+              },
+              {
+                "label": "Site Condo",
+                "lookupKey": "IT_Condo-Site",
+                "value": 0.0
+              },
+              {
+                "label": "Condo-Warrantable",
+                "lookupKey": "IT_Condo-Warrantable",
+                "value": -0.25
+              },
+              {
+                "label": "Condo-NonWarrantable",
+                "lookupKey": "IT_Condo-NonWarrantable",
+                "value": null
+              },
+              {
+                "label": "2-Unit",
+                "lookupKey": "IT_2-Unit",
+                "value": -0.375
+              },
+              {
+                "label": "3-Unit",
+                "lookupKey": "IT_3-Unit",
+                "value": -0.375
+              },
+              {
+                "label": "4-Unit",
+                "lookupKey": "IT_4-Unit",
+                "value": -0.375
+              },
+              {
+                "label": "Modular",
+                "lookupKey": "IT_Modular",
+                "value": -2.0
+              },
+              {
+                "label": "Log Home",
+                "lookupKey": "IT_Log Home",
+                "value": null
+              }
+            ]
+          },
+          "citizenship": {
+            "rows": [
+              320,
+              323
+            ],
+            "items": [
+              {
+                "label": "US Citizen",
+                "lookupKey": "IT_US Citizen",
+                "value": 0.0
+              },
+              {
+                "label": "Permanent Resident Alien",
+                "lookupKey": "IT_Permanent Resident Alien",
+                "value": 0.0
+              },
+              {
+                "label": "Non-Perm Resident Alien",
+                "lookupKey": "IT_Non-Permanent Resident Alien",
+                "value": 0.0
+              },
+              {
+                "label": "Foreign National",
+                "lookupKey": "IT_Foreign National",
+                "value": null
+              }
+            ]
+          },
+          "employment": {
+            "rows": [
+              324,
+              328
+            ],
+            "items": [
+              {
+                "label": "Wage-Earner",
+                "lookupKey": "IT_Wage-Earner",
+                "value": 0.0
+              },
+              {
+                "label": "Self-Employed",
+                "lookupKey": "IT_Self-Employed",
+                "value": 0.0
+              },
+              {
+                "label": "Short-Term-Rental",
+                "lookupKey": "IT_Short-Term-Rental",
+                "value": 0.0
+              },
+              {
+                "label": "Rental-Not-Short-Term",
+                "lookupKey": "IT_Not-Short-Term-Rental",
+                "value": 0.0
+              },
+              {
+                "label": "Other Income",
+                "lookupKey": "IT_Other Income",
+                "value": 0.0
+              }
+            ]
+          },
+          "firstTimeBuyer": {
+            "rows": [
+              329,
+              334
+            ],
+            "items": [
+              {
+                "label": "Not FTHB or FTINV",
+                "lookupKey": "IT_Not FTHB or FTINV",
+                "value": 0.0
+              },
+              {
+                "label": "FTHB and FTINV",
+                "lookupKey": "IT_FTHB and FTINV",
+                "value": 0.0
+              },
+              {
+                "label": "FTHB-HousingHistory",
+                "lookupKey": "IT_FTHB-HousingHistory",
+                "value": 0.0
+              },
+              {
+                "label": "FTHB-NoHousingHistory",
+                "lookupKey": "IT_FTHB-NoHousingHistory",
+                "value": 0.0
+              },
+              {
+                "label": "FTINV-MtgHistory",
+                "lookupKey": "IT_FTINV-MtgHistory",
+                "value": 0.0
+              },
+              {
+                "label": "FTINV-NoMtgHistory",
+                "lookupKey": "IT_FTINV-NoMtgHistory",
+                "value": 0.0
+              }
+            ]
+          },
+          "housingHistory": {
+            "rows": [
+              335,
+              340
+            ],
+            "items": [
+              {
+                "label": "NoLatesx24",
+                "lookupKey": "IT_NoLatesx24",
+                "value": 0.0
+              },
+              {
+                "label": "NoLatesx12",
+                "lookupKey": "IT_NoLatesx12",
+                "value": 0.0
+              },
+              {
+                "label": "1x30x12",
+                "lookupKey": "IT_1x30x12",
+                "value": null
+              },
+              {
+                "label": "Multiple30x12",
+                "lookupKey": "IT_Multiple30x12",
+                "value": null
+              },
+              {
+                "label": "1x60x12",
+                "lookupKey": "IT_1x60x12",
+                "value": null
+              },
+              {
+                "label": "Multiple60x12",
+                "lookupKey": "IT_Multiple60x12",
+                "value": null
+              }
+            ]
+          },
+          "creditEvents": {
+            "rows": [
+              341,
+              347
+            ],
+            "items": [
+              {
+                "label": "No Events 48+",
+                "lookupKey": "IT_No Events 48mo+",
+                "value": 0.0
+              },
+              {
+                "label": "Events 36-47mo FC/SS/DIL",
+                "lookupKey": "IT_Events 36-47mo FC/SS/DIL",
+                "value": null
+              },
+              {
+                "label": "Events 24-35mo FC/SS/DIL",
+                "lookupKey": "IT_Events 24-35mo FC/SS/DIL",
+                "value": null
+              },
+              {
+                "label": "Events 12-23mo FC/SS/DIL",
+                "lookupKey": "IT_Events 12-23mo FC/SS/DIL",
+                "value": null
+              },
+              {
+                "label": "Events 36-47mo BK",
+                "lookupKey": "IT_Events 36-47mo BK",
+                "value": null
+              },
+              {
+                "label": "Events 24-35mo BK",
+                "lookupKey": "IT_Events 24-35mo BK",
+                "value": null
+              },
+              {
+                "label": "Events 12-23mo BK",
+                "lookupKey": "IT_Events 12-23mo BK",
+                "value": null
+              }
+            ]
+          },
+          "payment": {
+            "rows": [
+              348,
+              349
+            ],
+            "items": [
+              {
+                "label": "No ACH",
+                "lookupKey": "IT_No ACH",
+                "value": 0.0
+              },
+              {
+                "label": "ACH",
+                "lookupKey": "IT_ACH",
+                "value": 0.125
+              }
+            ]
+          },
+          "servicing": {
+            "rows": [
+              350,
+              351
+            ],
+            "items": [
+              {
+                "label": "Escrows",
+                "lookupKey": "IT_Escrows",
+                "value": null
+              },
+              {
+                "label": "No Escrows (No HPML)",
+                "lookupKey": "IT_No Escrows",
+                "value": 0.0
+              }
+            ]
+          },
+          "prepay": {
+            "rows": [
+              352,
+              372
+            ],
+            "items": [
+              {
+                "label": "No Prepay",
+                "lookupKey": "IT_No Prepay",
+                "value": 0.0
+              },
+              {
+                "label": "1yr Prepay_Standard",
+                "lookupKey": "IT_1yr Prepay_Standard",
+                "value": 0.25
+              },
+              {
+                "label": "2yr Prepay_Standard",
+                "lookupKey": "IT_2yr Prepay_Standard",
+                "value": 0.5
+              },
+              {
+                "label": "3yr Prepay_Standard",
+                "lookupKey": "IT_3yr Prepay_Standard",
+                "value": 1.25
+              },
+              {
+                "label": "4yr Prepay_Standard",
+                "lookupKey": "IT_4yr Prepay_Standard",
+                "value": 1.625
+              },
+              {
+                "label": "5yr Prepay_Standard",
+                "lookupKey": "IT_5yr Prepay_Standard",
+                "value": 1.875
+              },
+              {
+                "label": "1yr Prepay_3Pct",
+                "lookupKey": "IT_1yr Prepay_3Pct",
+                "value": 0.25
+              },
+              {
+                "label": "2yr Prepay_3Pct",
+                "lookupKey": "IT_2yr Prepay_3Pct",
+                "value": 0.5
+              },
+              {
+                "label": "3yr Prepay_3Pct",
+                "lookupKey": "IT_3yr Prepay_3Pct",
+                "value": 1.25
+              },
+              {
+                "label": "4yr Prepay_3Pct",
+                "lookupKey": "IT_4yr Prepay_3Pct",
+                "value": 1.625
+              },
+              {
+                "label": "5yr Prepay_3Pct",
+                "lookupKey": "IT_5yr Prepay_3Pct",
+                "value": 1.875
+              },
+              {
+                "label": "1yr Prepay_5Pct",
+                "lookupKey": "IT_1yr Prepay_5Pct",
+                "value": 0.25
+              },
+              {
+                "label": "2yr Prepay_5Pct",
+                "lookupKey": "IT_2yr Prepay_5Pct",
+                "value": 0.5
+              },
+              {
+                "label": "3yr Prepay_5Pct",
+                "lookupKey": "IT_3yr Prepay_5Pct",
+                "value": 1.5
+              },
+              {
+                "label": "4yr Prepay_5Pct",
+                "lookupKey": "IT_4yr Prepay_5Pct",
+                "value": 1.875
+              },
+              {
+                "label": "5yr Prepay_5Pct",
+                "lookupKey": "IT_5yr Prepay_5Pct",
+                "value": 2.125
+              },
+              {
+                "label": "1yr Prepay_1",
+                "lookupKey": "IT_1yr Prepay_1",
+                "value": 0.25
+              },
+              {
+                "label": "2yr Prepay_21",
+                "lookupKey": "IT_2yr Prepay_21",
+                "value": 0.5
+              },
+              {
+                "label": "3yr Prepay_321",
+                "lookupKey": "IT_3yr Prepay_321",
+                "value": 1.0
+              },
+              {
+                "label": "4yr Prepay_4321",
+                "lookupKey": "IT_4yr Prepay_4321",
+                "value": 1.625
+              },
+              {
+                "label": "5yr Prepay_54321",
+                "lookupKey": "IT_5yr Prepay_54321",
+                "value": 1.875
+              }
+            ]
+          },
+          "lockTerm": {
+            "rows": [
+              373,
+              375
+            ],
+            "items": [
+              {
+                "label": "30 Day",
+                "lookupKey": "IT_30 Day",
+                "value": 0.0
+              },
+              {
+                "label": "45 Day",
+                "lookupKey": "IT_45 Day",
+                "value": -0.25
+              },
+              {
+                "label": "60 Day",
+                "lookupKey": "IT_60 Day",
+                "value": -0.5
+              }
+            ]
+          },
+          "lockType": {
+            "rows": [
+              376,
+              377
+            ],
+            "items": [
+              {
+                "label": "Mandatory",
+                "lookupKey": "IT_Mandatory",
+                "value": 0.0
+              },
+              {
+                "label": "Best Efforts",
+                "lookupKey": "IT_Best Efforts",
+                "value": 0.0
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,6 +1,8 @@
+import ratesheet from './vista-ratesheet.json';
 import { getTargetPurchasePriceForLoanAmount, type ButtonStage1Input } from './button';
 
-export type VistaProduct = '30yr Fixed' | '20yr Fixed' | '15yr Fixed' | '10yr Fixed' | '20yr IO' | '30yr IO';
+export type VistaProgram = 'Second OO' | 'Second NOO';
+export type VistaProduct = '10yr Fixed' | '15yr Fixed' | '20yr Fixed' | '30yr Fixed' | '30/15yr Balloon' | '40/15yr Balloon';
 
 export interface VistaPricingInput {
   product: VistaProduct;
@@ -23,6 +25,7 @@ export interface VistaAdjustmentLine {
 }
 
 export interface VistaQuote {
+  program: VistaProgram;
   maxAvailable: number;
   maxLtv: number;
   rate: number;
@@ -50,33 +53,31 @@ export interface VistaEligibilityResult {
   resultingCltv: number;
 }
 
-type VistaRateRow = { noteRate: number; prices: Record<VistaProduct, number> };
-
-const VISTA_MAX_PURCHASE_PRICE = 106;
-const FIXED_PRODUCTS: VistaProduct[] = ['30yr Fixed', '20yr Fixed', '15yr Fixed', '10yr Fixed'];
-const VISTA_PRODUCTS: VistaProduct[] = ['30yr Fixed', '20yr Fixed', '15yr Fixed', '10yr Fixed', '20yr IO', '30yr IO'];
-
-const NOTE_RATES = [
-  11.5, 11.375, 11.25, 11.125, 11, 10.875, 10.75, 10.625, 10.5, 10.375, 10.25, 10.125,
-  10, 9.875, 9.75, 9.625, 9.5, 9.375, 9.25, 9.125, 9, 8.875, 8.75, 8.625, 8.5, 8.375,
-  8.25, 8.125, 8, 7.875, 7.75, 7.625, 7.5,
-];
-
-const RATE_ROWS: VistaRateRow[] = NOTE_RATES.map((noteRate, index) => {
-  const step = NOTE_RATES.length - 1 - index;
-  const base = 99.75 + step * 0.1875;
-  return {
-    noteRate,
-    prices: {
-      '30yr Fixed': roundToThree(base + 0.5),
-      '20yr Fixed': roundToThree(base + 0.25),
-      '15yr Fixed': roundToThree(base + 0.125),
-      '10yr Fixed': roundToThree(base),
-      '20yr IO': roundToThree(base + 0.625),
-      '30yr IO': roundToThree(base + 0.875),
-    },
+type ProgramKey = 'secondOO' | 'secondNOO';
+type JsonAdjustmentItem = { label: string; lookupKey: string; value: number | null };
+type JsonPricingRow = { noteRate: number; basePrice: number };
+type JsonCltvRow = { creditScore: string; values: Array<number | null> };
+type JsonProgram = {
+  inputCode: string;
+  inputName: VistaProgram;
+  sections: {
+    pricing30Day: {
+      rows: number[];
+      rowsData: JsonPricingRow[];
+      maxPrice: Record<string, number | null>;
+      minPrice: Record<string, number | null>;
+    };
+    cltvFullDoc: {
+      rowRange: number[];
+      cltvBuckets: string[];
+      rows: JsonCltvRow[];
+    };
+    adjustments: Record<string, { rows: number[]; items: JsonAdjustmentItem[] }>;
   };
-});
+};
+
+const VISTA_PRODUCTS: VistaProduct[] = ['10yr Fixed', '15yr Fixed', '20yr Fixed', '30yr Fixed', '30/15yr Balloon', '40/15yr Balloon'];
+const PROGRAMS = (ratesheet as unknown as { programs: Record<ProgramKey, JsonProgram> }).programs;
 
 export function buildVistaStage1PricingInput(stage1: ButtonStage1Input & { vistaProduct?: VistaProduct }): VistaPricingInput {
   const propertyValue = Number(stage1.propertyValue || 0);
@@ -112,14 +113,17 @@ export function calculateVistaQuote(
   input: VistaPricingInput,
   options?: { selectedLoanAmount?: number; targetPrice?: number }
 ): VistaQuote {
+  const programKey = getProgramKey(input);
+  const program = PROGRAMS[programKey];
   const maxAvailable = calculateMaxAvailable(input);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? maxAvailable);
-  const targetPrice = Math.min(options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), VISTA_MAX_PURCHASE_PRICE);
+  const targetPrice = Math.min(options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), getMaxPrice(program));
   const adjustments = buildAdjustmentLines(input, selectedLoanAmount);
   const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
-  const selected = pickRateAtOrBelowTarget(input.product, llpaAdjustment, targetPrice);
+  const selected = pickRateAtOrBelowTarget(program, llpaAdjustment, targetPrice);
 
   return {
+    program: program.inputName,
     maxAvailable,
     maxLtv: calculateMaxLtv(input),
     rate: selected.noteRate,
@@ -142,11 +146,14 @@ export function evaluateVistaStage1Eligibility(
   const reasons: string[] = [];
   const maxAvailable = calculateMaxAvailable(input);
   const requested = Math.max(0, selectedLoanAmount ?? input.desiredLoanAmount ?? 0);
+  const program = PROGRAMS[getProgramKey(input)];
 
-  if (input.creditScore < 680) reasons.push('Credit score is below the current Vista tester range.');
-  if (input.resultingCltv > calculateMaxLtv(input)) reasons.push('Resulting CLTV exceeds the current Vista tester limit.');
+  if (!findCltvRow(program, input.creditScore)) reasons.push('Credit score is outside the Vista Full Doc matrix.');
+  if (!findCltvBucketIndex(program, input.resultingCltv)) reasons.push('Resulting CLTV is outside the Vista Full Doc matrix.');
+  if (!findAdjustment(program, 'term', input.product)) reasons.push('Selected term is not available in the Vista ratesheet.');
+  if (!findAdjustment(program, 'loanAmount', loanAmountLabel(requested))) reasons.push('Desired loan amount is outside the Vista loan amount table.');
   if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
-  if (input.cashOut && input.product.includes('IO') && input.propertyState === 'TX') reasons.push('Texas cash-out with interest-only is not supported in this Vista tester.');
+  if (input.cashOut) reasons.push('Vista Second lien stage 1 tester is wired for the ratesheet purchase/rate-term grids, not a cash-out overlay.');
 
   return {
     eligible: reasons.length === 0,
@@ -162,14 +169,16 @@ export function solveVistaStage1TargetRate(
 ): VistaTargetRateQuote {
   const input = buildVistaStage1PricingInput(stage1);
   const selectedLoanAmount = Math.max(0, options.selectedLoanAmount ?? input.desiredLoanAmount ?? calculateMaxAvailable(input));
-  const targetPrice = Math.min(options.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), VISTA_MAX_PURCHASE_PRICE);
+  const program = PROGRAMS[getProgramKey(input)];
+  const targetPrice = Math.min(options.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), getMaxPrice(program));
   const tolerance = options.tolerance ?? 0.125;
   const adjustments = buildAdjustmentLines(input, selectedLoanAmount);
   const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
-  const selected = pickRateAtOrBelowTarget(input.product, llpaAdjustment, targetPrice);
+  const selected = pickRateAtOrBelowTarget(program, llpaAdjustment, targetPrice);
   const deltaFromTarget = roundToThree(targetPrice - selected.purchasePrice);
 
   return {
+    program: program.inputName,
     maxAvailable: calculateMaxAvailable(input),
     maxLtv: calculateMaxLtv(input),
     rate: selected.noteRate,
@@ -188,75 +197,96 @@ export function solveVistaStage1TargetRate(
   };
 }
 
+function getProgramKey(input: VistaPricingInput): ProgramKey {
+  return input.occupancy === 'Investment' ? 'secondNOO' : 'secondOO';
+}
+
 function calculateMaxAvailable(input: VistaPricingInput): number {
   return Math.max(0, input.propertyValue * calculateMaxLtv(input) - input.loanBalance);
 }
 
 function calculateMaxLtv(input: VistaPricingInput): number {
-  const occupancy = normalizeOccupancy(input.occupancy);
-  const score = input.creditScore;
-  let max = occupancy === 'Investor'
-    ? score >= 760 ? 0.8 : score >= 740 ? 0.75 : score >= 720 ? 0.7 : 0.6
-    : occupancy === 'Second Home'
-      ? score >= 760 ? 0.85 : score >= 740 ? 0.8 : score >= 720 ? 0.75 : 0.7
-      : score >= 760 ? 0.9 : score >= 740 ? 0.85 : score >= 720 ? 0.8 : 0.75;
+  const program = PROGRAMS[getProgramKey(input)];
+  const row = findCltvRow(program, input.creditScore);
+  if (!row) return 0;
 
-  if (input.structureType === 'Condo') max -= occupancy === 'Investor' ? 0.05 : 0;
-  if (input.unitCount > 1) max -= 0.05;
-  if (input.product.includes('IO')) max -= 0.05;
-  if (input.propertyState === 'TX' && input.cashOut) max = Math.min(max, 0.8);
-  return Math.max(0.45, roundToThree(max));
+  const lastEligibleIndex = row.values.reduce<number>((best, value, index) => value !== null ? index : best, -1);
+  if (lastEligibleIndex < 0) return 0;
+  return upperBoundForCltvLabel(program.sections.cltvFullDoc.cltvBuckets[lastEligibleIndex]) / 100;
 }
 
 function buildAdjustmentLines(input: VistaPricingInput, selectedLoanAmount: number): VistaAdjustmentLine[] {
-  const cltvPct = input.resultingCltv * 100;
-  const occupancy = normalizeOccupancy(input.occupancy);
-  const lines: VistaAdjustmentLine[] = [];
+  const program = PROGRAMS[getProgramKey(input)];
+  const adjustments: VistaAdjustmentLine[] = [];
+  const cltv = buildCltvAdjustment(program, input.creditScore, input.resultingCltv);
+  if (cltv) adjustments.push(cltv);
 
-  if (input.creditScore < 700) lines.push({ label: 'FICO 680-699', value: -1.125 });
-  else if (input.creditScore < 720) lines.push({ label: 'FICO 700-719', value: -0.75 });
-  else if (input.creditScore < 740) lines.push({ label: 'FICO 720-739', value: -0.375 });
-  else if (input.creditScore < 760) lines.push({ label: 'FICO 740-759', value: -0.125 });
-  else lines.push({ label: 'FICO 760+', value: 0 });
+  const term = findAdjustment(program, 'term', input.product);
+  if (term) adjustments.push({ label: `Term: ${term.label}`, value: term.value ?? 0 });
 
-  if (cltvPct > 85) lines.push({ label: 'CLTV 85.01-90', value: -1.25 });
-  else if (cltvPct > 80) lines.push({ label: 'CLTV 80.01-85', value: -0.75 });
-  else if (cltvPct > 75) lines.push({ label: 'CLTV 75.01-80', value: -0.375 });
-  else if (cltvPct > 70) lines.push({ label: 'CLTV 70.01-75', value: -0.125 });
-  else lines.push({ label: 'CLTV <= 70', value: 0 });
+  const amountLabel = loanAmountLabel(selectedLoanAmount);
+  const loanAmount = findAdjustment(program, 'loanAmount', amountLabel);
+  if (loanAmount) adjustments.push({ label: `Loan Amount: ${loanAmount.label}`, value: loanAmount.value ?? 0 });
 
-  if (occupancy === 'Second Home') lines.push({ label: 'Second Home', value: -0.25 });
-  if (occupancy === 'Investor') lines.push({ label: 'Investment Property', value: -0.625 });
-  if (input.structureType === 'Condo') lines.push({ label: 'Condo', value: -0.25 });
-  if (input.unitCount > 1) lines.push({ label: `${input.unitCount} Units`, value: -0.375 });
-  if (input.cashOut) lines.push({ label: 'Cash-Out', value: -0.25 });
-  if (selectedLoanAmount >= 200000) lines.push({ label: 'Loan Amount >= 200k', value: 0.125 });
-  if (selectedLoanAmount >= 400000) lines.push({ label: 'Loan Amount >= 400k', value: 0.125 });
-  if (input.product === '20yr IO') lines.push({ label: '20yr IO', value: 0.25 });
-  if (input.product === '30yr IO') lines.push({ label: '30yr IO', value: 0.375 });
-  if (input.propertyState === 'TX' && input.cashOut) lines.push({ label: 'TX Equity Overlay', value: -0.25 });
+  const occupancyLabel = occupancyAdjustmentLabel(input.occupancy);
+  const occupancy = findAdjustment(program, 'occupancy', occupancyLabel);
+  if (occupancy) adjustments.push({ label: `Occupancy: ${occupancy.label}`, value: occupancy.value ?? 0 });
 
-  return lines;
+  const propertyType = findAdjustment(program, 'propertyType', propertyTypeLabel(input));
+  if (propertyType) adjustments.push({ label: `Property Type: ${propertyType.label}`, value: propertyType.value ?? 0 });
+
+  return adjustments;
+}
+
+function buildCltvAdjustment(program: JsonProgram, creditScore: number, cltv: number): VistaAdjustmentLine | null {
+  const row = findCltvRow(program, creditScore);
+  const bucketIndex = findCltvBucketIndex(program, cltv);
+  if (!row || bucketIndex === null) return null;
+
+  const label = `${row.creditScore} / CLTV ${program.sections.cltvFullDoc.cltvBuckets[bucketIndex]}`;
+  return { label: `Full Doc CLTV: ${label}`, value: row.values[bucketIndex] ?? 0 };
+}
+
+function findCltvRow(program: JsonProgram, creditScore: number): JsonCltvRow | null {
+  return program.sections.cltvFullDoc.rows.find(row => matchesCreditScoreLabel(row.creditScore, creditScore)) ?? null;
+}
+
+function findCltvBucketIndex(program: JsonProgram, cltv: number): number | null {
+  const cltvPct = cltv * 100;
+  const buckets = program.sections.cltvFullDoc.cltvBuckets;
+  for (let i = 0; i < buckets.length; i += 1) {
+    if (cltvPct <= upperBoundForCltvLabel(buckets[i])) return i;
+  }
+  return null;
+}
+
+function findAdjustment(program: JsonProgram, category: string, label: string): JsonAdjustmentItem | null {
+  const items = program.sections.adjustments[category]?.items ?? [];
+  return items.find(item => item.label === label) ?? null;
+}
+
+function getMaxPrice(program: JsonProgram): number {
+  const values = Object.values(program.sections.pricing30Day.maxPrice).filter((value): value is number => typeof value === 'number');
+  return values.length ? Math.max(...values) : 105;
 }
 
 function pickRateAtOrBelowTarget(
-  product: VistaProduct,
+  program: JsonProgram,
   llpaAdjustment: number,
   targetPrice: number
 ): { noteRate: number; basePrice: number; purchasePrice: number } {
   let bestUnder: { noteRate: number; basePrice: number; purchasePrice: number } | null = null;
-  let fallback = { noteRate: RATE_ROWS[0].noteRate, basePrice: RATE_ROWS[0].prices[product], purchasePrice: 0 };
+  let fallback = { noteRate: program.sections.pricing30Day.rowsData[0].noteRate, basePrice: program.sections.pricing30Day.rowsData[0].basePrice, purchasePrice: 0 };
   let fallbackDelta = Number.POSITIVE_INFINITY;
 
-  for (const row of RATE_ROWS) {
-    const basePrice = row.prices[product];
-    const purchasePrice = roundToThree(basePrice + llpaAdjustment);
+  for (const row of program.sections.pricing30Day.rowsData) {
+    const purchasePrice = roundToThree(row.basePrice + llpaAdjustment);
     if (purchasePrice <= targetPrice && (!bestUnder || purchasePrice > bestUnder.purchasePrice)) {
-      bestUnder = { noteRate: row.noteRate, basePrice, purchasePrice };
+      bestUnder = { noteRate: row.noteRate, basePrice: row.basePrice, purchasePrice };
     }
     const delta = Math.abs(purchasePrice - targetPrice);
     if (delta < fallbackDelta || (delta === fallbackDelta && purchasePrice > fallback.purchasePrice)) {
-      fallback = { noteRate: row.noteRate, basePrice, purchasePrice };
+      fallback = { noteRate: row.noteRate, basePrice: row.basePrice, purchasePrice };
       fallbackDelta = delta;
     }
   }
@@ -267,16 +297,64 @@ function pickRateAtOrBelowTarget(
 function calculateMonthlyPayment(product: VistaProduct, noteRate: number, loanAmount: number): number {
   if (loanAmount <= 0) return 0;
   const monthlyRate = noteRate / 100 / 12;
-  const termYears = product === '10yr Fixed' ? 10 : product === '15yr Fixed' ? 15 : 20;
-  const amortYears = product === '30yr Fixed' || product === '30yr IO' ? 30 : termYears;
-  const ioYears = product === '20yr IO' || product === '30yr IO' ? 3 : 0;
+  const amortYears = product === '10yr Fixed' ? 10 : product === '15yr Fixed' ? 15 : product === '20yr Fixed' ? 20 : product === '40/15yr Balloon' ? 40 : 30;
+  const payments = amortYears * 12;
+  return roundToNearestDollar(loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, payments)) / (Math.pow(1 + monthlyRate, payments) - 1));
+}
 
-  if (!ioYears) {
-    const n = amortYears * 12;
-    return roundToNearestDollar(loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
+function occupancyAdjustmentLabel(occupancy: string): string {
+  if (occupancy === 'Second Home') return 'Second Home';
+  if (occupancy === 'Investment') return 'Non Owner Occupied';
+  return 'Owner Occupied';
+}
+
+function propertyTypeLabel(input: VistaPricingInput): string {
+  if (input.unitCount === 2) return '2-Unit';
+  if (input.unitCount === 3) return '3-Unit';
+  if (input.unitCount >= 4) return '4-Unit';
+  if (input.structureType === 'Condo') return 'Condo-Warrantable';
+  if (input.structureType === 'Townhome') return 'Townhouse';
+  if (input.structureType === 'PUD') return 'PUD';
+  return 'SFR';
+}
+
+function loanAmountLabel(amount: number): string {
+  if (amount <= 50000) return '000,000-050k';
+  if (amount <= 75000) return '050,001-075k';
+  if (amount <= 100000) return '075,001-100k';
+  if (amount <= 125000) return '100,001-125k';
+  if (amount <= 150000) return '125,001-150k';
+  if (amount <= 175000) return '150,001-175k';
+  if (amount <= 200000) return '175,001-200k';
+  if (amount <= 300000) return '200,001-300k';
+  if (amount <= 400000) return '300,001-400k';
+  if (amount <= 600000) return '400,001-600k';
+  if (amount <= 750000) return '600,001-750k';
+  if (amount <= 1000000) return '750,001-850k';
+  if (amount <= 1500000) return '1,000,001-1.5m';
+  if (amount <= 2000000) return '1,500,001-2.0m';
+  if (amount <= 2500000) return '2,000,001-2.5m';
+  if (amount <= 3000000) return '2,500,001-3.0m';
+  if (amount <= 3500000) return '3,000,001-3.5m';
+  if (amount <= 4000000) return '3,500,001-4.0m';
+  if (amount <= 4500000) return '4,000,001-4.5m';
+  if (amount <= 5000000) return '4,500,001-5.0m';
+  return '5,000,001+';
+}
+
+function matchesCreditScoreLabel(label: string, creditScore: number): boolean {
+  const text = label.replace('≥', '>=').trim();
+  if (text.startsWith('>=')) return creditScore >= Number(text.replace('>=', '').trim());
+  const parts = text.split('-').map(part => Number(part.trim()));
+  if (parts.length === 2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1])) {
+    return creditScore >= parts[0] && creditScore <= parts[1];
   }
+  return false;
+}
 
-  return roundToNearestDollar(loanAmount * monthlyRate);
+function upperBoundForCltvLabel(label: string): number {
+  const right = label.split('-')[1] ?? label;
+  return Number(String(right).replace('%', '').trim());
 }
 
 function normalizeVistaProduct(product?: string): VistaProduct {
@@ -286,9 +364,9 @@ function normalizeVistaProduct(product?: string): VistaProduct {
 
 function normalizeOccupancy(occupancy?: string): string {
   const value = String(occupancy || '').toLowerCase();
-  if (value.includes('rental') || value.includes('investment') || value.includes('investor')) return 'Investor';
+  if (value.includes('rental') || value.includes('investment') || value.includes('investor')) return 'Investment';
   if (value.includes('second')) return 'Second Home';
-  return 'Primary';
+  return 'Owner Occupied';
 }
 
 function normalizeStructureType(structureType?: string): string {
@@ -307,5 +385,3 @@ function roundToThree(value: number): number {
 function roundToNearestDollar(value: number): number {
   return Math.round(value);
 }
-
-export { FIXED_PRODUCTS };

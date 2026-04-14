@@ -18,7 +18,7 @@ const defaultInput: TesterInput = {
   occupancy: 'Owner-Occupied',
   structureType: 'SFR',
   numberOfUnits: 1,
-  cashOut: true,
+  cashOut: false,
 };
 
 export default function Stage1TesterPage() {
@@ -66,7 +66,7 @@ export default function Stage1TesterPage() {
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Stage 1 Pricing Tester</h1>
             <p className="mt-2 text-sm text-slate-600">
-              Internal harness for stage 1 pricing logic. Button stays intact, and Vista now exposes the execution path needed to hit target margin.
+              Internal harness for stage 1 pricing logic. Button stays intact, and Vista now runs off parsed workbook pricing plus real Second OO and Second NOO LLPAs.
             </p>
             <div className="mt-3 text-xs font-semibold uppercase tracking-wide text-sky-700">Available engines: Button and Vista</div>
           </div>
@@ -106,8 +106,8 @@ export default function Stage1TesterPage() {
                     <option value="20yr Fixed">20yr Fixed</option>
                     <option value="15yr Fixed">15yr Fixed</option>
                     <option value="10yr Fixed">10yr Fixed</option>
-                    <option value="20yr IO">20yr IO</option>
-                    <option value="30yr IO">30yr IO</option>
+                    <option value="30/15yr Balloon">30/15yr Balloon</option>
+                    <option value="40/15yr Balloon">40/15yr Balloon</option>
                   </select>
                 </label>
               )}
@@ -199,6 +199,7 @@ export default function Stage1TesterPage() {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <Metric label="Max Available" value={`$${Math.round(quote.maxAvailable).toLocaleString()}`} />
+                <Metric label="Program" value={engine === 'Vista' && 'program' in quote ? String(quote.program) : 'Button'} />
                 <Metric label="Rate" value={`${quote.rate.toFixed(3)}%`} />
                 <Metric label="Monthly Payment" value={`$${Math.round(quote.monthlyPayment).toLocaleString()}`} />
                 <Metric label="Max LTV" value={`${(quote.maxLtv * 100).toFixed(1)}%`} />
