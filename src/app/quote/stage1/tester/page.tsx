@@ -3,8 +3,10 @@
 import { useMemo, useState } from 'react';
 import { calculateButtonStage1Quote, evaluateButtonStage1Eligibility, getTargetPurchasePriceForLoanAmount, solveButtonStage1TargetRate, type ButtonStage1Input } from '@/lib/rates/button';
 import { calculateNewRezStage1Quote, evaluateNewRezStage1Eligibility, solveNewRezStage1TargetRate, type NewRezProduct } from '@/lib/rates/newrez';
+import { calculateDeephavenStage1Quote, evaluateDeephavenStage1Eligibility, solveDeephavenStage1TargetRate, type DeephavenProduct, type DeephavenProgram } from '@/lib/rates/deephaven';
 import { buildOsbStage1PricingInput, calculateOsbStage1Quote, evaluateOsbStage1Eligibility, solveOsbStage1TargetRate, type OsbLockPeriod, type OsbProduct, type OsbProgram } from '@/lib/rates/osb';
 import { type Stage1PricingEngineResult } from '@/lib/rates/shared';
+import { calculateVerusStage1Quote, evaluateVerusStage1Eligibility, solveVerusStage1TargetRate, type VerusDocType, type VerusDrawPeriodYears, type VerusProduct, type VerusProgram } from '@/lib/rates/verus';
 import { calculateVistaStage1Quote, evaluateVistaStage1Eligibility, solveVistaStage1TargetRate, type VistaProduct } from '@/lib/rates/vista';
 
 type TesterInput = ButtonStage1Input & {
@@ -13,6 +15,12 @@ type TesterInput = ButtonStage1Input & {
   osbProgram?: OsbProgram;
   osbProduct?: OsbProduct;
   osbLockPeriodDays?: OsbLockPeriod;
+  verusProgram?: VerusProgram;
+  verusProduct?: VerusProduct;
+  verusDocType?: VerusDocType;
+  verusDrawPeriodYears?: VerusDrawPeriodYears;
+  deephavenProgram?: DeephavenProgram;
+  deephavenProduct?: DeephavenProduct;
   helocDrawTermYears?: 3 | 5 | 10;
   buttonTermYears?: 10 | 15 | 25 | 30;
 };
@@ -24,6 +32,12 @@ const defaultInput: TesterInput = {
   osbProgram: 'HELOC',
   osbProduct: '30 Year Maturity',
   osbLockPeriodDays: 45,
+  verusProgram: 'CES',
+  verusProduct: '30 YR FIX',
+  verusDocType: 'Standard',
+  verusDrawPeriodYears: 5,
+  deephavenProgram: 'Expanded Prime',
+  deephavenProduct: '30Y Fixed',
   helocDrawTermYears: 5,
   buttonTermYears: 30,
   propertyState: 'CA',
@@ -38,7 +52,7 @@ const defaultInput: TesterInput = {
 };
 
 export default function Stage1TesterPage() {
-  const [engine, setEngine] = useState<'Button' | 'Vista' | 'OSB' | 'NewRez'>('Button');
+  const [engine, setEngine] = useState<'Button' | 'Vista' | 'OSB' | 'NewRez' | 'Verus' | 'Deephaven'>('Button');
   const [input, setInput] = useState<TesterInput>(defaultInput);
   const [targetPriceOverride, setTargetPriceOverride] = useState<string>('');
   const [tolerance, setTolerance] = useState(0.125);
@@ -197,6 +211,104 @@ export default function Stage1TesterPage() {
       };
     }
 
+    if (engine === 'Verus') {
+      const eligibility = evaluateVerusStage1Eligibility(input, input.desiredLoanAmount);
+      const quote = calculateVerusStage1Quote(input, {
+        selectedLoanAmount: input.desiredLoanAmount,
+        targetPrice: effectiveTargetPrice,
+      });
+      const targetQuote = solveVerusStage1TargetRate(input, {
+        targetPrice: effectiveTargetPrice,
+        tolerance,
+        selectedLoanAmount: input.desiredLoanAmount,
+      });
+
+      return {
+        eligibility,
+        quote: {
+          engine: 'Verus',
+          program: quote.program,
+          product: quote.product,
+          maxAvailable: quote.maxAvailable,
+          rate: quote.rate,
+          noteRate: quote.noteRate,
+          monthlyPayment: quote.monthlyPayment,
+          maxLtv: quote.maxLtv,
+          purchasePrice: quote.purchasePrice,
+          basePrice: quote.basePrice,
+          llpaAdjustment: quote.llpaAdjustment,
+          adjustments: quote.adjustments,
+        },
+        targetQuote: {
+          engine: 'Verus',
+          program: targetQuote.program,
+          product: targetQuote.product,
+          maxAvailable: targetQuote.maxAvailable,
+          rate: targetQuote.rate,
+          noteRate: targetQuote.noteRate,
+          monthlyPayment: targetQuote.monthlyPayment,
+          maxLtv: targetQuote.maxLtv,
+          purchasePrice: targetQuote.purchasePrice,
+          basePrice: targetQuote.basePrice,
+          llpaAdjustment: targetQuote.llpaAdjustment,
+          adjustments: targetQuote.adjustments,
+          targetPrice: targetQuote.targetPrice,
+          tolerance: targetQuote.tolerance,
+          deltaFromTarget: targetQuote.deltaFromTarget,
+          withinTolerance: targetQuote.withinTolerance,
+        },
+      };
+    }
+
+    if (engine === 'Deephaven') {
+      const eligibility = evaluateDeephavenStage1Eligibility(input, input.desiredLoanAmount);
+      const quote = calculateDeephavenStage1Quote(input, {
+        selectedLoanAmount: input.desiredLoanAmount,
+        targetPrice: effectiveTargetPrice,
+      });
+      const targetQuote = solveDeephavenStage1TargetRate(input, {
+        targetPrice: effectiveTargetPrice,
+        tolerance,
+        selectedLoanAmount: input.desiredLoanAmount,
+      });
+
+      return {
+        eligibility,
+        quote: {
+          engine: 'Deephaven',
+          program: quote.program,
+          product: quote.product,
+          maxAvailable: quote.maxAvailable,
+          rate: quote.rate,
+          noteRate: quote.noteRate,
+          monthlyPayment: quote.monthlyPayment,
+          maxLtv: quote.maxLtv,
+          purchasePrice: quote.purchasePrice,
+          basePrice: quote.basePrice,
+          llpaAdjustment: quote.llpaAdjustment,
+          adjustments: quote.adjustments,
+        },
+        targetQuote: {
+          engine: 'Deephaven',
+          program: targetQuote.program,
+          product: targetQuote.product,
+          maxAvailable: targetQuote.maxAvailable,
+          rate: targetQuote.rate,
+          noteRate: targetQuote.noteRate,
+          monthlyPayment: targetQuote.monthlyPayment,
+          maxLtv: targetQuote.maxLtv,
+          purchasePrice: targetQuote.purchasePrice,
+          basePrice: targetQuote.basePrice,
+          llpaAdjustment: targetQuote.llpaAdjustment,
+          adjustments: targetQuote.adjustments,
+          targetPrice: targetQuote.targetPrice,
+          tolerance: targetQuote.tolerance,
+          deltaFromTarget: targetQuote.deltaFromTarget,
+          withinTolerance: targetQuote.withinTolerance,
+        },
+      };
+    }
+
     const eligibility = evaluateOsbStage1Eligibility(input, input.desiredLoanAmount);
     const quote = calculateOsbStage1Quote(input, {
       selectedLoanAmount: input.desiredLoanAmount,
@@ -260,6 +372,14 @@ export default function Stage1TesterPage() {
     }));
   }
 
+  function updateVerusProgram(program: VerusProgram) {
+    setInput(prev => ({
+      ...prev,
+      verusProgram: program,
+      verusProduct: program === 'HELOC' ? '30 YR' : '30 YR FIX',
+    }));
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -267,14 +387,14 @@ export default function Stage1TesterPage() {
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Stage 1 Pricing Tester</h1>
             <p className="mt-2 text-sm text-slate-600">
-              Internal harness for workbook-driven stage 1 pricing. Button, Vista, OSB, and NewRez all adapt into the same execution contract.
+              Internal harness for workbook-driven stage 1 pricing. Button, Vista, OSB, NewRez, Verus, and Deephaven all adapt into the same execution contract.
             </p>
-            <div className="mt-3 text-xs font-semibold uppercase tracking-wide text-sky-700">Available engines: Button, Vista, OSB, and NewRez</div>
+            <div className="mt-3 text-xs font-semibold uppercase tracking-wide text-sky-700">Available engines: Button, Vista, OSB, NewRez, Verus, and Deephaven</div>
           </div>
           <div className="flex flex-col gap-1">
             <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Engine Toggle</div>
             <div className="flex gap-2 rounded-2xl bg-slate-100 p-1">
-              {(['Button', 'Vista', 'OSB', 'NewRez'] as const).map(option => (
+              {(['Button', 'Vista', 'OSB', 'NewRez', 'Verus', 'Deephaven'] as const).map(option => (
                 <button
                   key={option}
                   onClick={() => setEngine(option)}
@@ -351,6 +471,67 @@ export default function Stage1TesterPage() {
                         { value: '15 Year Fixed', label: '15 Year' },
                       ]}
                       onChange={value => update('newrezProduct', value as NewRezProduct)}
+                    />
+                  </div>
+                </div>
+              ) : engine === 'Verus' ? (
+                <>
+                  <label className="text-sm">
+                    <div className="mb-1 font-medium text-slate-700">Verus Program</div>
+                    <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.verusProgram} onChange={e => updateVerusProgram(e.target.value as VerusProgram)}>
+                      <option value="CES">Closed End Second</option>
+                      <option value="HELOC">HELOC</option>
+                    </select>
+                  </label>
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <div className="mb-1 font-medium text-slate-700">Verus Product</div>
+                      <TermToggle
+                        label="Verus Term"
+                        value={input.verusProduct ?? (input.verusProgram === 'HELOC' ? '30 YR' : '30 YR FIX')}
+                        options={input.verusProgram === 'HELOC'
+                          ? [
+                              { value: '15 YR', label: '15 Year' },
+                              { value: '20 YR', label: '20 Year' },
+                              { value: '25 YR', label: '25 Year' },
+                              { value: '30 YR', label: '30 Year' },
+                            ]
+                          : [
+                              { value: '10 YR FIX', label: '10 Year' },
+                              { value: '15 YR FIX', label: '15 Year' },
+                              { value: '20 YR FIX', label: '20 Year' },
+                              { value: '25 YR FIX', label: '25 Year' },
+                              { value: '30 YR FIX', label: '30 Year' },
+                            ]}
+                        onChange={value => update('verusProduct', value as VerusProduct)}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : engine === 'Deephaven' ? (
+                <div className="space-y-3 text-sm sm:col-span-2">
+                  <div>
+                    <div className="mb-1 font-medium text-slate-700">Deephaven Program</div>
+                    <TermToggle
+                      label="Deephaven Program"
+                      value={input.deephavenProgram ?? 'Expanded Prime'}
+                      options={[
+                        { value: 'Expanded Prime', label: 'Expanded Prime' },
+                        { value: 'Non-Prime', label: 'Non-Prime' },
+                      ]}
+                      onChange={value => update('deephavenProgram', value as DeephavenProgram)}
+                    />
+                  </div>
+                  <div>
+                    <div className="mb-1 font-medium text-slate-700">Deephaven Product</div>
+                    <TermToggle
+                      label="Deephaven Term"
+                      value={input.deephavenProduct ?? '30Y Fixed'}
+                      options={[
+                        { value: '15Y Fixed', label: '15 Year' },
+                        { value: '30Y Fixed', label: '30 Year' },
+                      ]}
+                      onChange={value => update('deephavenProduct', value as DeephavenProduct)}
                     />
                   </div>
                 </div>
@@ -444,6 +625,27 @@ export default function Stage1TesterPage() {
                     <option value={10}>10 Years</option>
                     <option value={5}>5 Years</option>
                     <option value={3}>3 Years</option>
+                  </select>
+                </label>
+              )}
+
+              {engine === 'Verus' && input.verusProgram === 'CES' && (
+                <label className="text-sm">
+                  <div className="mb-1 font-medium text-slate-700">Verus Doc Type</div>
+                  <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.verusDocType ?? 'Standard'} onChange={e => update('verusDocType', e.target.value as VerusDocType)}>
+                    <option value="Standard">Standard</option>
+                    <option value="Alt Doc">Alt Doc</option>
+                  </select>
+                </label>
+              )}
+
+              {engine === 'Verus' && input.verusProgram === 'HELOC' && (
+                <label className="text-sm">
+                  <div className="mb-1 font-medium text-slate-700">Verus Draw Period</div>
+                  <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.verusDrawPeriodYears ?? 5} onChange={e => update('verusDrawPeriodYears', Number(e.target.value) as VerusDrawPeriodYears)}>
+                    <option value={2}>2 Years</option>
+                    <option value={3}>3 Years</option>
+                    <option value={5}>5 Years</option>
                   </select>
                 </label>
               )}
@@ -546,6 +748,18 @@ export default function Stage1TesterPage() {
               {engine === 'NewRez' && (
                 <div className="mt-6 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
                   Workbook sections in play: {input.newrezProduct}, note-rate / end-seconds price ladder, FICO / CLTV matrix, occupancy, condo, self-employed, DTI, and loan amount adjustments from the Home Equity sheet.
+                </div>
+              )}
+
+              {engine === 'Verus' && (
+                <div className="mt-6 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
+                  Workbook sections in play: {input.verusProgram}, {input.verusProduct}, plus the matching Verus pricing tab for {input.verusProgram === 'HELOC' ? 'HELOC margins' : input.verusDocType ?? 'Standard doc pricing'}.
+                </div>
+              )}
+
+              {engine === 'Deephaven' && (
+                <div className="mt-6 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
+                  Workbook sections in play: {input.deephavenProgram}, {input.deephavenProduct}, and the Deephaven CES base pricing ladder for the selected program.
                 </div>
               )}
 
