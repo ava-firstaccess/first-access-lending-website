@@ -32,6 +32,7 @@ export type Stage1TargetExecutionQuote = Stage1ExecutionQuote & {
   tolerance: number;
   deltaFromTarget: number;
   withinTolerance: boolean;
+  withinToleranceAllowOverage: boolean;
 };
 
 export type Stage1PricingEngineResult = {

@@ -111,6 +111,7 @@ export default function Stage1TesterPage() {
           tolerance: targetQuote.tolerance,
           deltaFromTarget: targetQuote.deltaFromTarget,
           withinTolerance: targetQuote.withinTolerance,
+          withinToleranceAllowOverage: targetQuote.withinToleranceAllowOverage,
         },
       };
     }
@@ -160,6 +161,7 @@ export default function Stage1TesterPage() {
           tolerance: targetQuote.tolerance,
           deltaFromTarget: targetQuote.deltaFromTarget,
           withinTolerance: targetQuote.withinTolerance,
+          withinToleranceAllowOverage: targetQuote.withinToleranceAllowOverage,
         },
       };
     }
@@ -209,6 +211,7 @@ export default function Stage1TesterPage() {
           tolerance: targetQuote.tolerance,
           deltaFromTarget: targetQuote.deltaFromTarget,
           withinTolerance: targetQuote.withinTolerance,
+          withinToleranceAllowOverage: targetQuote.withinToleranceAllowOverage,
         },
       };
     }
@@ -258,6 +261,7 @@ export default function Stage1TesterPage() {
           tolerance: targetQuote.tolerance,
           deltaFromTarget: targetQuote.deltaFromTarget,
           withinTolerance: targetQuote.withinTolerance,
+          withinToleranceAllowOverage: targetQuote.withinToleranceAllowOverage,
         },
       };
     }
@@ -307,6 +311,7 @@ export default function Stage1TesterPage() {
           tolerance: targetQuote.tolerance,
           deltaFromTarget: targetQuote.deltaFromTarget,
           withinTolerance: targetQuote.withinTolerance,
+          withinToleranceAllowOverage: targetQuote.withinToleranceAllowOverage,
         },
       };
     }
@@ -355,6 +360,7 @@ export default function Stage1TesterPage() {
         tolerance: targetQuote.tolerance,
         deltaFromTarget: targetQuote.deltaFromTarget,
         withinTolerance: targetQuote.withinTolerance,
+        withinToleranceAllowOverage: targetQuote.withinToleranceAllowOverage,
       },
     };
   }, [engine, input, effectiveTargetPrice, tolerance]);
@@ -738,7 +744,8 @@ export default function Stage1TesterPage() {
                   <Metric label="Base Price @ Solved Rate" value={targetQuote.basePrice.toFixed(3)} />
                   <Metric label="LLPA Adj @ Solved Rate" value={targetQuote.llpaAdjustment.toFixed(3)} />
                   <Metric label="Delta From Target" value={targetQuote.deltaFromTarget.toFixed(3)} />
-                  <Metric label="Within Tolerance" value={targetQuote.withinTolerance ? 'Yes' : 'No'} />
+                  <Metric label="Within Tolerance (Under Only)" value={targetQuote.withinTolerance ? 'Yes' : 'No'} />
+                  <Metric label="Within Tolerance (+/-)" value={targetQuote.withinToleranceAllowOverage ? 'Yes' : 'No'} />
                   <Metric label="Tolerance" value={targetQuote.tolerance.toFixed(3)} />
                 </div>
               </div>

@@ -47,6 +47,7 @@ export interface NewRezTargetRateQuote extends NewRezQuote {
   tolerance: number;
   deltaFromTarget: number;
   withinTolerance: boolean;
+  withinToleranceAllowOverage: boolean;
 }
 
 export interface NewRezEligibilityResult {
@@ -195,6 +196,7 @@ export function solveNewRezStage1TargetRate(
     tolerance,
     deltaFromTarget: selected.deltaFromTarget,
     withinTolerance: selected.withinTolerance,
+    withinToleranceAllowOverage: selected.deltaFromTarget >= -tolerance && selected.deltaFromTarget <= tolerance,
   };
 }
 

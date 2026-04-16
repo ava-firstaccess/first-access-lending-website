@@ -37,6 +37,7 @@ export interface DeephavenTargetRateQuote extends DeephavenQuote {
   tolerance: number;
   deltaFromTarget: number;
   withinTolerance: boolean;
+  withinToleranceAllowOverage: boolean;
 }
 
 export interface DeephavenEligibilityResult {
@@ -141,6 +142,7 @@ export function solveDeephavenStage1TargetRate(
     tolerance,
     deltaFromTarget,
     withinTolerance: deltaFromTarget >= 0 && deltaFromTarget <= tolerance,
+    withinToleranceAllowOverage: deltaFromTarget >= -tolerance && deltaFromTarget <= tolerance,
   };
 }
 

@@ -41,6 +41,7 @@ export interface VerusTargetRateQuote extends VerusQuote {
   tolerance: number;
   deltaFromTarget: number;
   withinTolerance: boolean;
+  withinToleranceAllowOverage: boolean;
 }
 
 export interface VerusEligibilityResult {
@@ -245,6 +246,7 @@ export function solveVerusStage1TargetRate(
     tolerance,
     deltaFromTarget,
     withinTolerance: deltaFromTarget >= 0 && deltaFromTarget <= tolerance,
+    withinToleranceAllowOverage: deltaFromTarget >= -tolerance && deltaFromTarget <= tolerance,
   };
 }
 

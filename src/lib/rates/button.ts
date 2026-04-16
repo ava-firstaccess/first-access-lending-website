@@ -63,6 +63,7 @@ export interface ButtonTargetRateQuote extends ButtonQuote {
   tolerance: number;
   deltaFromTarget: number;
   withinTolerance: boolean;
+  withinToleranceAllowOverage: boolean;
 }
 
 export interface ButtonEligibilityResult {
@@ -304,6 +305,7 @@ export function solveButtonStage1TargetRate(
     tolerance,
     deltaFromTarget,
     withinTolerance: deltaFromTarget >= 0 && deltaFromTarget <= tolerance,
+    withinToleranceAllowOverage: deltaFromTarget >= -tolerance && deltaFromTarget <= tolerance,
   };
 }
 

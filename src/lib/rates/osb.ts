@@ -50,6 +50,7 @@ export interface OsbTargetRateQuote extends OsbQuote {
   tolerance: number;
   deltaFromTarget: number;
   withinTolerance: boolean;
+  withinToleranceAllowOverage: boolean;
 }
 
 export interface OsbEligibilityResult {
@@ -176,6 +177,7 @@ export function solveOsbStage1TargetRate(
     tolerance,
     deltaFromTarget,
     withinTolerance: deltaFromTarget >= 0 && deltaFromTarget <= tolerance,
+    withinToleranceAllowOverage: deltaFromTarget >= -tolerance && deltaFromTarget <= tolerance,
   };
 }
 

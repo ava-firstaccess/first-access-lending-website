@@ -44,6 +44,7 @@ export interface VistaTargetRateQuote extends VistaQuote {
   tolerance: number;
   deltaFromTarget: number;
   withinTolerance: boolean;
+  withinToleranceAllowOverage: boolean;
 }
 
 export interface VistaEligibilityResult {
@@ -194,6 +195,7 @@ export function solveVistaStage1TargetRate(
     tolerance,
     deltaFromTarget,
     withinTolerance: deltaFromTarget >= 0 && deltaFromTarget <= tolerance,
+    withinToleranceAllowOverage: deltaFromTarget >= -tolerance && deltaFromTarget <= tolerance,
   };
 }
 
