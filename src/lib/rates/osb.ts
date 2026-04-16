@@ -78,6 +78,9 @@ type JsonProgram = {
   creditMatrix: JsonBucketRow[];
   adjustments: Record<string, JsonBucketRow[]>;
   lockAdjustments: Array<{ label: string; value: number | null }>;
+  armFeatures?: {
+    'Index-PRIME'?: number;
+  };
 };
 
 const PROGRAMS = (ratesheet as { programs: Record<JsonProgramKey, JsonProgram> }).programs;
@@ -160,15 +163,17 @@ export function solveOsbStage1TargetRate(
   const selected = pickRateAtOrBelowTarget(input, llpaAdjustment, targetPrice);
   const deltaFromTarget = roundToThree(targetPrice - selected.purchasePrice);
 
+  const displayedRate = calculateDisplayedRate(input, selected.rate);
+
   return {
     program: input.program,
     product: input.product,
     maxAvailable,
     maxLtv: calculateMaxLtv(input),
-    rate: selected.rate,
-    noteRate: selected.rate,
+    rate: displayedRate,
+    noteRate: displayedRate,
     rateType: input.program === 'HELOC' ? 'Variable' : 'Fixed',
-    monthlyPayment: calculateMonthlyPayment(input, selectedLoanAmount, selected.rate),
+    monthlyPayment: calculateMonthlyPayment(input, selectedLoanAmount, displayedRate),
     basePrice: selected.basePrice,
     llpaAdjustment,
     purchasePrice: selected.purchasePrice,
@@ -192,15 +197,17 @@ export function calculateOsbQuote(input: OsbPricingInput, options?: { selectedLo
     ? pickRateClosestToRequested(input, llpaAdjustment, options.rateOverride)
     : pickRateAtOrBelowTarget(input, llpaAdjustment, targetPrice);
 
+  const displayedRate = calculateDisplayedRate(input, selected.rate);
+
   return {
     program: input.program,
     product: input.product,
     maxAvailable,
     maxLtv: calculateMaxLtv(input),
-    rate: selected.rate,
-    noteRate: selected.rate,
+    rate: displayedRate,
+    noteRate: displayedRate,
     rateType: input.program === 'HELOC' ? 'Variable' : 'Fixed',
-    monthlyPayment: calculateMonthlyPayment(input, selectedLoanAmount, selected.rate),
+    monthlyPayment: calculateMonthlyPayment(input, selectedLoanAmount, displayedRate),
     basePrice: selected.basePrice,
     llpaAdjustment,
     purchasePrice: selected.purchasePrice,
@@ -325,6 +332,13 @@ function pickRateAtOrBelowTarget(input: OsbPricingInput, llpaAdjustment: number,
   }
 
   return bestUnder ?? fallback;
+}
+
+function calculateDisplayedRate(input: OsbPricingInput, workbookRate: number): number {
+  if (input.program !== 'HELOC') return workbookRate;
+  const program = getProgramData(input.program);
+  const primeRate = Number(program.armFeatures?.['Index-PRIME'] ?? 0) * 100;
+  return roundToThree(primeRate + workbookRate);
 }
 
 function calculateMonthlyPayment(input: OsbPricingInput, loanAmount: number, noteRate: number): number {
