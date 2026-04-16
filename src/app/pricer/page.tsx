@@ -763,7 +763,6 @@ export default function Stage1LoTesterPage() {
                 <Metric label="Note Rate Selected" value={`${quote.noteRate.toFixed(3)}%`} />
                 <Metric label="Monthly Payment" value={`$${Math.round(quote.monthlyPayment).toLocaleString()}`} />
                 <Metric label="Max LTV" value={`${(quote.maxLtv * 100).toFixed(1)}%`} />
-                <Metric label="Target Price" value={effectiveTargetPrice.toFixed(3)} />
                 <Metric label="Discount Points" value={discountPoints.toFixed(3)} />
                 <Metric label="Buy Price" value={loBuyPrice.toFixed(3)} />
               </div>
