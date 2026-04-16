@@ -243,8 +243,13 @@ export default function MortgageCalculator() {
   const effectiveMonthlyPayment = totalMonthlyPayment - monthlySavings;
 
   async function handleEmailPDF() {
-    if (!email || !email.includes('@')) {
-      alert('Please enter a valid email address');
+    const recipients = email
+      .split(';')
+      .map(value => value.trim())
+      .filter(Boolean);
+
+    if (recipients.length === 0 || recipients.some(value => !value.includes('@'))) {
+      alert('Please enter valid email addresses separated by semicolons');
       return;
     }
 
@@ -961,12 +966,15 @@ export default function MortgageCalculator() {
                   
                   <div className="flex flex-col gap-2">
                     <input
-                      type="email"
+                      type="text"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="your@email.com"
+                      placeholder="loanofficer@email.com; borrower@email.com"
                       className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
+                    <p className="text-xs text-gray-500">
+                      You can send to multiple recipients by separating emails with semicolons.
+                    </p>
                     <button
                       onClick={handleEmailPDF}
                       disabled={sending || !email}

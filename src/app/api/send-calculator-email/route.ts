@@ -3,11 +3,16 @@ import { NextResponse } from 'next/server';
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    
-    // Validate email
-    if (!data.email || !data.email.includes('@')) {
+    const recipients = String(data.email || '')
+      .split(';')
+      .map((email: string) => email.trim())
+      .filter(Boolean);
+
+    const invalidRecipients = recipients.filter((email: string) => !email.includes('@'));
+
+    if (recipients.length === 0 || invalidRecipients.length > 0) {
       return NextResponse.json(
-        { error: 'Invalid email address' },
+        { error: 'Invalid email address list' },
         { status: 400 }
       );
     }
@@ -24,7 +29,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         from: 'First Access Lending <info@firstaccesslending.com>',
-        to: data.email,
+        to: recipients,
         subject: 'Your First Access Lending Mortgage Calculation',
         html: emailHTML,
       }),
@@ -59,7 +64,7 @@ export async function POST(request: Request) {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: new URLSearchParams({
-          email: data.email,
+          email: recipients[0],
           property_value: data.homePrice?.toString() || '',
           loan_amount: data.loanAmount?.toString() || '',
           loan_type: data.loanType || 'conventional',
