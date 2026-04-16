@@ -218,6 +218,7 @@ const VERUS_HELOC_STATE_TABLE: VerusSecondPriceMatrixTable = {
   values: [[0, 0, 0, -0.125, -0.125, -0.125, -0.125, 'NA', 'NA']],
 };
 const VERUS_HELOC_LOCK_ADJUSTMENTS: Record<VerusLockPeriodDays, number> = { 30: 0, 45: -0.125, 60: -0.3125 };
+const VERUS_HELOC_MAX_BUY_PRICE = 100;
 const VERUS_STATE_BUCKET = new Set(['CT', 'IL', 'NJ', 'NY']);
 
 export function buildVerusStage1PricingInput(
@@ -261,7 +262,8 @@ export function calculateVerusStage1Quote(
 ): VerusQuote {
   const input = buildVerusStage1PricingInput(stage1);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? calculateMaxAvailable(input));
-  const targetPrice = options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount);
+  const rawTargetPrice = options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount);
+  const targetPrice = input.program === 'HELOC' ? Math.min(rawTargetPrice, VERUS_HELOC_MAX_BUY_PRICE) : rawTargetPrice;
   const adjustments = buildAdjustmentLines(stage1, input, selectedLoanAmount);
   const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
 
@@ -354,7 +356,7 @@ export function solveVerusStage1TargetRate(
   const quote = calculateVerusStage1Quote(stage1, { selectedLoanAmount: options.selectedLoanAmount, targetPrice: options.targetPrice });
   const targetPrice = quote.program === 'CES'
     ? clamp(options.targetPrice, DATA.programs.CES.minPrice, DATA.programs.CES.maxPrice)
-    : options.targetPrice;
+    : Math.min(options.targetPrice, VERUS_HELOC_MAX_BUY_PRICE);
   const tolerance = options.tolerance ?? 0.125;
   const deltaFromTarget = roundToThree(targetPrice - quote.purchasePrice);
 
