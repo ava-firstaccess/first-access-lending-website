@@ -8,6 +8,7 @@ export type VerusHelocProduct = '15 YR' | '20 YR' | '25 YR' | '30 YR';
 export type VerusProduct = VerusCesProduct | VerusHelocProduct;
 export type VerusDocType = 'Standard' | 'Alt Doc';
 export type VerusDrawPeriodYears = 2 | 3 | 5;
+export type VerusLockPeriodDays = 30 | 45 | 60;
 
 export interface VerusPricingInput {
   program: VerusProgram;
@@ -19,6 +20,9 @@ export interface VerusPricingInput {
   resultingCltv: number;
   creditScore: number;
   occupancy: string;
+  propertyState: string;
+  structureType: string;
+  unitCount: number;
 }
 
 export interface VerusQuote {
@@ -118,6 +122,103 @@ const VERUS_CES_ALT_DOC_TABLE: VerusSecondPriceMatrixTable = {
     [-0.5, -0.75, -1, -1.25, -3.25, -4.5, 'NA', 'NA'],
   ],
 };
+const VERUS_CES_OCCUPANCY_TABLE: VerusSecondPriceMatrixTable = {
+  rows: ['2nd Home', 'Investor'],
+  columns: ['CES | <=50', 'CES | 50.01 - 55', 'CES | 55.01 - 60', 'CES | 60.01 - 65', 'CES | 65.01 - 70', 'CES | 70.01 - 75', 'CES | 75.01 - 80', 'CES | 80.01 - 85', 'CES | 85.01 - 90', 'CES | 90.01 - 95'],
+  values: [
+    [-1, -1, -1, -1, -1, -1, -1, 'NA', 'NA', 'NA'],
+    [-1.875, -1.875, -2.375, -2.875, -3.375, -4, 'NA', 'NA', 'NA', 'NA'],
+  ],
+};
+const VERUS_CES_PROPERTY_TYPE_TABLE: VerusSecondPriceMatrixTable = {
+  rows: ['Condo', '2-4 Unit'],
+  columns: ['CES | <=50', 'CES | 50.01 - 55', 'CES | 55.01 - 60', 'CES | 60.01 - 65', 'CES | 65.01 - 70', 'CES | 70.01 - 75', 'CES | 75.01 - 80', 'CES | 80.01 - 85', 'CES | 85.01 - 90', 'CES | 90.01 - 95'],
+  values: [
+    [-0.25, -0.25, -0.25, -0.25, -0.375, -0.375, -0.5, 'NA', 'NA', 'NA'],
+    [-0.5, -0.5, -0.5, -0.5, -0.5, -0.5, 'NA', 'NA', 'NA', 'NA'],
+  ],
+};
+const VERUS_CES_STATE_TABLE: VerusSecondPriceMatrixTable = {
+  rows: ['CT, IL, NJ, NY'],
+  columns: ['CES | <=50', 'CES | 50.01 - 55', 'CES | 55.01 - 60', 'CES | 60.01 - 65', 'CES | 65.01 - 70', 'CES | 70.01 - 75', 'CES | 75.01 - 80', 'CES | 80.01 - 85', 'CES | 85.01 - 90', 'CES | 90.01 - 95'],
+  values: [[-1, -1, -1.25, -1.25, -1.5, -1.5, -2, 'NA', 'NA', 'NA']],
+};
+const VERUS_CES_LOCK_ADJUSTMENTS: Record<VerusLockPeriodDays, number> = { 30: 0, 45: -0.15, 60: -0.3 };
+const VERUS_HELOC_STANDARD_DOC_2YR_TABLE: VerusSecondPriceMatrixTable = {
+  rows: ['780+', '760-779', '740-759', '720-739', '700-719', '680-699'],
+  columns: ['HELOC | <=50', 'HELOC | 50.01 - 55', 'HELOC | 55.01 - 60', 'HELOC | 60.01 - 65', 'HELOC | 65.01 - 70', 'HELOC | 70.01 - 75', 'HELOC | 75.01 - 80', 'HELOC | 80.01 - 85'],
+  values: [
+    [2.5, 2.5, 2, 2, 1.5, 0.5, 0, -3.5],
+    [1.5, 1.5, 1.5, 1.5, 1, 0, -1, -5],
+    [1, 1, 1, 1, 0, 0, -2, -6],
+    [0, 0, 0, 0, 0, -1, -3, -7.5],
+    [-0.5, -0.5, -0.5, -1, -1.5, -2, -5.5, -8.5],
+    [-0.75, -0.75, -1, -1.5, -2, -3, 'NA', 'NA'],
+  ],
+};
+const VERUS_HELOC_ALT_DOC_TABLE: VerusSecondPriceMatrixTable = {
+  rows: ['780+', '760-779', '740-759', '720-739', '700-719', '680-699'],
+  columns: ['HELOC | <=50', 'HELOC | 50.01 - 55', 'HELOC | 55.01 - 60', 'HELOC | 60.01 - 65', 'HELOC | 65.01 - 70', 'HELOC | 70.01 - 75', 'HELOC | 75.01 - 80', 'HELOC | 80.01 - 85'],
+  values: [
+    [2, 2, 1.5, 1.5, 1, 0, -0.5, 'NA'],
+    [1, 1, 1, 1, 0.5, -0.5, -1.5, 'NA'],
+    [0.5, 0.5, 0.5, 0.5, -0.5, -0.5, -2.5, 'NA'],
+    [-0.5, -0.5, -0.5, -0.5, -0.5, -1.5, 'NA', 'NA'],
+    [-1, -1, -1, -1.5, -2, -2.5, 'NA', 'NA'],
+    ['NA', 'NA', 'NA', 'NA', 'NA', 'NA', 'NA', 'NA'],
+  ],
+};
+const VERUS_HELOC_DRAW_TERM_TABLE: VerusSecondPriceMatrixTable = {
+  rows: ['24', '36', '60'],
+  columns: ['HELOC | <=50', 'HELOC | 50.01 - 55', 'HELOC | 55.01 - 60', 'HELOC | 60.01 - 65', 'HELOC | 65.01 - 70', 'HELOC | 70.01 - 75', 'HELOC | 75.01 - 80', 'HELOC | 80.01 - 85', 'HELOC | 85.01 - 90'],
+  values: [
+    [2, 2, 2, 2, 2, 2, 2, 0, 0],
+    [1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ],
+};
+const VERUS_HELOC_DTI_TABLE: VerusSecondPriceMatrixTable = {
+  rows: ['<= 40%', '40.01 - 45%', '45.01 - 50%'],
+  columns: ['HELOC | <=50', 'HELOC | 50.01 - 55', 'HELOC | 55.01 - 60', 'HELOC | 60.01 - 65', 'HELOC | 65.01 - 70', 'HELOC | 70.01 - 75', 'HELOC | 75.01 - 80', 'HELOC | 80.01 - 85', 'HELOC | 85.01 - 90'],
+  values: [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, -0.125, -0.125, -0.125, -0.125, -0.125, -0.125],
+    [0, 0, 0, -0.125, -0.125, -0.25, -0.25, 'NA', 'NA'],
+  ],
+};
+const VERUS_HELOC_LOAN_AMOUNT_TABLE: VerusSecondPriceMatrixTable = {
+  rows: ['$50,000 - $100,000', '$100,001 - $250,000', '$250,001 - $350,000', '$350,001 - $500,000'],
+  columns: ['HELOC | <=50', 'HELOC | 50.01 - 55', 'HELOC | 55.01 - 60', 'HELOC | 60.01 - 65', 'HELOC | 65.01 - 70', 'HELOC | 70.01 - 75', 'HELOC | 75.01 - 80', 'HELOC | 80.01 - 85', 'HELOC | 85.01 - 90'],
+  values: [
+    [-0.125, -0.125, -0.125, -0.125, -0.125, -0.125, -0.125, -0.125, -0.125],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 'NA'],
+    [0, 0, 0, 0, 0, 0, 'NA', 'NA', 'NA'],
+  ],
+};
+const VERUS_HELOC_OCCUPANCY_TABLE: VerusSecondPriceMatrixTable = {
+  rows: ['2nd Home', 'Investor'],
+  columns: ['HELOC | <=50', 'HELOC | 50.01 - 55', 'HELOC | 55.01 - 60', 'HELOC | 60.01 - 65', 'HELOC | 65.01 - 70', 'HELOC | 70.01 - 75', 'HELOC | 75.01 - 80', 'HELOC | 80.01 - 85', 'HELOC | 85.01 - 90'],
+  values: [
+    [-1, -1, -1, -1, -1, -1, 'NA', 'NA', 'NA'],
+    [-2, -2, -2.5, -3, -3.5, 'NA', 'NA', 'NA', 'NA'],
+  ],
+};
+const VERUS_HELOC_PROPERTY_TYPE_TABLE: VerusSecondPriceMatrixTable = {
+  rows: ['Condo', '2-4 Unit'],
+  columns: ['HELOC | <=50', 'HELOC | 50.01 - 55', 'HELOC | 55.01 - 60', 'HELOC | 60.01 - 65', 'HELOC | 65.01 - 70', 'HELOC | 70.01 - 75', 'HELOC | 75.01 - 80', 'HELOC | 80.01 - 85', 'HELOC | 85.01 - 90'],
+  values: [
+    [0, 0, 0, -0.125, -0.125, -0.25, -0.25, 'NA', 'NA'],
+    [-0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5, 'NA', 'NA'],
+  ],
+};
+const VERUS_HELOC_STATE_TABLE: VerusSecondPriceMatrixTable = {
+  rows: ['CT, IL, NJ, NY'],
+  columns: ['HELOC | <=50', 'HELOC | 50.01 - 55', 'HELOC | 55.01 - 60', 'HELOC | 60.01 - 65', 'HELOC | 65.01 - 70', 'HELOC | 70.01 - 75', 'HELOC | 75.01 - 80', 'HELOC | 80.01 - 85', 'HELOC | 85.01 - 90'],
+  values: [[0, 0, 0, -0.125, -0.125, -0.125, -0.125, 'NA', 'NA']],
+};
+const VERUS_HELOC_LOCK_ADJUSTMENTS: Record<VerusLockPeriodDays, number> = { 30: 0, 45: -0.125, 60: -0.3125 };
+const VERUS_STATE_BUCKET = new Set(['CT', 'IL', 'NJ', 'NY']);
 
 export function buildVerusStage1PricingInput(
   stage1: ButtonStage1Input & {
@@ -142,6 +243,9 @@ export function buildVerusStage1PricingInput(
     resultingCltv,
     creditScore: Number(stage1.creditScore || 0),
     occupancy: normalizeOccupancy(stage1.occupancy),
+    propertyState: String(stage1.propertyState || '').toUpperCase(),
+    structureType: String(stage1.structureType || ''),
+    unitCount: Number(stage1.numberOfUnits || 1),
   };
 }
 
@@ -151,6 +255,7 @@ export function calculateVerusStage1Quote(
     verusProduct?: VerusProduct;
     verusDocType?: VerusDocType;
     verusDrawPeriodYears?: VerusDrawPeriodYears;
+    verusLockPeriodDays?: VerusLockPeriodDays;
   },
   options?: { selectedLoanAmount?: number; targetPrice?: number; rateOverride?: number }
 ): VerusQuote {
@@ -162,8 +267,8 @@ export function calculateVerusStage1Quote(
 
   if (input.program === 'HELOC') {
     const selected = options?.rateOverride !== undefined
-      ? pickHelocExecutionByRate(input.product as VerusHelocProduct, options.rateOverride)
-      : pickHelocExecution(input.product as VerusHelocProduct, targetPrice);
+      ? pickHelocExecutionByRate(input.product as VerusHelocProduct, options.rateOverride, llpaAdjustment)
+      : pickHelocExecution(input.product as VerusHelocProduct, targetPrice, llpaAdjustment);
     const noteRate = roundToThree(DATA.programs.HELOC.primeRate + selected.margin);
     return {
       program: 'HELOC',
@@ -214,6 +319,9 @@ export function evaluateVerusStage1Eligibility(
   stage1: ButtonStage1Input & {
     verusProgram?: VerusProgram;
     verusProduct?: VerusProduct;
+    verusDocType?: VerusDocType;
+    verusDrawPeriodYears?: VerusDrawPeriodYears;
+    verusLockPeriodDays?: VerusLockPeriodDays;
   },
   selectedLoanAmount?: number
 ): VerusEligibilityResult {
@@ -239,6 +347,7 @@ export function solveVerusStage1TargetRate(
     verusProduct?: VerusProduct;
     verusDocType?: VerusDocType;
     verusDrawPeriodYears?: VerusDrawPeriodYears;
+    verusLockPeriodDays?: VerusLockPeriodDays;
   },
   options: { targetPrice: number; tolerance?: number; selectedLoanAmount?: number }
 ): VerusTargetRateQuote {
@@ -311,7 +420,7 @@ function pickCesExecution(product: VerusCesProduct, docType: VerusDocType, targe
   return bestUnder ?? fallback;
 }
 
-function pickHelocExecutionByRate(product: VerusHelocProduct, requestedRate: number) {
+function pickHelocExecutionByRate(product: VerusHelocProduct, requestedRate: number, llpaAdjustment = 0) {
   const rows = DATA.programs.HELOC.pricing;
   let best = { margin: rows[0].margin, basePrice: Number(rows[0].prices[product] ?? 0), purchasePrice: Number(rows[0].prices[product] ?? 0) };
   let bestDelta = Number.POSITIVE_INFINITY;
@@ -320,9 +429,10 @@ function pickHelocExecutionByRate(product: VerusHelocProduct, requestedRate: num
     const basePrice = Number(row.prices[product] ?? 0);
     if (!Number.isFinite(basePrice) || basePrice <= 0) continue;
     const noteRate = roundToThree(DATA.programs.HELOC.primeRate + row.margin);
+    const purchasePrice = roundToThree(basePrice + llpaAdjustment);
     const delta = Math.abs(noteRate - requestedRate);
     if (delta < bestDelta || (delta === bestDelta && noteRate > roundToThree(DATA.programs.HELOC.primeRate + best.margin))) {
-      best = { margin: row.margin, basePrice, purchasePrice: roundToThree(basePrice) };
+      best = { margin: row.margin, basePrice, purchasePrice };
       bestDelta = delta;
     }
   }
@@ -330,7 +440,7 @@ function pickHelocExecutionByRate(product: VerusHelocProduct, requestedRate: num
   return best;
 }
 
-function pickHelocExecution(product: VerusHelocProduct, targetPrice: number) {
+function pickHelocExecution(product: VerusHelocProduct, targetPrice: number, llpaAdjustment = 0) {
   const rows = DATA.programs.HELOC.pricing;
   let bestUnder: { margin: number; basePrice: number; purchasePrice: number } | null = null;
   let fallback = { margin: rows[0].margin, basePrice: Number(rows[0].prices[product] ?? 0), purchasePrice: Number(rows[0].prices[product] ?? 0) };
@@ -339,7 +449,7 @@ function pickHelocExecution(product: VerusHelocProduct, targetPrice: number) {
   for (const row of rows) {
     const basePrice = Number(row.prices[product] ?? 0);
     if (!Number.isFinite(basePrice) || basePrice <= 0) continue;
-    const purchasePrice = roundToThree(basePrice);
+    const purchasePrice = roundToThree(basePrice + llpaAdjustment);
     if (purchasePrice <= targetPrice && (!bestUnder || purchasePrice > bestUnder.purchasePrice)) {
       bestUnder = { margin: row.margin, basePrice, purchasePrice };
     }
@@ -354,13 +464,15 @@ function pickHelocExecution(product: VerusHelocProduct, targetPrice: number) {
 }
 
 function buildAdjustmentLines(
-  stage1: ButtonStage1Input & { verusDocType?: VerusDocType; verusDrawPeriodYears?: VerusDrawPeriodYears },
+  stage1: ButtonStage1Input & { verusDocType?: VerusDocType; verusDrawPeriodYears?: VerusDrawPeriodYears; verusLockPeriodDays?: VerusLockPeriodDays },
   input: VerusPricingInput,
   selectedLoanAmount: number
 ): Stage1AdjustmentLine[] {
   const rows: Stage1AdjustmentLine[] = [];
+  const docType = stage1.verusDocType ?? 'Standard';
+  const lockPeriodDays = stage1.verusLockPeriodDays ?? 45;
+
   if (input.program === 'CES') {
-    const docType = stage1.verusDocType ?? 'Standard';
     rows.push({ label: `Doc Type: ${docType}`, value: 0 });
 
     const cltvColumnIndex = getVerusCesCltvColumnIndex(input.resultingCltv);
@@ -377,12 +489,116 @@ function buildAdjustmentLines(
     const dtiLabel = '<= 40%';
     const dtiValue = getVerusMatrixValue(VERUS_CES_DTI_TABLE, dtiLabel, cltvColumnIndex);
     if (dtiValue !== null) rows.push({ label: `DTI: ${dtiLabel} (default)`, value: dtiValue });
-  } else {
-    const drawYears = stage1.verusDrawPeriodYears ?? 5;
-    rows.push({ label: `Prime Rate`, value: roundToThree(DATA.programs.HELOC.primeRate) });
-    rows.push({ label: `Draw Period: ${drawYears} Years`, value: 0 });
+
+    const occupancyLabel = getVerusOccupancyLabel(input.occupancy);
+    if (occupancyLabel) {
+      const occupancyValue = getVerusMatrixValue(VERUS_CES_OCCUPANCY_TABLE, occupancyLabel, cltvColumnIndex);
+      if (occupancyValue !== null) rows.push({ label: `Occupancy: ${occupancyLabel}`, value: occupancyValue });
+    }
+
+    const propertyTypeLabel = getVerusPropertyTypeLabel(input);
+    if (propertyTypeLabel) {
+      const propertyValue = getVerusMatrixValue(VERUS_CES_PROPERTY_TYPE_TABLE, propertyTypeLabel, cltvColumnIndex);
+      if (propertyValue !== null) rows.push({ label: `Property Type: ${propertyTypeLabel}`, value: propertyValue });
+    }
+
+    if (VERUS_STATE_BUCKET.has(input.propertyState)) {
+      const stateValue = getVerusMatrixValue(VERUS_CES_STATE_TABLE, 'CT, IL, NJ, NY', cltvColumnIndex);
+      if (stateValue !== null) rows.push({ label: `State: ${input.propertyState}`, value: stateValue });
+    }
+
+    rows.push({ label: `Lock Period: ${lockPeriodDays} days`, value: VERUS_CES_LOCK_ADJUSTMENTS[lockPeriodDays] ?? 0 });
+    return rows;
   }
+
+  const drawYears = stage1.verusDrawPeriodYears ?? 5;
+  rows.push({ label: `Prime Rate`, value: 0 });
+  rows.push({ label: `Doc Type: ${docType}`, value: 0 });
+
+  const cltvColumnIndex = getVerusHelocCltvColumnIndex(input.resultingCltv);
+  const docCltvColumnIndex = getVerusHelocDocCltvColumnIndex(input.resultingCltv);
+  const ficoLabel = getVerusHelocFicoLabel(input.creditScore);
+  const docTable = docType === 'Alt Doc' ? VERUS_HELOC_ALT_DOC_TABLE : VERUS_HELOC_STANDARD_DOC_2YR_TABLE;
+  const docValue = getVerusMatrixValue(docTable, ficoLabel, docCltvColumnIndex);
+  if (docValue !== null) rows.push({ label: docType === 'Alt Doc' ? `Alt Doc: ${ficoLabel}` : `Standard Doc - 2 Years: ${ficoLabel}`, value: docValue });
+
+  const drawTermValue = getVerusMatrixValue(VERUS_HELOC_DRAW_TERM_TABLE, String(drawYears * 12), cltvColumnIndex);
+  if (drawTermValue !== null) rows.push({ label: `Draw Period: ${drawYears} Years`, value: drawTermValue });
+
+  const dtiLabel = '<= 40%';
+  const dtiValue = getVerusMatrixValue(VERUS_HELOC_DTI_TABLE, dtiLabel, cltvColumnIndex);
+  if (dtiValue !== null) rows.push({ label: `DTI: ${dtiLabel} (default)`, value: dtiValue });
+
+  const loanAmountLabel = getVerusHelocLoanAmountLabel(selectedLoanAmount);
+  const loanAmountValue = getVerusMatrixValue(VERUS_HELOC_LOAN_AMOUNT_TABLE, loanAmountLabel, cltvColumnIndex);
+  if (loanAmountValue !== null) rows.push({ label: `Loan Amount: ${loanAmountLabel}`, value: loanAmountValue });
+
+  const occupancyLabel = getVerusOccupancyLabel(input.occupancy);
+  if (occupancyLabel) {
+    const occupancyValue = getVerusMatrixValue(VERUS_HELOC_OCCUPANCY_TABLE, occupancyLabel, cltvColumnIndex);
+    if (occupancyValue !== null) rows.push({ label: `Occupancy: ${occupancyLabel}`, value: occupancyValue });
+  }
+
+  const propertyTypeLabel = getVerusPropertyTypeLabel(input);
+  if (propertyTypeLabel) {
+    const propertyValue = getVerusMatrixValue(VERUS_HELOC_PROPERTY_TYPE_TABLE, propertyTypeLabel, cltvColumnIndex);
+    if (propertyValue !== null) rows.push({ label: `Property Type: ${propertyTypeLabel}`, value: propertyValue });
+  }
+
+  if (VERUS_STATE_BUCKET.has(input.propertyState)) {
+    const stateValue = getVerusMatrixValue(VERUS_HELOC_STATE_TABLE, 'CT, IL, NJ, NY', cltvColumnIndex);
+    if (stateValue !== null) rows.push({ label: `State: ${input.propertyState}`, value: stateValue });
+  }
+
+  rows.push({ label: `Lock Period: ${lockPeriodDays} days`, value: VERUS_HELOC_LOCK_ADJUSTMENTS[lockPeriodDays] ?? 0 });
   return rows;
+}
+
+function getVerusHelocCltvColumnIndex(resultingCltv: number): number {
+  const cltvPct = resultingCltv * 100;
+  const upperBounds = [50, 55, 60, 65, 70, 75, 80, 85, 90];
+  for (let i = 0; i < upperBounds.length; i += 1) {
+    if (cltvPct <= upperBounds[i]) return i;
+  }
+  return upperBounds.length - 1;
+}
+
+function getVerusHelocDocCltvColumnIndex(resultingCltv: number): number {
+  const cltvPct = resultingCltv * 100;
+  const upperBounds = [50, 55, 60, 65, 70, 75, 80, 85];
+  for (let i = 0; i < upperBounds.length; i += 1) {
+    if (cltvPct <= upperBounds[i]) return i;
+  }
+  return upperBounds.length - 1;
+}
+
+function getVerusHelocFicoLabel(creditScore: number): string {
+  if (creditScore >= 780) return '780+';
+  if (creditScore >= 760) return '760-779';
+  if (creditScore >= 740) return '740-759';
+  if (creditScore >= 720) return '720-739';
+  if (creditScore >= 700) return '700-719';
+  return '680-699';
+}
+
+function getVerusHelocLoanAmountLabel(amount: number): string {
+  if (amount <= 100000) return '$50,000 - $100,000';
+  if (amount <= 250000) return '$100,001 - $250,000';
+  if (amount <= 350000) return '$250,001 - $350,000';
+  return '$350,001 - $500,000';
+}
+
+function getVerusOccupancyLabel(occupancy: string): '2nd Home' | 'Investor' | null {
+  if (occupancy === 'Second Home') return '2nd Home';
+  if (occupancy === 'Investment') return 'Investor';
+  return null;
+}
+
+function getVerusPropertyTypeLabel(input: VerusPricingInput): 'Condo' | '2-4 Unit' | null {
+  const type = input.structureType.toLowerCase();
+  if (type.includes('condo')) return 'Condo';
+  if (input.unitCount >= 2) return '2-4 Unit';
+  return null;
 }
 
 function getVerusCesCltvColumnIndex(resultingCltv: number): number {

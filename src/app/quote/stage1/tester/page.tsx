@@ -6,7 +6,7 @@ import { calculateNewRezStage1Quote, evaluateNewRezStage1Eligibility, solveNewRe
 import { calculateDeephavenStage1Quote, evaluateDeephavenStage1Eligibility, solveDeephavenStage1TargetRate, type DeephavenProduct, type DeephavenProgram } from '@/lib/rates/deephaven';
 import { buildOsbStage1PricingInput, calculateOsbStage1Quote, evaluateOsbStage1Eligibility, solveOsbStage1TargetRate, type OsbLockPeriod, type OsbProduct, type OsbProgram } from '@/lib/rates/osb';
 import { type Stage1PricingEngineResult } from '@/lib/rates/shared';
-import { calculateVerusStage1Quote, evaluateVerusStage1Eligibility, solveVerusStage1TargetRate, type VerusDocType, type VerusDrawPeriodYears, type VerusProduct, type VerusProgram } from '@/lib/rates/verus';
+import { calculateVerusStage1Quote, evaluateVerusStage1Eligibility, solveVerusStage1TargetRate, type VerusDocType, type VerusDrawPeriodYears, type VerusLockPeriodDays, type VerusProduct, type VerusProgram } from '@/lib/rates/verus';
 import { calculateVistaStage1Quote, evaluateVistaStage1Eligibility, solveVistaStage1TargetRate, type VistaProduct } from '@/lib/rates/vista';
 
 type TesterInput = ButtonStage1Input & {
@@ -19,6 +19,7 @@ type TesterInput = ButtonStage1Input & {
   verusProduct?: VerusProduct;
   verusDocType?: VerusDocType;
   verusDrawPeriodYears?: VerusDrawPeriodYears;
+  verusLockPeriodDays?: VerusLockPeriodDays;
   deephavenProgram?: DeephavenProgram;
   deephavenProduct?: DeephavenProduct;
   helocDrawTermYears?: 3 | 5 | 10;
@@ -36,6 +37,7 @@ const defaultInput: TesterInput = {
   verusProduct: '30 YR FIX',
   verusDocType: 'Standard',
   verusDrawPeriodYears: 5,
+  verusLockPeriodDays: 45,
   deephavenProgram: 'Expanded Prime',
   deephavenProduct: '30Y Fixed',
   helocDrawTermYears: 5,
@@ -666,12 +668,23 @@ export default function Stage1TesterPage() {
                 </label>
               )}
 
-              {engine === 'Verus' && input.verusProgram === 'CES' && (
+              {engine === 'Verus' && (
                 <label className="text-sm">
                   <div className="mb-1 font-medium text-slate-700">Verus Doc Type</div>
                   <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.verusDocType ?? 'Standard'} onChange={e => update('verusDocType', e.target.value as VerusDocType)}>
                     <option value="Standard">Standard</option>
                     <option value="Alt Doc">Alt Doc</option>
+                  </select>
+                </label>
+              )}
+
+              {engine === 'Verus' && (
+                <label className="text-sm">
+                  <div className="mb-1 font-medium text-slate-700">Verus Lock Period</div>
+                  <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.verusLockPeriodDays ?? 45} onChange={e => update('verusLockPeriodDays', Number(e.target.value) as VerusLockPeriodDays)}>
+                    <option value={30}>30 days</option>
+                    <option value={45}>45 days</option>
+                    <option value={60}>60 days</option>
                   </select>
                 </label>
               )}
