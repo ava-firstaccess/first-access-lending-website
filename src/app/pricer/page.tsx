@@ -56,14 +56,12 @@ const defaultInput: TesterInput = {
 export default function Stage1LoTesterPage() {
   const [engine, setEngine] = useState<'Button' | 'Vista' | 'OSB' | 'NewRez' | 'Verus' | 'Deephaven'>('Button');
   const [input, setInput] = useState<TesterInput>(defaultInput);
-  const [targetPriceOverride, setTargetPriceOverride] = useState<string>('');
   const [manualRateOverride, setManualRateOverride] = useState<string>('');
   const [tolerance, setTolerance] = useState(0.125);
 
   const effectiveTargetPrice = useMemo(() => {
-    if (targetPriceOverride.trim()) return Number(targetPriceOverride);
     return getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0));
-  }, [input.desiredLoanAmount, targetPriceOverride]);
+  }, [input.desiredLoanAmount]);
 
   const effectiveManualRateOverride = useMemo(() => {
     if (!manualRateOverride.trim()) return undefined;
@@ -714,15 +712,9 @@ export default function Stage1LoTesterPage() {
               )}
 
               <label className="text-sm">
-                <div className="mb-1 font-medium text-slate-700">Target Purchase Price Override</div>
-                <input type="number" step="0.001" placeholder={String(getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0)))} className="w-full rounded-lg border border-slate-300 px-3 py-2" value={targetPriceOverride} onChange={e => setTargetPriceOverride(e.target.value)} />
-                <div className="mt-1 text-xs text-slate-500">Auto target from loan amount: {effectiveTargetPrice.toFixed(3)}</div>
-              </label>
-
-              <label className="text-sm">
                 <div className="mb-1 font-medium text-slate-700">Manual Rate Override</div>
                 <input type="number" step="0.125" placeholder="Use engine-selected rate" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={manualRateOverride} onChange={e => setManualRateOverride(e.target.value)} />
-                <div className="mt-1 text-xs text-slate-500">Overrides the quote execution rate only. Target solver stays on purchase price.</div>
+                <div className="mt-1 text-xs text-slate-500">Overrides the quote execution rate only.</div>
               </label>
 
               <label className="text-sm">
@@ -796,7 +788,7 @@ export default function Stage1LoTesterPage() {
 
               {engine === 'Verus' && (
                 <div className="mt-6 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
-                  Workbook sections in play: {input.verusProgram}, {input.verusProduct}, plus the matching Verus pricing tab for {input.verusProgram === 'HELOC' ? 'HELOC margins' : input.verusDocType ?? 'Standard doc pricing'}.
+                  Workbook sections in play: {input.verusProgram}, {input.verusProduct}, plus the matching Verus pricing tab for {input.verusProgram === 'HELOC' ? 'HELOC pricing' : input.verusDocType ?? 'Standard doc pricing'}.
                 </div>
               )}
 
@@ -807,7 +799,7 @@ export default function Stage1LoTesterPage() {
               )}
 
               <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-                Discount points are calculated as <span className="font-semibold">target price minus backend execution price</span>, and LO buy price is shown as <span className="font-semibold">100 minus discount points</span>.
+                LO buy price is shown as <span className="font-semibold">100 minus discount points</span>. Backend execution and internal pricing logic stay hidden on this page.
               </div>
             </div>
           </div>
