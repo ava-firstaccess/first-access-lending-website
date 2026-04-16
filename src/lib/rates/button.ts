@@ -204,7 +204,7 @@ export function calculateButtonQuote(
     maxAvailable,
     rate: selected.noteRate,
     monthlyPayment,
-    maxLtv: calculateMaxLtv(input.creditScore, input.occupancy),
+    maxLtv: calculateMaxLtv(input),
     rateType: input.product === 'HELOC' ? 'Variable' : 'Fixed',
     noteRate: selected.noteRate,
     purchasePrice: roundToThree(selected.purchasePrice),
@@ -237,8 +237,12 @@ export function evaluateButtonEligibility(input: ButtonPricingInput, selectedLoa
     reasons.push('Credit score is below the current supported Button pricing range.');
   }
 
-  if (input.resultingCltv > 0.9) {
-    reasons.push('Resulting CLTV is above the current supported Button pricing range.');
+  const maxLtv = calculateMaxLtv(input);
+
+  if (maxLtv <= 0) {
+    reasons.push('This occupancy and property configuration is not eligible with the current Button guide.');
+  } else if (input.resultingCltv > maxLtv) {
+    reasons.push(`Resulting CLTV exceeds the current Button max of ${(maxLtv * 100).toFixed(0)}%.`);
   }
 
   if (requested > maxAvailable) {
@@ -298,7 +302,7 @@ export function solveButtonStage1TargetRate(
     maxAvailable: calculateMaxAvailable(input),
     rate: selected.noteRate,
     monthlyPayment,
-    maxLtv: calculateMaxLtv(input.creditScore, input.occupancy),
+    maxLtv: calculateMaxLtv(input),
     rateType: input.product === 'HELOC' ? 'Variable' : 'Fixed',
     noteRate: selected.noteRate,
     purchasePrice: roundToThree(selected.purchasePrice),
@@ -314,23 +318,39 @@ export function solveButtonStage1TargetRate(
 }
 
 function calculateMaxAvailable(input: ButtonPricingInput): number {
-  const maxLtv = calculateMaxLtv(input.creditScore, input.occupancy);
+  const maxLtv = calculateMaxLtv(input);
   const maxLoan = input.propertyValue * maxLtv;
   return Math.max(0, maxLoan - input.loanBalance);
 }
 
-function calculateMaxLtv(creditScore: number, occupancy: string): number {
-  const occupancyValue = normalizeOccupancy(occupancy);
-  if (creditScore >= 720) {
-    return occupancyValue === 'Primary' ? 0.90 : occupancyValue === 'Second Home' ? 0.85 : 0.80;
+function calculateMaxLtv(input: ButtonPricingInput): number {
+  const occupancyValue = normalizeOccupancy(input.occupancy);
+  const unitCount = Math.max(1, input.unitCount || 1);
+  const creditScore = input.creditScore;
+
+  if (occupancyValue === 'Investor') {
+    if (creditScore >= 740) return 0.75;
+    if (creditScore >= 720) return 0.70;
+    if (creditScore >= 700) return 0.65;
+    if (creditScore >= 680) return 0.65;
+    if (creditScore >= 660) return 0.60;
+    return 0;
   }
-  if (creditScore >= 680) {
-    return occupancyValue === 'Primary' ? 0.85 : occupancyValue === 'Second Home' ? 0.80 : 0.75;
+
+  if (occupancyValue === 'Second Home') {
+    if (unitCount > 1) return 0;
+    if (creditScore >= 740) return 0.85;
+    if (creditScore >= 680) return 0.80;
+    if (creditScore >= 660) return 0.75;
+    if (creditScore >= 620) return 0.65;
+    return 0;
   }
-  if (creditScore >= 640) {
-    return occupancyValue === 'Primary' ? 0.80 : occupancyValue === 'Second Home' ? 0.75 : 0.70;
-  }
-  return occupancyValue === 'Primary' ? 0.70 : occupancyValue === 'Second Home' ? 0.65 : 0.60;
+
+  if (creditScore >= 700) return 0.85;
+  if (creditScore >= 680) return 0.80;
+  if (creditScore >= 660) return 0.75;
+  if (creditScore >= 620) return 0.65;
+  return 0;
 }
 
 function pickNoteRate(
