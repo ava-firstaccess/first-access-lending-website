@@ -276,10 +276,10 @@ function pickExecution(product: NewRezProduct, llpaAdjustment: number, targetPri
 
   const belowOrEqual = executions
     .filter(item => item.purchasePrice <= targetPrice)
-    .sort((a, b) => (a.noteRate - b.noteRate) || (b.purchasePrice - a.purchasePrice));
+    .sort((a, b) => (b.purchasePrice - a.purchasePrice) || (a.noteRate - b.noteRate));
   if (belowOrEqual.length > 0) return belowOrEqual[0];
 
-  return executions.sort((a, b) => Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget) || a.noteRate - b.noteRate)[0];
+  return executions.sort((a, b) => Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget) || (b.purchasePrice - a.purchasePrice) || (a.noteRate - b.noteRate))[0];
 }
 
 function findCreditRow(matrix: JsonMatrix, creditScore: number): JsonBucketRow | null {
@@ -312,10 +312,15 @@ function matchesCreditScoreLabel(label: string, score: number): boolean {
 }
 
 function upperBoundForCltvLabel(label: string): number {
-  if (label.startsWith('>')) return Number(label.slice(1));
-  const range = label.match(/(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)/);
+  const trimmed = label.trim();
+  if (trimmed.startsWith('>')) return 100;
+  if (trimmed.startsWith('<=')) {
+    const match = trimmed.match(/(\d+(?:\.\d+)?)/);
+    return match ? Number(match[1]) : 0;
+  }
+  const range = trimmed.match(/(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)/);
   if (range) return Number(range[2].replace('%', ''));
-  const single = label.match(/(\d+(?:\.\d+)?)/);
+  const single = trimmed.match(/(\d+(?:\.\d+)?)/);
   return single ? Number(single[1]) : 0;
 }
 
