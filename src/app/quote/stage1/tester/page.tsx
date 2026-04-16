@@ -69,7 +69,7 @@ export default function Stage1TesterPage() {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [password, setPassword] = useState('');
   const [gateError, setGateError] = useState('');
-  const [engine, setEngine] = useState<'Button' | 'Vista' | 'OSB' | 'NewRez' | 'Verus' | 'Deephaven'>('Button');
+  const [engine, setEngine] = useState<'Best X' | 'Button' | 'Vista' | 'OSB' | 'NewRez' | 'Verus' | 'Deephaven'>('Best X');
   const [input, setInput] = useState<TesterInput>(defaultInput);
   const [targetPriceOverride, setTargetPriceOverride] = useState<string>('');
   const [manualRateOverride, setManualRateOverride] = useState<string>('');
@@ -92,7 +92,11 @@ export default function Stage1TesterPage() {
     return Number.isFinite(parsed) ? parsed : undefined;
   }, [manualRateOverride]);
 
-  const activeResult = useMemo<Stage1PricingEngineResult>(() => {
+  const activeResult = useMemo<Stage1PricingEngineResult | null>(() => {
+    if (engine === 'Best X') {
+      return null;
+    }
+
     if (engine === 'Button') {
       const eligibility = evaluateButtonStage1Eligibility(input, input.desiredLoanAmount);
       const quote = calculateButtonStage1Quote(input, {
@@ -440,7 +444,9 @@ export default function Stage1TesterPage() {
     });
   }, [input, effectiveTargetPrice]);
 
-  const { eligibility, quote, targetQuote } = activeResult;
+  const eligibility = activeResult?.eligibility;
+  const quote = activeResult?.quote;
+  const targetQuote = activeResult?.targetQuote;
   const osbDerived = useMemo(() => buildOsbStage1PricingInput(input), [input]);
 
   function update<K extends keyof TesterInput>(key: K, value: TesterInput[K]) {
@@ -520,12 +526,12 @@ export default function Stage1TesterPage() {
             <p className="mt-2 text-sm text-slate-600">
               Internal harness for workbook-driven stage 1 pricing. Button, Vista, OSB, NewRez, Verus, and Deephaven all adapt into the same execution contract.
             </p>
-            <div className="mt-3 text-xs font-semibold uppercase tracking-wide text-sky-700">Available engines: Button, Vista, OSB, NewRez, Verus, and Deephaven</div>
+            <div className="mt-3 text-xs font-semibold uppercase tracking-wide text-sky-700">Available engines: Best X, Button, Vista, OSB, NewRez, Verus, and Deephaven</div>
           </div>
           <div className="flex flex-col gap-1">
             <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Engine Toggle</div>
             <div className="flex gap-2 rounded-2xl bg-slate-100 p-1">
-              {(['Button', 'Vista', 'OSB', 'NewRez', 'Verus', 'Deephaven'] as const).map(option => (
+              {(['Best X', 'Button', 'Vista', 'OSB', 'NewRez', 'Verus', 'Deephaven'] as const).map(option => (
                 <button
                   key={option}
                   onClick={() => setEngine(option)}
@@ -542,7 +548,48 @@ export default function Stage1TesterPage() {
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-semibold text-slate-900">Inputs</h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              {engine === 'Button' ? (
+              {engine === 'Best X' ? (
+                <div className="space-y-4 text-sm sm:col-span-2">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-slate-700">
+                    Best X prices all investors from one scenario and ranks them by execution.
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="text-sm">
+                      <div className="mb-1 font-medium text-slate-700">Button Product</div>
+                      <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.buttonProduct} onChange={e => update('buttonProduct', e.target.value)}>
+                        <option value="HELOC">HELOC</option>
+                        <option value="CES">CES</option>
+                      </select>
+                    </label>
+                    {input.buttonProduct === 'CES' ? (
+                      <label className="text-sm">
+                        <div className="mb-1 font-medium text-slate-700">Button Term</div>
+                        <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.buttonTermYears ?? 20} onChange={e => update('buttonTermYears', Number(e.target.value) as 10 | 15 | 20 | 25 | 30)}>
+                          <option value={10}>10 Year</option><option value={15}>15 Year</option><option value={20}>20 Year</option><option value={25}>25 Year</option><option value={30}>30 Year</option>
+                        </select>
+                      </label>
+                    ) : (
+                      <label className="text-sm">
+                        <div className="mb-1 font-medium text-slate-700">Button Draw Period</div>
+                        <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.helocDrawTermYears ?? 5} onChange={e => update('helocDrawTermYears', Number(e.target.value) as 3 | 5 | 10)}>
+                          <option value={3}>3 Year</option><option value={5}>5 Year</option><option value={10}>10 Year</option>
+                        </select>
+                      </label>
+                    )}
+                    <label className="text-sm"><div className="mb-1 font-medium text-slate-700">Vista Product</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.vistaProduct ?? '30yr Fixed'} onChange={e => update('vistaProduct', e.target.value as VistaProduct)}><option value="10yr Fixed">10yr Fixed</option><option value="15yr Fixed">15yr Fixed</option><option value="20yr Fixed">20yr Fixed</option><option value="30yr Fixed">30yr Fixed</option></select></label>
+                    <label className="text-sm"><div className="mb-1 font-medium text-slate-700">NewRez Product</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.newrezProduct ?? '30 Year Fixed'} onChange={e => update('newrezProduct', e.target.value as NewRezProduct)}><option value="15 Year Fixed">15 Year Fixed</option><option value="20 Year Fixed">20 Year Fixed</option><option value="30 Year Fixed">30 Year Fixed</option></select></label>
+                    <label className="text-sm"><div className="mb-1 font-medium text-slate-700">OSB Program</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.osbProgram} onChange={e => updateOsbProgram(e.target.value as OsbProgram)}><option value="HELOC">HELOC</option><option value="2nd Liens">2nd Liens</option></select></label>
+                    <label className="text-sm"><div className="mb-1 font-medium text-slate-700">OSB Product</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.osbProduct ?? '30 Year Maturity'} onChange={e => update('osbProduct', e.target.value as OsbProduct)}>{(input.osbProgram === 'HELOC' ? ['20 Year Maturity', '30 Year Maturity'] : ['Fixed 10', 'Fixed 15', 'Fixed 20', 'Fixed 30']).map(option => <option key={option} value={option}>{option}</option>)}</select></label>
+                    <label className="text-sm"><div className="mb-1 font-medium text-slate-700">OSB Lock Period</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.osbLockPeriodDays ?? 45} onChange={e => update('osbLockPeriodDays', Number(e.target.value) as OsbLockPeriod)}><option value={15}>15 day</option><option value={45}>45 day</option><option value={60}>60 day</option></select></label>
+                    <label className="text-sm"><div className="mb-1 font-medium text-slate-700">Verus Program</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.verusProgram} onChange={e => updateVerusProgram(e.target.value as VerusProgram)}><option value="CES">CES</option><option value="HELOC">HELOC</option></select></label>
+                    <label className="text-sm"><div className="mb-1 font-medium text-slate-700">Verus Product</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.verusProduct ?? '30 YR FIX'} onChange={e => update('verusProduct', e.target.value as VerusProduct)}>{(input.verusProgram === 'HELOC' ? ['15 YR', '20 YR', '25 YR', '30 YR'] : ['10 YR FIX', '15 YR FIX', '20 YR FIX', '25 YR FIX', '30 YR FIX']).map(option => <option key={option} value={option}>{option}</option>)}</select></label>
+                    <label className="text-sm"><div className="mb-1 font-medium text-slate-700">Verus Doc Type</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.verusDocType ?? 'Standard'} onChange={e => update('verusDocType', e.target.value as VerusDocType)}><option value="Standard">Standard</option><option value="Alt Doc">Alt Doc</option></select></label>
+                    <label className="text-sm"><div className="mb-1 font-medium text-slate-700">Verus Lock Period</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.verusLockPeriodDays ?? 45} onChange={e => update('verusLockPeriodDays', Number(e.target.value) as VerusLockPeriodDays)}><option value={30}>30 days</option><option value={45}>45 days</option><option value={60}>60 days</option></select></label>
+                    {input.verusProgram === 'HELOC' && <label className="text-sm"><div className="mb-1 font-medium text-slate-700">Verus Draw Period</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.verusDrawPeriodYears ?? 5} onChange={e => update('verusDrawPeriodYears', Number(e.target.value) as VerusDrawPeriodYears)}><option value={2}>2 Years</option><option value={3}>3 Years</option><option value={5}>5 Years</option></select></label>}
+                    <label className="text-sm sm:col-span-2"><div className="mb-1 font-medium text-slate-700">Deephaven Product</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.deephavenProduct ?? '30Y Fixed'} onChange={e => update('deephavenProduct', e.target.value as DeephavenProduct)}><option value="15Y Fixed">15Y Fixed</option><option value="30Y Fixed">30Y Fixed</option></select></label>
+                  </div>
+                </div>
+              ) : engine === 'Button' ? (
                 <>
                   <label className="text-sm">
                     <div className="mb-1 font-medium text-slate-700">Product</div>
@@ -832,6 +879,37 @@ export default function Stage1TesterPage() {
           <div className="space-y-6">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-4 text-lg font-semibold text-slate-900">Output</h2>
+              {engine === 'Best X' ? (
+                <div className="space-y-3">
+                  {results.map((result, index) => (
+                    <div key={result.investor} className={`rounded-2xl border p-4 ${result.eligibility.eligible ? 'border-emerald-200 bg-white' : 'border-slate-200 bg-slate-50'}`}>
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <div className="text-lg font-semibold text-slate-900">{result.investor}</div>
+                            {result.eligibility.eligible ? <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800">#{index + 1}</span> : <span className="rounded-full bg-slate-200 px-2 py-1 text-xs font-semibold text-slate-700">Ineligible</span>}
+                          </div>
+                          <div className="mt-1 text-sm text-slate-600">{result.quote.program} • {result.quote.product}</div>
+                        </div>
+                        <div className="grid min-w-[280px] gap-3 sm:grid-cols-3">
+                          <Metric label="Rate" value={`${result.quote.rate.toFixed(3)}%`} />
+                          <Metric label="Discount Points" value={result.discountPoints.toFixed(3)} />
+                          <Metric label="Buy Price" value={result.buyPrice.toFixed(3)} />
+                        </div>
+                      </div>
+                      <div className="mt-3 text-sm text-slate-600">
+                        Max available: ${Math.round(result.eligibility.maxAvailable).toLocaleString()} • Max LTV: {(result.quote.maxLtv * 100).toFixed(1)}% • Payment: ${Math.round(result.quote.monthlyPayment).toLocaleString()}
+                      </div>
+                      {!result.eligibility.eligible && result.eligibility.reasons.length > 0 && (
+                        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-rose-700">
+                          {result.eligibility.reasons.map(reason => <li key={reason}>{reason}</li>)}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : eligibility && quote && targetQuote ? (
+              <>
               <div className={`mb-4 rounded-2xl border p-4 ${eligibility.eligible ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}>
                 <div className={`text-sm font-semibold ${eligibility.eligible ? 'text-emerald-900' : 'text-red-900'}`}>
                   {eligibility.eligible ? 'Eligible' : 'Ineligible'}
@@ -959,6 +1037,8 @@ export default function Stage1TesterPage() {
                 <div className="mb-2 text-sm font-medium text-slate-700">Raw JSON</div>
                 <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100">{JSON.stringify({ engine, input, eligibility, quote, targetQuote }, null, 2)}</pre>
               </div>
+              </>
+              ) : null}
             </div>
           </div>
         </div>
