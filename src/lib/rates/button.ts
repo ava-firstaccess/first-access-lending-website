@@ -87,6 +87,10 @@ const CASH_OUT_TABLE = ratesheet.tables.cashOut as { rows: string[]; columns: Ar
 const OCCUPANCY_TABLE = ratesheet.tables.occupancy as { rows: string[]; columns: Array<string | number | null>; values: Matrix };
 const UNIT_COUNT_TABLE = ratesheet.tables.unitCount as { rows: string[]; columns: Array<string | number | null>; values: Matrix };
 const MATURITY_TABLE = ratesheet.tables.maturity as { rows: string[]; columns: Array<string | number | null>; values: Matrix };
+const DRAW_TABLE = ratesheet.tables.draw as {
+  heloc: { rows: string[]; columns: Array<string | number | null>; values: Matrix };
+  nonHeloc: { rows: string[]; columns: Array<string | number | null>; values: Matrix };
+};
 
 const BUTTON_MAX_PURCHASE_PRICE = 105;
 
@@ -448,7 +452,12 @@ function getTermAdjustment(
   }
 ): Stage1AdjustmentLine | null {
   if (input.product === 'HELOC') {
-    return null;
+    const drawYears = options?.helocDrawTermYears ?? 5;
+    const label = `${drawYears}yr IO (non-HELOC)`;
+    return {
+      label: `${drawYears} Year Draw`,
+      value: getLookupValue(DRAW_TABLE.nonHeloc, label, cltvIndex),
+    };
   }
 
   const cesTerm = options?.cesTermYears ?? 30;

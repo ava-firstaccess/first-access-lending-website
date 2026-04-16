@@ -68,12 +68,14 @@ export default function Stage1TesterPage() {
       const quote = calculateButtonStage1Quote(input, {
         selectedLoanAmount: input.desiredLoanAmount,
         cesTermYears: input.buttonTermYears,
+        helocDrawTermYears: input.helocDrawTermYears,
       });
       const targetQuote = solveButtonStage1TargetRate(input, {
         targetPrice: effectiveTargetPrice,
         tolerance,
         selectedLoanAmount: input.desiredLoanAmount,
         cesTermYears: input.buttonTermYears,
+        helocDrawTermYears: input.helocDrawTermYears,
       });
 
       return {
@@ -439,6 +441,23 @@ export default function Stage1TesterPage() {
                       </div>
                     </div>
                   )}
+                  {input.product === 'HELOC' && (
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <div className="mb-1 font-medium text-slate-700">Button Draw Period</div>
+                        <TermToggle
+                          label="Button Draw Period"
+                          value={String(input.helocDrawTermYears ?? 5)}
+                          options={[
+                            { value: '3', label: '3 Year' },
+                            { value: '5', label: '5 Year' },
+                            { value: '10', label: '10 Year' },
+                          ]}
+                          onChange={value => update('helocDrawTermYears', Number(value) as 3 | 5 | 10)}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : engine === 'Vista' ? (
                 <div className="space-y-3 text-sm sm:col-span-2">
@@ -735,6 +754,12 @@ export default function Stage1TesterPage() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {engine === 'Button' && (
+                <div className="mt-6 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
+                  Workbook sections in play: Button pricing ladder, FICO / CLTV matrix, occupancy, unit count, cash-out, and {input.product === 'HELOC' ? `${input.helocDrawTermYears ?? 5} year draw period` : `${input.buttonTermYears ?? 20} year term`} adjustments.
                 </div>
               )}
 
