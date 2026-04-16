@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { calculateButtonStage1Quote, evaluateButtonStage1Eligibility, getTargetPurchasePriceForLoanAmount, solveButtonStage1TargetRate, type ButtonStage1Input } from '@/lib/rates/button';
 import { calculateNewRezStage1Quote, evaluateNewRezStage1Eligibility, solveNewRezStage1TargetRate, type NewRezProduct } from '@/lib/rates/newrez';
 import { calculateDeephavenStage1Quote, evaluateDeephavenStage1Eligibility, solveDeephavenStage1TargetRate, type DeephavenProduct, type DeephavenProgram } from '@/lib/rates/deephaven';
@@ -25,6 +25,9 @@ type TesterInput = ButtonStage1Input & {
   helocDrawTermYears?: 3 | 5 | 10;
   buttonTermYears?: 10 | 15 | 20 | 25 | 30;
 };
+
+const TESTER_GATE_STORAGE_KEY = 'fal-stage1-tester-unlocked';
+const TESTER_GATE_PASSWORD = 'faltester';
 
 const defaultInput: TesterInput = {
   buttonProduct: 'HELOC',
@@ -54,11 +57,21 @@ const defaultInput: TesterInput = {
 };
 
 export default function Stage1TesterPage() {
+  const [gateChecked, setGateChecked] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [password, setPassword] = useState('');
+  const [gateError, setGateError] = useState('');
   const [engine, setEngine] = useState<'Button' | 'Vista' | 'OSB' | 'NewRez' | 'Verus' | 'Deephaven'>('Button');
   const [input, setInput] = useState<TesterInput>(defaultInput);
   const [targetPriceOverride, setTargetPriceOverride] = useState<string>('');
   const [manualRateOverride, setManualRateOverride] = useState<string>('');
   const [tolerance, setTolerance] = useState(0.125);
+
+  useEffect(() => {
+    const unlocked = window.localStorage.getItem(TESTER_GATE_STORAGE_KEY) === 'true';
+    setIsUnlocked(unlocked);
+    setGateChecked(true);
+  }, []);
 
   const effectiveTargetPrice = useMemo(() => {
     if (targetPriceOverride.trim()) return Number(targetPriceOverride);
@@ -401,6 +414,54 @@ export default function Stage1TesterPage() {
       verusProgram: program,
       verusProduct: program === 'HELOC' ? '30 YR' : '30 YR FIX',
     }));
+  }
+
+  function unlockTester() {
+    if (password !== TESTER_GATE_PASSWORD) {
+      setGateError('Incorrect password');
+      return;
+    }
+    window.localStorage.setItem(TESTER_GATE_STORAGE_KEY, 'true');
+    setIsUnlocked(true);
+    setGateError('');
+  }
+
+  if (!gateChecked) {
+    return <div className="min-h-screen bg-slate-50" />;
+  }
+
+  if (!isUnlocked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h1 className="text-2xl font-bold text-slate-900">Stage 1 Tester</h1>
+          <p className="mt-2 text-sm text-slate-600">Internal page. Enter the shared password once on this browser to continue.</p>
+          <div className="mt-4 space-y-3">
+            <input
+              type="password"
+              value={password}
+              onChange={e => {
+                setPassword(e.target.value);
+                if (gateError) setGateError('');
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') unlockTester();
+              }}
+              placeholder="Password"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            />
+            {gateError ? <div className="text-sm text-rose-700">{gateError}</div> : null}
+            <button
+              type="button"
+              onClick={unlockTester}
+              className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+            >
+              Unlock tester
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
