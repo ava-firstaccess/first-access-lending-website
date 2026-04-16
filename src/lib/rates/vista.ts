@@ -156,7 +156,6 @@ export function evaluateVistaStage1Eligibility(
   if (!findAdjustment(program, 'term', input.product)) reasons.push('Selected term is not available in the Vista ratesheet.');
   if (!findAdjustment(program, 'loanAmount', loanAmountLabel(requested))) reasons.push('Desired loan amount is outside the Vista loan amount table.');
   if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
-  if (input.cashOut) reasons.push('Vista Second lien stage 1 tester is wired for the ratesheet purchase/rate-term grids, not a cash-out overlay.');
 
   return {
     eligible: reasons.length === 0,
@@ -238,6 +237,11 @@ function buildAdjustmentLines(input: VistaPricingInput, selectedLoanAmount: numb
   const occupancyLabel = occupancyAdjustmentLabel(input.occupancy);
   const occupancy = findAdjustment(program, 'occupancy', occupancyLabel);
   if (occupancy) adjustments.push({ label: `Occupancy: ${occupancy.label}`, value: occupancy.value ?? 0 });
+
+  if (input.cashOut) {
+    const purpose = findAdjustment(program, 'purpose', 'Cash-Out');
+    if (purpose) adjustments.push({ label: `Purpose: ${purpose.label}`, value: purpose.value ?? 0 });
+  }
 
   const propertyType = findAdjustment(program, 'propertyType', propertyTypeLabel(input));
   if (propertyType) adjustments.push({ label: `Property Type: ${propertyType.label}`, value: propertyType.value ?? 0 });

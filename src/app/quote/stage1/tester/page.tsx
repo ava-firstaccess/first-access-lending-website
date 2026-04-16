@@ -50,7 +50,7 @@ const defaultInput: TesterInput = {
   occupancy: 'Owner-Occupied',
   structureType: 'SFR',
   numberOfUnits: 1,
-  cashOut: false,
+  cashOut: true,
 };
 
 export default function Stage1TesterPage() {
@@ -710,11 +710,6 @@ export default function Stage1TesterPage() {
                   </select>
                 </label>
               )}
-
-              <label className="flex items-center gap-2 pt-7 text-sm font-medium text-slate-700">
-                <input type="checkbox" checked={Boolean(input.cashOut)} onChange={e => update('cashOut', e.target.checked)} />
-                Cash out
-              </label>
 
               <label className="text-sm">
                 <div className="mb-1 font-medium text-slate-700">Target Purchase Price Override</div>

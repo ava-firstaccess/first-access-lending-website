@@ -154,7 +154,6 @@ export function evaluateNewRezEligibility(input: NewRezPricingInput, selectedLoa
   if (!findCreditRow(matrix, input.creditScore)) reasons.push('Credit score is outside the NewRez matrix.');
   if (findCltvBucketIndex(matrix.cltvBuckets, input.resultingCltv) === null) reasons.push('Resulting CLTV is outside the NewRez matrix.');
   if (findLoanAmountRow(requested) === null) reasons.push('Desired loan amount is outside the NewRez loan amount table.');
-  if (input.cashOut) reasons.push('NewRez stage 1 tester is wired to the workbook purchase / rate-term grids, not a cash-out overlay.');
   if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
 
   return {
