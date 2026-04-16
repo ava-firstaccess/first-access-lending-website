@@ -505,6 +505,7 @@ export default function Stage1TesterPage() {
       getQuote: (rateOverride?: number) => Stage1ExecutionQuote,
     ): InvestorSummary => {
       if (!eligibility.eligible) return makeSummary(eligibility, fallbackQuote);
+      if (effectiveManualRateOverride !== undefined) return makeSummary(eligibility, getQuote(effectiveManualRateOverride));
 
       const candidates = new Map<string, InvestorSummary>();
       for (const requestedRate of requestedRates) {
@@ -939,6 +940,11 @@ export default function Stage1TesterPage() {
 
     return summaries.sort((a, b) => {
       if (a.eligibility.eligible !== b.eligibility.eligible) return a.eligibility.eligible ? -1 : 1;
+      if (effectiveManualRateOverride !== undefined && a.eligibility.eligible && b.eligibility.eligible) {
+        if (b.buyPrice !== a.buyPrice) return b.buyPrice - a.buyPrice;
+        if (a.quote.purchasePrice !== b.quote.purchasePrice) return b.quote.purchasePrice - a.quote.purchasePrice;
+        return a.investor.localeCompare(b.investor);
+      }
       if (a.windowMatched !== b.windowMatched) return a.windowMatched ? -1 : 1;
       if (a.windowMatched && b.windowMatched) {
         if (a.quote.rate !== b.quote.rate) return a.quote.rate - b.quote.rate;
@@ -955,7 +961,7 @@ export default function Stage1TesterPage() {
       }
       return a.investor.localeCompare(b.investor);
     });
-  }, [input, effectiveTargetPrice, defaultBackendTargetPrice, bestExLoTargetPrice]);
+  }, [input, effectiveTargetPrice, defaultBackendTargetPrice, bestExLoTargetPrice, effectiveManualRateOverride]);
 
   const eligibility = activeResult?.eligibility;
   const quote = activeResult?.quote;

@@ -496,6 +496,7 @@ export default function Stage1LoTesterPage() {
       getQuote: (rateOverride?: number) => Stage1ExecutionQuote,
     ): InvestorSummary => {
       if (!eligibility.eligible) return makeSummary(eligibility, fallbackQuote);
+      if (effectiveManualRateOverride !== undefined) return makeSummary(eligibility, getQuote(effectiveManualRateOverride));
 
       const candidates = new Map<string, InvestorSummary>();
       for (const requestedRate of requestedRates) {
@@ -930,6 +931,11 @@ export default function Stage1LoTesterPage() {
 
     return summaries.sort((a, b) => {
       if (a.eligibility.eligible !== b.eligibility.eligible) return a.eligibility.eligible ? -1 : 1;
+      if (effectiveManualRateOverride !== undefined && a.eligibility.eligible && b.eligibility.eligible) {
+        if (b.buyPrice !== a.buyPrice) return b.buyPrice - a.buyPrice;
+        if (a.quote.purchasePrice !== b.quote.purchasePrice) return b.quote.purchasePrice - a.quote.purchasePrice;
+        return a.investor.localeCompare(b.investor);
+      }
       if (a.windowMatched !== b.windowMatched) return a.windowMatched ? -1 : 1;
       if (a.windowMatched && b.windowMatched) {
         if (a.quote.rate !== b.quote.rate) return a.quote.rate - b.quote.rate;
@@ -946,7 +952,7 @@ export default function Stage1LoTesterPage() {
       }
       return a.investor.localeCompare(b.investor);
     });
-  }, [input, effectiveTargetPrice, defaultBackendTargetPrice, bestExLoTargetPrice]);
+  }, [input, effectiveTargetPrice, defaultBackendTargetPrice, bestExLoTargetPrice, effectiveManualRateOverride]);
 
   const eligibility = activeResult?.eligibility;
   const quote = activeResult?.quote;
@@ -1357,7 +1363,7 @@ export default function Stage1LoTesterPage() {
               <label className="text-sm">
                 <div className="mb-1 font-medium text-slate-700">Target Rate</div>
                 <input type="number" step="0.125" placeholder="Use engine-selected rate" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={manualRateOverride} onChange={e => setManualRateOverride(e.target.value)} />
-                <div className="mt-1 text-xs text-slate-500">Leave blank to use the engine-selected rate.</div>
+                <div className="mt-1 text-xs text-slate-500">Leave blank to use normal BestX and engine-selected pricing. Enter a rate to show that rate across investors with the resulting discount points.</div>
               </label>
             </div>
           </div>
