@@ -37,12 +37,35 @@ type InvestorSummary = {
   quote: Stage1ExecutionQuote;
   discountPoints: number;
   buyPrice: number;
+  windowMatched: boolean;
+  deltaFromTarget: number;
 };
 
 type BestExProduct = 'HELOC' | 'CES';
 type BestExDrawPeriodYears = 3 | 5 | 10;
 type BestExTermYears = 10 | 15 | 25 | 30;
 type BestExLockPeriodDays = 15 | 30 | 45;
+
+const BEST_EX_WINDOW_FLOOR = 0.375;
+const BEST_EX_WINDOW_CEILING = 0.125;
+
+function roundToThree(value: number) {
+  return Number(value.toFixed(3));
+}
+
+function buildRequestedRates(min: number, max: number, step = 0.125) {
+  const values: number[] = [];
+  for (let rate = min; rate <= max + 0.0001; rate += step) {
+    values.push(roundToThree(rate));
+  }
+  return values;
+}
+
+function distanceToBestExWindow(deltaFromTarget: number) {
+  if (deltaFromTarget < -BEST_EX_WINDOW_FLOOR) return roundToThree((-BEST_EX_WINDOW_FLOOR) - deltaFromTarget);
+  if (deltaFromTarget > BEST_EX_WINDOW_CEILING) return roundToThree(deltaFromTarget - BEST_EX_WINDOW_CEILING);
+  return 0;
+}
 
 const TESTER_GATE_STORAGE_KEY = 'fal-stage1-tester-unlocked';
 const TESTER_GATE_PASSWORD = 'faltester';
@@ -430,9 +453,11 @@ export default function Stage1TesterPage() {
     const actualLockPeriodDays = bestExLockPeriodDays + 30;
 
     const makeSummary = (eligibility: Stage1Eligibility, quote: Stage1ExecutionQuote): InvestorSummary => {
-      const discountPoints = Number((effectiveTargetPrice - quote.purchasePrice).toFixed(3));
+      const discountPoints = effectiveTargetPrice - quote.purchasePrice;
       const buyPrice = Number((100 - discountPoints).toFixed(3));
-      return { investor: quote.engine, eligibility, quote, discountPoints, buyPrice };
+      const deltaFromTarget = roundToThree(quote.purchasePrice - effectiveTargetPrice);
+      const windowMatched = eligibility.eligible && deltaFromTarget >= -BEST_EX_WINDOW_FLOOR && deltaFromTarget <= BEST_EX_WINDOW_CEILING;
+      return { investor: quote.engine, eligibility, quote, discountPoints, buyPrice, windowMatched, deltaFromTarget };
     };
 
     const makeIneligible = (
@@ -464,27 +489,85 @@ export default function Stage1TesterPage() {
       },
       discountPoints: 0,
       buyPrice: 0,
+      windowMatched: false,
+      deltaFromTarget: 0,
     });
 
+    const chooseBestXSummary = (
+      eligibility: Stage1Eligibility,
+      fallbackQuote: Stage1ExecutionQuote,
+      requestedRates: number[],
+      getQuote: (rateOverride?: number) => Stage1ExecutionQuote,
+    ): InvestorSummary => {
+      if (!eligibility.eligible) return makeSummary(eligibility, fallbackQuote);
+
+      const candidates = new Map<string, InvestorSummary>();
+      for (const requestedRate of requestedRates) {
+        const summary = makeSummary(eligibility, getQuote(requestedRate));
+        candidates.set(`${summary.quote.rate}|${summary.quote.purchasePrice}|${summary.quote.product}`, summary);
+      }
+
+      const allCandidates = candidates.size ? [...candidates.values()] : [makeSummary(eligibility, fallbackQuote)];
+      const windowCandidates = allCandidates.filter(summary => summary.windowMatched);
+
+      if (windowCandidates.length > 0) {
+        return [...windowCandidates].sort((a, b) => {
+          if (a.quote.rate !== b.quote.rate) return a.quote.rate - b.quote.rate;
+          if (Math.abs(a.deltaFromTarget) !== Math.abs(b.deltaFromTarget)) return Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget);
+          if ((a.deltaFromTarget > 0) !== (b.deltaFromTarget > 0)) return a.deltaFromTarget > 0 ? 1 : -1;
+          if (b.buyPrice !== a.buyPrice) return b.buyPrice - a.buyPrice;
+          return a.investor.localeCompare(b.investor);
+        })[0];
+      }
+
+      return [...allCandidates].sort((a, b) => {
+        const aDistance = distanceToBestExWindow(a.deltaFromTarget);
+        const bDistance = distanceToBestExWindow(b.deltaFromTarget);
+        if (aDistance !== bDistance) return aDistance - bDistance;
+        if (Math.abs(a.deltaFromTarget) !== Math.abs(b.deltaFromTarget)) return Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget);
+        if (a.quote.rate !== b.quote.rate) return a.quote.rate - b.quote.rate;
+        if (b.buyPrice !== a.buyPrice) return b.buyPrice - a.buyPrice;
+        return a.investor.localeCompare(b.investor);
+      })[0];
+    };
+
+    const standardRequestedRates = buildRequestedRates(3, 20);
+    const osbHelocRequestedRates = buildRequestedRates(0.5, 8);
     const summaries: InvestorSummary[] = [];
 
     if (bestExProduct === 'HELOC') {
       const buttonInput = { ...input, buttonProduct: 'HELOC' as const, helocDrawTermYears: bestExDrawPeriodYears };
       const buttonEligibility = evaluateButtonStage1Eligibility(buttonInput, selectedLoanAmount);
-      const buttonQuote = calculateButtonStage1Quote(buttonInput, { selectedLoanAmount, helocDrawTermYears: bestExDrawPeriodYears });
-      summaries.push(makeSummary(buttonEligibility, {
+      const buttonBaseQuote = calculateButtonStage1Quote(buttonInput, { selectedLoanAmount, helocDrawTermYears: bestExDrawPeriodYears });
+      summaries.push(chooseBestXSummary(buttonEligibility, {
         engine: 'Button',
         program: 'Button',
         product: 'HELOC',
-        maxAvailable: buttonQuote.maxAvailable,
-        rate: buttonQuote.rate,
-        noteRate: buttonQuote.noteRate,
-        monthlyPayment: buttonQuote.monthlyPayment,
-        maxLtv: buttonQuote.maxLtv,
-        purchasePrice: buttonQuote.purchasePrice,
-        basePrice: buttonQuote.basePrice,
-        llpaAdjustment: buttonQuote.llpaAdjustment,
-        adjustments: buttonQuote.adjustments,
+        maxAvailable: buttonBaseQuote.maxAvailable,
+        rate: buttonBaseQuote.rate,
+        noteRate: buttonBaseQuote.noteRate,
+        monthlyPayment: buttonBaseQuote.monthlyPayment,
+        maxLtv: buttonBaseQuote.maxLtv,
+        purchasePrice: buttonBaseQuote.purchasePrice,
+        basePrice: buttonBaseQuote.basePrice,
+        llpaAdjustment: buttonBaseQuote.llpaAdjustment,
+        adjustments: buttonBaseQuote.adjustments,
+      }, standardRequestedRates, rateOverride => {
+        const quote = calculateButtonStage1Quote(buttonInput, { selectedLoanAmount, helocDrawTermYears: bestExDrawPeriodYears, rateOverride });
+        return {
+          engine: 'Button',
+          program: 'Button',
+          product: 'HELOC',
+          maxAvailable: quote.maxAvailable,
+          rate: quote.rate,
+          noteRate: quote.noteRate,
+          monthlyPayment: quote.monthlyPayment,
+          maxLtv: quote.maxLtv,
+          purchasePrice: quote.purchasePrice,
+          basePrice: quote.basePrice,
+          llpaAdjustment: quote.llpaAdjustment,
+          adjustments: quote.adjustments,
+        };
       }));
 
       summaries.push(makeIneligible('Vista', 'CES Only', 'HELOC', 'Vista only supports CES pricing in Best Ex.'));
@@ -502,20 +585,36 @@ export default function Stage1TesterPage() {
           helocDrawTermYears: bestExDrawPeriodYears,
         };
         const osbEligibility = evaluateOsbStage1Eligibility(osbInput, selectedLoanAmount);
-        const osbQuote = calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
-        summaries.push(makeSummary(osbEligibility, {
+        const osbBaseQuote = calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
+        summaries.push(chooseBestXSummary(osbEligibility, {
           engine: 'OSB',
-          program: osbQuote.program,
-          product: osbQuote.product,
-          maxAvailable: osbQuote.maxAvailable,
-          rate: osbQuote.rate,
-          noteRate: osbQuote.noteRate,
-          monthlyPayment: osbQuote.monthlyPayment,
-          maxLtv: osbQuote.maxLtv,
-          purchasePrice: osbQuote.purchasePrice,
-          basePrice: osbQuote.basePrice,
-          llpaAdjustment: osbQuote.llpaAdjustment,
-          adjustments: osbQuote.adjustments,
+          program: osbBaseQuote.program,
+          product: osbBaseQuote.product,
+          maxAvailable: osbBaseQuote.maxAvailable,
+          rate: osbBaseQuote.rate,
+          noteRate: osbBaseQuote.noteRate,
+          monthlyPayment: osbBaseQuote.monthlyPayment,
+          maxLtv: osbBaseQuote.maxLtv,
+          purchasePrice: osbBaseQuote.purchasePrice,
+          basePrice: osbBaseQuote.basePrice,
+          llpaAdjustment: osbBaseQuote.llpaAdjustment,
+          adjustments: osbBaseQuote.adjustments,
+        }, osbHelocRequestedRates, rateOverride => {
+          const quote = calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride });
+          return {
+            engine: 'OSB',
+            program: quote.program,
+            product: quote.product,
+            maxAvailable: quote.maxAvailable,
+            rate: quote.rate,
+            noteRate: quote.noteRate,
+            monthlyPayment: quote.monthlyPayment,
+            maxLtv: quote.maxLtv,
+            purchasePrice: quote.purchasePrice,
+            basePrice: quote.basePrice,
+            llpaAdjustment: quote.llpaAdjustment,
+            adjustments: quote.adjustments,
+          };
         }));
       }
 
@@ -533,39 +632,71 @@ export default function Stage1TesterPage() {
           verusLockPeriodDays: actualLockPeriodDays as VerusLockPeriodDays,
         };
         const verusEligibility = evaluateVerusStage1Eligibility(verusInput, selectedLoanAmount);
-        const verusQuote = calculateVerusStage1Quote(verusInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
-        summaries.push(makeSummary(verusEligibility, {
+        const verusBaseQuote = calculateVerusStage1Quote(verusInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
+        summaries.push(chooseBestXSummary(verusEligibility, {
           engine: 'Verus',
-          program: verusQuote.program,
-          product: verusQuote.product,
-          maxAvailable: verusQuote.maxAvailable,
-          rate: verusQuote.rate,
-          noteRate: verusQuote.noteRate,
-          monthlyPayment: verusQuote.monthlyPayment,
-          maxLtv: verusQuote.maxLtv,
-          purchasePrice: verusQuote.purchasePrice,
-          basePrice: verusQuote.basePrice,
-          llpaAdjustment: verusQuote.llpaAdjustment,
-          adjustments: verusQuote.adjustments,
+          program: verusBaseQuote.program,
+          product: verusBaseQuote.product,
+          maxAvailable: verusBaseQuote.maxAvailable,
+          rate: verusBaseQuote.rate,
+          noteRate: verusBaseQuote.noteRate,
+          monthlyPayment: verusBaseQuote.monthlyPayment,
+          maxLtv: verusBaseQuote.maxLtv,
+          purchasePrice: verusBaseQuote.purchasePrice,
+          basePrice: verusBaseQuote.basePrice,
+          llpaAdjustment: verusBaseQuote.llpaAdjustment,
+          adjustments: verusBaseQuote.adjustments,
+        }, standardRequestedRates, rateOverride => {
+          const quote = calculateVerusStage1Quote(verusInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride });
+          return {
+            engine: 'Verus',
+            program: quote.program,
+            product: quote.product,
+            maxAvailable: quote.maxAvailable,
+            rate: quote.rate,
+            noteRate: quote.noteRate,
+            monthlyPayment: quote.monthlyPayment,
+            maxLtv: quote.maxLtv,
+            purchasePrice: quote.purchasePrice,
+            basePrice: quote.basePrice,
+            llpaAdjustment: quote.llpaAdjustment,
+            adjustments: quote.adjustments,
+          };
         }));
       }
     } else {
       const buttonInput = { ...input, buttonProduct: 'CES' as const, buttonTermYears: bestExTermYears };
       const buttonEligibility = evaluateButtonStage1Eligibility(buttonInput, selectedLoanAmount);
-      const buttonQuote = calculateButtonStage1Quote(buttonInput, { selectedLoanAmount, cesTermYears: bestExTermYears });
-      summaries.push(makeSummary(buttonEligibility, {
+      const buttonBaseQuote = calculateButtonStage1Quote(buttonInput, { selectedLoanAmount, cesTermYears: bestExTermYears });
+      summaries.push(chooseBestXSummary(buttonEligibility, {
         engine: 'Button',
         program: 'Button',
         product: 'CES',
-        maxAvailable: buttonQuote.maxAvailable,
-        rate: buttonQuote.rate,
-        noteRate: buttonQuote.noteRate,
-        monthlyPayment: buttonQuote.monthlyPayment,
-        maxLtv: buttonQuote.maxLtv,
-        purchasePrice: buttonQuote.purchasePrice,
-        basePrice: buttonQuote.basePrice,
-        llpaAdjustment: buttonQuote.llpaAdjustment,
-        adjustments: buttonQuote.adjustments,
+        maxAvailable: buttonBaseQuote.maxAvailable,
+        rate: buttonBaseQuote.rate,
+        noteRate: buttonBaseQuote.noteRate,
+        monthlyPayment: buttonBaseQuote.monthlyPayment,
+        maxLtv: buttonBaseQuote.maxLtv,
+        purchasePrice: buttonBaseQuote.purchasePrice,
+        basePrice: buttonBaseQuote.basePrice,
+        llpaAdjustment: buttonBaseQuote.llpaAdjustment,
+        adjustments: buttonBaseQuote.adjustments,
+      }, standardRequestedRates, rateOverride => {
+        const quote = calculateButtonStage1Quote(buttonInput, { selectedLoanAmount, cesTermYears: bestExTermYears, rateOverride });
+        return {
+          engine: 'Button',
+          program: 'Button',
+          product: 'CES',
+          maxAvailable: quote.maxAvailable,
+          rate: quote.rate,
+          noteRate: quote.noteRate,
+          monthlyPayment: quote.monthlyPayment,
+          maxLtv: quote.maxLtv,
+          purchasePrice: quote.purchasePrice,
+          basePrice: quote.basePrice,
+          llpaAdjustment: quote.llpaAdjustment,
+          adjustments: quote.adjustments,
+        };
       }));
 
       const vistaProducts: Partial<Record<BestExTermYears, VistaProduct>> = {
@@ -579,20 +710,36 @@ export default function Stage1TesterPage() {
       } else {
         const vistaInput = { ...input, vistaProduct };
         const vistaEligibility = evaluateVistaStage1Eligibility(vistaInput, selectedLoanAmount);
-        const vistaQuote = calculateVistaStage1Quote(vistaInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
-        summaries.push(makeSummary(vistaEligibility, {
+        const vistaBaseQuote = calculateVistaStage1Quote(vistaInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
+        summaries.push(chooseBestXSummary(vistaEligibility, {
           engine: 'Vista',
-          program: vistaQuote.program,
-          product: vistaQuote.product,
-          maxAvailable: vistaQuote.maxAvailable,
-          rate: vistaQuote.rate,
-          noteRate: vistaQuote.noteRate,
-          monthlyPayment: vistaQuote.monthlyPayment,
-          maxLtv: vistaQuote.maxLtv,
-          purchasePrice: vistaQuote.purchasePrice,
-          basePrice: vistaQuote.basePrice,
-          llpaAdjustment: vistaQuote.llpaAdjustment,
-          adjustments: vistaQuote.adjustments,
+          program: vistaBaseQuote.program,
+          product: vistaBaseQuote.product,
+          maxAvailable: vistaBaseQuote.maxAvailable,
+          rate: vistaBaseQuote.rate,
+          noteRate: vistaBaseQuote.noteRate,
+          monthlyPayment: vistaBaseQuote.monthlyPayment,
+          maxLtv: vistaBaseQuote.maxLtv,
+          purchasePrice: vistaBaseQuote.purchasePrice,
+          basePrice: vistaBaseQuote.basePrice,
+          llpaAdjustment: vistaBaseQuote.llpaAdjustment,
+          adjustments: vistaBaseQuote.adjustments,
+        }, standardRequestedRates, rateOverride => {
+          const quote = calculateVistaStage1Quote(vistaInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride });
+          return {
+            engine: 'Vista',
+            program: quote.program,
+            product: quote.product,
+            maxAvailable: quote.maxAvailable,
+            rate: quote.rate,
+            noteRate: quote.noteRate,
+            monthlyPayment: quote.monthlyPayment,
+            maxLtv: quote.maxLtv,
+            purchasePrice: quote.purchasePrice,
+            basePrice: quote.basePrice,
+            llpaAdjustment: quote.llpaAdjustment,
+            adjustments: quote.adjustments,
+          };
         }));
       }
 
@@ -606,20 +753,36 @@ export default function Stage1TesterPage() {
       } else {
         const newrezInput = { ...input, newrezProduct };
         const newrezEligibility = evaluateNewRezStage1Eligibility(newrezInput, selectedLoanAmount);
-        const newrezQuote = calculateNewRezStage1Quote(newrezInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
-        summaries.push(makeSummary(newrezEligibility, {
+        const newrezBaseQuote = calculateNewRezStage1Quote(newrezInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
+        summaries.push(chooseBestXSummary(newrezEligibility, {
           engine: 'NewRez',
-          program: newrezQuote.program,
-          product: newrezQuote.product,
-          maxAvailable: newrezQuote.maxAvailable,
-          rate: newrezQuote.rate,
-          noteRate: newrezQuote.noteRate,
-          monthlyPayment: newrezQuote.monthlyPayment,
-          maxLtv: newrezQuote.maxLtv,
-          purchasePrice: newrezQuote.purchasePrice,
-          basePrice: newrezQuote.basePrice,
-          llpaAdjustment: newrezQuote.llpaAdjustment,
-          adjustments: newrezQuote.adjustments,
+          program: newrezBaseQuote.program,
+          product: newrezBaseQuote.product,
+          maxAvailable: newrezBaseQuote.maxAvailable,
+          rate: newrezBaseQuote.rate,
+          noteRate: newrezBaseQuote.noteRate,
+          monthlyPayment: newrezBaseQuote.monthlyPayment,
+          maxLtv: newrezBaseQuote.maxLtv,
+          purchasePrice: newrezBaseQuote.purchasePrice,
+          basePrice: newrezBaseQuote.basePrice,
+          llpaAdjustment: newrezBaseQuote.llpaAdjustment,
+          adjustments: newrezBaseQuote.adjustments,
+        }, standardRequestedRates, rateOverride => {
+          const quote = calculateNewRezStage1Quote(newrezInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride });
+          return {
+            engine: 'NewRez',
+            program: quote.program,
+            product: quote.product,
+            maxAvailable: quote.maxAvailable,
+            rate: quote.rate,
+            noteRate: quote.noteRate,
+            monthlyPayment: quote.monthlyPayment,
+            maxLtv: quote.maxLtv,
+            purchasePrice: quote.purchasePrice,
+            basePrice: quote.basePrice,
+            llpaAdjustment: quote.llpaAdjustment,
+            adjustments: quote.adjustments,
+          };
         }));
       }
 
@@ -641,20 +804,36 @@ export default function Stage1TesterPage() {
           osbLockPeriodDays: actualLockPeriodDays as OsbLockPeriod,
         };
         const osbEligibility = evaluateOsbStage1Eligibility(osbInput, selectedLoanAmount);
-        const osbQuote = calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
-        summaries.push(makeSummary(osbEligibility, {
+        const osbBaseQuote = calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
+        summaries.push(chooseBestXSummary(osbEligibility, {
           engine: 'OSB',
-          program: osbQuote.program,
-          product: osbQuote.product,
-          maxAvailable: osbQuote.maxAvailable,
-          rate: osbQuote.rate,
-          noteRate: osbQuote.noteRate,
-          monthlyPayment: osbQuote.monthlyPayment,
-          maxLtv: osbQuote.maxLtv,
-          purchasePrice: osbQuote.purchasePrice,
-          basePrice: osbQuote.basePrice,
-          llpaAdjustment: osbQuote.llpaAdjustment,
-          adjustments: osbQuote.adjustments,
+          program: osbBaseQuote.program,
+          product: osbBaseQuote.product,
+          maxAvailable: osbBaseQuote.maxAvailable,
+          rate: osbBaseQuote.rate,
+          noteRate: osbBaseQuote.noteRate,
+          monthlyPayment: osbBaseQuote.monthlyPayment,
+          maxLtv: osbBaseQuote.maxLtv,
+          purchasePrice: osbBaseQuote.purchasePrice,
+          basePrice: osbBaseQuote.basePrice,
+          llpaAdjustment: osbBaseQuote.llpaAdjustment,
+          adjustments: osbBaseQuote.adjustments,
+        }, standardRequestedRates, rateOverride => {
+          const quote = calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride });
+          return {
+            engine: 'OSB',
+            program: quote.program,
+            product: quote.product,
+            maxAvailable: quote.maxAvailable,
+            rate: quote.rate,
+            noteRate: quote.noteRate,
+            monthlyPayment: quote.monthlyPayment,
+            maxLtv: quote.maxLtv,
+            purchasePrice: quote.purchasePrice,
+            basePrice: quote.basePrice,
+            llpaAdjustment: quote.llpaAdjustment,
+            adjustments: quote.adjustments,
+          };
         }));
       }
 
@@ -675,20 +854,36 @@ export default function Stage1TesterPage() {
           verusLockPeriodDays: actualLockPeriodDays as VerusLockPeriodDays,
         };
         const verusEligibility = evaluateVerusStage1Eligibility(verusInput, selectedLoanAmount);
-        const verusQuote = calculateVerusStage1Quote(verusInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
-        summaries.push(makeSummary(verusEligibility, {
+        const verusBaseQuote = calculateVerusStage1Quote(verusInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
+        summaries.push(chooseBestXSummary(verusEligibility, {
           engine: 'Verus',
-          program: verusQuote.program,
-          product: verusQuote.product,
-          maxAvailable: verusQuote.maxAvailable,
-          rate: verusQuote.rate,
-          noteRate: verusQuote.noteRate,
-          monthlyPayment: verusQuote.monthlyPayment,
-          maxLtv: verusQuote.maxLtv,
-          purchasePrice: verusQuote.purchasePrice,
-          basePrice: verusQuote.basePrice,
-          llpaAdjustment: verusQuote.llpaAdjustment,
-          adjustments: verusQuote.adjustments,
+          program: verusBaseQuote.program,
+          product: verusBaseQuote.product,
+          maxAvailable: verusBaseQuote.maxAvailable,
+          rate: verusBaseQuote.rate,
+          noteRate: verusBaseQuote.noteRate,
+          monthlyPayment: verusBaseQuote.monthlyPayment,
+          maxLtv: verusBaseQuote.maxLtv,
+          purchasePrice: verusBaseQuote.purchasePrice,
+          basePrice: verusBaseQuote.basePrice,
+          llpaAdjustment: verusBaseQuote.llpaAdjustment,
+          adjustments: verusBaseQuote.adjustments,
+        }, standardRequestedRates, rateOverride => {
+          const quote = calculateVerusStage1Quote(verusInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride });
+          return {
+            engine: 'Verus',
+            program: quote.program,
+            product: quote.product,
+            maxAvailable: quote.maxAvailable,
+            rate: quote.rate,
+            noteRate: quote.noteRate,
+            monthlyPayment: quote.monthlyPayment,
+            maxLtv: quote.maxLtv,
+            purchasePrice: quote.purchasePrice,
+            basePrice: quote.basePrice,
+            llpaAdjustment: quote.llpaAdjustment,
+            adjustments: quote.adjustments,
+          };
         }));
       }
 
@@ -702,29 +897,55 @@ export default function Stage1TesterPage() {
       } else {
         const deephavenInput = { ...input, deephavenProduct };
         const deephavenEligibility = evaluateDeephavenStage1Eligibility(deephavenInput, selectedLoanAmount);
-        const deephavenQuote = calculateDeephavenStage1Quote(deephavenInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
-        summaries.push(makeSummary(deephavenEligibility, {
+        const deephavenBaseQuote = calculateDeephavenStage1Quote(deephavenInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
+        summaries.push(chooseBestXSummary(deephavenEligibility, {
           engine: 'Deephaven',
-          program: deephavenQuote.program,
-          product: deephavenQuote.product,
-          maxAvailable: deephavenQuote.maxAvailable,
-          rate: deephavenQuote.rate,
-          noteRate: deephavenQuote.noteRate,
-          monthlyPayment: deephavenQuote.monthlyPayment,
-          maxLtv: deephavenQuote.maxLtv,
-          purchasePrice: deephavenQuote.purchasePrice,
-          basePrice: deephavenQuote.basePrice,
-          llpaAdjustment: deephavenQuote.llpaAdjustment,
-          adjustments: deephavenQuote.adjustments,
+          program: deephavenBaseQuote.program,
+          product: deephavenBaseQuote.product,
+          maxAvailable: deephavenBaseQuote.maxAvailable,
+          rate: deephavenBaseQuote.rate,
+          noteRate: deephavenBaseQuote.noteRate,
+          monthlyPayment: deephavenBaseQuote.monthlyPayment,
+          maxLtv: deephavenBaseQuote.maxLtv,
+          purchasePrice: deephavenBaseQuote.purchasePrice,
+          basePrice: deephavenBaseQuote.basePrice,
+          llpaAdjustment: deephavenBaseQuote.llpaAdjustment,
+          adjustments: deephavenBaseQuote.adjustments,
+        }, standardRequestedRates, rateOverride => {
+          const quote = calculateDeephavenStage1Quote(deephavenInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride });
+          return {
+            engine: 'Deephaven',
+            program: quote.program,
+            product: quote.product,
+            maxAvailable: quote.maxAvailable,
+            rate: quote.rate,
+            noteRate: quote.noteRate,
+            monthlyPayment: quote.monthlyPayment,
+            maxLtv: quote.maxLtv,
+            purchasePrice: quote.purchasePrice,
+            basePrice: quote.basePrice,
+            llpaAdjustment: quote.llpaAdjustment,
+            adjustments: quote.adjustments,
+          };
         }));
       }
     }
 
     return summaries.sort((a, b) => {
       if (a.eligibility.eligible !== b.eligibility.eligible) return a.eligibility.eligible ? -1 : 1;
-      if (a.eligibility.eligible && b.eligibility.eligible) {
-        if (b.buyPrice !== a.buyPrice) return b.buyPrice - a.buyPrice;
+      if (a.windowMatched !== b.windowMatched) return a.windowMatched ? -1 : 1;
+      if (a.windowMatched && b.windowMatched) {
         if (a.quote.rate !== b.quote.rate) return a.quote.rate - b.quote.rate;
+        if (Math.abs(a.deltaFromTarget) !== Math.abs(b.deltaFromTarget)) return Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget);
+        if ((a.deltaFromTarget > 0) !== (b.deltaFromTarget > 0)) return a.deltaFromTarget > 0 ? 1 : -1;
+        if (b.buyPrice !== a.buyPrice) return b.buyPrice - a.buyPrice;
+      } else if (a.eligibility.eligible && b.eligibility.eligible) {
+        const aDistance = distanceToBestExWindow(a.deltaFromTarget);
+        const bDistance = distanceToBestExWindow(b.deltaFromTarget);
+        if (aDistance !== bDistance) return aDistance - bDistance;
+        if (Math.abs(a.deltaFromTarget) !== Math.abs(b.deltaFromTarget)) return Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget);
+        if (a.quote.rate !== b.quote.rate) return a.quote.rate - b.quote.rate;
+        if (b.buyPrice !== a.buyPrice) return b.buyPrice - a.buyPrice;
       }
       return a.investor.localeCompare(b.investor);
     });
