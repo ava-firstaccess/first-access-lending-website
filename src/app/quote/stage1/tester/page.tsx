@@ -454,7 +454,7 @@ export default function Stage1TesterPage() {
     const bestExTermYears = input.bestExTermYears ?? 30;
     const bestExLockPeriodDays = input.bestExLockPeriodDays ?? 45;
     const bestExDocType = input.bestExDocType ?? 'Standard';
-    const actualLockPeriodDays = bestExLockPeriodDays + 30;
+    const actualLockPeriodDays = bestExLockPeriodDays + 15;
 
     const makeSummary = (eligibility: Stage1Eligibility, quote: Stage1ExecutionQuote): InvestorSummary => {
       const discountPoints = effectiveTargetPrice - quote.purchasePrice;
@@ -960,8 +960,28 @@ export default function Stage1TesterPage() {
   const targetQuote = activeResult?.targetQuote;
   const osbDerived = useMemo(() => buildOsbStage1PricingInput(input), [input]);
 
+  const combinedLtv = useMemo(() => {
+    const propertyValue = Number(input.propertyValue || 0);
+    if (propertyValue <= 0) return 0;
+    return roundToThree((((Number(input.loanBalance || 0) + Number(input.desiredLoanAmount || 0)) / propertyValue) * 100));
+  }, [input.loanBalance, input.desiredLoanAmount, input.propertyValue]);
+
   function update<K extends keyof TesterInput>(key: K, value: TesterInput[K]) {
     setInput(prev => ({ ...prev, [key]: value }));
+  }
+
+  function updateDesiredLoanAmount(value: number) {
+    setInput(prev => ({ ...prev, desiredLoanAmount: Math.max(0, value) }));
+  }
+
+  function updateCombinedLtv(value: number) {
+    setInput(prev => {
+      const propertyValue = Number(prev.propertyValue || 0);
+      const currentBalance = Number(prev.loanBalance || 0);
+      if (propertyValue <= 0) return prev;
+      const desiredLoanAmount = Math.max(0, roundToThree((propertyValue * (value / 100)) - currentBalance));
+      return { ...prev, desiredLoanAmount };
+    });
   }
 
   function updateOsbProgram(program: OsbProgram) {
@@ -1286,10 +1306,17 @@ export default function Stage1TesterPage() {
                 <input type="number" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.loanBalance ?? 0} onChange={e => update('loanBalance', Number(e.target.value))} />
               </label>
 
-              <label className="text-sm">
-                <div className="mb-1 font-medium text-slate-700">Desired New Money</div>
-                <input type="number" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.desiredLoanAmount ?? 0} onChange={e => update('desiredLoanAmount', Number(e.target.value))} />
-              </label>
+              <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
+                <label className="text-sm">
+                  <div className="mb-1 font-medium text-slate-700">Desired New Money</div>
+                  <input type="number" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.desiredLoanAmount ?? 0} onChange={e => updateDesiredLoanAmount(Number(e.target.value))} />
+                </label>
+
+                <label className="text-sm">
+                  <div className="mb-1 font-medium text-slate-700">LTV</div>
+                  <input type="number" step="0.001" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={combinedLtv} onChange={e => updateCombinedLtv(Number(e.target.value))} />
+                </label>
+              </div>
 
               <label className="text-sm">
                 <div className="mb-1 font-medium text-slate-700">Credit Score</div>
