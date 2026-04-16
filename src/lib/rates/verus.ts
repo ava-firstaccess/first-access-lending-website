@@ -91,6 +91,32 @@ const VERUS_CES_DTI_TABLE: VerusSecondPriceMatrixTable = {
     [-0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.75, 'NA', 'NA', 'NA'],
   ],
 };
+const VERUS_CES_STANDARD_DOC_2YR_TABLE: VerusSecondPriceMatrixTable = {
+  rows: ['800+', '780-799', '760-779', '740-759', '720-739', '700-719', '680-699'],
+  columns: ['CES | <=50', 'CES | 50.01 - 55', 'CES | 55.01 - 60', 'CES | 60.01 - 65', 'CES | 65.01 - 70', 'CES | 70.01 - 75', 'CES | 75.01 - 80', 'CES | 80.01 - 85'],
+  values: [
+    [3, 2.875, 2.875, 2.75, 2.5, 2, 0.875, -2],
+    [3, 2.875, 2.875, 2.625, 2.25, 1.375, 0.5, -2.875],
+    [2, 1.875, 1.875, 1.375, 1, 0.75, -0.5, -4],
+    [1.25, 1.25, 1.25, 1, 0.625, 0.25, -1.75, -5.5],
+    [0.875, 0.875, 0.875, 0.5, 0.125, -0.5, -2.75, -7],
+    [0.375, 0.375, 0.375, -0.125, -1, -2, -5, -8],
+    [-0.25, -0.5, -0.75, -1, -3, -4, 'NA', 'NA'],
+  ],
+};
+const VERUS_CES_ALT_DOC_TABLE: VerusSecondPriceMatrixTable = {
+  rows: ['800+', '780-799', '760-779', '740-759', '720-739', '700-719', '680-699'],
+  columns: ['CES | <=50', 'CES | 50.01 - 55', 'CES | 55.01 - 60', 'CES | 60.01 - 65', 'CES | 65.01 - 70', 'CES | 70.01 - 75', 'CES | 75.01 - 80', 'CES | 80.01 - 85'],
+  values: [
+    [3, 2.875, 2.875, 2.75, 2.5, 2, 0.875, -2.25],
+    [3, 2.875, 2.875, 2.625, 2.25, 1.375, 0.5, -3.125],
+    [2, 1.875, 1.875, 1.375, 1, 0.75, -0.5, -4.25],
+    [1.25, 1.25, 1.25, 1, 0.625, 0.25, -1.75, -6],
+    [0.875, 0.875, 0.875, 0.5, 0.125, -0.5, -2.75, 'NA'],
+    [0.125, 0.125, 0.125, -0.375, -1.25, -2.25, -5.5, 'NA'],
+    [-0.5, -0.75, -1, -1.25, -3.25, -4.5, 'NA', 'NA'],
+  ],
+};
 
 export function buildVerusStage1PricingInput(
   stage1: ButtonStage1Input & {
@@ -285,9 +311,16 @@ function buildAdjustmentLines(
 ): Stage1AdjustmentLine[] {
   const rows: Stage1AdjustmentLine[] = [];
   if (input.program === 'CES') {
-    rows.push({ label: `Doc Type: ${stage1.verusDocType ?? 'Standard'}`, value: 0 });
+    const docType = stage1.verusDocType ?? 'Standard';
+    rows.push({ label: `Doc Type: ${docType}`, value: 0 });
 
     const cltvColumnIndex = getVerusCesCltvColumnIndex(input.resultingCltv);
+    const docCltvColumnIndex = getVerusCesDocCltvColumnIndex(input.resultingCltv);
+    const ficoLabel = getVerusCesFicoLabel(input.creditScore);
+    const docTable = docType === 'Alt Doc' ? VERUS_CES_ALT_DOC_TABLE : VERUS_CES_STANDARD_DOC_2YR_TABLE;
+    const docValue = getVerusMatrixValue(docTable, ficoLabel, docCltvColumnIndex);
+    if (docValue !== null) rows.push({ label: docType === 'Alt Doc' ? `Alt Doc: ${ficoLabel}` : `Standard Doc - 2 Years: ${ficoLabel}`, value: docValue });
+
     const loanAmountLabel = getVerusCesLoanAmountLabel(selectedLoanAmount);
     const loanAmountValue = getVerusMatrixValue(VERUS_CES_LOAN_AMOUNT_TABLE, loanAmountLabel, cltvColumnIndex);
     if (loanAmountValue !== null) rows.push({ label: `Loan Amount: ${loanAmountLabel}`, value: loanAmountValue });
@@ -310,6 +343,25 @@ function getVerusCesCltvColumnIndex(resultingCltv: number): number {
     if (cltvPct <= upperBounds[i]) return i;
   }
   return upperBounds.length - 1;
+}
+
+function getVerusCesDocCltvColumnIndex(resultingCltv: number): number {
+  const cltvPct = resultingCltv * 100;
+  const upperBounds = [50, 55, 60, 65, 70, 75, 80, 85];
+  for (let i = 0; i < upperBounds.length; i += 1) {
+    if (cltvPct <= upperBounds[i]) return i;
+  }
+  return upperBounds.length - 1;
+}
+
+function getVerusCesFicoLabel(creditScore: number): string {
+  if (creditScore >= 800) return '800+';
+  if (creditScore >= 780) return '780-799';
+  if (creditScore >= 760) return '760-779';
+  if (creditScore >= 740) return '740-759';
+  if (creditScore >= 720) return '720-739';
+  if (creditScore >= 700) return '700-719';
+  return '680-699';
 }
 
 function getVerusCesLoanAmountLabel(amount: number): string {
