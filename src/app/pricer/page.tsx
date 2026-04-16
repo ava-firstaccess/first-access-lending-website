@@ -38,7 +38,7 @@ const defaultInput: TesterInput = {
   verusDocType: 'Standard',
   verusDrawPeriodYears: 5,
   verusLockPeriodDays: 45,
-  deephavenProgram: 'Expanded Prime',
+  deephavenProgram: 'Equity Advantage',
   deephavenProduct: '30Y Fixed',
   helocDrawTermYears: 5,
   buttonTermYears: 20,
@@ -549,17 +549,8 @@ export default function Stage1LoTesterPage() {
                 </>
               ) : engine === 'Deephaven' ? (
                 <div className="space-y-3 text-sm sm:col-span-2">
-                  <div>
-                    <div className="mb-1 font-medium text-slate-700">Deephaven Program</div>
-                    <TermToggle
-                      label="Deephaven Program"
-                      value={input.deephavenProgram ?? 'Expanded Prime'}
-                      options={[
-                        { value: 'Expanded Prime', label: 'Expanded Prime' },
-                        { value: 'Non-Prime', label: 'Non-Prime' },
-                      ]}
-                      onChange={value => update('deephavenProgram', value as DeephavenProgram)}
-                    />
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                    Deephaven prices both <span className="font-semibold">Equity Advantage</span> and <span className="font-semibold">Equity Advantage Elite</span> automatically, then uses the best execution.
                   </div>
                   <div>
                     <div className="mb-1 font-medium text-slate-700">Deephaven Product</div>
@@ -794,7 +785,7 @@ export default function Stage1LoTesterPage() {
 
               {engine === 'Deephaven' && (
                 <div className="mt-6 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
-                  Workbook sections in play: {input.deephavenProgram}, {input.deephavenProduct}, and the Deephaven CES base pricing ladder for the selected program.
+                  Workbook sections in play: Equity Advantage and Equity Advantage Elite, with best execution selected automatically for the chosen Deephaven term.
                 </div>
               )}
 

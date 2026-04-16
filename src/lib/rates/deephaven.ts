@@ -2,7 +2,7 @@ import ratesheet from './deephaven-ratesheet.json';
 import { getTargetPurchasePriceForLoanAmount, type ButtonStage1Input } from './button';
 import type { Stage1AdjustmentLine } from './shared';
 
-export type DeephavenProgram = 'Expanded Prime' | 'Non-Prime';
+export type DeephavenProgram = 'Equity Advantage' | 'Equity Advantage Elite';
 export type DeephavenProduct = '15Y Fixed' | '30Y Fixed';
 
 export interface DeephavenPricingInput {
@@ -54,8 +54,13 @@ type ProgramData = {
   pricing: PricingRow[];
 };
 
-type DeephavenData = { programs: Record<DeephavenProgram, ProgramData> };
+type DeephavenData = { programs: Record<'Expanded Prime' | 'Non-Prime', ProgramData> };
 const DATA = ratesheet as DeephavenData;
+const DEEPHAVEN_PROGRAM_MAP: Record<DeephavenProgram, 'Expanded Prime' | 'Non-Prime'> = {
+  'Equity Advantage': 'Expanded Prime',
+  'Equity Advantage Elite': 'Non-Prime',
+};
+const DEEPHAVEN_PROGRAMS: DeephavenProgram[] = ['Equity Advantage', 'Equity Advantage Elite'];
 
 export function buildDeephavenStage1PricingInput(
   stage1: ButtonStage1Input & { deephavenProgram?: DeephavenProgram; deephavenProduct?: DeephavenProduct }
@@ -79,28 +84,64 @@ export function buildDeephavenStage1PricingInput(
   };
 }
 
+function sourceProgram(program: DeephavenProgram): 'Expanded Prime' | 'Non-Prime' {
+  return DEEPHAVEN_PROGRAM_MAP[program];
+}
+
 export function calculateDeephavenStage1Quote(
   stage1: ButtonStage1Input & { deephavenProgram?: DeephavenProgram; deephavenProduct?: DeephavenProduct },
   options?: { selectedLoanAmount?: number; targetPrice?: number; rateOverride?: number }
 ): DeephavenQuote {
   const input = buildDeephavenStage1PricingInput(stage1);
-  const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? calculateMaxAvailable(input));
-  const targetPrice = clampTargetPrice(input, options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), selectedLoanAmount);
-  const selected = options?.rateOverride !== undefined ? pickExecutionByRate(input, options.rateOverride) : pickExecution(input, targetPrice);
+  const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? Math.max(...DEEPHAVEN_PROGRAMS.map(program => calculateMaxAvailableForProgram(input, program))));
+
+  const candidates = DEEPHAVEN_PROGRAMS.flatMap(program => {
+    const candidateInput = { ...input, program };
+    const maxAvailable = calculateMaxAvailableForProgram(candidateInput, program);
+    const maxLtv = calculateMaxLtvForProgram(candidateInput, program);
+    if (input.occupancy === 'Primary') return [];
+    if (input.creditScore < minCreditScore(program)) return [];
+    if (input.resultingCltv > maxLtv) return [];
+    if (selectedLoanAmount > maxAvailable) return [];
+    const targetPrice = clampTargetPrice(candidateInput, options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), selectedLoanAmount, program);
+    const selected = options?.rateOverride !== undefined
+      ? pickExecutionByRate(candidateInput, options.rateOverride, program)
+      : pickExecution(candidateInput, targetPrice, program);
+    return [{ program, maxAvailable, maxLtv, selected }];
+  });
+
+  const fallbackProgram = DEEPHAVEN_PROGRAMS[0];
+  const fallbackInput = { ...input, program: fallbackProgram };
+  const fallbackTargetPrice = clampTargetPrice(fallbackInput, options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), selectedLoanAmount, fallbackProgram);
+  const fallbackSelected = options?.rateOverride !== undefined
+    ? pickExecutionByRate(fallbackInput, options.rateOverride, fallbackProgram)
+    : pickExecution(fallbackInput, fallbackTargetPrice, fallbackProgram);
+
+  const best = candidates.reduce<(typeof candidates)[number] | null>((winner, candidate) => {
+    if (!winner) return candidate;
+    if (candidate.selected.purchasePrice > winner.selected.purchasePrice) return candidate;
+    if (candidate.selected.purchasePrice === winner.selected.purchasePrice && candidate.selected.rate < winner.selected.rate) return candidate;
+    return winner;
+  }, null) ?? {
+    program: fallbackProgram,
+    maxAvailable: calculateMaxAvailableForProgram(fallbackInput, fallbackProgram),
+    maxLtv: calculateMaxLtvForProgram(fallbackInput, fallbackProgram),
+    selected: fallbackSelected,
+  };
 
   return {
-    program: input.program,
+    program: best.program,
     product: input.product,
-    maxAvailable: calculateMaxAvailable(input),
-    maxLtv: calculateMaxLtv(input),
-    rate: selected.rate,
-    noteRate: selected.rate,
+    maxAvailable: best.maxAvailable,
+    maxLtv: best.maxLtv,
+    rate: best.selected.rate,
+    noteRate: best.selected.rate,
     rateType: 'Fixed',
-    monthlyPayment: amortizedPayment(selectedLoanAmount, selected.rate, input.product === '15Y Fixed' ? 15 : 30),
-    basePrice: selected.basePrice,
+    monthlyPayment: amortizedPayment(selectedLoanAmount, best.selected.rate, input.product === '15Y Fixed' ? 15 : 30),
+    basePrice: best.selected.basePrice,
     llpaAdjustment: 0,
-    purchasePrice: selected.purchasePrice,
-    adjustments: [{ label: `Program: ${input.program}`, value: 0 }],
+    purchasePrice: best.selected.purchasePrice,
+    adjustments: [{ label: `Program: ${best.program}`, value: 0 }],
   };
 }
 
@@ -111,16 +152,27 @@ export function evaluateDeephavenStage1Eligibility(
   const input = buildDeephavenStage1PricingInput(stage1);
   const requested = Math.max(0, selectedLoanAmount ?? input.desiredLoanAmount ?? 0);
   const reasons: string[] = [];
+  const maxAvailable = Math.max(...DEEPHAVEN_PROGRAMS.map(program => calculateMaxAvailableForProgram({ ...input, program }, program)));
+  const maxLtv = Math.max(...DEEPHAVEN_PROGRAMS.map(program => calculateMaxLtvForProgram({ ...input, program }, program)));
+  const anyEligible = DEEPHAVEN_PROGRAMS.some(program => {
+    const candidateInput = { ...input, program };
+    return input.occupancy !== 'Primary'
+      && input.creditScore >= minCreditScore(program)
+      && input.resultingCltv <= calculateMaxLtvForProgram(candidateInput, program)
+      && requested <= calculateMaxAvailableForProgram(candidateInput, program);
+  });
 
-  if (input.occupancy === 'Primary') reasons.push('Deephaven tester is wired for non-owner occupied CES scenarios.');
-  if (input.creditScore < minCreditScore(input.program)) reasons.push('Credit score is below the current supported Deephaven tester range.');
-  if (input.resultingCltv > calculateMaxLtv(input)) reasons.push('Resulting CLTV exceeds the current supported Deephaven tester range.');
-  if (requested > calculateMaxAvailable(input)) reasons.push('Desired loan amount exceeds the current max available amount.');
+  if (!anyEligible) {
+    if (input.occupancy === 'Primary') reasons.push('Deephaven tester is wired for non-owner occupied CES scenarios.');
+    if (DEEPHAVEN_PROGRAMS.every(program => input.creditScore < minCreditScore(program))) reasons.push('Credit score is below the current supported Deephaven tester range.');
+    if (DEEPHAVEN_PROGRAMS.every(program => input.resultingCltv > calculateMaxLtvForProgram({ ...input, program }, program))) reasons.push('Resulting CLTV exceeds the current supported Deephaven tester range.');
+    if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
+  }
 
   return {
-    eligible: reasons.length === 0,
+    eligible: anyEligible,
     reasons,
-    maxAvailable: calculateMaxAvailable(input),
+    maxAvailable,
     resultingCltv: input.resultingCltv,
   };
 }
@@ -146,8 +198,8 @@ export function solveDeephavenStage1TargetRate(
   };
 }
 
-function pickExecutionByRate(input: DeephavenPricingInput, requestedRate: number) {
-  const rows = DATA.programs[input.program].pricing;
+function pickExecutionByRate(input: DeephavenPricingInput, requestedRate: number, program = input.program) {
+  const rows = DATA.programs[sourceProgram(program)].pricing;
   let best = { rate: rows[0].rate, basePrice: Number(rows[0].prices[input.product] ?? 0), purchasePrice: Number(rows[0].prices[input.product] ?? 0) };
   let bestDelta = Number.POSITIVE_INFINITY;
 
@@ -165,8 +217,8 @@ function pickExecutionByRate(input: DeephavenPricingInput, requestedRate: number
   return best;
 }
 
-function pickExecution(input: DeephavenPricingInput, targetPrice: number) {
-  const rows = DATA.programs[input.program].pricing;
+function pickExecution(input: DeephavenPricingInput, targetPrice: number, program = input.program) {
+  const rows = DATA.programs[sourceProgram(program)].pricing;
   let bestUnder: { rate: number; basePrice: number; purchasePrice: number } | null = null;
   let fallback = { rate: rows[0].rate, basePrice: Number(rows[0].prices[input.product] ?? 0), purchasePrice: Number(rows[0].prices[input.product] ?? 0) };
   let fallbackDelta = Number.POSITIVE_INFINITY;
@@ -189,11 +241,19 @@ function pickExecution(input: DeephavenPricingInput, targetPrice: number) {
 }
 
 function calculateMaxAvailable(input: DeephavenPricingInput): number {
-  return Math.max(0, input.propertyValue * calculateMaxLtv(input) - input.loanBalance);
+  return calculateMaxAvailableForProgram(input, input.program);
+}
+
+function calculateMaxAvailableForProgram(input: DeephavenPricingInput, program: DeephavenProgram): number {
+  return Math.max(0, input.propertyValue * calculateMaxLtvForProgram(input, program) - input.loanBalance);
 }
 
 function calculateMaxLtv(input: DeephavenPricingInput): number {
-  if (input.program === 'Expanded Prime') {
+  return calculateMaxLtvForProgram(input, input.program);
+}
+
+function calculateMaxLtvForProgram(input: DeephavenPricingInput, program: DeephavenProgram): number {
+  if (program === 'Equity Advantage') {
     if (input.creditScore >= 780) return 0.85;
     if (input.creditScore >= 740) return 0.8;
     if (input.creditScore >= 700) return 0.75;
@@ -206,23 +266,23 @@ function calculateMaxLtv(input: DeephavenPricingInput): number {
 }
 
 function minCreditScore(program: DeephavenProgram): number {
-  return program === 'Expanded Prime' ? 660 : 620;
+  return program === 'Equity Advantage' ? 660 : 620;
 }
 
-function clampTargetPrice(input: DeephavenPricingInput, targetPrice: number, selectedLoanAmount: number): number {
-  const program = DATA.programs[input.program];
-  let maxPrice = program.maxPriceTiers[program.maxPriceTiers.length - 1]?.maxPrice ?? 103;
-  for (const tier of program.maxPriceTiers) {
+function clampTargetPrice(input: DeephavenPricingInput, targetPrice: number, selectedLoanAmount: number, program = input.program): number {
+  const programData = DATA.programs[sourceProgram(program)];
+  let maxPrice = programData.maxPriceTiers[programData.maxPriceTiers.length - 1]?.maxPrice ?? 103;
+  for (const tier of programData.maxPriceTiers) {
     if (selectedLoanAmount <= tier.upToLoanAmount) {
       maxPrice = tier.maxPrice;
       break;
     }
   }
-  return roundToThree(Math.min(maxPrice, Math.max(program.minPrice, targetPrice)));
+  return roundToThree(Math.min(maxPrice, Math.max(programData.minPrice, targetPrice)));
 }
 
 function normalizeProgram(value?: string): DeephavenProgram {
-  return String(value || '').toLowerCase().includes('non') ? 'Non-Prime' : 'Expanded Prime';
+  return String(value || '').toLowerCase().includes('elite') ? 'Equity Advantage Elite' : 'Equity Advantage';
 }
 
 function normalizeProduct(value?: string): DeephavenProduct {
