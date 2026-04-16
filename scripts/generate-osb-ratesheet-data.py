@@ -144,7 +144,7 @@ data = {
                 ],
             },
             'lockAdjustments': [
-                {'label': str(heloc.cell(row, 23).value), 'value': price(heloc.cell(row, 24).value)}
+                {'label': str(heloc.cell(row, 22).value), 'value': price(heloc.cell(row, 23).value)}
                 for row in range(21, 24)
             ],
             'armFeatures': {

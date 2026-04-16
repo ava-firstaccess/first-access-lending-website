@@ -1854,16 +1854,16 @@
       },
       "lockAdjustments": [
         {
-          "label": "0.15",
-          "value": null
+          "label": "15 day",
+          "value": 0.15
         },
         {
-          "label": "-0.15",
-          "value": null
+          "label": "45 day",
+          "value": -0.15
         },
         {
-          "label": "-0.3",
-          "value": null
+          "label": "60 day",
+          "value": -0.3
         }
       ],
       "armFeatures": {
