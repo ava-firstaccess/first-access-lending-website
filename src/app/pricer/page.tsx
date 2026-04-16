@@ -110,11 +110,14 @@ export default function Stage1LoTesterPage() {
   const [manualRateOverride, setManualRateOverride] = useState<string>('');
   const tolerance = 0.125;
 
+  const defaultBackendTargetPrice = useMemo(() => getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0)), [input.desiredLoanAmount]);
+  const defaultLoTargetPrice = useMemo(() => roundToThree(200 - defaultBackendTargetPrice), [defaultBackendTargetPrice]);
+
   const effectiveTargetPrice = useMemo(() => {
-    if (!targetPriceOverride.trim()) return getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0));
+    if (!targetPriceOverride.trim()) return defaultBackendTargetPrice;
     const parsed = Number(targetPriceOverride);
-    return Number.isFinite(parsed) ? parsed : getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0));
-  }, [input.desiredLoanAmount, targetPriceOverride]);
+    return Number.isFinite(parsed) ? roundToThree(200 - parsed) : defaultBackendTargetPrice;
+  }, [defaultBackendTargetPrice, targetPriceOverride]);
 
   const effectiveManualRateOverride = useMemo(() => {
     if (!manualRateOverride.trim()) return undefined;
@@ -1318,8 +1321,8 @@ export default function Stage1LoTesterPage() {
 
               <label className="text-sm">
                 <div className="mb-1 font-medium text-slate-700">Target Price</div>
-                <input type="number" step="0.001" placeholder={String(getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0)))} className="w-full rounded-lg border border-slate-300 px-3 py-2" value={targetPriceOverride} onChange={e => setTargetPriceOverride(e.target.value)} />
-                <div className="mt-1 text-xs text-slate-500">Leave blank to use the auto target for this loan amount: {getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0)).toFixed(3)}</div>
+                <input type="number" step="0.001" placeholder={String(defaultLoTargetPrice)} className="w-full rounded-lg border border-slate-300 px-3 py-2" value={targetPriceOverride} onChange={e => setTargetPriceOverride(e.target.value)} />
+                <div className="mt-1 text-xs text-slate-500">Enter the LO target price, for example 99. Leave blank to use the auto LO target for this loan amount: {defaultLoTargetPrice.toFixed(3)}</div>
               </label>
 
               <label className="text-sm">

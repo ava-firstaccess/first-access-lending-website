@@ -119,10 +119,14 @@ export default function Stage1TesterPage() {
     setGateChecked(true);
   }, []);
 
+  const defaultBackendTargetPrice = useMemo(() => getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0)), [input.desiredLoanAmount]);
+  const defaultLoTargetPrice = useMemo(() => roundToThree(200 - defaultBackendTargetPrice), [defaultBackendTargetPrice]);
+
   const effectiveTargetPrice = useMemo(() => {
-    if (targetPriceOverride.trim()) return Number(targetPriceOverride);
-    return getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0));
-  }, [input.desiredLoanAmount, targetPriceOverride]);
+    if (!targetPriceOverride.trim()) return defaultBackendTargetPrice;
+    const parsed = Number(targetPriceOverride);
+    return Number.isFinite(parsed) ? roundToThree(200 - parsed) : defaultBackendTargetPrice;
+  }, [defaultBackendTargetPrice, targetPriceOverride]);
 
   const effectiveManualRateOverride = useMemo(() => {
     if (!manualRateOverride.trim()) return undefined;
@@ -1373,8 +1377,8 @@ export default function Stage1TesterPage() {
 
               <label className="text-sm">
                 <div className="mb-1 font-medium text-slate-700">Target Price</div>
-                <input type="number" step="0.001" placeholder={String(getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0)))} className="w-full rounded-lg border border-slate-300 px-3 py-2" value={targetPriceOverride} onChange={e => setTargetPriceOverride(e.target.value)} />
-                <div className="mt-1 text-xs text-slate-500">Auto target from loan amount: {effectiveTargetPrice.toFixed(3)}</div>
+                <input type="number" step="0.001" placeholder={String(defaultLoTargetPrice)} className="w-full rounded-lg border border-slate-300 px-3 py-2" value={targetPriceOverride} onChange={e => setTargetPriceOverride(e.target.value)} />
+                <div className="mt-1 text-xs text-slate-500">Enter the LO target price, for example 99. Auto LO target from loan amount: {defaultLoTargetPrice.toFixed(3)}</div>
               </label>
 
               <label className="text-sm">
