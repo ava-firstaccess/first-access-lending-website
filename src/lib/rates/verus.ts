@@ -103,7 +103,7 @@ export function buildVerusStage1PricingInput(
   const desiredLoanAmount = Number(stage1.desiredLoanAmount || 0);
   const resultingLoanAmount = Math.max(0, loanBalance + desiredLoanAmount);
   const resultingCltv = propertyValue > 0 ? resultingLoanAmount / propertyValue : 0;
-  const program = normalizeProgram(stage1.verusProgram, stage1.product);
+  const program = normalizeProgram(stage1.verusProgram, stage1.verusProduct);
 
   return {
     program,
