@@ -84,7 +84,7 @@ export default function Stage1TesterPage() {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [password, setPassword] = useState('');
   const [gateError, setGateError] = useState('');
-  const [engine, setEngine] = useState<'Best X' | 'Button' | 'Vista' | 'OSB' | 'NewRez' | 'Verus' | 'Deephaven'>('Best X');
+  const [engine, setEngine] = useState<'BestX' | 'Button' | 'Vista' | 'OSB' | 'NewRez' | 'Verus' | 'Deephaven'>('BestX');
   const [input, setInput] = useState<TesterInput>(defaultInput);
   const [targetPriceOverride, setTargetPriceOverride] = useState<string>('');
   const [manualRateOverride, setManualRateOverride] = useState<string>('');
@@ -108,7 +108,7 @@ export default function Stage1TesterPage() {
   }, [manualRateOverride]);
 
   const activeResult = useMemo<Stage1PricingEngineResult | null>(() => {
-    if (engine === 'Best X') {
+    if (engine === 'BestX') {
       return null;
     }
 
@@ -812,12 +812,12 @@ export default function Stage1TesterPage() {
             <p className="mt-2 text-sm text-slate-600">
               Internal harness for workbook-driven stage 1 pricing. Button, Vista, OSB, NewRez, Verus, and Deephaven all adapt into the same execution contract.
             </p>
-            <div className="mt-3 text-xs font-semibold uppercase tracking-wide text-sky-700">Available engines: Best X, Button, Vista, OSB, NewRez, Verus, and Deephaven</div>
+            <div className="mt-3 text-xs font-semibold uppercase tracking-wide text-sky-700">Available engines: BestX, Button, Vista, OSB, NewRez, Verus, and Deephaven</div>
           </div>
           <div className="flex flex-col gap-1">
             <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Engine Toggle</div>
             <div className="flex gap-2 rounded-2xl bg-slate-100 p-1">
-              {(['Best X', 'Button', 'Vista', 'OSB', 'NewRez', 'Verus', 'Deephaven'] as const).map(option => (
+              {(['BestX', 'Button', 'Vista', 'OSB', 'NewRez', 'Verus', 'Deephaven'] as const).map(option => (
                 <button
                   key={option}
                   onClick={() => setEngine(option)}
@@ -834,7 +834,7 @@ export default function Stage1TesterPage() {
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-semibold text-slate-900">Inputs</h2>
             <div className="grid gap-4 sm:grid-cols-2">
-                            {engine === 'Best X' ? (
+                            {engine === 'BestX' ? (
                 <div className="space-y-4 text-sm sm:col-span-2">
                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-slate-700">
                     Best Ex uses one normalized scenario, then prices each investor and marks unsupported combinations ineligible.
@@ -1173,7 +1173,7 @@ export default function Stage1TesterPage() {
           <div className="space-y-6">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-4 text-lg font-semibold text-slate-900">Output</h2>
-              {engine === 'Best X' ? (
+              {engine === 'BestX' ? (
                 <div className="space-y-3">
                   {results.map((result, index) => (
                     <div key={result.investor} className={`rounded-2xl border p-4 ${result.eligibility.eligible ? 'border-emerald-200 bg-white' : 'border-slate-200 bg-slate-50'}`}>
