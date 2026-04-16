@@ -93,7 +93,7 @@ export function buildOsbStage1PricingInput(stage1: ButtonStage1Input & {
   const desiredLoanAmount = Number(stage1.desiredLoanAmount || 0);
   const resultingLoanAmount = Math.max(0, loanBalance + desiredLoanAmount);
   const resultingCltv = propertyValue > 0 ? resultingLoanAmount / propertyValue : 0;
-  const program = normalizeProgram(stage1.osbProgram, stage1.product);
+  const program = normalizeProgram(stage1.osbProgram, stage1.osbProduct);
 
   return {
     program,

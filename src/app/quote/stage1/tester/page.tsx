@@ -26,7 +26,7 @@ type TesterInput = ButtonStage1Input & {
 };
 
 const defaultInput: TesterInput = {
-  product: 'HELOC',
+  buttonProduct: 'HELOC',
   vistaProduct: '30yr Fixed',
   newrezProduct: '30 Year Fixed',
   osbProgram: 'HELOC',
@@ -83,7 +83,7 @@ export default function Stage1TesterPage() {
         quote: {
           engine: 'Button',
           program: 'Button',
-          product: String(input.product || 'HELOC'),
+          product: String(input.buttonProduct || 'HELOC'),
           maxAvailable: quote.maxAvailable,
           rate: quote.rate,
           noteRate: quote.noteRate,
@@ -97,7 +97,7 @@ export default function Stage1TesterPage() {
         targetQuote: {
           engine: 'Button',
           program: 'Button',
-          product: String(input.product || 'HELOC'),
+          product: String(input.buttonProduct || 'HELOC'),
           maxAvailable: targetQuote.maxAvailable,
           rate: targetQuote.rate,
           noteRate: targetQuote.noteRate,
@@ -417,12 +417,12 @@ export default function Stage1TesterPage() {
                 <>
                   <label className="text-sm">
                     <div className="mb-1 font-medium text-slate-700">Product</div>
-                    <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.product} onChange={e => update('product', e.target.value)}>
+                    <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.buttonProduct} onChange={e => update('buttonProduct', e.target.value)}>
                       <option value="HELOC">HELOC</option>
                       <option value="CES">CES</option>
                     </select>
                   </label>
-                  {input.product === 'CES' && (
+                  {input.buttonProduct === 'CES' && (
                     <div className="space-y-3 text-sm">
                       <div>
                         <div className="mb-1 font-medium text-slate-700">Button Term</div>
@@ -441,7 +441,7 @@ export default function Stage1TesterPage() {
                       </div>
                     </div>
                   )}
-                  {input.product === 'HELOC' && (
+                  {input.buttonProduct === 'HELOC' && (
                     <div className="space-y-3 text-sm">
                       <div>
                         <div className="mb-1 font-medium text-slate-700">Button Draw Period</div>
@@ -759,7 +759,7 @@ export default function Stage1TesterPage() {
 
               {engine === 'Button' && (
                 <div className="mt-6 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
-                  Workbook sections in play: Button pricing ladder, FICO / CLTV matrix, occupancy, unit count, cash-out, and {input.product === 'HELOC' ? `${input.helocDrawTermYears ?? 5} year draw period` : `${input.buttonTermYears ?? 20} year term`} adjustments.
+                  Workbook sections in play: Button pricing ladder, FICO / CLTV matrix, occupancy, unit count, cash-out, and {input.buttonProduct === 'HELOC' ? `${input.helocDrawTermYears ?? 5} year draw period` : `${input.buttonTermYears ?? 20} year term`} adjustments.
                 </div>
               )}
 

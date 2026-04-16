@@ -31,6 +31,7 @@ export interface ButtonPricingAssumptions {
 }
 
 export interface ButtonStage1Input {
+  buttonProduct?: string;
   product?: string;
   propertyState?: string;
   propertyValue?: number;
@@ -142,7 +143,7 @@ export function buildButtonStage1PricingInput(stage1: ButtonStage1Input): Button
   const resultingCltv = propertyValue > 0 ? resultingLoanAmount / propertyValue : 0;
 
   return {
-    product: normalizeProduct(stage1.product),
+    product: normalizeProduct(stage1.buttonProduct ?? stage1.product),
     propertyState: String(stage1.propertyState || '').toUpperCase(),
     propertyValue,
     loanBalance,
