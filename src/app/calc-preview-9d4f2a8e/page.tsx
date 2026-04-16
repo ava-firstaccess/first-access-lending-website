@@ -969,7 +969,7 @@ export default function MortgageCalculator() {
                       type="text"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="loanofficer@email.com; borrower@email.com"
+                      placeholder="borrower@email.com; coborrower@email.com"
                       className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                     <p className="text-xs text-gray-500">
