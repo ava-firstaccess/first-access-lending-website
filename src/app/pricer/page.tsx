@@ -1436,40 +1436,6 @@ export default function Stage1LoTesterPage() {
                 LO buy price is shown as <span className="font-semibold">100 minus discount points</span>. Backend execution and internal pricing logic stay hidden on this page.
               </div>
 
-              <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-slate-900">Best execution</h2>
-                  <div className="text-sm text-slate-500">Sorted best to worst</div>
-                </div>
-                <div className="space-y-3">
-                  {results.map((result, index) => (
-                    <div key={result.investor} className={`rounded-2xl border p-4 ${result.eligibility.eligible ? 'border-emerald-200 bg-white' : 'border-slate-200 bg-slate-50'}`}>
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <div className="text-lg font-semibold text-slate-900">{result.investor}</div>
-                            {result.eligibility.eligible ? <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800">#{index + 1}</span> : <span className="rounded-full bg-slate-200 px-2 py-1 text-xs font-semibold text-slate-700">Ineligible</span>}
-                          </div>
-                          <div className="mt-1 text-sm text-slate-600">{result.quote.program} • {result.quote.product}</div>
-                        </div>
-                        <div className="grid min-w-[280px] gap-3 sm:grid-cols-3">
-                          <Metric label="Rate" value={`${result.quote.rate.toFixed(3)}%`} />
-                          <Metric label="Discount Points" value={result.discountPoints.toFixed(3)} />
-                          <Metric label="Buy Price" value={result.buyPrice.toFixed(3)} />
-                        </div>
-                      </div>
-                      <div className="mt-3 text-sm text-slate-600">
-                        Max available: ${Math.round(result.eligibility.maxAvailable).toLocaleString()} • Max LTV: {(result.quote.maxLtv * 100).toFixed(1)}% • Payment: ${Math.round(result.quote.monthlyPayment).toLocaleString()}
-                      </div>
-                      {!result.eligibility.eligible && result.eligibility.reasons.length > 0 && (
-                        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-rose-700">
-                          {result.eligibility.reasons.map(reason => <li key={reason}>{reason}</li>)}
-                        </ul>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
               </>
               ) : null}
             </div>
