@@ -89,7 +89,7 @@ const defaultInput: TesterInput = {
   bestExProduct: 'HELOC',
   bestExDrawPeriodYears: 5,
   bestExTermYears: 30,
-  bestExLockPeriodDays: 15,
+  bestExLockPeriodDays: 45,
   bestExDocType: 'Standard',
   propertyState: 'CA',
   propertyValue: 750000,
@@ -448,7 +448,7 @@ export default function Stage1TesterPage() {
     const bestExProduct = input.bestExProduct ?? 'HELOC';
     const bestExDrawPeriodYears = input.bestExDrawPeriodYears ?? 5;
     const bestExTermYears = input.bestExTermYears ?? 30;
-    const bestExLockPeriodDays = input.bestExLockPeriodDays ?? 15;
+    const bestExLockPeriodDays = input.bestExLockPeriodDays ?? 45;
     const bestExDocType = input.bestExDocType ?? 'Standard';
     const actualLockPeriodDays = bestExLockPeriodDays + 30;
 
@@ -1089,12 +1089,11 @@ export default function Stage1TesterPage() {
                   )}
                   <label className="text-sm">
                     <div className="mb-1 font-medium text-slate-700">Lock Period</div>
-                    <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.bestExLockPeriodDays ?? 15} onChange={e => update('bestExLockPeriodDays', Number(e.target.value) as BestExLockPeriodDays)}>
+                    <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.bestExLockPeriodDays ?? 45} onChange={e => update('bestExLockPeriodDays', Number(e.target.value) as BestExLockPeriodDays)}>
                       <option value={15}>15 Days</option>
                       <option value={30}>30 Days</option>
                       <option value={45}>45 Days</option>
                     </select>
-                    <div className="mt-1 text-xs text-slate-500">Pricing uses a padded lock, so 15 prices as 45, 30 prices as 60, and 45 prices as 75 where supported.</div>
                   </label>
                   <label className="text-sm">
                     <div className="mb-1 font-medium text-slate-700">Doc Type</div>
@@ -1373,13 +1372,13 @@ export default function Stage1TesterPage() {
               )}
 
               <label className="text-sm">
-                <div className="mb-1 font-medium text-slate-700">Target Purchase Price Override</div>
+                <div className="mb-1 font-medium text-slate-700">Target Price</div>
                 <input type="number" step="0.001" placeholder={String(getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0)))} className="w-full rounded-lg border border-slate-300 px-3 py-2" value={targetPriceOverride} onChange={e => setTargetPriceOverride(e.target.value)} />
                 <div className="mt-1 text-xs text-slate-500">Auto target from loan amount: {effectiveTargetPrice.toFixed(3)}</div>
               </label>
 
               <label className="text-sm">
-                <div className="mb-1 font-medium text-slate-700">Manual Rate Override</div>
+                <div className="mb-1 font-medium text-slate-700">Target Rate</div>
                 <input type="number" step="0.125" placeholder="Use engine-selected rate" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={manualRateOverride} onChange={e => setManualRateOverride(e.target.value)} />
                 <div className="mt-1 text-xs text-slate-500">Overrides the quote execution rate only. Target solver stays on purchase price.</div>
               </label>
