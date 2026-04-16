@@ -78,6 +78,7 @@ type SelectedExecution = {
 };
 
 const DATA = ratesheet as JsonRatesheet;
+const DEFAULT_NEWREZ_END_SECONDS: NewRezEndSeconds = 'BE45';
 
 export function buildNewRezStage1PricingInput(stage1: ButtonStage1Input & { newrezProduct?: NewRezProduct }): NewRezPricingInput {
   const propertyValue = Number(stage1.propertyValue || 0);
@@ -255,23 +256,22 @@ function buildAdjustmentLines(input: NewRezPricingInput, selectedLoanAmount: num
 
 function pickExecution(product: NewRezProduct, llpaAdjustment: number, targetPrice: number, tolerance?: number): SelectedExecution {
   const sheet = DATA.pricing[product];
+  const executionColumn = sheet.columns.includes(DEFAULT_NEWREZ_END_SECONDS) ? DEFAULT_NEWREZ_END_SECONDS : sheet.columns[0];
   const executions: SelectedExecution[] = [];
 
   for (const row of sheet.rows) {
-    for (const column of sheet.columns) {
-      const basePrice = row.prices[column];
-      if (basePrice === null) continue;
-      const purchasePrice = roundToThree(basePrice + llpaAdjustment);
-      const deltaFromTarget = roundToThree(roundToThree(targetPrice) - purchasePrice);
-      executions.push({
-        noteRate: row.noteRate,
-        endSeconds: column,
-        basePrice,
-        purchasePrice,
-        deltaFromTarget,
-        withinTolerance: tolerance === undefined ? false : deltaFromTarget >= 0 && deltaFromTarget <= tolerance,
-      });
-    }
+    const basePrice = row.prices[executionColumn];
+    if (basePrice === null) continue;
+    const purchasePrice = roundToThree(basePrice + llpaAdjustment);
+    const deltaFromTarget = roundToThree(roundToThree(targetPrice) - purchasePrice);
+    executions.push({
+      noteRate: row.noteRate,
+      endSeconds: executionColumn,
+      basePrice,
+      purchasePrice,
+      deltaFromTarget,
+      withinTolerance: tolerance === undefined ? false : deltaFromTarget >= 0 && deltaFromTarget <= tolerance,
+    });
   }
 
   const belowOrEqual = executions
