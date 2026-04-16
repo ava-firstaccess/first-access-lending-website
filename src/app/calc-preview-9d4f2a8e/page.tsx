@@ -69,8 +69,8 @@ const US_STATES = [
 export default function MortgageCalculator() {
   // Mortgage inputs
   const [homePrice, setHomePrice] = useState<number>(400000);
-  const [downPayment, setDownPayment] = useState<number>(20000); // 5% default, 3% minimum
-  const [downPaymentPercent, setDownPaymentPercent] = useState<number>(5); // 5% default, 3% minimum
+  const [downPayment, setDownPayment] = useState<number>(20000); // 5% default
+  const [downPaymentPercent, setDownPaymentPercent] = useState<number>(5); // 5% default
   const [interestRate, setInterestRate] = useState<number>(0); // Will be populated by API
   const [loanTerm, setLoanTerm] = useState<number>(30);
   const [propertyTaxRate, setPropertyTaxRate] = useState<number>(1.2);
@@ -144,11 +144,9 @@ export default function MortgageCalculator() {
   };
 
   const handleDownPaymentPercentChange = (value: number) => {
-    // Enforce minimum down payment based on loan type
-    const minDown = loanType === 'va' ? 0 : loanType === 'fha' ? 3.5 : 3;
-    const constrainedValue = Math.max(minDown, value);
-    setDownPaymentPercent(Math.round(constrainedValue * 10) / 10); // Round to 1 decimal
-    setDownPayment(Math.round((constrainedValue / 100) * homePrice));
+    const normalizedValue = Math.max(0, value);
+    setDownPaymentPercent(Math.round(normalizedValue * 10) / 10); // Round to 1 decimal
+    setDownPayment(Math.round((normalizedValue / 100) * homePrice));
   };
 
   const handleHomePriceChange = (value: number) => {
@@ -334,9 +332,9 @@ export default function MortgageCalculator() {
                     <button
                       onClick={() => {
                         setLoanType('conventional');
-                        // Enforce 3% minimum for conventional
-                        if (downPaymentPercent < 3) {
-                          handleDownPaymentPercentChange(3);
+                        // Default conventional to 5% only when currently at zero
+                        if (downPaymentPercent === 0) {
+                          handleDownPaymentPercentChange(5);
                         }
                       }}
                       className={`flex-1 px-4 py-3 rounded-lg font-medium transition ${
@@ -350,9 +348,11 @@ export default function MortgageCalculator() {
                     <button
                       onClick={() => {
                         setLoanType('fha');
-                        // Default FHA to 3.5% down payment (set directly to bypass constraint)
-                        setDownPaymentPercent(3.5);
-                        setDownPayment((3.5 / 100) * homePrice);
+                        // Default FHA to 3.5% only when currently at zero
+                        if (downPaymentPercent === 0) {
+                          setDownPaymentPercent(3.5);
+                          setDownPayment((3.5 / 100) * homePrice);
+                        }
                       }}
                       className={`flex-1 px-4 py-3 rounded-lg font-medium transition ${
                         loanType === 'fha'
@@ -455,14 +455,14 @@ export default function MortgageCalculator() {
                         : '⚠️ FHA MIP required (all FHA loans)'}
                     </p>
                   )}
-                  {loanType === 'conventional' && downPaymentPercent < 3 && (
-                    <p className="mt-1 text-xs text-red-600">
-                      ⚠️ Conventional loans require minimum 3% down payment
+                  {loanType === 'conventional' && downPaymentPercent === 0 && (
+                    <p className="mt-1 text-xs text-blue-600">
+                      ℹ️ Conventional defaults to 5% down, but you can enter any amount.
                     </p>
                   )}
-                  {loanType === 'fha' && downPaymentPercent < 3.5 && (
-                    <p className="mt-1 text-xs text-red-600">
-                      ⚠️ FHA loans require minimum 3.5% down payment
+                  {loanType === 'fha' && downPaymentPercent === 0 && (
+                    <p className="mt-1 text-xs text-blue-600">
+                      ℹ️ FHA defaults to 3.5% down, but you can enter any amount.
                     </p>
                   )}
                 </div>
@@ -1001,7 +1001,7 @@ export default function MortgageCalculator() {
               <p className="text-xs text-gray-600 mb-2 leading-relaxed">
                 <strong>Assumptions:</strong> Conventional PMI: 0.17% for &lt;90% LTV, 0.24% for 90-95% LTV. 
                 FHA MIP: 0.80% for ≤95% LTV, 0.85% for &gt;95% LTV (does not include upfront MIP). 
-                Minimum down payment: 3% for conventional, 3.5% for FHA. 
+                Default down payment: 5% for conventional, 3.5% for FHA. 
                 Actual PMI/MIP rates vary by credit score, loan amount, and lender. 
                 State tax rates are simplified marginal estimates and may not reflect actual liability. 
                 SALT deduction capped at $10,000 (federal tax law). 
