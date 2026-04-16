@@ -152,7 +152,7 @@ export function calculateVerusStage1Quote(
     verusDocType?: VerusDocType;
     verusDrawPeriodYears?: VerusDrawPeriodYears;
   },
-  options?: { selectedLoanAmount?: number; targetPrice?: number }
+  options?: { selectedLoanAmount?: number; targetPrice?: number; rateOverride?: number }
 ): VerusQuote {
   const input = buildVerusStage1PricingInput(stage1);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? calculateMaxAvailable(input));
@@ -161,7 +161,9 @@ export function calculateVerusStage1Quote(
   const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
 
   if (input.program === 'HELOC') {
-    const selected = pickHelocExecution(input.product as VerusHelocProduct, targetPrice);
+    const selected = options?.rateOverride !== undefined
+      ? pickHelocExecutionByRate(input.product as VerusHelocProduct, options.rateOverride)
+      : pickHelocExecution(input.product as VerusHelocProduct, targetPrice);
     const noteRate = roundToThree(DATA.programs.HELOC.primeRate + selected.margin);
     return {
       program: 'HELOC',
@@ -179,12 +181,19 @@ export function calculateVerusStage1Quote(
     };
   }
 
-  const selected = pickCesExecution(
-    input.product as VerusCesProduct,
-    stage1.verusDocType ?? 'Standard',
-    clamp(targetPrice, DATA.programs.CES.minPrice, DATA.programs.CES.maxPrice),
-    llpaAdjustment
-  );
+  const selected = options?.rateOverride !== undefined
+    ? pickCesExecutionByRate(
+        input.product as VerusCesProduct,
+        stage1.verusDocType ?? 'Standard',
+        options.rateOverride,
+        llpaAdjustment
+      )
+    : pickCesExecution(
+        input.product as VerusCesProduct,
+        stage1.verusDocType ?? 'Standard',
+        clamp(targetPrice, DATA.programs.CES.minPrice, DATA.programs.CES.maxPrice),
+        llpaAdjustment
+      );
   return {
     program: 'CES',
     product: input.product,
@@ -260,6 +269,25 @@ function calculateMaxLtv(input: VerusPricingInput): number {
   return input.creditScore >= 700 ? 0.9 : 0.85;
 }
 
+function pickCesExecutionByRate(product: VerusCesProduct, docType: VerusDocType, requestedRate: number, llpaAdjustment = 0) {
+  const rows = docType === 'Alt Doc' ? DATA.programs.CES.pricing.alt : DATA.programs.CES.pricing.standard;
+  let best = { rate: rows[0].rate, basePrice: Number(rows[0].prices[product] ?? 0), purchasePrice: Number(rows[0].prices[product] ?? 0) };
+  let bestDelta = Number.POSITIVE_INFINITY;
+
+  for (const row of rows) {
+    const basePrice = Number(row.prices[product] ?? 0);
+    if (!Number.isFinite(basePrice) || basePrice <= 0) continue;
+    const purchasePrice = roundToThree(basePrice + llpaAdjustment);
+    const delta = Math.abs(row.rate - requestedRate);
+    if (delta < bestDelta || (delta === bestDelta && row.rate > best.rate)) {
+      best = { rate: row.rate, basePrice, purchasePrice };
+      bestDelta = delta;
+    }
+  }
+
+  return best;
+}
+
 function pickCesExecution(product: VerusCesProduct, docType: VerusDocType, targetPrice: number, llpaAdjustment = 0) {
   const rows = docType === 'Alt Doc' ? DATA.programs.CES.pricing.alt : DATA.programs.CES.pricing.standard;
   let bestUnder: { rate: number; basePrice: number; purchasePrice: number } | null = null;
@@ -281,6 +309,25 @@ function pickCesExecution(product: VerusCesProduct, docType: VerusDocType, targe
   }
 
   return bestUnder ?? fallback;
+}
+
+function pickHelocExecutionByRate(product: VerusHelocProduct, requestedRate: number) {
+  const rows = DATA.programs.HELOC.pricing;
+  let best = { margin: rows[0].margin, basePrice: Number(rows[0].prices[product] ?? 0), purchasePrice: Number(rows[0].prices[product] ?? 0) };
+  let bestDelta = Number.POSITIVE_INFINITY;
+
+  for (const row of rows) {
+    const basePrice = Number(row.prices[product] ?? 0);
+    if (!Number.isFinite(basePrice) || basePrice <= 0) continue;
+    const noteRate = roundToThree(DATA.programs.HELOC.primeRate + row.margin);
+    const delta = Math.abs(noteRate - requestedRate);
+    if (delta < bestDelta || (delta === bestDelta && noteRate > roundToThree(DATA.programs.HELOC.primeRate + best.margin))) {
+      best = { margin: row.margin, basePrice, purchasePrice: roundToThree(basePrice) };
+      bestDelta = delta;
+    }
+  }
+
+  return best;
 }
 
 function pickHelocExecution(product: VerusHelocProduct, targetPrice: number) {

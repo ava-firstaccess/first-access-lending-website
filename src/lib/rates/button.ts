@@ -177,6 +177,7 @@ export function calculateButtonQuote(
   options?: {
     selectedLoanAmount?: number;
     targetPrice?: number;
+    rateOverride?: number;
     helocDrawTermYears?: number;
     helocTotalTermYears?: number;
     cesTermYears?: number;
@@ -193,7 +194,9 @@ export function calculateButtonQuote(
 
   const adjustments = buildAdjustmentLines(input, cltvIndex, options);
   const llpaAdjustment = roundToThree(cltvAdj + adjustments.reduce((sum, row) => sum + row.value, 0));
-  const selected = pickNoteRateAtOrBelowTarget(input.product, docKey, llpaAdjustment, targetPrice);
+  const selected = options?.rateOverride !== undefined
+    ? pickNoteRateClosestToRequested(input.product, docKey, llpaAdjustment, options.rateOverride)
+    : pickNoteRateAtOrBelowTarget(input.product, docKey, llpaAdjustment, targetPrice);
 
   const monthlyPayment = calculateMonthlyPayment(input.product, selected.noteRate, selected.purchasePrice, selectedLoanAmount, options);
 
@@ -216,6 +219,7 @@ export function calculateButtonStage1Quote(
   options?: {
     selectedLoanAmount?: number;
     targetPrice?: number;
+    rateOverride?: number;
     helocDrawTermYears?: number;
     helocTotalTermYears?: number;
     cesTermYears?: number;
@@ -333,7 +337,8 @@ function pickNoteRate(
   product: ButtonProduct,
   docKey: 'fullDoc' | 'altDoc',
   llpaAdjustment: number,
-  targetPrice: number
+  targetPrice: number,
+  matchByRate = false
 ): { noteRate: number; basePrice: number; purchasePrice: number } {
   let best = { noteRate: NOTE_RATE_ROWS[0].noteRate, basePrice: basePriceFor(NOTE_RATE_ROWS[0], product, docKey), purchasePrice: 0 };
   let bestDelta = Number.POSITIVE_INFINITY;
@@ -341,7 +346,7 @@ function pickNoteRate(
   for (const row of NOTE_RATE_ROWS) {
     const basePrice = basePriceFor(row, product, docKey);
     const purchasePrice = roundToThree(basePrice + llpaAdjustment);
-    const delta = Math.abs(purchasePrice - targetPrice);
+    const delta = matchByRate ? Math.abs(row.noteRate - targetPrice) : Math.abs(purchasePrice - targetPrice);
     if (delta < bestDelta || (delta === bestDelta && purchasePrice > best.purchasePrice)) {
       best = { noteRate: row.noteRate, basePrice, purchasePrice };
       bestDelta = delta;
@@ -349,6 +354,15 @@ function pickNoteRate(
   }
 
   return best;
+}
+
+function pickNoteRateClosestToRequested(
+  product: ButtonProduct,
+  docKey: 'fullDoc' | 'altDoc',
+  llpaAdjustment: number,
+  requestedRate: number
+): { noteRate: number; basePrice: number; purchasePrice: number } {
+  return pickNoteRate(product, docKey, llpaAdjustment, requestedRate, true);
 }
 
 function pickNoteRateAtOrBelowTarget(

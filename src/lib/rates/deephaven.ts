@@ -81,12 +81,12 @@ export function buildDeephavenStage1PricingInput(
 
 export function calculateDeephavenStage1Quote(
   stage1: ButtonStage1Input & { deephavenProgram?: DeephavenProgram; deephavenProduct?: DeephavenProduct },
-  options?: { selectedLoanAmount?: number; targetPrice?: number }
+  options?: { selectedLoanAmount?: number; targetPrice?: number; rateOverride?: number }
 ): DeephavenQuote {
   const input = buildDeephavenStage1PricingInput(stage1);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? calculateMaxAvailable(input));
   const targetPrice = clampTargetPrice(input, options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), selectedLoanAmount);
-  const selected = pickExecution(input, targetPrice);
+  const selected = options?.rateOverride !== undefined ? pickExecutionByRate(input, options.rateOverride) : pickExecution(input, targetPrice);
 
   return {
     program: input.program,
@@ -144,6 +144,25 @@ export function solveDeephavenStage1TargetRate(
     withinTolerance: deltaFromTarget >= 0 && deltaFromTarget <= tolerance,
     withinToleranceAllowOverage: deltaFromTarget >= -tolerance && deltaFromTarget <= tolerance,
   };
+}
+
+function pickExecutionByRate(input: DeephavenPricingInput, requestedRate: number) {
+  const rows = DATA.programs[input.program].pricing;
+  let best = { rate: rows[0].rate, basePrice: Number(rows[0].prices[input.product] ?? 0), purchasePrice: Number(rows[0].prices[input.product] ?? 0) };
+  let bestDelta = Number.POSITIVE_INFINITY;
+
+  for (const row of rows) {
+    const basePrice = Number(row.prices[input.product] ?? 0);
+    if (!Number.isFinite(basePrice) || basePrice <= 0) continue;
+    const purchasePrice = roundToThree(basePrice);
+    const delta = Math.abs(row.rate - requestedRate);
+    if (delta < bestDelta || (delta === bestDelta && row.rate > best.rate)) {
+      best = { rate: row.rate, basePrice, purchasePrice };
+      bestDelta = delta;
+    }
+  }
+
+  return best;
 }
 
 function pickExecution(input: DeephavenPricingInput, targetPrice: number) {

@@ -122,7 +122,7 @@ export function calculateOsbStage1Quote(
     osbLockPeriodDays?: OsbLockPeriod;
     helocDrawTermYears?: 3 | 5 | 10;
   },
-  options?: { selectedLoanAmount?: number; targetPrice?: number }
+  options?: { selectedLoanAmount?: number; targetPrice?: number; rateOverride?: number }
 ): OsbQuote {
   return calculateOsbQuote(buildOsbStage1PricingInput(stage1), options);
 }
@@ -181,14 +181,16 @@ export function solveOsbStage1TargetRate(
   };
 }
 
-export function calculateOsbQuote(input: OsbPricingInput, options?: { selectedLoanAmount?: number; targetPrice?: number }): OsbQuote {
+export function calculateOsbQuote(input: OsbPricingInput, options?: { selectedLoanAmount?: number; targetPrice?: number; rateOverride?: number }): OsbQuote {
   const program = getProgramData(input.program);
   const maxAvailable = calculateMaxAvailable(input);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? maxAvailable);
   const targetPrice = clampTargetPrice(program, input.product, options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount));
   const adjustments = buildAdjustmentLines(input, selectedLoanAmount);
   const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
-  const selected = pickRateAtOrBelowTarget(input, llpaAdjustment, targetPrice);
+  const selected = options?.rateOverride !== undefined
+    ? pickRateClosestToRequested(input, llpaAdjustment, options.rateOverride)
+    : pickRateAtOrBelowTarget(input, llpaAdjustment, targetPrice);
 
   return {
     program: input.program,
@@ -279,6 +281,26 @@ function calculateMaxLtv(input: OsbPricingInput): number {
   const lastEligibleIndex = row.values.reduce<number>((best, value, index) => value !== null ? index : best, -1);
   if (lastEligibleIndex < 0) return 0;
   return upperBoundForCltvLabel(program.cltvBuckets[lastEligibleIndex]) / 100;
+}
+
+function pickRateClosestToRequested(input: OsbPricingInput, llpaAdjustment: number, requestedRate: number): { rate: number; basePrice: number; purchasePrice: number } {
+  const program = getProgramData(input.program);
+  const key = productKey(input.product);
+  let best = { rate: program.pricing.rowsData[0].rate, basePrice: program.pricing.rowsData[0].prices[key] ?? 0, purchasePrice: 0 };
+  let bestDelta = Number.POSITIVE_INFINITY;
+
+  for (const row of program.pricing.rowsData) {
+    const basePrice = row.prices[key];
+    if (basePrice == null) continue;
+    const purchasePrice = roundToThree(basePrice + llpaAdjustment);
+    const delta = Math.abs(row.rate - requestedRate);
+    if (delta < bestDelta || (delta === bestDelta && row.rate > best.rate)) {
+      best = { rate: row.rate, basePrice, purchasePrice };
+      bestDelta = delta;
+    }
+  }
+
+  return best;
 }
 
 function pickRateAtOrBelowTarget(input: OsbPricingInput, llpaAdjustment: number, targetPrice: number): { rate: number; basePrice: number; purchasePrice: number } {

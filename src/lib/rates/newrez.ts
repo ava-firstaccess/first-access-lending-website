@@ -108,18 +108,18 @@ export function buildNewRezStage1PricingInput(stage1: ButtonStage1Input & { newr
 
 export function calculateNewRezStage1Quote(
   stage1: ButtonStage1Input & { newrezProduct?: NewRezProduct },
-  options?: { selectedLoanAmount?: number; targetPrice?: number }
+  options?: { selectedLoanAmount?: number; targetPrice?: number; rateOverride?: number }
 ): NewRezQuote {
   return calculateNewRezQuote(buildNewRezStage1PricingInput(stage1), options);
 }
 
-export function calculateNewRezQuote(input: NewRezPricingInput, options?: { selectedLoanAmount?: number; targetPrice?: number }): NewRezQuote {
+export function calculateNewRezQuote(input: NewRezPricingInput, options?: { selectedLoanAmount?: number; targetPrice?: number; rateOverride?: number }): NewRezQuote {
   const maxAvailable = calculateMaxAvailable(input);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? maxAvailable);
   const targetPrice = options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount);
   const adjustments = buildAdjustmentLines(input, selectedLoanAmount);
   const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
-  const selected = pickExecution(input.product, llpaAdjustment, targetPrice, undefined);
+  const selected = pickExecution(input.product, llpaAdjustment, targetPrice, undefined, options?.rateOverride);
 
   return {
     program: 'NewRez',
@@ -256,7 +256,7 @@ function buildAdjustmentLines(input: NewRezPricingInput, selectedLoanAmount: num
   return adjustments.filter(row => Number.isFinite(row.value));
 }
 
-function pickExecution(product: NewRezProduct, llpaAdjustment: number, targetPrice: number, tolerance?: number): SelectedExecution {
+function pickExecution(product: NewRezProduct, llpaAdjustment: number, targetPrice: number, tolerance?: number, rateOverride?: number): SelectedExecution {
   const sheet = DATA.pricing[product];
   const executionColumn = sheet.columns.includes(DEFAULT_NEWREZ_END_SECONDS) ? DEFAULT_NEWREZ_END_SECONDS : sheet.columns[0];
   const executions: SelectedExecution[] = [];
@@ -274,6 +274,10 @@ function pickExecution(product: NewRezProduct, llpaAdjustment: number, targetPri
       deltaFromTarget,
       withinTolerance: tolerance === undefined ? false : deltaFromTarget >= 0 && deltaFromTarget <= tolerance,
     });
+  }
+
+  if (rateOverride !== undefined) {
+    return executions.sort((a, b) => Math.abs(a.noteRate - rateOverride) - Math.abs(b.noteRate - rateOverride) || (b.purchasePrice - a.purchasePrice))[0];
   }
 
   const belowOrEqual = executions

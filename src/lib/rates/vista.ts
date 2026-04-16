@@ -105,14 +105,14 @@ export function buildVistaStage1PricingInput(stage1: ButtonStage1Input & { vista
 
 export function calculateVistaStage1Quote(
   stage1: ButtonStage1Input & { vistaProduct?: VistaProduct },
-  options?: { selectedLoanAmount?: number; targetPrice?: number }
+  options?: { selectedLoanAmount?: number; targetPrice?: number; rateOverride?: number }
 ): VistaQuote {
   return calculateVistaQuote(buildVistaStage1PricingInput(stage1), options);
 }
 
 export function calculateVistaQuote(
   input: VistaPricingInput,
-  options?: { selectedLoanAmount?: number; targetPrice?: number }
+  options?: { selectedLoanAmount?: number; targetPrice?: number; rateOverride?: number }
 ): VistaQuote {
   const programKey = getProgramKey(input);
   const program = PROGRAMS[programKey];
@@ -121,7 +121,9 @@ export function calculateVistaQuote(
   const targetPrice = Math.min(options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), getMaxPrice(program));
   const adjustments = buildAdjustmentLines(input, selectedLoanAmount);
   const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
-  const selected = pickRateAtOrBelowTarget(program, llpaAdjustment, targetPrice);
+  const selected = options?.rateOverride !== undefined
+    ? pickRateClosestToRequested(program, llpaAdjustment, options.rateOverride)
+    : pickRateAtOrBelowTarget(program, llpaAdjustment, targetPrice);
 
   return {
     program: program.inputName,
@@ -273,6 +275,26 @@ function findAdjustment(program: JsonProgram, category: string, label: string): 
 function getMaxPrice(program: JsonProgram): number {
   const values = Object.values(program.sections.pricing30Day.maxPrice).filter((value): value is number => typeof value === 'number');
   return values.length ? Math.max(...values) : 105;
+}
+
+function pickRateClosestToRequested(
+  program: JsonProgram,
+  llpaAdjustment: number,
+  requestedRate: number
+): { noteRate: number; basePrice: number; purchasePrice: number } {
+  let best = { noteRate: program.sections.pricing30Day.rowsData[0].noteRate, basePrice: program.sections.pricing30Day.rowsData[0].basePrice, purchasePrice: 0 };
+  let bestDelta = Number.POSITIVE_INFINITY;
+
+  for (const row of program.sections.pricing30Day.rowsData) {
+    const purchasePrice = roundToThree(row.basePrice + llpaAdjustment);
+    const delta = Math.abs(row.noteRate - requestedRate);
+    if (delta < bestDelta || (delta === bestDelta && row.noteRate > best.noteRate)) {
+      best = { noteRate: row.noteRate, basePrice: row.basePrice, purchasePrice };
+      bestDelta = delta;
+    }
+  }
+
+  return best;
 }
 
 function pickRateAtOrBelowTarget(

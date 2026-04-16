@@ -55,6 +55,7 @@ export default function Stage1TesterPage() {
   const [engine, setEngine] = useState<'Button' | 'Vista' | 'OSB' | 'NewRez' | 'Verus' | 'Deephaven'>('Button');
   const [input, setInput] = useState<TesterInput>(defaultInput);
   const [targetPriceOverride, setTargetPriceOverride] = useState<string>('');
+  const [manualRateOverride, setManualRateOverride] = useState<string>('');
   const [tolerance, setTolerance] = useState(0.125);
 
   const effectiveTargetPrice = useMemo(() => {
@@ -62,11 +63,18 @@ export default function Stage1TesterPage() {
     return getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0));
   }, [input.desiredLoanAmount, targetPriceOverride]);
 
+  const effectiveManualRateOverride = useMemo(() => {
+    if (!manualRateOverride.trim()) return undefined;
+    const parsed = Number(manualRateOverride);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, [manualRateOverride]);
+
   const activeResult = useMemo<Stage1PricingEngineResult>(() => {
     if (engine === 'Button') {
       const eligibility = evaluateButtonStage1Eligibility(input, input.desiredLoanAmount);
       const quote = calculateButtonStage1Quote(input, {
         selectedLoanAmount: input.desiredLoanAmount,
+        rateOverride: effectiveManualRateOverride,
         cesTermYears: input.buttonTermYears,
         helocDrawTermYears: input.helocDrawTermYears,
       });
@@ -121,6 +129,7 @@ export default function Stage1TesterPage() {
       const quote = calculateVistaStage1Quote(input, {
         selectedLoanAmount: input.desiredLoanAmount,
         targetPrice: effectiveTargetPrice,
+        rateOverride: effectiveManualRateOverride,
       });
       const targetQuote = solveVistaStage1TargetRate(input, {
         targetPrice: effectiveTargetPrice,
@@ -171,6 +180,7 @@ export default function Stage1TesterPage() {
       const quote = calculateNewRezStage1Quote(input, {
         selectedLoanAmount: input.desiredLoanAmount,
         targetPrice: effectiveTargetPrice,
+        rateOverride: effectiveManualRateOverride,
       });
       const targetQuote = solveNewRezStage1TargetRate(input, {
         targetPrice: effectiveTargetPrice,
@@ -221,6 +231,7 @@ export default function Stage1TesterPage() {
       const quote = calculateVerusStage1Quote(input, {
         selectedLoanAmount: input.desiredLoanAmount,
         targetPrice: effectiveTargetPrice,
+        rateOverride: effectiveManualRateOverride,
       });
       const targetQuote = solveVerusStage1TargetRate(input, {
         targetPrice: effectiveTargetPrice,
@@ -271,6 +282,7 @@ export default function Stage1TesterPage() {
       const quote = calculateDeephavenStage1Quote(input, {
         selectedLoanAmount: input.desiredLoanAmount,
         targetPrice: effectiveTargetPrice,
+        rateOverride: effectiveManualRateOverride,
       });
       const targetQuote = solveDeephavenStage1TargetRate(input, {
         targetPrice: effectiveTargetPrice,
@@ -320,6 +332,7 @@ export default function Stage1TesterPage() {
     const quote = calculateOsbStage1Quote(input, {
       selectedLoanAmount: input.desiredLoanAmount,
       targetPrice: effectiveTargetPrice,
+      rateOverride: effectiveManualRateOverride,
     });
     const targetQuote = solveOsbStage1TargetRate(input, {
       targetPrice: effectiveTargetPrice,
@@ -363,7 +376,7 @@ export default function Stage1TesterPage() {
         withinToleranceAllowOverage: targetQuote.withinToleranceAllowOverage,
       },
     };
-  }, [engine, input, effectiveTargetPrice, tolerance]);
+  }, [engine, input, effectiveTargetPrice, effectiveManualRateOverride, tolerance]);
 
   const { eligibility, quote, targetQuote } = activeResult;
   const osbDerived = useMemo(() => buildOsbStage1PricingInput(input), [input]);
@@ -694,6 +707,12 @@ export default function Stage1TesterPage() {
                 <div className="mb-1 font-medium text-slate-700">Target Purchase Price Override</div>
                 <input type="number" step="0.001" placeholder={String(getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0)))} className="w-full rounded-lg border border-slate-300 px-3 py-2" value={targetPriceOverride} onChange={e => setTargetPriceOverride(e.target.value)} />
                 <div className="mt-1 text-xs text-slate-500">Auto target from loan amount: {effectiveTargetPrice.toFixed(3)}</div>
+              </label>
+
+              <label className="text-sm">
+                <div className="mb-1 font-medium text-slate-700">Manual Rate Override</div>
+                <input type="number" step="0.125" placeholder="Use engine-selected rate" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={manualRateOverride} onChange={e => setManualRateOverride(e.target.value)} />
+                <div className="mt-1 text-xs text-slate-500">Overrides the quote execution rate only. Target solver stays on purchase price.</div>
               </label>
 
               <label className="text-sm">
