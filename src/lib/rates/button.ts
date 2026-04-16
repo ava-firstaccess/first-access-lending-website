@@ -93,6 +93,7 @@ const DRAW_TABLE = ratesheet.tables.draw as {
 };
 
 const BUTTON_MAX_PURCHASE_PRICE = 105;
+const BUTTON_45_DAY_LOCK_ADJUSTMENT = 0.125;
 
 const SECOND_LIEN_MARGIN_TARGETS = [
   { min: 0, max: 100000, backendFee: 0.06 },
@@ -419,6 +420,8 @@ function buildAdjustmentLines(
   const adjustments: Stage1AdjustmentLine[] = [];
   const occupancy = normalizeOccupancy(input.occupancy);
   const normalizedStructure = normalizeStructureType(input.structureType);
+
+  adjustments.push({ label: 'Lock Period: 45 Day', value: BUTTON_45_DAY_LOCK_ADJUSTMENT });
 
   if (occupancy === 'Second Home') {
     adjustments.push({ label: 'Second Home', value: getLookupValue(OCCUPANCY_TABLE, 'Second Home', cltvIndex) });

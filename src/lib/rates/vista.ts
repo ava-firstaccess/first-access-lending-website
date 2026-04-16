@@ -224,6 +224,9 @@ function buildAdjustmentLines(input: VistaPricingInput, selectedLoanAmount: numb
   const term = findAdjustment(program, 'term', input.product);
   if (term) adjustments.push({ label: `Term: ${term.label}`, value: term.value ?? 0 });
 
+  const lockTerm = findAdjustment(program, 'lockTerm', '45 Day');
+  if (lockTerm) adjustments.push({ label: `Lock Period: ${lockTerm.label}`, value: lockTerm.value ?? 0 });
+
   const amountLabel = loanAmountLabel(selectedLoanAmount);
   const loanAmount = findAdjustment(program, 'loanAmount', amountLabel);
   if (loanAmount) adjustments.push({ label: `Loan Amount: ${loanAmount.label}`, value: loanAmount.value ?? 0 });
