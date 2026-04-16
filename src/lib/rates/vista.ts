@@ -152,7 +152,7 @@ export function evaluateVistaStage1Eligibility(
   const program = PROGRAMS[getProgramKey(input)];
 
   if (!findCltvRow(program, input.creditScore)) reasons.push('Credit score is outside the Vista Full Doc matrix.');
-  if (!findCltvBucketIndex(program, input.resultingCltv)) reasons.push('Resulting CLTV is outside the Vista Full Doc matrix.');
+  if (findCltvBucketIndex(program, input.resultingCltv) === null) reasons.push('Resulting CLTV is outside the Vista Full Doc matrix.');
   if (!findAdjustment(program, 'term', input.product)) reasons.push('Selected term is not available in the Vista ratesheet.');
   if (!findAdjustment(program, 'loanAmount', loanAmountLabel(requested))) reasons.push('Desired loan amount is outside the Vista loan amount table.');
   if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
