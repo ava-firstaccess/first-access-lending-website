@@ -43,7 +43,7 @@ type InvestorSummary = {
 
 type BestExProduct = 'HELOC' | 'CES';
 type BestExDrawPeriodYears = 3 | 5 | 10;
-type BestExTermYears = 10 | 15 | 25 | 30;
+type BestExTermYears = 10 | 15 | 20 | 25 | 30;
 type BestExLockPeriodDays = 15 | 30 | 45;
 
 const BEST_EX_WINDOW_FLOOR = 0.375;
@@ -61,9 +61,9 @@ function buildRequestedRates(min: number, max: number, step = 0.125) {
   return values;
 }
 
-function distanceToBestExWindow(deltaFromTarget: number) {
-  if (deltaFromTarget < -BEST_EX_WINDOW_FLOOR) return roundToThree((-BEST_EX_WINDOW_FLOOR) - deltaFromTarget);
-  if (deltaFromTarget > BEST_EX_WINDOW_CEILING) return roundToThree(deltaFromTarget - BEST_EX_WINDOW_CEILING);
+function distanceToBestExWindow(purchasePrice: number, lowerBound: number, upperBound: number) {
+  if (purchasePrice < lowerBound) return roundToThree(lowerBound - purchasePrice);
+  if (purchasePrice > upperBound) return roundToThree(purchasePrice - upperBound);
   return 0;
 }
 
@@ -120,13 +120,12 @@ export default function Stage1TesterPage() {
   }, []);
 
   const defaultBackendTargetPrice = useMemo(() => getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0)), [input.desiredLoanAmount]);
-  const defaultLoTargetPrice = useMemo(() => roundToThree(200 - defaultBackendTargetPrice), [defaultBackendTargetPrice]);
-
-  const effectiveTargetPrice = useMemo(() => {
-    if (!targetPriceOverride.trim()) return defaultBackendTargetPrice;
+  const effectiveTargetPrice = defaultBackendTargetPrice;
+  const bestExLoTargetPrice = useMemo(() => {
+    if (!targetPriceOverride.trim()) return 100;
     const parsed = Number(targetPriceOverride);
-    return Number.isFinite(parsed) ? roundToThree(200 - parsed) : defaultBackendTargetPrice;
-  }, [defaultBackendTargetPrice, targetPriceOverride]);
+    return Number.isFinite(parsed) ? parsed : 100;
+  }, [targetPriceOverride]);
 
   const effectiveManualRateOverride = useMemo(() => {
     if (!manualRateOverride.trim()) return undefined;
@@ -455,12 +454,14 @@ export default function Stage1TesterPage() {
     const bestExLockPeriodDays = input.bestExLockPeriodDays ?? 45;
     const bestExDocType = input.bestExDocType ?? 'Standard';
     const actualLockPeriodDays = bestExLockPeriodDays + 15;
+    const bestExWindowLowerBound = roundToThree(defaultBackendTargetPrice - BEST_EX_WINDOW_FLOOR - (100 - bestExLoTargetPrice));
+    const bestExWindowUpperBound = roundToThree(defaultBackendTargetPrice + BEST_EX_WINDOW_CEILING);
 
     const makeSummary = (eligibility: Stage1Eligibility, quote: Stage1ExecutionQuote): InvestorSummary => {
-      const discountPoints = effectiveTargetPrice - quote.purchasePrice;
+      const discountPoints = defaultBackendTargetPrice - quote.purchasePrice;
       const buyPrice = Number((100 - discountPoints).toFixed(3));
-      const deltaFromTarget = roundToThree(quote.purchasePrice - effectiveTargetPrice);
-      const windowMatched = eligibility.eligible && deltaFromTarget >= -BEST_EX_WINDOW_FLOOR && deltaFromTarget <= BEST_EX_WINDOW_CEILING;
+      const deltaFromTarget = roundToThree(quote.purchasePrice - defaultBackendTargetPrice);
+      const windowMatched = eligibility.eligible && quote.purchasePrice >= bestExWindowLowerBound && quote.purchasePrice <= bestExWindowUpperBound;
       return { investor: quote.engine, eligibility, quote, discountPoints, buyPrice, windowMatched, deltaFromTarget };
     };
 
@@ -525,8 +526,8 @@ export default function Stage1TesterPage() {
       }
 
       return [...allCandidates].sort((a, b) => {
-        const aDistance = distanceToBestExWindow(a.deltaFromTarget);
-        const bDistance = distanceToBestExWindow(b.deltaFromTarget);
+        const aDistance = distanceToBestExWindow(a.quote.purchasePrice, bestExWindowLowerBound, bestExWindowUpperBound);
+        const bDistance = distanceToBestExWindow(b.quote.purchasePrice, bestExWindowLowerBound, bestExWindowUpperBound);
         if (aDistance !== bDistance) return aDistance - bDistance;
         if (Math.abs(a.deltaFromTarget) !== Math.abs(b.deltaFromTarget)) return Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget);
         if (a.quote.rate !== b.quote.rate) return a.quote.rate - b.quote.rate;
@@ -844,6 +845,7 @@ export default function Stage1TesterPage() {
       const verusProducts: Record<BestExTermYears, VerusProduct> = {
         10: '10 YR FIX',
         15: '15 YR FIX',
+        20: '20 YR FIX',
         25: '25 YR FIX',
         30: '30 YR FIX',
       };
@@ -944,8 +946,8 @@ export default function Stage1TesterPage() {
         if ((a.deltaFromTarget > 0) !== (b.deltaFromTarget > 0)) return a.deltaFromTarget > 0 ? 1 : -1;
         if (b.buyPrice !== a.buyPrice) return b.buyPrice - a.buyPrice;
       } else if (a.eligibility.eligible && b.eligibility.eligible) {
-        const aDistance = distanceToBestExWindow(a.deltaFromTarget);
-        const bDistance = distanceToBestExWindow(b.deltaFromTarget);
+        const aDistance = distanceToBestExWindow(a.quote.purchasePrice, bestExWindowLowerBound, bestExWindowUpperBound);
+        const bDistance = distanceToBestExWindow(b.quote.purchasePrice, bestExWindowLowerBound, bestExWindowUpperBound);
         if (aDistance !== bDistance) return aDistance - bDistance;
         if (Math.abs(a.deltaFromTarget) !== Math.abs(b.deltaFromTarget)) return Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget);
         if (a.quote.rate !== b.quote.rate) return a.quote.rate - b.quote.rate;
@@ -953,7 +955,7 @@ export default function Stage1TesterPage() {
       }
       return a.investor.localeCompare(b.investor);
     });
-  }, [input, effectiveTargetPrice]);
+  }, [input, effectiveTargetPrice, defaultBackendTargetPrice, bestExLoTargetPrice]);
 
   const eligibility = activeResult?.eligibility;
   const quote = activeResult?.quote;
@@ -1106,6 +1108,7 @@ export default function Stage1TesterPage() {
                       <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.bestExTermYears ?? 30} onChange={e => update('bestExTermYears', Number(e.target.value) as BestExTermYears)}>
                         <option value={10}>10 Years</option>
                         <option value={15}>15 Years</option>
+                        <option value={20}>20 Years</option>
                         <option value={25}>25 Years</option>
                         <option value={30}>30 Years</option>
                       </select>
@@ -1404,8 +1407,7 @@ export default function Stage1TesterPage() {
 
               <label className="text-sm">
                 <div className="mb-1 font-medium text-slate-700">Target Price</div>
-                <input type="number" step="0.001" placeholder={String(defaultLoTargetPrice)} className="w-full rounded-lg border border-slate-300 px-3 py-2" value={targetPriceOverride} onChange={e => setTargetPriceOverride(e.target.value)} />
-                <div className="mt-1 text-xs text-slate-500">Enter the LO target price, for example 99. Auto LO target from loan amount: {defaultLoTargetPrice.toFixed(3)}</div>
+                <input type="number" step="0.001" placeholder="100" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={targetPriceOverride} onChange={e => setTargetPriceOverride(e.target.value)} />
               </label>
 
               <label className="text-sm">
