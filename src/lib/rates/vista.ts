@@ -2,7 +2,7 @@ import ratesheet from './vista-ratesheet.json';
 import { getTargetPurchasePriceForLoanAmount, type ButtonStage1Input } from './button';
 
 export type VistaProgram = 'Second OO' | 'Second NOO';
-export type VistaProduct = '10yr Fixed' | '15yr Fixed' | '20yr Fixed' | '30yr Fixed' | '30/15yr Balloon' | '40/15yr Balloon';
+export type VistaProduct = '10yr Fixed' | '15yr Fixed' | '20yr Fixed' | '30yr Fixed';
 
 export interface VistaPricingInput {
   product: VistaProduct;
@@ -76,7 +76,7 @@ type JsonProgram = {
   };
 };
 
-const VISTA_PRODUCTS: VistaProduct[] = ['10yr Fixed', '15yr Fixed', '20yr Fixed', '30yr Fixed', '30/15yr Balloon', '40/15yr Balloon'];
+const VISTA_PRODUCTS: VistaProduct[] = ['10yr Fixed', '15yr Fixed', '20yr Fixed', '30yr Fixed'];
 const PROGRAMS = (ratesheet as unknown as { programs: Record<ProgramKey, JsonProgram> }).programs;
 
 export function buildVistaStage1PricingInput(stage1: ButtonStage1Input & { vistaProduct?: VistaProduct }): VistaPricingInput {
@@ -297,7 +297,7 @@ function pickRateAtOrBelowTarget(
 function calculateMonthlyPayment(product: VistaProduct, noteRate: number, loanAmount: number): number {
   if (loanAmount <= 0) return 0;
   const monthlyRate = noteRate / 100 / 12;
-  const amortYears = product === '10yr Fixed' ? 10 : product === '15yr Fixed' ? 15 : product === '20yr Fixed' ? 20 : product === '40/15yr Balloon' ? 40 : 30;
+  const amortYears = product === '10yr Fixed' ? 10 : product === '15yr Fixed' ? 15 : product === '20yr Fixed' ? 20 : 30;
   const payments = amortYears * 12;
   return roundToNearestDollar(loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, payments)) / (Math.pow(1 + monthlyRate, payments) - 1));
 }

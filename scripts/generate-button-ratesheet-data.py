@@ -6,7 +6,7 @@ from openpyxl import load_workbook
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_ROOT = Path('/Users/ava/Documents/GitHub/first-access-lending')
-WORKBOOK = SOURCE_ROOT / 'getaccess' / 'ratesheets' / '2026-04-13 - fully delegated - external rate sheet - Intraday.xlsx'
+WORKBOOK = SOURCE_ROOT / 'getaccess' / 'ratesheets' / 'latest_button.xlsx'
 OUT = ROOT / 'src' / 'lib' / 'rates' / 'button-ratesheet.json'
 
 
@@ -50,6 +50,8 @@ def main() -> None:
         })
 
     data = {
+        'sourceWorkbook': str(WORKBOOK),
+        'sheet': 'Fully Delegated',
         'noteRates': note_rates,
         'tables': {
             'cltv': {

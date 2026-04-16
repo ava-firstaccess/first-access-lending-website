@@ -22,7 +22,7 @@ type TesterInput = ButtonStage1Input & {
   deephavenProgram?: DeephavenProgram;
   deephavenProduct?: DeephavenProduct;
   helocDrawTermYears?: 3 | 5 | 10;
-  buttonTermYears?: 10 | 15 | 25 | 30;
+  buttonTermYears?: 10 | 15 | 20 | 25 | 30;
 };
 
 const defaultInput: TesterInput = {
@@ -39,7 +39,7 @@ const defaultInput: TesterInput = {
   deephavenProgram: 'Expanded Prime',
   deephavenProduct: '30Y Fixed',
   helocDrawTermYears: 5,
-  buttonTermYears: 30,
+  buttonTermYears: 20,
   propertyState: 'CA',
   propertyValue: 750000,
   loanBalance: 250000,
@@ -426,14 +426,15 @@ export default function Stage1TesterPage() {
                         <div className="mb-1 font-medium text-slate-700">Button Term</div>
                         <TermToggle
                           label="Button Term"
-                          value={String(input.buttonTermYears ?? 30)}
+                          value={String(input.buttonTermYears ?? 20)}
                           options={[
                             { value: '10', label: '10 Year' },
                             { value: '15', label: '15 Year' },
+                            { value: '20', label: '20 Year' },
                             { value: '25', label: '25 Year' },
                             { value: '30', label: '30 Year' },
                           ]}
-                          onChange={value => update('buttonTermYears', Number(value) as 10 | 15 | 25 | 30)}
+                          onChange={value => update('buttonTermYears', Number(value) as 10 | 15 | 20 | 25 | 30)}
                         />
                       </div>
                     </div>
@@ -451,8 +452,6 @@ export default function Stage1TesterPage() {
                         { value: '20yr Fixed', label: '20 Fixed' },
                         { value: '15yr Fixed', label: '15 Fixed' },
                         { value: '10yr Fixed', label: '10 Fixed' },
-                        { value: '30/15yr Balloon', label: '30/15 Balloon' },
-                        { value: '40/15yr Balloon', label: '40/15 Balloon' },
                       ]}
                       onChange={value => update('vistaProduct', value as VistaProduct)}
                     />

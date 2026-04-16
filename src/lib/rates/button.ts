@@ -41,7 +41,7 @@ export interface ButtonStage1Input {
   structureType?: string;
   numberOfUnits?: number;
   cashOut?: boolean;
-  buttonTermYears?: 10 | 15 | 25 | 30;
+  buttonTermYears?: 10 | 15 | 20 | 25 | 30;
 }
 
 export interface ButtonQuote {

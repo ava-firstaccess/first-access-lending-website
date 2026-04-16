@@ -14,8 +14,8 @@ PROGRAMS = {
         'inputName': 'Second OO',
         'pricingRows': (65, 113),
         'basePriceColumn': 6,
-        'maxPriceRows': {'default': 130},
-        'minPriceRows': {'default': 138},
+        'maxPriceRows': {'default': 41},
+        'minPriceRows': {'default': 52},
         'cltv': {
             'headerRow': 65,
             'startRow': 66,
@@ -26,75 +26,75 @@ PROGRAMS = {
             },
         },
         'adjustmentRows': {
-            'bankStatement': (96, 98),
-            'term': (99, 104),
-            'amortization': (105, 106),
-            'loanAmount': (107, 127),
-            'dti': (128, 132),
-            'dscr': (133, 133),
-            'purpose': (134, 136),
-            'occupancy': (137, 138),
-            'valuation': (139, 140),
-            'state': (141, 144),
-            'propertyType': (145, 159),
-            'citizenship': (160, 163),
-            'employment': (164, 168),
-            'firstTimeBuyer': (169, 174),
-            'housingHistory': (175, 180),
-            'creditEvents': (181, 187),
-            'payment': (188, 189),
-            'servicing': (190, 191),
-            'prepay': (192, 192),
-            'lockTerm': (193, 195),
-            'lockType': (196, 197),
+            'bankStatement': (106, 108),
+            'term': (109, 114),
+            'amortization': (115, 116),
+            'loanAmount': (117, 137),
+            'dti': (138, 142),
+            'dscr': (143, 143),
+            'purpose': (144, 146),
+            'occupancy': (147, 148),
+            'valuation': (149, 150),
+            'state': (151, 154),
+            'propertyType': (155, 169),
+            'citizenship': (170, 173),
+            'employment': (174, 178),
+            'firstTimeBuyer': (179, 184),
+            'housingHistory': (185, 190),
+            'creditEvents': (191, 197),
+            'payment': (198, 199),
+            'servicing': (200, 201),
+            'prepay': (202, 202),
+            'lockTerm': (203, 205),
+            'lockType': (206, 207),
         },
     },
     'secondNOO': {
         'key': 'IT',
         'inputCode': 'IR',
         'inputName': 'Second NOO',
-        'pricingRows': (210, 260),
+        'pricingRows': (220, 269),
         'basePriceColumn': 6,
         'maxPriceRows': {
-            'No Prepay - Hard': 285,
-            '1yr Prepay - Hard': 286,
-            '2yr Prepay - Hard': 289,
-            '3yr Prepay - Hard': 290,
-            '4yr Prepay - Hard': 291,
-            '5yr Prepay - Hard': 292,
+            'No Prepay - Hard': 295,
+            '1yr Prepay - Hard': 296,
+            '2yr Prepay - Hard': 299,
+            '3yr Prepay - Hard': 300,
+            '4yr Prepay - Hard': 301,
+            '5yr Prepay - Hard': 302,
         },
-        'minPriceRows': {'default': 428},
+        'minPriceRows': {'default': 443},
         'cltv': {
-            'headerRow': 210,
-            'startRow': 211,
-            'endRow': 250,
+            'headerRow': 220,
+            'startRow': 221,
+            'endRow': 260,
             'columns': (20, 27),
             'docGroups': {
-                'fullDoc': [(211, 220), (221, 230), (231, 240), (241, 250)],
+                'fullDoc': [(221, 230), (231, 240), (241, 250), (251, 260)],
             },
         },
         'adjustmentRows': {
-            'bankStatement': (251, 253),
-            'term': (254, 259),
-            'amortization': (260, 261),
-            'loanAmount': (262, 282),
-            'dti': (283, 287),
-            'dscr': (288, 294),
-            'purpose': (295, 297),
-            'occupancy': (298, 298),
-            'valuation': (299, 300),
-            'state': (301, 304),
-            'propertyType': (305, 319),
-            'citizenship': (320, 323),
-            'employment': (324, 328),
-            'firstTimeBuyer': (329, 334),
-            'housingHistory': (335, 340),
-            'creditEvents': (341, 347),
-            'payment': (348, 349),
-            'servicing': (350, 351),
-            'prepay': (352, 372),
-            'lockTerm': (373, 375),
-            'lockType': (376, 377),
+            'bankStatement': (261, 263),
+            'term': (264, 269),
+            'amortization': (270, 271),
+            'loanAmount': (272, 292),
+            'dti': (293, 297),
+            'dscr': (298, 304),
+            'purpose': (305, 307),
+            'occupancy': (308, 308),
+            'valuation': (309, 310),
+            'state': (311, 314),
+            'propertyType': (315, 329),
+            'citizenship': (330, 333),
+            'employment': (334, 338),
+            'firstTimeBuyer': (339, 344),
+            'housingHistory': (345, 350),
+            'creditEvents': (351, 357),
+            'payment': (358, 359),
+            'servicing': (360, 361),
+            'prepay': (362, 382),
+            'lockTerm': (383, 385),
+            'lockType': (386, 387),
         },
     },
 }
@@ -115,7 +115,10 @@ def price(value):
     value = normalize_value(value)
     if value is None:
         return None
-    return round(float(value), 3)
+    try:
+        return round(float(value), 3)
+    except (TypeError, ValueError):
+        return None
 
 
 def parse_pricing_table(ws, start_row, end_row, base_col):
@@ -180,7 +183,13 @@ def parse_adjustment_rows(ws, start_row, end_row):
 def parse_price_map(ws, row_map):
     out = {}
     for key, row in row_map.items():
-        out[key] = price(ws.cell(row, 6).value)
+        value = None
+        for col in range(4, 9):
+            candidate = price(ws.cell(row, col).value)
+            if candidate is not None:
+                value = candidate
+                break
+        out[key] = value
     return out
 
 
