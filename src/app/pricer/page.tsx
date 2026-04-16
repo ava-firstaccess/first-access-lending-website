@@ -44,6 +44,10 @@ type BestExDrawPeriodYears = 3 | 5 | 10;
 type BestExTermYears = 10 | 15 | 25 | 30;
 type BestExLockPeriodDays = 15 | 30 | 45;
 
+function roundUpToEighth(value: number) {
+  return Number((Math.ceil(value * 8) / 8).toFixed(3));
+}
+
 const defaultInput: TesterInput = {
   buttonProduct: 'HELOC',
   vistaProduct: '30yr Fixed',
@@ -415,7 +419,7 @@ export default function Stage1LoTesterPage() {
     const actualLockPeriodDays = bestExLockPeriodDays + 30;
 
     const makeSummary = (eligibility: Stage1Eligibility, quote: Stage1ExecutionQuote): InvestorSummary => {
-      const discountPoints = Number((effectiveTargetPrice - quote.purchasePrice).toFixed(3));
+      const discountPoints = roundUpToEighth(effectiveTargetPrice - quote.purchasePrice);
       const buyPrice = Number((100 - discountPoints).toFixed(3));
       return { investor: quote.engine, eligibility, quote, discountPoints, buyPrice };
     };
@@ -718,7 +722,7 @@ export default function Stage1LoTesterPage() {
   const eligibility = activeResult?.eligibility;
   const quote = activeResult?.quote;
   const osbDerived = useMemo(() => buildOsbStage1PricingInput(input), [input]);
-  const discountPoints = useMemo(() => Number((effectiveTargetPrice - (quote?.purchasePrice ?? 0)).toFixed(3)), [effectiveTargetPrice, quote?.purchasePrice]);
+  const discountPoints = useMemo(() => roundUpToEighth(effectiveTargetPrice - (quote?.purchasePrice ?? 0)), [effectiveTargetPrice, quote?.purchasePrice]);
   const loBuyPrice = useMemo(() => Number((100 - discountPoints).toFixed(3)), [discountPoints]);
 
   function update<K extends keyof TesterInput>(key: K, value: TesterInput[K]) {
