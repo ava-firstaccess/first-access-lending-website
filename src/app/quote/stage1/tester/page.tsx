@@ -24,6 +24,11 @@ type TesterInput = ButtonStage1Input & {
   deephavenProduct?: DeephavenProduct;
   helocDrawTermYears?: 3 | 5 | 10;
   buttonTermYears?: 10 | 15 | 20 | 25 | 30;
+  bestExProduct?: BestExProduct;
+  bestExDrawPeriodYears?: BestExDrawPeriodYears;
+  bestExTermYears?: BestExTermYears;
+  bestExLockPeriodDays?: BestExLockPeriodDays;
+  bestExDocType?: VerusDocType;
 };
 
 type InvestorSummary = {
@@ -33,6 +38,11 @@ type InvestorSummary = {
   discountPoints: number;
   buyPrice: number;
 };
+
+type BestExProduct = 'HELOC' | 'CES';
+type BestExDrawPeriodYears = 3 | 5 | 10;
+type BestExTermYears = 10 | 15 | 25 | 30;
+type BestExLockPeriodDays = 15 | 30 | 45;
 
 const TESTER_GATE_STORAGE_KEY = 'fal-stage1-tester-unlocked';
 const TESTER_GATE_PASSWORD = 'faltester';
@@ -53,6 +63,11 @@ const defaultInput: TesterInput = {
   deephavenProduct: '30Y Fixed',
   helocDrawTermYears: 5,
   buttonTermYears: 20,
+  bestExProduct: 'HELOC',
+  bestExDrawPeriodYears: 5,
+  bestExTermYears: 30,
+  bestExLockPeriodDays: 15,
+  bestExDocType: 'Standard',
   propertyState: 'CA',
   propertyValue: 750000,
   loanBalance: 250000,
@@ -407,34 +422,305 @@ export default function Stage1TesterPage() {
 
   const results = useMemo<InvestorSummary[]>(() => {
     const selectedLoanAmount = Number(input.desiredLoanAmount || 0);
+    const bestExProduct = input.bestExProduct ?? 'HELOC';
+    const bestExDrawPeriodYears = input.bestExDrawPeriodYears ?? 5;
+    const bestExTermYears = input.bestExTermYears ?? 30;
+    const bestExLockPeriodDays = input.bestExLockPeriodDays ?? 15;
+    const bestExDocType = input.bestExDocType ?? 'Standard';
+    const actualLockPeriodDays = bestExLockPeriodDays + 30;
 
-    const buttonEligibility = evaluateButtonStage1Eligibility(input, selectedLoanAmount);
-    const buttonQuote = calculateButtonStage1Quote(input, { selectedLoanAmount, cesTermYears: input.buttonTermYears, helocDrawTermYears: input.helocDrawTermYears });
-    const vistaEligibility = evaluateVistaStage1Eligibility(input, selectedLoanAmount);
-    const vistaQuote = calculateVistaStage1Quote(input, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
-    const newrezEligibility = evaluateNewRezStage1Eligibility(input, selectedLoanAmount);
-    const newrezQuote = calculateNewRezStage1Quote(input, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
-    const osbEligibility = evaluateOsbStage1Eligibility(input, selectedLoanAmount);
-    const osbQuote = calculateOsbStage1Quote(input, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
-    const verusEligibility = evaluateVerusStage1Eligibility(input, selectedLoanAmount);
-    const verusQuote = calculateVerusStage1Quote(input, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
-    const deephavenEligibility = evaluateDeephavenStage1Eligibility(input, selectedLoanAmount);
-    const deephavenQuote = calculateDeephavenStage1Quote(input, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
-
-    const raw: Array<{ investor: string; eligibility: Stage1Eligibility; quote: Stage1ExecutionQuote }> = [
-      { investor: 'Button', eligibility: buttonEligibility, quote: { engine: 'Button', program: 'Button', product: String(input.buttonProduct || 'HELOC'), maxAvailable: buttonQuote.maxAvailable, rate: buttonQuote.rate, noteRate: buttonQuote.noteRate, monthlyPayment: buttonQuote.monthlyPayment, maxLtv: buttonQuote.maxLtv, purchasePrice: buttonQuote.purchasePrice, basePrice: buttonQuote.basePrice, llpaAdjustment: buttonQuote.llpaAdjustment, adjustments: buttonQuote.adjustments } },
-      { investor: 'Vista', eligibility: vistaEligibility, quote: { engine: 'Vista', program: vistaQuote.program, product: vistaQuote.product, maxAvailable: vistaQuote.maxAvailable, rate: vistaQuote.rate, noteRate: vistaQuote.noteRate, monthlyPayment: vistaQuote.monthlyPayment, maxLtv: vistaQuote.maxLtv, purchasePrice: vistaQuote.purchasePrice, basePrice: vistaQuote.basePrice, llpaAdjustment: vistaQuote.llpaAdjustment, adjustments: vistaQuote.adjustments } },
-      { investor: 'NewRez', eligibility: newrezEligibility, quote: { engine: 'NewRez', program: newrezQuote.program, product: newrezQuote.product, maxAvailable: newrezQuote.maxAvailable, rate: newrezQuote.rate, noteRate: newrezQuote.noteRate, monthlyPayment: newrezQuote.monthlyPayment, maxLtv: newrezQuote.maxLtv, purchasePrice: newrezQuote.purchasePrice, basePrice: newrezQuote.basePrice, llpaAdjustment: newrezQuote.llpaAdjustment, adjustments: newrezQuote.adjustments } },
-      { investor: 'OSB', eligibility: osbEligibility, quote: { engine: 'OSB', program: osbQuote.program, product: osbQuote.product, maxAvailable: osbQuote.maxAvailable, rate: osbQuote.rate, noteRate: osbQuote.noteRate, monthlyPayment: osbQuote.monthlyPayment, maxLtv: osbQuote.maxLtv, purchasePrice: osbQuote.purchasePrice, basePrice: osbQuote.basePrice, llpaAdjustment: osbQuote.llpaAdjustment, adjustments: osbQuote.adjustments } },
-      { investor: 'Verus', eligibility: verusEligibility, quote: { engine: 'Verus', program: verusQuote.program, product: verusQuote.product, maxAvailable: verusQuote.maxAvailable, rate: verusQuote.rate, noteRate: verusQuote.noteRate, monthlyPayment: verusQuote.monthlyPayment, maxLtv: verusQuote.maxLtv, purchasePrice: verusQuote.purchasePrice, basePrice: verusQuote.basePrice, llpaAdjustment: verusQuote.llpaAdjustment, adjustments: verusQuote.adjustments } },
-      { investor: 'Deephaven', eligibility: deephavenEligibility, quote: { engine: 'Deephaven', program: deephavenQuote.program, product: deephavenQuote.product, maxAvailable: deephavenQuote.maxAvailable, rate: deephavenQuote.rate, noteRate: deephavenQuote.noteRate, monthlyPayment: deephavenQuote.monthlyPayment, maxLtv: deephavenQuote.maxLtv, purchasePrice: deephavenQuote.purchasePrice, basePrice: deephavenQuote.basePrice, llpaAdjustment: deephavenQuote.llpaAdjustment, adjustments: deephavenQuote.adjustments } },
-    ];
-
-    return raw.map(item => {
-      const discountPoints = Number((effectiveTargetPrice - item.quote.purchasePrice).toFixed(3));
+    const makeSummary = (eligibility: Stage1Eligibility, quote: Stage1ExecutionQuote): InvestorSummary => {
+      const discountPoints = Number((effectiveTargetPrice - quote.purchasePrice).toFixed(3));
       const buyPrice = Number((100 - discountPoints).toFixed(3));
-      return { ...item, discountPoints, buyPrice };
-    }).sort((a, b) => {
+      return { investor: quote.engine, eligibility, quote, discountPoints, buyPrice };
+    };
+
+    const makeIneligible = (
+      investor: Stage1ExecutionQuote['engine'],
+      program: string,
+      product: string,
+      reason: string,
+    ): InvestorSummary => ({
+      investor,
+      eligibility: {
+        eligible: false,
+        reasons: [reason],
+        maxAvailable: 0,
+        resultingCltv: 0,
+      },
+      quote: {
+        engine: investor,
+        program,
+        product,
+        maxAvailable: 0,
+        rate: 0,
+        noteRate: 0,
+        monthlyPayment: 0,
+        maxLtv: 0,
+        purchasePrice: 0,
+        basePrice: 0,
+        llpaAdjustment: 0,
+        adjustments: [],
+      },
+      discountPoints: 0,
+      buyPrice: 0,
+    });
+
+    const summaries: InvestorSummary[] = [];
+
+    if (bestExProduct === 'HELOC') {
+      const buttonInput = { ...input, buttonProduct: 'HELOC' as const, helocDrawTermYears: bestExDrawPeriodYears };
+      const buttonEligibility = evaluateButtonStage1Eligibility(buttonInput, selectedLoanAmount);
+      const buttonQuote = calculateButtonStage1Quote(buttonInput, { selectedLoanAmount, helocDrawTermYears: bestExDrawPeriodYears });
+      summaries.push(makeSummary(buttonEligibility, {
+        engine: 'Button',
+        program: 'Button',
+        product: 'HELOC',
+        maxAvailable: buttonQuote.maxAvailable,
+        rate: buttonQuote.rate,
+        noteRate: buttonQuote.noteRate,
+        monthlyPayment: buttonQuote.monthlyPayment,
+        maxLtv: buttonQuote.maxLtv,
+        purchasePrice: buttonQuote.purchasePrice,
+        basePrice: buttonQuote.basePrice,
+        llpaAdjustment: buttonQuote.llpaAdjustment,
+        adjustments: buttonQuote.adjustments,
+      }));
+
+      summaries.push(makeIneligible('Vista', 'CES Only', 'HELOC', 'Vista only supports CES pricing in Best Ex.'));
+      summaries.push(makeIneligible('NewRez', 'CES Only', 'HELOC', 'NewRez only supports CES pricing in Best Ex.'));
+      summaries.push(makeIneligible('Deephaven', 'CES Only', 'HELOC', 'Deephaven only supports CES pricing in Best Ex.'));
+
+      if (actualLockPeriodDays !== 45 && actualLockPeriodDays !== 60) {
+        summaries.push(makeIneligible('OSB', 'HELOC', '30 Year Maturity', `OSB HELOC only supports padded lock pricing at 45 or 60 days, not ${actualLockPeriodDays}.`));
+      } else {
+        const osbInput = {
+          ...input,
+          osbProgram: 'HELOC' as const,
+          osbProduct: '30 Year Maturity' as const,
+          osbLockPeriodDays: actualLockPeriodDays as OsbLockPeriod,
+          helocDrawTermYears: bestExDrawPeriodYears,
+        };
+        const osbEligibility = evaluateOsbStage1Eligibility(osbInput, selectedLoanAmount);
+        const osbQuote = calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
+        summaries.push(makeSummary(osbEligibility, {
+          engine: 'OSB',
+          program: osbQuote.program,
+          product: osbQuote.product,
+          maxAvailable: osbQuote.maxAvailable,
+          rate: osbQuote.rate,
+          noteRate: osbQuote.noteRate,
+          monthlyPayment: osbQuote.monthlyPayment,
+          maxLtv: osbQuote.maxLtv,
+          purchasePrice: osbQuote.purchasePrice,
+          basePrice: osbQuote.basePrice,
+          llpaAdjustment: osbQuote.llpaAdjustment,
+          adjustments: osbQuote.adjustments,
+        }));
+      }
+
+      if (bestExDrawPeriodYears === 10) {
+        summaries.push(makeIneligible('Verus', 'HELOC', '30 YR', 'Verus HELOC supports 3 or 5 year draw periods only.'));
+      } else if (actualLockPeriodDays !== 45 && actualLockPeriodDays !== 60) {
+        summaries.push(makeIneligible('Verus', 'HELOC', '30 YR', `Verus HELOC only supports padded lock pricing at 45 or 60 days, not ${actualLockPeriodDays}.`));
+      } else {
+        const verusInput = {
+          ...input,
+          verusProgram: 'HELOC' as const,
+          verusProduct: '30 YR' as const,
+          verusDocType: bestExDocType,
+          verusDrawPeriodYears: bestExDrawPeriodYears as Exclude<VerusDrawPeriodYears, 2>,
+          verusLockPeriodDays: actualLockPeriodDays as VerusLockPeriodDays,
+        };
+        const verusEligibility = evaluateVerusStage1Eligibility(verusInput, selectedLoanAmount);
+        const verusQuote = calculateVerusStage1Quote(verusInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
+        summaries.push(makeSummary(verusEligibility, {
+          engine: 'Verus',
+          program: verusQuote.program,
+          product: verusQuote.product,
+          maxAvailable: verusQuote.maxAvailable,
+          rate: verusQuote.rate,
+          noteRate: verusQuote.noteRate,
+          monthlyPayment: verusQuote.monthlyPayment,
+          maxLtv: verusQuote.maxLtv,
+          purchasePrice: verusQuote.purchasePrice,
+          basePrice: verusQuote.basePrice,
+          llpaAdjustment: verusQuote.llpaAdjustment,
+          adjustments: verusQuote.adjustments,
+        }));
+      }
+    } else {
+      const buttonInput = { ...input, buttonProduct: 'CES' as const, buttonTermYears: bestExTermYears };
+      const buttonEligibility = evaluateButtonStage1Eligibility(buttonInput, selectedLoanAmount);
+      const buttonQuote = calculateButtonStage1Quote(buttonInput, { selectedLoanAmount, cesTermYears: bestExTermYears });
+      summaries.push(makeSummary(buttonEligibility, {
+        engine: 'Button',
+        program: 'Button',
+        product: 'CES',
+        maxAvailable: buttonQuote.maxAvailable,
+        rate: buttonQuote.rate,
+        noteRate: buttonQuote.noteRate,
+        monthlyPayment: buttonQuote.monthlyPayment,
+        maxLtv: buttonQuote.maxLtv,
+        purchasePrice: buttonQuote.purchasePrice,
+        basePrice: buttonQuote.basePrice,
+        llpaAdjustment: buttonQuote.llpaAdjustment,
+        adjustments: buttonQuote.adjustments,
+      }));
+
+      const vistaProducts: Partial<Record<BestExTermYears, VistaProduct>> = {
+        10: '10yr Fixed',
+        15: '15yr Fixed',
+        30: '30yr Fixed',
+      };
+      const vistaProduct = vistaProducts[bestExTermYears];
+      if (!vistaProduct) {
+        summaries.push(makeIneligible('Vista', 'CES', `${bestExTermYears} Year`, `Vista does not support ${bestExTermYears}-year CES pricing.`));
+      } else {
+        const vistaInput = { ...input, vistaProduct };
+        const vistaEligibility = evaluateVistaStage1Eligibility(vistaInput, selectedLoanAmount);
+        const vistaQuote = calculateVistaStage1Quote(vistaInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
+        summaries.push(makeSummary(vistaEligibility, {
+          engine: 'Vista',
+          program: vistaQuote.program,
+          product: vistaQuote.product,
+          maxAvailable: vistaQuote.maxAvailable,
+          rate: vistaQuote.rate,
+          noteRate: vistaQuote.noteRate,
+          monthlyPayment: vistaQuote.monthlyPayment,
+          maxLtv: vistaQuote.maxLtv,
+          purchasePrice: vistaQuote.purchasePrice,
+          basePrice: vistaQuote.basePrice,
+          llpaAdjustment: vistaQuote.llpaAdjustment,
+          adjustments: vistaQuote.adjustments,
+        }));
+      }
+
+      const newrezProducts: Partial<Record<BestExTermYears, NewRezProduct>> = {
+        15: '15 Year Fixed',
+        30: '30 Year Fixed',
+      };
+      const newrezProduct = newrezProducts[bestExTermYears];
+      if (!newrezProduct) {
+        summaries.push(makeIneligible('NewRez', 'CES', `${bestExTermYears} Year`, `NewRez does not support ${bestExTermYears}-year CES pricing.`));
+      } else {
+        const newrezInput = { ...input, newrezProduct };
+        const newrezEligibility = evaluateNewRezStage1Eligibility(newrezInput, selectedLoanAmount);
+        const newrezQuote = calculateNewRezStage1Quote(newrezInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
+        summaries.push(makeSummary(newrezEligibility, {
+          engine: 'NewRez',
+          program: newrezQuote.program,
+          product: newrezQuote.product,
+          maxAvailable: newrezQuote.maxAvailable,
+          rate: newrezQuote.rate,
+          noteRate: newrezQuote.noteRate,
+          monthlyPayment: newrezQuote.monthlyPayment,
+          maxLtv: newrezQuote.maxLtv,
+          purchasePrice: newrezQuote.purchasePrice,
+          basePrice: newrezQuote.basePrice,
+          llpaAdjustment: newrezQuote.llpaAdjustment,
+          adjustments: newrezQuote.adjustments,
+        }));
+      }
+
+      const osbProducts: Partial<Record<BestExTermYears, OsbProduct>> = {
+        10: 'Fixed 10',
+        15: 'Fixed 15',
+        30: 'Fixed 30',
+      };
+      const osbProduct = osbProducts[bestExTermYears];
+      if (!osbProduct) {
+        summaries.push(makeIneligible('OSB', '2nd Liens', `${bestExTermYears} Year`, `OSB does not support ${bestExTermYears}-year CES pricing.`));
+      } else if (actualLockPeriodDays !== 45 && actualLockPeriodDays !== 60) {
+        summaries.push(makeIneligible('OSB', '2nd Liens', osbProduct, `OSB only supports padded lock pricing at 45 or 60 days, not ${actualLockPeriodDays}.`));
+      } else {
+        const osbInput = {
+          ...input,
+          osbProgram: '2nd Liens' as const,
+          osbProduct,
+          osbLockPeriodDays: actualLockPeriodDays as OsbLockPeriod,
+        };
+        const osbEligibility = evaluateOsbStage1Eligibility(osbInput, selectedLoanAmount);
+        const osbQuote = calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
+        summaries.push(makeSummary(osbEligibility, {
+          engine: 'OSB',
+          program: osbQuote.program,
+          product: osbQuote.product,
+          maxAvailable: osbQuote.maxAvailable,
+          rate: osbQuote.rate,
+          noteRate: osbQuote.noteRate,
+          monthlyPayment: osbQuote.monthlyPayment,
+          maxLtv: osbQuote.maxLtv,
+          purchasePrice: osbQuote.purchasePrice,
+          basePrice: osbQuote.basePrice,
+          llpaAdjustment: osbQuote.llpaAdjustment,
+          adjustments: osbQuote.adjustments,
+        }));
+      }
+
+      const verusProducts: Record<BestExTermYears, VerusProduct> = {
+        10: '10 YR FIX',
+        15: '15 YR FIX',
+        25: '25 YR FIX',
+        30: '30 YR FIX',
+      };
+      if (actualLockPeriodDays !== 45 && actualLockPeriodDays !== 60) {
+        summaries.push(makeIneligible('Verus', 'CES', verusProducts[bestExTermYears], `Verus only supports padded lock pricing at 45 or 60 days, not ${actualLockPeriodDays}.`));
+      } else {
+        const verusInput = {
+          ...input,
+          verusProgram: 'CES' as const,
+          verusProduct: verusProducts[bestExTermYears],
+          verusDocType: bestExDocType,
+          verusLockPeriodDays: actualLockPeriodDays as VerusLockPeriodDays,
+        };
+        const verusEligibility = evaluateVerusStage1Eligibility(verusInput, selectedLoanAmount);
+        const verusQuote = calculateVerusStage1Quote(verusInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
+        summaries.push(makeSummary(verusEligibility, {
+          engine: 'Verus',
+          program: verusQuote.program,
+          product: verusQuote.product,
+          maxAvailable: verusQuote.maxAvailable,
+          rate: verusQuote.rate,
+          noteRate: verusQuote.noteRate,
+          monthlyPayment: verusQuote.monthlyPayment,
+          maxLtv: verusQuote.maxLtv,
+          purchasePrice: verusQuote.purchasePrice,
+          basePrice: verusQuote.basePrice,
+          llpaAdjustment: verusQuote.llpaAdjustment,
+          adjustments: verusQuote.adjustments,
+        }));
+      }
+
+      const deephavenProducts: Partial<Record<BestExTermYears, DeephavenProduct>> = {
+        15: '15Y Fixed',
+        30: '30Y Fixed',
+      };
+      const deephavenProduct = deephavenProducts[bestExTermYears];
+      if (!deephavenProduct) {
+        summaries.push(makeIneligible('Deephaven', 'Equity Advantage / Elite', `${bestExTermYears} Year`, `Deephaven does not support ${bestExTermYears}-year CES pricing.`));
+      } else {
+        const deephavenInput = { ...input, deephavenProduct };
+        const deephavenEligibility = evaluateDeephavenStage1Eligibility(deephavenInput, selectedLoanAmount);
+        const deephavenQuote = calculateDeephavenStage1Quote(deephavenInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
+        summaries.push(makeSummary(deephavenEligibility, {
+          engine: 'Deephaven',
+          program: deephavenQuote.program,
+          product: deephavenQuote.product,
+          maxAvailable: deephavenQuote.maxAvailable,
+          rate: deephavenQuote.rate,
+          noteRate: deephavenQuote.noteRate,
+          monthlyPayment: deephavenQuote.monthlyPayment,
+          maxLtv: deephavenQuote.maxLtv,
+          purchasePrice: deephavenQuote.purchasePrice,
+          basePrice: deephavenQuote.basePrice,
+          llpaAdjustment: deephavenQuote.llpaAdjustment,
+          adjustments: deephavenQuote.adjustments,
+        }));
+      }
+    }
+
+    return summaries.sort((a, b) => {
       if (a.eligibility.eligible !== b.eligibility.eligible) return a.eligibility.eligible ? -1 : 1;
       if (a.eligibility.eligible && b.eligibility.eligible) {
         if (b.buyPrice !== a.buyPrice) return b.buyPrice - a.buyPrice;
@@ -548,46 +834,54 @@ export default function Stage1TesterPage() {
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-semibold text-slate-900">Inputs</h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              {engine === 'Best X' ? (
+                            {engine === 'Best X' ? (
                 <div className="space-y-4 text-sm sm:col-span-2">
                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-slate-700">
-                    Best X prices all investors from one scenario and ranks them by execution.
+                    Best Ex uses one normalized scenario, then prices each investor and marks unsupported combinations ineligible.
                   </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="text-sm">
+                    <div className="mb-1 font-medium text-slate-700">Product</div>
+                    <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.bestExProduct ?? 'HELOC'} onChange={e => update('bestExProduct', e.target.value as BestExProduct)}>
+                      <option value="HELOC">HELOC</option>
+                      <option value="CES">CES</option>
+                    </select>
+                  </label>
+                  {input.bestExProduct === 'HELOC' ? (
                     <label className="text-sm">
-                      <div className="mb-1 font-medium text-slate-700">Button Product</div>
-                      <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.buttonProduct} onChange={e => update('buttonProduct', e.target.value)}>
-                        <option value="HELOC">HELOC</option>
-                        <option value="CES">CES</option>
+                      <div className="mb-1 font-medium text-slate-700">Draw Period</div>
+                      <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.bestExDrawPeriodYears ?? 5} onChange={e => update('bestExDrawPeriodYears', Number(e.target.value) as BestExDrawPeriodYears)}>
+                        <option value={3}>3 Years</option>
+                        <option value={5}>5 Years</option>
+                        <option value={10}>10 Years</option>
                       </select>
                     </label>
-                    {input.buttonProduct === 'CES' ? (
-                      <label className="text-sm">
-                        <div className="mb-1 font-medium text-slate-700">Button Term</div>
-                        <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.buttonTermYears ?? 20} onChange={e => update('buttonTermYears', Number(e.target.value) as 10 | 15 | 20 | 25 | 30)}>
-                          <option value={10}>10 Year</option><option value={15}>15 Year</option><option value={20}>20 Year</option><option value={25}>25 Year</option><option value={30}>30 Year</option>
-                        </select>
-                      </label>
-                    ) : (
-                      <label className="text-sm">
-                        <div className="mb-1 font-medium text-slate-700">Button Draw Period</div>
-                        <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.helocDrawTermYears ?? 5} onChange={e => update('helocDrawTermYears', Number(e.target.value) as 3 | 5 | 10)}>
-                          <option value={3}>3 Year</option><option value={5}>5 Year</option><option value={10}>10 Year</option>
-                        </select>
-                      </label>
-                    )}
-                    <label className="text-sm"><div className="mb-1 font-medium text-slate-700">Vista Product</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.vistaProduct ?? '30yr Fixed'} onChange={e => update('vistaProduct', e.target.value as VistaProduct)}><option value="10yr Fixed">10yr Fixed</option><option value="15yr Fixed">15yr Fixed</option><option value="20yr Fixed">20yr Fixed</option><option value="30yr Fixed">30yr Fixed</option></select></label>
-                    <label className="text-sm"><div className="mb-1 font-medium text-slate-700">NewRez Product</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.newrezProduct ?? '30 Year Fixed'} onChange={e => update('newrezProduct', e.target.value as NewRezProduct)}><option value="15 Year Fixed">15 Year Fixed</option><option value="20 Year Fixed">20 Year Fixed</option><option value="30 Year Fixed">30 Year Fixed</option></select></label>
-                    <label className="text-sm"><div className="mb-1 font-medium text-slate-700">OSB Program</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.osbProgram} onChange={e => updateOsbProgram(e.target.value as OsbProgram)}><option value="HELOC">HELOC</option><option value="2nd Liens">2nd Liens</option></select></label>
-                    <label className="text-sm"><div className="mb-1 font-medium text-slate-700">OSB Product</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.osbProduct ?? '30 Year Maturity'} onChange={e => update('osbProduct', e.target.value as OsbProduct)}>{(input.osbProgram === 'HELOC' ? ['20 Year Maturity', '30 Year Maturity'] : ['Fixed 10', 'Fixed 15', 'Fixed 20', 'Fixed 30']).map(option => <option key={option} value={option}>{option}</option>)}</select></label>
-                    <label className="text-sm"><div className="mb-1 font-medium text-slate-700">OSB Lock Period</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.osbLockPeriodDays ?? 45} onChange={e => update('osbLockPeriodDays', Number(e.target.value) as OsbLockPeriod)}><option value={15}>15 day</option><option value={45}>45 day</option><option value={60}>60 day</option></select></label>
-                    <label className="text-sm"><div className="mb-1 font-medium text-slate-700">Verus Program</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.verusProgram} onChange={e => updateVerusProgram(e.target.value as VerusProgram)}><option value="CES">CES</option><option value="HELOC">HELOC</option></select></label>
-                    <label className="text-sm"><div className="mb-1 font-medium text-slate-700">Verus Product</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.verusProduct ?? '30 YR FIX'} onChange={e => update('verusProduct', e.target.value as VerusProduct)}>{(input.verusProgram === 'HELOC' ? ['15 YR', '20 YR', '25 YR', '30 YR'] : ['10 YR FIX', '15 YR FIX', '20 YR FIX', '25 YR FIX', '30 YR FIX']).map(option => <option key={option} value={option}>{option}</option>)}</select></label>
-                    <label className="text-sm"><div className="mb-1 font-medium text-slate-700">Verus Doc Type</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.verusDocType ?? 'Standard'} onChange={e => update('verusDocType', e.target.value as VerusDocType)}><option value="Standard">Standard</option><option value="Alt Doc">Alt Doc</option></select></label>
-                    <label className="text-sm"><div className="mb-1 font-medium text-slate-700">Verus Lock Period</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.verusLockPeriodDays ?? 45} onChange={e => update('verusLockPeriodDays', Number(e.target.value) as VerusLockPeriodDays)}><option value={30}>30 days</option><option value={45}>45 days</option><option value={60}>60 days</option></select></label>
-                    {input.verusProgram === 'HELOC' && <label className="text-sm"><div className="mb-1 font-medium text-slate-700">Verus Draw Period</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.verusDrawPeriodYears ?? 5} onChange={e => update('verusDrawPeriodYears', Number(e.target.value) as VerusDrawPeriodYears)}><option value={2}>2 Years</option><option value={3}>3 Years</option><option value={5}>5 Years</option></select></label>}
-                    <label className="text-sm sm:col-span-2"><div className="mb-1 font-medium text-slate-700">Deephaven Product</div><select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.deephavenProduct ?? '30Y Fixed'} onChange={e => update('deephavenProduct', e.target.value as DeephavenProduct)}><option value="15Y Fixed">15Y Fixed</option><option value="30Y Fixed">30Y Fixed</option></select></label>
-                  </div>
+                  ) : (
+                    <label className="text-sm">
+                      <div className="mb-1 font-medium text-slate-700">Term</div>
+                      <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.bestExTermYears ?? 30} onChange={e => update('bestExTermYears', Number(e.target.value) as BestExTermYears)}>
+                        <option value={10}>10 Years</option>
+                        <option value={15}>15 Years</option>
+                        <option value={25}>25 Years</option>
+                        <option value={30}>30 Years</option>
+                      </select>
+                    </label>
+                  )}
+                  <label className="text-sm">
+                    <div className="mb-1 font-medium text-slate-700">Lock Period</div>
+                    <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.bestExLockPeriodDays ?? 15} onChange={e => update('bestExLockPeriodDays', Number(e.target.value) as BestExLockPeriodDays)}>
+                      <option value={15}>15 Days</option>
+                      <option value={30}>30 Days</option>
+                      <option value={45}>45 Days</option>
+                    </select>
+                    <div className="mt-1 text-xs text-slate-500">Pricing uses a padded lock, so 15 prices as 45, 30 prices as 60, and 45 prices as 75 where supported.</div>
+                  </label>
+                  <label className="text-sm">
+                    <div className="mb-1 font-medium text-slate-700">Doc Type</div>
+                    <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={input.bestExDocType ?? 'Standard'} onChange={e => update('bestExDocType', e.target.value as VerusDocType)}>
+                      <option value="Standard">Standard</option>
+                      <option value="Alt Doc">Alt Doc</option>
+                    </select>
+                  </label>
                 </div>
               ) : engine === 'Button' ? (
                 <>
