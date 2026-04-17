@@ -92,7 +92,7 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
     ? (Number.isFinite(Number(request.targetPriceOverride)) ? Number(request.targetPriceOverride) : undefined)
     : undefined;
   const loTargetPrice = parsedTargetPriceOverride ?? 100;
-  const effectiveTargetPrice = roundToThree(defaultBackendTargetPrice - (100 - loTargetPrice));
+  const effectiveTargetPrice = roundToThree(defaultBackendTargetPrice + (100 - loTargetPrice));
   const effectiveManualRateOverride = request.manualRateOverride?.trim() ? (Number.isFinite(Number(request.manualRateOverride)) ? Number(request.manualRateOverride) : undefined) : undefined;
   const activeResult = getActiveResult(engine, input, effectiveTargetPrice, effectiveManualRateOverride, tolerance);
 
