@@ -16,6 +16,7 @@ export interface DeephavenPricingInput {
   resultingLoanAmount: number;
   resultingCltv: number;
   creditScore: number;
+  dti: number | null;
   occupancy: string;
   propertyType: string;
   propertyState: string;
@@ -68,6 +69,7 @@ type ProgramData = {
     occupancy: AdjustmentRow[];
     loanAmount: AdjustmentRow[];
     propertyType: AdjustmentRow[];
+    dti: AdjustmentRow[];
     state: AdjustmentRow[];
   };
 };
@@ -99,6 +101,7 @@ export function buildDeephavenStage1PricingInput(
     resultingLoanAmount,
     resultingCltv,
     creditScore: Number(stage1.creditScore || 0),
+    dti: Number.isFinite(Number(stage1.dti)) ? Number(stage1.dti) : null,
     occupancy: normalizeOccupancy(stage1.occupancy),
     propertyType: normalizePropertyType(stage1.structureType, Number(stage1.numberOfUnits || 1)),
     propertyState: String(stage1.propertyState || '').trim().toUpperCase(),
@@ -391,6 +394,8 @@ function buildAdjustmentLines(input: DeephavenPricingInput, selectedLoanAmount: 
   pushAdjustment(lines, 'Occupancy', readAdjustmentValue(findByLabel(programData.adjustments.occupancy, input.occupancy), cltvIndex));
   pushAdjustment(lines, 'Loan Amount', readAdjustmentValue(findLoanAmountRow(programData.adjustments.loanAmount, selectedLoanAmount), cltvIndex));
   pushAdjustment(lines, 'Property Type', readAdjustmentValue(findByLabel(programData.adjustments.propertyType, input.propertyType), cltvIndex));
+  const dtiRow = findMatchingDtiRow(programData.adjustments.dti, input.dti);
+  if (dtiRow) pushAdjustment(lines, `DTI: ${dtiRow.label}`, readAdjustmentValue(dtiRow, cltvIndex));
   if (input.propertyState === 'FL' || input.propertyState === 'TX') {
     pushAdjustment(lines, 'State (FL / TX)', readAdjustmentValue(programData.adjustments.state[0], cltvIndex));
   }
@@ -447,6 +452,19 @@ function termAdjustmentLabel(product: DeephavenProduct): string {
 
 function findLoanAmountRow(rows: AdjustmentRow[], selectedLoanAmount: number): AdjustmentRow | undefined {
   return rows.find(row => matchesLoanAmountBand(row.label, selectedLoanAmount));
+}
+
+function findMatchingDtiRow(rows: AdjustmentRow[], dti: number | null | undefined): AdjustmentRow | undefined {
+  if (!Number.isFinite(dti)) return undefined;
+  const thresholds = rows
+    .map(row => {
+      const match = row.label.match(/DTI\s*>\s*(\d+(?:\.\d+)?)/i);
+      return match ? { row, threshold: Number(match[1]) } : null;
+    })
+    .filter((value): value is { row: AdjustmentRow; threshold: number } => value !== null)
+    .sort((a, b) => a.threshold - b.threshold);
+  const match = thresholds.filter(item => dti! > item.threshold).pop();
+  return match?.row;
 }
 
 function matchesLoanAmountBand(label: string, selectedLoanAmount: number): boolean {

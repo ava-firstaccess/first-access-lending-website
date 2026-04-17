@@ -186,6 +186,7 @@ function parseDeephavenProgram(rows, sheetLabel, expandedPrime = false) {
       occupancy: parseMatrixRows(rows, expandedPrime ? 25 : 21, expandedPrime ? 26 : 22, 8, 10, 17),
       loanAmount: parseMatrixRows(rows, expandedPrime ? 27 : 23, expandedPrime ? 29 : 25, 8, 10, 17),
       propertyType: parseMatrixRows(rows, expandedPrime ? 31 : 27, expandedPrime ? 33 : 28, 8, 10, 17),
+      dti: parseMatrixRows(rows, expandedPrime ? 34 : 29, expandedPrime ? 35 : 29, 8, 10, 17),
       state: parseMatrixRows(rows, expandedPrime ? 38 : 31, expandedPrime ? 38 : 31, 8, 10, 17),
     },
   };
