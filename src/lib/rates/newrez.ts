@@ -78,6 +78,10 @@ type SelectedExecution = {
   withinTolerance: boolean;
 };
 
+function normalizeDisplayedNoteRate(noteRate: number): number {
+  return noteRate <= 1 ? roundToThree(noteRate * 100) : roundToThree(noteRate);
+}
+
 const DATA = ratesheet as JsonRatesheet;
 const DEFAULT_NEWREZ_END_SECONDS: NewRezEndSeconds = 'BE45';
 
@@ -298,7 +302,7 @@ function pickExecution(product: NewRezProduct, llpaAdjustment: number, targetPri
     const purchasePrice = roundToThree(basePrice + llpaAdjustment);
     const deltaFromTarget = roundToThree(roundToThree(targetPrice) - purchasePrice);
     executions.push({
-      noteRate: row.noteRate,
+      noteRate: normalizeDisplayedNoteRate(row.noteRate),
       endSeconds: executionColumn,
       basePrice,
       purchasePrice,
