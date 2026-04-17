@@ -410,6 +410,51 @@
           ]
         }
       ],
+      "documentationAdjustments": {
+        "bankStatement": [
+          {
+            "label": "BK/FC/SS/DIL < 84 Mo",
+            "values": [
+              -1,
+              -1,
+              -1,
+              -1,
+              -1,
+              -1,
+              -1,
+              -1.25
+            ]
+          }
+        ],
+        "pnlOnly": [
+          {
+            "label": "15Yr Fixed",
+            "values": [
+              0.25,
+              0.25,
+              0.25,
+              0.25,
+              0.25,
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          {
+            "label": "20Yr Fixed",
+            "values": [
+              0.5,
+              0.5,
+              0.5,
+              0.5,
+              0.5,
+              0.5,
+              0.5,
+              0.5
+            ]
+          }
+        ]
+      },
       "adjustments": {
         "term": [
           {
@@ -929,6 +974,10 @@
           ]
         }
       ],
+      "documentationAdjustments": {
+        "bankStatement": [],
+        "pnlOnly": []
+      },
       "adjustments": {
         "term": [
           {

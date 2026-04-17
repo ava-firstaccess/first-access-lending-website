@@ -172,6 +172,15 @@ function parseDeephavenProgram(rows, sheetLabel, expandedPrime = false) {
     products: ['15Y Fixed', '30Y Fixed'],
     cltvBuckets,
     creditAdjustments: parseMatrixRows(rows, 6, expandedPrime ? 12 : 11, 8, 10, 17),
+    documentationAdjustments: expandedPrime
+      ? {
+          bankStatement: parseMatrixRows(rows, 20, 21, 8, 10, 17),
+          pnlOnly: parseMatrixRows(rows, 22, 23, 8, 10, 17),
+        }
+      : {
+          bankStatement: [],
+          pnlOnly: [],
+        },
     adjustments: {
       term: parseMatrixRows(rows, expandedPrime ? 22 : 18, expandedPrime ? 24 : 20, 8, 10, 17),
       occupancy: parseMatrixRows(rows, expandedPrime ? 25 : 21, expandedPrime ? 26 : 22, 8, 10, 17),

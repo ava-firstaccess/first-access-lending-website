@@ -3,9 +3,11 @@ import { getTargetPurchasePriceForLoanAmount, type ButtonStage1Input } from './b
 
 export type VistaProgram = 'Second OO' | 'Second NOO';
 export type VistaProduct = '10yr Fixed' | '15yr Fixed' | '20yr Fixed' | '30yr Fixed';
+export type VistaDocType = 'Full Doc' | 'Bank Statement';
 
 export interface VistaPricingInput {
   product: VistaProduct;
+  docType: VistaDocType;
   propertyState: string;
   propertyValue: number;
   loanBalance: number;
@@ -73,6 +75,11 @@ type JsonProgram = {
       cltvBuckets: string[];
       rows: JsonCltvRow[];
     };
+    cltvBankStatement?: {
+      rowRange: number[];
+      cltvBuckets: string[];
+      rows: JsonCltvRow[];
+    };
     adjustments: Record<string, { rows: number[]; items: JsonAdjustmentItem[] }>;
   };
 };
@@ -80,7 +87,7 @@ type JsonProgram = {
 const VISTA_PRODUCTS: VistaProduct[] = ['10yr Fixed', '15yr Fixed', '20yr Fixed', '30yr Fixed'];
 const PROGRAMS = (ratesheet as unknown as { programs: Record<ProgramKey, JsonProgram> }).programs;
 
-export function buildVistaStage1PricingInput(stage1: ButtonStage1Input & { vistaProduct?: VistaProduct }): VistaPricingInput {
+export function buildVistaStage1PricingInput(stage1: ButtonStage1Input & { vistaProduct?: VistaProduct; vistaDocType?: VistaDocType }): VistaPricingInput {
   const propertyValue = Number(stage1.propertyValue || 0);
   const loanBalance = Number(stage1.loanBalance || 0);
   const desiredLoanAmount = Number(stage1.desiredLoanAmount || 0);
@@ -89,6 +96,7 @@ export function buildVistaStage1PricingInput(stage1: ButtonStage1Input & { vista
 
   return {
     product: normalizeVistaProduct(stage1.vistaProduct),
+    docType: normalizeVistaDocType(stage1.vistaDocType),
     propertyState: String(stage1.propertyState || '').toUpperCase(),
     propertyValue,
     loanBalance,
@@ -104,7 +112,7 @@ export function buildVistaStage1PricingInput(stage1: ButtonStage1Input & { vista
 }
 
 export function calculateVistaStage1Quote(
-  stage1: ButtonStage1Input & { vistaProduct?: VistaProduct },
+  stage1: ButtonStage1Input & { vistaProduct?: VistaProduct; vistaDocType?: VistaDocType },
   options?: { selectedLoanAmount?: number; targetPrice?: number; rateOverride?: number }
 ): VistaQuote {
   return calculateVistaQuote(buildVistaStage1PricingInput(stage1), options);
@@ -142,7 +150,7 @@ export function calculateVistaQuote(
 }
 
 export function evaluateVistaStage1Eligibility(
-  stage1: ButtonStage1Input & { vistaProduct?: VistaProduct },
+  stage1: ButtonStage1Input & { vistaProduct?: VistaProduct; vistaDocType?: VistaDocType },
   selectedLoanAmount?: number
 ): VistaEligibilityResult {
   const input = buildVistaStage1PricingInput(stage1);
@@ -151,8 +159,11 @@ export function evaluateVistaStage1Eligibility(
   const requested = Math.max(0, selectedLoanAmount ?? input.desiredLoanAmount ?? 0);
   const program = PROGRAMS[getProgramKey(input)];
 
-  if (!findCltvRow(program, input.creditScore)) reasons.push('Credit score is outside the Vista Full Doc matrix.');
-  if (findCltvBucketIndex(program, input.resultingCltv) === null) reasons.push('Resulting CLTV is outside the Vista Full Doc matrix.');
+  const docMatrix = getCltvMatrix(program, input.docType);
+
+  if (!docMatrix) reasons.push(`Vista ${input.docType} pricing is not available in the workbook.`);
+  if (docMatrix && !findCltvRow(program, input.creditScore, input.docType)) reasons.push(`Credit score is outside the Vista ${input.docType} matrix.`);
+  if (docMatrix && findCltvBucketIndex(program, input.resultingCltv, input.docType) === null) reasons.push(`Resulting CLTV is outside the Vista ${input.docType} matrix.`);
   if (!findAdjustment(program, 'term', input.product)) reasons.push('Selected term is not available in the Vista ratesheet.');
   if (!findAdjustment(program, 'loanAmount', loanAmountLabel(requested))) reasons.push('Desired loan amount is outside the Vista loan amount table.');
   if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
@@ -166,7 +177,7 @@ export function evaluateVistaStage1Eligibility(
 }
 
 export function solveVistaStage1TargetRate(
-  stage1: ButtonStage1Input & { vistaProduct?: VistaProduct },
+  stage1: ButtonStage1Input & { vistaProduct?: VistaProduct; vistaDocType?: VistaDocType },
   options: { targetPrice: number; tolerance?: number; selectedLoanAmount?: number }
 ): VistaTargetRateQuote {
   const input = buildVistaStage1PricingInput(stage1);
@@ -210,18 +221,20 @@ function calculateMaxAvailable(input: VistaPricingInput): number {
 
 function calculateMaxLtv(input: VistaPricingInput): number {
   const program = PROGRAMS[getProgramKey(input)];
-  const row = findCltvRow(program, input.creditScore);
+  const matrix = getCltvMatrix(program, input.docType);
+  if (!matrix) return 0;
+  const row = findCltvRow(program, input.creditScore, input.docType);
   if (!row) return 0;
 
   const lastEligibleIndex = row.values.reduce<number>((best, value, index) => value !== null ? index : best, -1);
   if (lastEligibleIndex < 0) return 0;
-  return upperBoundForCltvLabel(program.sections.cltvFullDoc.cltvBuckets[lastEligibleIndex]) / 100;
+  return upperBoundForCltvLabel(matrix.cltvBuckets[lastEligibleIndex]) / 100;
 }
 
 function buildAdjustmentLines(input: VistaPricingInput, selectedLoanAmount: number): VistaAdjustmentLine[] {
   const program = PROGRAMS[getProgramKey(input)];
   const adjustments: VistaAdjustmentLine[] = [];
-  const cltv = buildCltvAdjustment(program, input.creditScore, input.resultingCltv);
+  const cltv = buildCltvAdjustment(program, input.creditScore, input.resultingCltv, input.docType);
   if (cltv) adjustments.push(cltv);
 
   const term = findAdjustment(program, 'term', input.product);
@@ -249,22 +262,28 @@ function buildAdjustmentLines(input: VistaPricingInput, selectedLoanAmount: numb
   return adjustments;
 }
 
-function buildCltvAdjustment(program: JsonProgram, creditScore: number, cltv: number): VistaAdjustmentLine | null {
-  const row = findCltvRow(program, creditScore);
-  const bucketIndex = findCltvBucketIndex(program, cltv);
-  if (!row || bucketIndex === null) return null;
+function buildCltvAdjustment(program: JsonProgram, creditScore: number, cltv: number, docType: VistaDocType): VistaAdjustmentLine | null {
+  const matrix = getCltvMatrix(program, docType);
+  const row = findCltvRow(program, creditScore, docType);
+  const bucketIndex = findCltvBucketIndex(program, cltv, docType);
+  if (!matrix || !row || bucketIndex === null) return null;
 
-  const label = `${row.creditScore} / CLTV ${program.sections.cltvFullDoc.cltvBuckets[bucketIndex]}`;
-  return { label: `Full Doc CLTV: ${label}`, value: row.values[bucketIndex] ?? 0 };
+  const label = `${row.creditScore} / CLTV ${matrix.cltvBuckets[bucketIndex]}`;
+  return { label: `${docType} CLTV: ${label}`, value: row.values[bucketIndex] ?? 0 };
 }
 
-function findCltvRow(program: JsonProgram, creditScore: number): JsonCltvRow | null {
-  return program.sections.cltvFullDoc.rows.find(row => matchesCreditScoreLabel(row.creditScore, creditScore)) ?? null;
+function getCltvMatrix(program: JsonProgram, docType: VistaDocType): JsonProgram['sections']['cltvFullDoc'] | NonNullable<JsonProgram['sections']['cltvBankStatement']> | null {
+  return docType === 'Bank Statement' ? program.sections.cltvBankStatement ?? null : program.sections.cltvFullDoc;
 }
 
-function findCltvBucketIndex(program: JsonProgram, cltv: number): number | null {
+function findCltvRow(program: JsonProgram, creditScore: number, docType: VistaDocType): JsonCltvRow | null {
+  return getCltvMatrix(program, docType)?.rows.find(row => matchesCreditScoreLabel(row.creditScore, creditScore)) ?? null;
+}
+
+function findCltvBucketIndex(program: JsonProgram, cltv: number, docType: VistaDocType): number | null {
   const cltvPct = cltv * 100;
-  const buckets = program.sections.cltvFullDoc.cltvBuckets;
+  const buckets = getCltvMatrix(program, docType)?.cltvBuckets;
+  if (!buckets) return null;
   for (let i = 0; i < buckets.length; i += 1) {
     if (cltvPct <= upperBoundForCltvLabel(buckets[i])) return i;
   }
@@ -391,6 +410,10 @@ function upperBoundForCltvLabel(label: string): number {
 function normalizeVistaProduct(product?: string): VistaProduct {
   if (VISTA_PRODUCTS.includes(product as VistaProduct)) return product as VistaProduct;
   return '30yr Fixed';
+}
+
+function normalizeVistaDocType(docType?: string): VistaDocType {
+  return String(docType || '').toLowerCase().includes('bank') ? 'Bank Statement' : 'Full Doc';
 }
 
 function normalizeOccupancy(occupancy?: string): string {

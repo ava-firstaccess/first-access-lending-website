@@ -1,6 +1,7 @@
 export type PricingViewEngine = 'BestX' | 'Button' | 'Vista' | 'OSB' | 'NewRez' | 'Verus' | 'Deephaven';
 
 export type VistaProduct = '30yr Fixed' | '20yr Fixed' | '15yr Fixed' | '10yr Fixed';
+export type VistaDocType = 'Full Doc' | 'Bank Statement';
 export type NewRezProduct = '30 Year Fixed' | '20 Year Fixed' | '15 Year Fixed';
 export type OsbProgram = 'HELOC' | '2nd Liens';
 export type OsbProduct = '20 Year Maturity' | '30 Year Maturity' | 'Fixed 10' | 'Fixed 15' | 'Fixed 20' | 'Fixed 30';
@@ -12,6 +13,7 @@ export type VerusDrawPeriodYears = 2 | 3 | 5;
 export type VerusLockPeriodDays = 30 | 45 | 60;
 export type DeephavenProgram = 'Equity Advantage' | 'Equity Advantage Elite';
 export type DeephavenProduct = '15Y Fixed' | '20Y Fixed' | '30Y Fixed';
+export type DeephavenDocType = 'Full Doc' | 'Bank Statement';
 export type ButtonProduct = 'HELOC' | 'CES';
 export type ButtonDocType = 'Full Doc' | 'Bank Statement';
 export type BestExProduct = 'HELOC' | 'CES';
@@ -36,6 +38,7 @@ export type TesterInput = {
   buttonTermYears?: 10 | 15 | 20 | 25 | 30;
   buttonDocType?: ButtonDocType;
   vistaProduct?: VistaProduct;
+  vistaDocType?: VistaDocType;
   newrezProduct?: NewRezProduct;
   osbProgram?: OsbProgram;
   osbProduct?: OsbProduct;
@@ -47,6 +50,7 @@ export type TesterInput = {
   verusLockPeriodDays?: VerusLockPeriodDays;
   deephavenProgram?: DeephavenProgram;
   deephavenProduct?: DeephavenProduct;
+  deephavenDocType?: DeephavenDocType;
   helocDrawTermYears?: 3 | 5 | 10;
   bestExProduct?: BestExProduct;
   bestExDrawPeriodYears?: BestExDrawPeriodYears;
@@ -70,6 +74,7 @@ export type Stage1PricingResponse = { defaultBackendTargetPrice: number; effecti
 export const defaultInput: TesterInput = {
   buttonProduct: 'HELOC',
   vistaProduct: '30yr Fixed',
+  vistaDocType: 'Full Doc',
   newrezProduct: '30 Year Fixed',
   osbProgram: 'HELOC',
   osbProduct: '30 Year Maturity',
@@ -81,6 +86,7 @@ export const defaultInput: TesterInput = {
   verusLockPeriodDays: 45,
   deephavenProgram: 'Equity Advantage',
   deephavenProduct: '30Y Fixed',
+  deephavenDocType: 'Full Doc',
   helocDrawTermYears: 5,
   buttonTermYears: 20,
   buttonDocType: 'Full Doc',

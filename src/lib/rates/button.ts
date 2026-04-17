@@ -250,6 +250,10 @@ export function evaluateButtonEligibility(input: ButtonPricingInput, selectedLoa
     reasons.push('Desired loan amount exceeds the current max available amount.');
   }
 
+  if (input.product === 'CES' && input.docType === 'Bank Statement') {
+    reasons.push('Button workbook has Bank Statement base pricing for HELOC only; CES Bank Statement pricing is not available.');
+  }
+
   return {
     eligible: reasons.length === 0,
     reasons,
@@ -420,7 +424,7 @@ function basePriceFor(row: RateRow, product: ButtonProduct, docKey: 'fullDoc' | 
   if (product === 'HELOC') {
     return row.prices[docKey].HELOC;
   }
-  return row.prices[docKey].CES ?? row.prices.fullDoc.CES;
+  return row.prices[docKey].CES ?? 0;
 }
 
 function calculateMonthlyPayment(
@@ -459,6 +463,7 @@ function buildAdjustmentLines(
   const occupancy = normalizeOccupancy(input.occupancy);
   const normalizedStructure = normalizeStructureType(input.structureType);
 
+  adjustments.push({ label: `Doc Type: ${input.docType}`, value: 0 });
   adjustments.push({ label: 'Lock Period: 45 Day', value: BUTTON_45_DAY_LOCK_ADJUSTMENT });
 
   if (occupancy === 'Second Home') {

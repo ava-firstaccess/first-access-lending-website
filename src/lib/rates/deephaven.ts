@@ -4,10 +4,12 @@ import type { Stage1AdjustmentLine } from './shared';
 
 export type DeephavenProgram = 'Equity Advantage' | 'Equity Advantage Elite';
 export type DeephavenProduct = '15Y Fixed' | '20Y Fixed' | '30Y Fixed';
+export type DeephavenDocType = 'Full Doc' | 'Bank Statement';
 
 export interface DeephavenPricingInput {
   program: DeephavenProgram;
   product: DeephavenProduct;
+  docType: DeephavenDocType;
   propertyValue: number;
   loanBalance: number;
   desiredLoanAmount: number;
@@ -57,6 +59,10 @@ type ProgramData = {
   pricing: PricingRow[];
   cltvBuckets: Array<number | null>;
   creditAdjustments: AdjustmentRow[];
+  documentationAdjustments?: {
+    bankStatement: AdjustmentRow[];
+    pnlOnly: AdjustmentRow[];
+  };
   adjustments: {
     term: AdjustmentRow[];
     occupancy: AdjustmentRow[];
@@ -75,7 +81,7 @@ const DEEPHAVEN_PROGRAM_MAP: Record<DeephavenProgram, 'Expanded Prime' | 'Non-Pr
 const DEEPHAVEN_PROGRAMS: DeephavenProgram[] = ['Equity Advantage', 'Equity Advantage Elite'];
 
 export function buildDeephavenStage1PricingInput(
-  stage1: ButtonStage1Input & { deephavenProgram?: DeephavenProgram; deephavenProduct?: DeephavenProduct }
+  stage1: ButtonStage1Input & { deephavenProgram?: DeephavenProgram; deephavenProduct?: DeephavenProduct; deephavenDocType?: DeephavenDocType }
 ): DeephavenPricingInput {
   const propertyValue = Number(stage1.propertyValue || 0);
   const loanBalance = Number(stage1.loanBalance || 0);
@@ -86,6 +92,7 @@ export function buildDeephavenStage1PricingInput(
   return {
     program: normalizeProgram(stage1.deephavenProgram),
     product: normalizeProduct(stage1.deephavenProduct),
+    docType: normalizeDocType(stage1.deephavenDocType),
     propertyValue,
     loanBalance,
     desiredLoanAmount,
@@ -103,7 +110,7 @@ function sourceProgram(program: DeephavenProgram): 'Expanded Prime' | 'Non-Prime
 }
 
 export function calculateDeephavenStage1Quote(
-  stage1: ButtonStage1Input & { deephavenProgram?: DeephavenProgram; deephavenProduct?: DeephavenProduct },
+  stage1: ButtonStage1Input & { deephavenProgram?: DeephavenProgram; deephavenProduct?: DeephavenProduct; deephavenDocType?: DeephavenDocType },
   options?: { selectedLoanAmount?: number; targetPrice?: number; rateOverride?: number }
 ): DeephavenQuote {
   const input = buildDeephavenStage1PricingInput(stage1);
@@ -116,6 +123,7 @@ export function calculateDeephavenStage1Quote(
     if (input.creditScore < minCreditScore(program)) return [];
     if (input.resultingCltv > maxLtv) return [];
     if (selectedLoanAmount > maxAvailable) return [];
+    if (!programSupportsDocType(program, input.docType)) return [];
     const llpaAdjustment = calculateLlpaAdjustment(candidateInput, selectedLoanAmount, program);
     const targetPrice = clampTargetPrice(candidateInput, options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), selectedLoanAmount, program);
     const selected = options?.rateOverride !== undefined
@@ -162,22 +170,23 @@ export function calculateDeephavenStage1Quote(
 }
 
 export function evaluateDeephavenStage1Eligibility(
-  stage1: ButtonStage1Input & { deephavenProgram?: DeephavenProgram; deephavenProduct?: DeephavenProduct },
+  stage1: ButtonStage1Input & { deephavenProgram?: DeephavenProgram; deephavenProduct?: DeephavenProduct; deephavenDocType?: DeephavenDocType },
   selectedLoanAmount?: number
 ): DeephavenEligibilityResult {
   const input = buildDeephavenStage1PricingInput(stage1);
   const requested = Math.max(0, selectedLoanAmount ?? input.desiredLoanAmount ?? 0);
   const reasons: string[] = [];
   const maxAvailable = Math.max(...DEEPHAVEN_PROGRAMS.map(program => calculateMaxAvailableForProgram({ ...input, program }, program)));
-  const maxLtv = Math.max(...DEEPHAVEN_PROGRAMS.map(program => calculateMaxLtvForProgram({ ...input, program }, program)));
   const anyEligible = DEEPHAVEN_PROGRAMS.some(program => {
     const candidateInput = { ...input, program };
-    return input.creditScore >= minCreditScore(program)
+    return programSupportsDocType(program, input.docType)
+      && input.creditScore >= minCreditScore(program)
       && input.resultingCltv <= calculateMaxLtvForProgram(candidateInput, program)
       && requested <= calculateMaxAvailableForProgram(candidateInput, program);
   });
 
   if (!anyEligible) {
+    if (DEEPHAVEN_PROGRAMS.every(program => !programSupportsDocType(program, input.docType))) reasons.push(`Deephaven ${input.docType} pricing is not available in the workbook.`);
     if (DEEPHAVEN_PROGRAMS.every(program => input.creditScore < minCreditScore(program))) reasons.push('Credit score is below the current supported Deephaven tester range.');
     if (DEEPHAVEN_PROGRAMS.every(program => input.resultingCltv > calculateMaxLtvForProgram({ ...input, program }, program))) reasons.push('Resulting CLTV exceeds the current supported Deephaven tester range.');
     if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
@@ -192,7 +201,7 @@ export function evaluateDeephavenStage1Eligibility(
 }
 
 export function solveDeephavenStage1TargetRate(
-  stage1: ButtonStage1Input & { deephavenProgram?: DeephavenProgram; deephavenProduct?: DeephavenProduct },
+  stage1: ButtonStage1Input & { deephavenProgram?: DeephavenProgram; deephavenProduct?: DeephavenProduct; deephavenDocType?: DeephavenDocType },
   options: { targetPrice: number; tolerance?: number; selectedLoanAmount?: number }
 ): DeephavenTargetRateQuote {
   const input = buildDeephavenStage1PricingInput(stage1);
@@ -264,10 +273,6 @@ function calculateMaxAvailableForProgram(input: DeephavenPricingInput, program: 
   return Math.max(0, input.propertyValue * calculateMaxLtvForProgram(input, program) - input.loanBalance);
 }
 
-function calculateMaxLtv(input: DeephavenPricingInput): number {
-  return calculateMaxLtvForProgram(input, input.program);
-}
-
 function calculateMaxLtvForProgram(input: DeephavenPricingInput, program: DeephavenProgram): number {
   const programData = DATA.programs[sourceProgram(program)];
   const row = findCreditRow(programData.creditAdjustments, input.creditScore);
@@ -313,6 +318,15 @@ function normalizeProduct(value?: string): DeephavenProduct {
   return '30Y Fixed';
 }
 
+function normalizeDocType(value?: string): DeephavenDocType {
+  return String(value || '').toLowerCase().includes('bank') ? 'Bank Statement' : 'Full Doc';
+}
+
+function programSupportsDocType(program: DeephavenProgram, docType: DeephavenDocType): boolean {
+  if (docType === 'Full Doc') return true;
+  return (DATA.programs[sourceProgram(program)].documentationAdjustments?.bankStatement ?? []).length > 0;
+}
+
 function normalizeOccupancy(value?: string): string {
   const text = String(value || '').toLowerCase();
   if (text.includes('investment')) return 'Investor';
@@ -338,6 +352,9 @@ function buildAdjustmentLines(input: DeephavenPricingInput, selectedLoanAmount: 
   const lines: Stage1AdjustmentLine[] = [{ label: `Program: ${program}`, value: 0 }];
 
   pushAdjustment(lines, 'FICO x CLTV', readAdjustmentValue(findCreditRow(programData.creditAdjustments, input.creditScore), cltvIndex));
+  if (input.docType === 'Bank Statement') {
+    pushAdjustment(lines, 'Doc Type: Bank Statement', readAdjustmentValue(findCreditRow(programData.documentationAdjustments?.bankStatement ?? [], input.creditScore), cltvIndex));
+  }
   pushAdjustment(lines, 'Term', readAdjustmentValue(findByLabel(programData.adjustments.term, termAdjustmentLabel(input.product)), cltvIndex));
   pushAdjustment(lines, 'Occupancy', readAdjustmentValue(findByLabel(programData.adjustments.occupancy, input.occupancy), cltvIndex));
   pushAdjustment(lines, 'Loan Amount', readAdjustmentValue(findLoanAmountRow(programData.adjustments.loanAmount, selectedLoanAmount), cltvIndex));

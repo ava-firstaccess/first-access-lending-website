@@ -22,7 +22,8 @@ PROGRAMS = {
             'endRow': 95,
             'columns': (20, 27),
             'docGroups': {
-                'fullDoc': [(66, 75), (76, 85), (86, 95)],
+                'fullDoc': [(66, 75)],
+                'bankStatement': [(76, 85)],
             },
         },
         'adjustmentRows': {
@@ -70,7 +71,8 @@ PROGRAMS = {
             'endRow': 260,
             'columns': (20, 27),
             'docGroups': {
-                'fullDoc': [(221, 230), (231, 240), (241, 250), (251, 260)],
+                'fullDoc': [(221, 230)],
+                'bankStatement': [(231, 240)],
             },
         },
         'adjustmentRows': {
@@ -217,6 +219,10 @@ def main():
                 'cltvFullDoc': {
                     'rowRange': [spec['cltv']['startRow'], spec['cltv']['endRow']],
                     **parse_cltv_groups(ws, spec['cltv'])['fullDoc'],
+                },
+                'cltvBankStatement': {
+                    'rowRange': [spec['cltv']['docGroups']['bankStatement'][0][0], spec['cltv']['docGroups']['bankStatement'][-1][1]],
+                    **parse_cltv_groups(ws, spec['cltv'])['bankStatement'],
                 },
                 'adjustments': {
                     category: {
