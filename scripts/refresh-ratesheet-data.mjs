@@ -174,8 +174,8 @@ function parseDeephavenProgram(rows, sheetLabel, expandedPrime = false) {
     creditAdjustments: parseMatrixRows(rows, 6, expandedPrime ? 12 : 11, 8, 10, 17),
     documentationAdjustments: expandedPrime
       ? {
-          bankStatement: parseMatrixRows(rows, 20, 21, 8, 10, 17),
-          pnlOnly: parseMatrixRows(rows, 22, 23, 8, 10, 17),
+          bankStatement: parseMatrixRows(rows, 13, 14, 8, 10, 17),
+          pnlOnly: parseMatrixRows(rows, 15, 16, 8, 10, 17),
         }
       : {
           bankStatement: [],
