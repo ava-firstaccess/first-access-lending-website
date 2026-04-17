@@ -113,9 +113,9 @@ export function Stage1PricingPage({ mode }: { mode: Mode }) {
     return roundToThree((((Number(input.loanBalance || 0) + Number(input.desiredLoanAmount || 0)) / propertyValue) * 100));
   }, [input.loanBalance, input.desiredLoanAmount, input.propertyValue]);
   const discountPoints = useMemo(() => {
-    const raw = 100 - (quote?.purchasePrice ?? 0);
+    const raw = (response?.defaultBackendTargetPrice ?? 100) - (quote?.purchasePrice ?? 0);
     return raw > 0 ? roundUpToEighth(raw) : 0;
-  }, [quote?.purchasePrice]);
+  }, [response?.defaultBackendTargetPrice, quote?.purchasePrice]);
 
   useEffect(() => {
     setDraft(prev => ({ ...prev, combinedLtv: combinedLtv.toFixed(3), desiredLoanAmount: String(input.desiredLoanAmount ?? 0) }));
