@@ -145,8 +145,9 @@ export function calculateVistaQuote(
   const maxLtv = calculateMaxLtv(input);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? maxAvailable);
   const programDti = findAdjustment(PROGRAMS[getProgramKey(input)], 'dti', dtiLabel(input.dti));
+  const dtiBucketIndex = findCltvBucketIndex(program, input.resultingCltv, input.docType);
 
-  if (selectedLoanAmount > maxAvailable || input.resultingCltv > maxLtv || (input.dti !== null && programDti?.value === null)) {
+  if (selectedLoanAmount > maxAvailable || input.resultingCltv > maxLtv || (input.dti !== null && programDti && programDti.values && !isWorkbookEligibleCell(programDti.values, dtiBucketIndex))) {
     return {
       program: program.inputName,
       maxAvailable,
@@ -206,7 +207,8 @@ export function evaluateVistaStage1Eligibility(
     reasons.push(`Vista ${propertyType.label} is not eligible at the selected CLTV in the current workbook.`);
   }
   const dtiAdjustment = findAdjustment(program, 'dti', dtiLabel(input.dti));
-  if (input.dti !== null && dtiAdjustment?.value === null) {
+  const dtiBucketIndex = findCltvBucketIndex(program, input.resultingCltv, input.docType);
+  if (input.dti !== null && dtiAdjustment && dtiAdjustment.values && !isWorkbookEligibleCell(dtiAdjustment.values, dtiBucketIndex)) {
     reasons.push(`Vista DTI ${input.dti.toFixed(2)}% is not eligible in the current workbook.`);
   }
   if (!findAdjustment(program, 'term', input.product)) reasons.push('Selected term is not available in the Vista ratesheet.');
@@ -229,7 +231,8 @@ export function solveVistaStage1TargetRate(
   const selectedLoanAmount = Math.max(0, options.selectedLoanAmount ?? input.desiredLoanAmount ?? calculateMaxAvailable(input));
   const program = PROGRAMS[getProgramKey(input)];
   const programDti = findAdjustment(program, 'dti', dtiLabel(input.dti));
-  if (input.dti !== null && programDti?.value === null) {
+  const dtiBucketIndex = findCltvBucketIndex(program, input.resultingCltv, input.docType);
+  if (input.dti !== null && programDti && programDti.values && !isWorkbookEligibleCell(programDti.values, dtiBucketIndex)) {
     return {
       program: program.inputName,
       maxAvailable: calculateMaxAvailable(input),
@@ -333,7 +336,10 @@ function buildAdjustmentLines(input: VistaPricingInput, selectedLoanAmount: numb
   }
 
   const dti = findAdjustment(program, 'dti', dtiLabel(input.dti));
-  if (input.dti !== null && dti) adjustments.push({ label: `DTI: ${dti.label}`, value: dti.value ?? 0 });
+  if (input.dti !== null && dti) {
+    const dtiValue = dti.values?.[findCltvBucketIndex(program, input.resultingCltv, input.docType) ?? 0] ?? dti.value;
+    adjustments.push({ label: `DTI: ${dti.label}`, value: dtiValue ?? 0 });
+  }
 
   const propertyType = findAdjustment(program, 'propertyType', propertyTypeLabel(input));
   if (propertyType) {

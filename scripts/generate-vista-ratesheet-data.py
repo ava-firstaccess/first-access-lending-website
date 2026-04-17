@@ -238,7 +238,7 @@ def main():
                 'adjustments': {
                     category: {
                         'rows': list(row_range),
-                        'items': parse_adjustment_rows(ws, row_range[0], row_range[1], matrix=(category == 'propertyType')),
+                        'items': parse_adjustment_rows(ws, row_range[0], row_range[1], matrix=(category in {'propertyType', 'dti'})),
                     }
                     for category, row_range in spec['adjustmentRows'].items()
                 },
