@@ -4,7 +4,7 @@ import type { Stage1AdjustmentLine } from './shared';
 
 export type DeephavenProgram = 'Equity Advantage' | 'Equity Advantage Elite';
 export type DeephavenProduct = '15Y Fixed' | '20Y Fixed' | '30Y Fixed';
-export type DeephavenDocType = 'Full Doc' | 'Bank Statement';
+export type DeephavenDocType = 'Full Doc' | 'Bank Statement' | 'P&L Only';
 
 export interface DeephavenPricingInput {
   program: DeephavenProgram;
@@ -123,7 +123,7 @@ export function calculateDeephavenStage1Quote(
     if (input.creditScore < minCreditScore(program)) return [];
     if (input.resultingCltv > maxLtv) return [];
     if (selectedLoanAmount > maxAvailable) return [];
-    if (!programSupportsDocType(program, input.docType)) return [];
+    if (!programSupportsDocType(program, input.docType, input.product)) return [];
     const llpaAdjustment = calculateLlpaAdjustment(candidateInput, selectedLoanAmount, program);
     const targetPrice = clampTargetPrice(candidateInput, options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), selectedLoanAmount, program);
     const selected = options?.rateOverride !== undefined
@@ -179,14 +179,14 @@ export function evaluateDeephavenStage1Eligibility(
   const maxAvailable = Math.max(...DEEPHAVEN_PROGRAMS.map(program => calculateMaxAvailableForProgram({ ...input, program }, program)));
   const anyEligible = DEEPHAVEN_PROGRAMS.some(program => {
     const candidateInput = { ...input, program };
-    return programSupportsDocType(program, input.docType)
+    return programSupportsDocType(program, input.docType, input.product)
       && input.creditScore >= minCreditScore(program)
       && input.resultingCltv <= calculateMaxLtvForProgram(candidateInput, program)
       && requested <= calculateMaxAvailableForProgram(candidateInput, program);
   });
 
   if (!anyEligible) {
-    if (DEEPHAVEN_PROGRAMS.every(program => !programSupportsDocType(program, input.docType))) reasons.push(`Deephaven ${input.docType} pricing is not available in the workbook.`);
+    if (DEEPHAVEN_PROGRAMS.every(program => !programSupportsDocType(program, input.docType, input.product))) reasons.push(`Deephaven ${input.docType} pricing is not available in the workbook for ${input.product}.`);
     if (DEEPHAVEN_PROGRAMS.every(program => input.creditScore < minCreditScore(program))) reasons.push('Credit score is below the current supported Deephaven tester range.');
     if (DEEPHAVEN_PROGRAMS.every(program => input.resultingCltv > calculateMaxLtvForProgram({ ...input, program }, program))) reasons.push('Resulting CLTV exceeds the current supported Deephaven tester range.');
     if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
@@ -319,12 +319,17 @@ function normalizeProduct(value?: string): DeephavenProduct {
 }
 
 function normalizeDocType(value?: string): DeephavenDocType {
-  return String(value || '').toLowerCase().includes('bank') ? 'Bank Statement' : 'Full Doc';
+  const text = String(value || '').toLowerCase();
+  if (text.includes('bank')) return 'Bank Statement';
+  if (text.includes('p&l') || text.includes('p & l') || text.includes('pnl')) return 'P&L Only';
+  return 'Full Doc';
 }
 
-function programSupportsDocType(program: DeephavenProgram, docType: DeephavenDocType): boolean {
+function programSupportsDocType(program: DeephavenProgram, docType: DeephavenDocType, product: DeephavenProduct): boolean {
+  const programData = DATA.programs[sourceProgram(program)];
   if (docType === 'Full Doc') return true;
-  return (DATA.programs[sourceProgram(program)].documentationAdjustments?.bankStatement ?? []).length > 0;
+  if (docType === 'Bank Statement') return (programData.documentationAdjustments?.bankStatement ?? []).length > 0;
+  return Boolean(findByLabel(programData.documentationAdjustments?.pnlOnly ?? [], termAdjustmentLabel(product)));
 }
 
 function normalizeOccupancy(value?: string): string {
@@ -354,6 +359,9 @@ function buildAdjustmentLines(input: DeephavenPricingInput, selectedLoanAmount: 
   pushAdjustment(lines, 'FICO x CLTV', readAdjustmentValue(findCreditRow(programData.creditAdjustments, input.creditScore), cltvIndex));
   if (input.docType === 'Bank Statement') {
     pushAdjustment(lines, 'Doc Type: Bank Statement', readAdjustmentValue(findCreditRow(programData.documentationAdjustments?.bankStatement ?? [], input.creditScore), cltvIndex));
+  }
+  if (input.docType === 'P&L Only') {
+    pushAdjustment(lines, 'Doc Type: P&L Only', readAdjustmentValue(findByLabel(programData.documentationAdjustments?.pnlOnly ?? [], termAdjustmentLabel(input.product)), cltvIndex));
   }
   pushAdjustment(lines, 'Term', readAdjustmentValue(findByLabel(programData.adjustments.term, termAdjustmentLabel(input.product)), cltvIndex));
   pushAdjustment(lines, 'Occupancy', readAdjustmentValue(findByLabel(programData.adjustments.occupancy, input.occupancy), cltvIndex));
@@ -403,7 +411,7 @@ function matchesCreditBand(label: string, creditScore: number): boolean {
 function termAdjustmentLabel(product: DeephavenProduct): string {
   if (product === '15Y Fixed') return '15Yr Fixed';
   if (product === '20Y Fixed') return '20Yr Fixed';
-  return '';
+  return product === '30Y Fixed' ? '30Yr Fixed' : '';
 }
 
 function findLoanAmountRow(rows: AdjustmentRow[], selectedLoanAmount: number): AdjustmentRow | undefined {

@@ -221,12 +221,31 @@ export function evaluateOsbEligibility(input: OsbPricingInput, selectedLoanAmoun
   const program = getProgramData(input.program);
   const maxAvailable = calculateMaxAvailable(input);
   const requested = Math.max(0, selectedLoanAmount ?? input.desiredLoanAmount ?? 0);
+  const cltvBucketIndex = findCltvBucketIndex(program.cltvBuckets, input.resultingCltv);
 
   if (!findMatrixRow(program.creditMatrix, input.creditScore)) reasons.push('Credit score is outside the OSB matrix.');
-  if (findCltvBucketIndex(program.cltvBuckets, input.resultingCltv) === null) reasons.push('Resulting CLTV is outside the OSB matrix.');
+  if (cltvBucketIndex === null) reasons.push('Resulting CLTV is outside the OSB matrix.');
   if (!program.pricing.products.some(item => item.label === input.product)) reasons.push('Selected OSB product is not available in the workbook.');
-  if (input.program === 'HELOC' && !findAdjustment(program.adjustments.drawTerm, drawTermLabel(input.helocDrawTermYears))) reasons.push('Selected HELOC draw term is not available in the workbook.');
-  if (findAdjustment(program.adjustments.loanAmount, loanAmountLabel(input.program, requested)) === null) reasons.push('Desired loan amount is outside the OSB loan amount grid.');
+
+  if (input.program === 'HELOC') {
+    const draw = findAdjustment(program.adjustments.drawTerm, drawTermLabel(input.helocDrawTermYears));
+    if (!draw) reasons.push('Selected HELOC draw term is not available in the workbook.');
+    else if (cltvBucketIndex !== null && adjustmentBucketValue(draw, cltvBucketIndex) === null) reasons.push('Selected HELOC draw term is not eligible at this CLTV in the workbook.');
+  }
+
+  const amount = findAdjustment(program.adjustments.loanAmount, loanAmountLabel(input.program, requested));
+  if (amount === null) reasons.push('Desired loan amount is outside the OSB loan amount grid.');
+  else if (cltvBucketIndex !== null && adjustmentBucketValue(amount, cltvBucketIndex) === null) reasons.push('Desired loan amount is not eligible at this CLTV in the workbook.');
+
+  const occupancy = findAdjustment(program.adjustments.loanType, occupancyLoanTypeLabel(input));
+  if (occupancy && cltvBucketIndex !== null && adjustmentBucketValue(occupancy, cltvBucketIndex) === null) reasons.push(`Loan type ${occupancy.label} is not eligible at this CLTV in the workbook.`);
+
+  const property = findAdjustment(program.adjustments.property, propertyLabel(input));
+  if (property && cltvBucketIndex !== null && adjustmentBucketValue(property, cltvBucketIndex) === null) reasons.push(`Property type ${property.label} is not eligible at this CLTV in the workbook.`);
+
+  const state = findAdjustment(program.adjustments.property, 'Tier 2 States: Other*');
+  if (state && !TIER_1_STATES.has(input.propertyState) && cltvBucketIndex !== null && adjustmentBucketValue(state, cltvBucketIndex) === null) reasons.push('Tier 2 state pricing is not eligible at this CLTV in the workbook.');
+
   if (findLockAdjustment(program.lockAdjustments, lockPeriodLabel(input.lockPeriodDays)) === null) reasons.push('Selected lock period is not available in the workbook.');
   if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
 
@@ -391,7 +410,12 @@ function findLockAdjustment(rows: Array<{ label: string; value: number | null }>
 function lookupAdjustmentValue(row: JsonBucketRow, buckets: string[], cltv: number): number {
   const bucketIndex = findCltvBucketIndex(buckets, cltv);
   if (bucketIndex === null) return 0;
-  return row.values[bucketIndex] ?? 0;
+  return adjustmentBucketValue(row, bucketIndex) ?? 0;
+}
+
+function adjustmentBucketValue(row: JsonBucketRow, bucketIndex: number): number | null {
+  const value = row.values[bucketIndex];
+  return value == null ? null : value;
 }
 
 function loanAmountLabel(program: OsbProgram, amount: number): string {
