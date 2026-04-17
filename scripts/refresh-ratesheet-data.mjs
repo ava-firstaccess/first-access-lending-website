@@ -125,6 +125,19 @@ function generateNewRez() {
   });
 }
 
+function parseMatrixRows(rows, rowStart, rowEnd, labelCol, valueStartCol, valueEndCol) {
+  const out = [];
+  for (let row = rowStart; row <= rowEnd; row += 1) {
+    const label = cell(rows, row, labelCol);
+    if (label === null) continue;
+    out.push({
+      label: String(label),
+      values: Array.from({ length: valueEndCol - valueStartCol + 1 }, (_, index) => price(rawCell(rows, row, valueStartCol + index))),
+    });
+  }
+  return out;
+}
+
 function parseDeephavenProgram(rows, sheetLabel, expandedPrime = false) {
   const pricing = [];
   for (let row = 6; row <= rows.length; row += 1) {
@@ -142,6 +155,8 @@ function parseDeephavenProgram(rows, sheetLabel, expandedPrime = false) {
     });
   }
 
+  const cltvBuckets = Array.from({ length: 8 }, (_, index) => price(rawCell(rows, 5, 10 + index)));
+
   return {
     sheet: sheetLabel,
     minPrice: price(rawCell(rows, expandedPrime ? 42 : 35, 8)),
@@ -155,6 +170,15 @@ function parseDeephavenProgram(rows, sheetLabel, expandedPrime = false) {
         ],
     pricing,
     products: ['15Y Fixed', '30Y Fixed'],
+    cltvBuckets,
+    creditAdjustments: parseMatrixRows(rows, 6, expandedPrime ? 12 : 11, 8, 10, 17),
+    adjustments: {
+      term: parseMatrixRows(rows, expandedPrime ? 22 : 18, expandedPrime ? 24 : 20, 8, 10, 17),
+      occupancy: parseMatrixRows(rows, expandedPrime ? 25 : 21, expandedPrime ? 26 : 22, 8, 10, 17),
+      loanAmount: parseMatrixRows(rows, expandedPrime ? 27 : 23, expandedPrime ? 29 : 25, 8, 10, 17),
+      propertyType: parseMatrixRows(rows, expandedPrime ? 31 : 27, expandedPrime ? 33 : 28, 8, 10, 17),
+      state: parseMatrixRows(rows, expandedPrime ? 38 : 31, expandedPrime ? 38 : 31, 8, 10, 17),
+    },
   };
 }
 
