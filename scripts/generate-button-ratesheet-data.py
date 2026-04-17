@@ -78,9 +78,9 @@ def main() -> None:
                 'values': matrix(ws, 37, 39),
             },
             'dti': {
-                'rows': [ws.cell(r, 6).value for r in range(41, 48)],
-                'columns': [ws.cell(40, c).value for c in range(7, 14)],
-                'values': matrix(ws, 41, 47),
+                'rows': [ws.cell(r, 6).value for r in range(38, 41)],
+                'columns': [ws.cell(12, c).value for c in range(7, 14)],
+                'values': matrix(ws, 38, 40),
             },
             'draw': {
                 'heloc': {

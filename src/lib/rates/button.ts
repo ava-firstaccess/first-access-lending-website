@@ -252,6 +252,10 @@ export function evaluateButtonEligibility(input: ButtonPricingInput, selectedLoa
     reasons.push('Desired loan amount exceeds the current max available amount.');
   }
 
+  if (input.dti !== null && input.dti > 60) {
+    reasons.push('Button DTI adjustments are only workbook-backed through 60.00%.');
+  }
+
   if (input.product === 'CES' && input.docType !== 'Full Doc') {
     reasons.push(`Button ${input.docType} pricing is not available for CES in the current workbook.`);
   }
@@ -498,18 +502,24 @@ function buildAdjustmentLines(
 function getDtiAdjustment(
   input: ButtonPricingInput,
   cltvIndex: number,
-  options?: {
+  _options?: {
     helocDrawTermYears?: number;
     helocTotalTermYears?: number;
     cesTermYears?: number;
   }
 ): Stage1AdjustmentLine | null {
-  if (input.dti === null || input.dti <= 55 || input.dti > 60) return null;
-  const rowLabel = input.product === 'HELOC'
-    ? `${options?.helocDrawTermYears ?? 5}yr HELOC Draw`
-    : `${options?.cesTermYears ?? 30}yr IO (non-HELOC)`;
-  const value = getLookupValue(DTI_TABLE, rowLabel, cltvIndex);
-  return { label: 'DTI: 55.01% - 60.00%', value };
+  const dtiLabel = getButtonDtiLabel(input.dti);
+  if (!dtiLabel) return null;
+  const value = getLookupValue(DTI_TABLE, dtiLabel, cltvIndex);
+  return { label: `DTI: ${dtiLabel}`, value };
+}
+
+function getButtonDtiLabel(dti: number | null): string | null {
+  if (dti === null || dti <= 43) return null;
+  if (dti <= 50) return '43% < DTI ≤ 50%';
+  if (dti <= 55) return '50% < DTI ≤ 55%';
+  if (dti <= 60) return '55% < DTI ≤ 60%';
+  return null;
 }
 
 function getTermAdjustment(
