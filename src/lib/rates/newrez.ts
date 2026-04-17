@@ -276,7 +276,7 @@ function pickExecution(product: NewRezProduct, llpaAdjustment: number, targetPri
   }
 
   if (rateOverride !== undefined) {
-    return executions.sort((a, b) => Math.abs(a.noteRate - rateOverride) - Math.abs(b.noteRate - rateOverride) || (b.purchasePrice - a.purchasePrice))[0];
+    return interpolateExecutionAtRate(executions, executionColumn, rateOverride, llpaAdjustment);
   }
 
   const belowOrEqual = executions
@@ -285,6 +285,63 @@ function pickExecution(product: NewRezProduct, llpaAdjustment: number, targetPri
   if (belowOrEqual.length > 0) return belowOrEqual[0];
 
   return executions.sort((a, b) => Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget) || (b.purchasePrice - a.purchasePrice) || (a.noteRate - b.noteRate))[0];
+}
+
+function interpolateExecutionAtRate(
+  executions: SelectedExecution[],
+  endSeconds: NewRezEndSeconds,
+  requestedRate: number,
+  llpaAdjustment: number
+): SelectedExecution {
+  const sorted = [...executions].sort((a, b) => a.noteRate - b.noteRate);
+  if (sorted.length === 0) {
+    return {
+      noteRate: requestedRate,
+      endSeconds,
+      basePrice: 0,
+      purchasePrice: roundToThree(llpaAdjustment),
+      deltaFromTarget: 0,
+      withinTolerance: false,
+    };
+  }
+
+  if (requestedRate <= sorted[0].noteRate) {
+    return {
+      ...sorted[0],
+      noteRate: requestedRate,
+    };
+  }
+
+  const last = sorted[sorted.length - 1];
+  if (requestedRate >= last.noteRate) {
+    return {
+      ...last,
+      noteRate: requestedRate,
+    };
+  }
+
+  for (let i = 1; i < sorted.length; i += 1) {
+    const lower = sorted[i - 1];
+    const upper = sorted[i];
+    if (requestedRate <= upper.noteRate) {
+      const span = upper.noteRate - lower.noteRate;
+      const ratio = span === 0 ? 0 : (requestedRate - lower.noteRate) / span;
+      const basePrice = roundToThree(lower.basePrice + (upper.basePrice - lower.basePrice) * ratio);
+      return {
+        noteRate: roundToThree(requestedRate),
+        endSeconds,
+        basePrice,
+        purchasePrice: roundToThree(basePrice + llpaAdjustment),
+        deltaFromTarget: 0,
+        withinTolerance: false,
+      };
+    }
+  }
+
+  return {
+    ...last,
+    noteRate: requestedRate,
+  };
 }
 
 function findCreditRow(matrix: JsonMatrix, creditScore: number): JsonBucketRow | null {
