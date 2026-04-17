@@ -64,8 +64,11 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
   const { engine, input } = request;
   const tolerance = request.tolerance ?? 0.125;
   const defaultBackendTargetPrice = getTargetPurchasePriceForLoanAmount(Number(input.desiredLoanAmount || 0));
-  const effectiveTargetPrice = defaultBackendTargetPrice;
-  const bestExLoTargetPrice = request.targetPriceOverride?.trim() ? (Number.isFinite(Number(request.targetPriceOverride)) ? Number(request.targetPriceOverride) : 100) : 100;
+  const parsedTargetPriceOverride = request.targetPriceOverride?.trim()
+    ? (Number.isFinite(Number(request.targetPriceOverride)) ? Number(request.targetPriceOverride) : undefined)
+    : undefined;
+  const effectiveTargetPrice = parsedTargetPriceOverride ?? defaultBackendTargetPrice;
+  const bestExLoTargetPrice = effectiveTargetPrice;
   const effectiveManualRateOverride = request.manualRateOverride?.trim() ? (Number.isFinite(Number(request.manualRateOverride)) ? Number(request.manualRateOverride) : undefined) : undefined;
   const activeResult = getActiveResult(engine, input, effectiveTargetPrice, effectiveManualRateOverride, tolerance);
 
