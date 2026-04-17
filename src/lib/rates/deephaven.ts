@@ -253,15 +253,15 @@ function calculateMaxLtv(input: DeephavenPricingInput): number {
 
 function calculateMaxLtvForProgram(input: DeephavenPricingInput, program: DeephavenProgram): number {
   if (program === 'Equity Advantage') {
-    if (input.creditScore >= 780) return 0.85;
-    if (input.creditScore >= 740) return 0.8;
-    if (input.creditScore >= 700) return 0.75;
-    return 0.7;
+    if (input.creditScore >= 700) return 0.9;
+    if (input.creditScore >= 680) return 0.85;
+    if (input.creditScore >= 660) return 0.8;
+    return 0;
   }
-  if (input.creditScore >= 720) return 0.8;
-  if (input.creditScore >= 680) return 0.75;
-  if (input.creditScore >= 640) return 0.7;
-  return 0.65;
+  if (input.creditScore >= 720) return 0.9;
+  if (input.creditScore >= 700) return 0.85;
+  if (input.creditScore >= 680) return 0.8;
+  return 0;
 }
 
 function minCreditScore(program: DeephavenProgram): number {
