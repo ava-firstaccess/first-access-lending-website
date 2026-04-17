@@ -22,8 +22,9 @@ PROGRAMS = {
             'endRow': 95,
             'columns': (20, 27),
             'docGroups': {
-                'fullDoc': [(66, 75)],
-                'bankStatement': [(76, 85)],
+                'doc01': [(66, 75)],
+                'doc02': [(76, 85)],
+                'doc03': [(86, 95)],
             },
         },
         'adjustmentRows': {
@@ -71,8 +72,10 @@ PROGRAMS = {
             'endRow': 260,
             'columns': (20, 27),
             'docGroups': {
-                'fullDoc': [(221, 230)],
-                'bankStatement': [(231, 240)],
+                'doc01': [(221, 230)],
+                'doc02': [(231, 240)],
+                'doc04': [(241, 250)],
+                'doc05': [(251, 260)],
             },
         },
         'adjustmentRows': {
@@ -216,13 +219,17 @@ def main():
                     'maxPrice': parse_price_map(ws, spec['maxPriceRows']),
                     'minPrice': parse_price_map(ws, spec['minPriceRows']),
                 },
-                'cltvFullDoc': {
-                    'rowRange': [spec['cltv']['startRow'], spec['cltv']['endRow']],
-                    **parse_cltv_groups(ws, spec['cltv'])['fullDoc'],
+                'cltvDoc01': {
+                    'rowRange': [spec['cltv']['docGroups']['doc01'][0][0], spec['cltv']['docGroups']['doc01'][-1][1]],
+                    **parse_cltv_groups(ws, spec['cltv'])['doc01'],
                 },
-                'cltvBankStatement': {
-                    'rowRange': [spec['cltv']['docGroups']['bankStatement'][0][0], spec['cltv']['docGroups']['bankStatement'][-1][1]],
-                    **parse_cltv_groups(ws, spec['cltv'])['bankStatement'],
+                **{
+                    f'cltv{group_name.capitalize()}': {
+                        'rowRange': [ranges[0][0], ranges[-1][1]],
+                        **parse_cltv_groups(ws, spec['cltv'])[group_name],
+                    }
+                    for group_name, ranges in spec['cltv']['docGroups'].items()
+                    if group_name != 'doc01'
                 },
                 'adjustments': {
                     category: {

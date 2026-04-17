@@ -2,7 +2,7 @@ import ratesheet from './button-ratesheet.json';
 import type { Stage1AdjustmentLine } from './shared';
 
 export type ButtonProduct = 'HELOC' | 'CES';
-export type ButtonDocType = 'Full Doc' | 'Bank Statement';
+export type ButtonDocType = 'Full Doc' | 'Bank Statement' | 'Asset Depletion';
 
 export interface ButtonPricingInput {
   product: ButtonProduct;
@@ -187,7 +187,7 @@ export function calculateButtonQuote(
   const maxAvailable = calculateMaxAvailable(input);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? maxAvailable);
   const targetPrice = Math.min(options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), BUTTON_MAX_PURCHASE_PRICE);
-  const docKey = input.docType === 'Bank Statement' ? 'altDoc' : 'fullDoc';
+  const docKey = input.docType === 'Full Doc' ? 'fullDoc' : 'altDoc';
 
   const ficoIndex = getFicoBucketIndex(input.creditScore);
   const cltvIndex = getCltvBucketIndex(input.resultingCltv);
@@ -250,8 +250,8 @@ export function evaluateButtonEligibility(input: ButtonPricingInput, selectedLoa
     reasons.push('Desired loan amount exceeds the current max available amount.');
   }
 
-  if (input.product === 'CES' && input.docType === 'Bank Statement') {
-    reasons.push('Button workbook has Bank Statement base pricing for HELOC only; CES Bank Statement pricing is not available.');
+  if (input.product === 'CES' && input.docType !== 'Full Doc') {
+    reasons.push(`Button ${input.docType} pricing is not available for CES in the current workbook.`);
   }
 
   return {
@@ -288,7 +288,7 @@ export function solveButtonStage1TargetRate(
   }
 ): ButtonTargetRateQuote {
   const input = buildButtonStage1PricingInput(stage1);
-  const docKey = input.docType === 'Bank Statement' ? 'altDoc' : 'fullDoc';
+  const docKey = input.docType === 'Full Doc' ? 'fullDoc' : 'altDoc';
   const selectedLoanAmount = Math.max(0, options.selectedLoanAmount ?? input.desiredLoanAmount ?? calculateMaxAvailable(input));
   const targetPrice = Math.min(options.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), BUTTON_MAX_PURCHASE_PRICE);
   const tolerance = options.tolerance ?? 0.125;

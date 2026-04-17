@@ -4,7 +4,7 @@ import { calculateDeephavenStage1Quote, evaluateDeephavenStage1Eligibility, solv
 import { calculateOsbStage1Quote, evaluateOsbStage1Eligibility, solveOsbStage1TargetRate } from '@/lib/rates/osb';
 import { calculateVerusStage1Quote, evaluateVerusStage1Eligibility, solveVerusStage1TargetRate } from '@/lib/rates/verus';
 import { calculateVistaStage1Quote, evaluateVistaStage1Eligibility, solveVistaStage1TargetRate } from '@/lib/rates/vista';
-import type { BestExTermYears, InvestorSummary, OsbLockPeriod, PricingViewEngine, Stage1Eligibility, Stage1ExecutionQuote, Stage1PricingEngineResult, Stage1PricingRequest, Stage1PricingResponse, TesterInput, VerusDrawPeriodYears, VerusLockPeriodDays } from './types';
+import type { BestExTermYears, ButtonDocType, InvestorSummary, OsbLockPeriod, PricingViewEngine, SharedDocType, Stage1Eligibility, Stage1ExecutionQuote, Stage1PricingEngineResult, Stage1PricingRequest, Stage1PricingResponse, TesterInput, VerusDrawPeriodYears, VerusLockPeriodDays, VistaDocType } from './types';
 
 const BEST_EX_WINDOW_FLOOR = 0.375;
 const BEST_EX_WINDOW_CEILING = 0.125;
@@ -15,6 +15,21 @@ function buildRequestedRates(min: number, max: number, step = 0.125) { const val
 function distanceToBestExWindow(purchasePrice: number, lowerBound: number, upperBound: number) { if (purchasePrice < lowerBound) return roundToThree(lowerBound - purchasePrice); if (purchasePrice > upperBound) return roundToThree(purchasePrice - upperBound); return 0; }
 type EngineQuoteLike = Omit<Stage1ExecutionQuote, 'engine'> & { program?: string };
 function toQuote(engine: Stage1ExecutionQuote['engine'], quote: EngineQuoteLike): Stage1ExecutionQuote { return { engine, program: quote.program ?? engine, product: quote.product, maxAvailable: quote.maxAvailable, rate: quote.rate, noteRate: quote.noteRate, monthlyPayment: quote.monthlyPayment, maxLtv: quote.maxLtv, purchasePrice: quote.purchasePrice, basePrice: quote.basePrice, llpaAdjustment: quote.llpaAdjustment, adjustments: quote.adjustments }; }
+
+function mapBestExDocTypeToButton(docType: SharedDocType, product: 'HELOC' | 'CES'): ButtonDocType | null {
+  if (docType === 'Full Doc') return 'Full Doc';
+  if (docType === 'Bank Statement') return product === 'HELOC' ? 'Bank Statement' : null;
+  if (docType === 'Asset Depletion') return product === 'HELOC' ? 'Asset Depletion' : null;
+  return null;
+}
+
+function mapBestExDocTypeToVista(docType: SharedDocType): VistaDocType {
+  return docType;
+}
+
+function mapBestExDocTypeToVerus(docType: SharedDocType): 'Standard' | 'Alt Doc' {
+  return docType === 'Full Doc' ? 'Standard' : 'Alt Doc';
+}
 
 function getActiveResult(engine: PricingViewEngine, input: TesterInput, effectiveTargetPrice: number, effectiveManualRateOverride: number | undefined, tolerance: number): Stage1PricingEngineResult | null {
   if (engine === 'BestX') return null;
@@ -45,7 +60,7 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
   const bestExDrawPeriodYears = input.bestExDrawPeriodYears ?? 5;
   const bestExTermYears = input.bestExTermYears ?? 30;
   const bestExLockPeriodDays = input.bestExLockPeriodDays ?? 45;
-  const bestExDocType = input.bestExDocType ?? 'Standard';
+  const bestExDocType = input.bestExDocType ?? 'Full Doc';
   const actualLockPeriodDays = bestExLockPeriodDays + 15;
   const bestExWindowLowerBound = roundToThree(defaultBackendTargetPrice - BEST_EX_WINDOW_FLOOR - (100 - bestExLoTargetPrice));
   const bestExWindowUpperBound = roundToThree(defaultBackendTargetPrice + BEST_EX_WINDOW_CEILING);
@@ -55,10 +70,14 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
   const standardRequestedRates = buildRequestedRates(3, 20); const osbHelocRequestedRates = buildRequestedRates(0.5, 8); const results: InvestorSummary[] = [];
 
   if (bestExProduct === 'HELOC') {
-    const buttonInput = { ...input, buttonProduct: 'HELOC' as const, helocDrawTermYears: bestExDrawPeriodYears, buttonDocType: bestExDocType === 'Alt Doc' ? 'Bank Statement' as const : 'Full Doc' as const };
-    const buttonEligibility = evaluateButtonStage1Eligibility(buttonInput as ButtonStage1Input, selectedLoanAmount);
-    const buttonBaseQuote = calculateButtonStage1Quote(buttonInput as ButtonStage1Input, { selectedLoanAmount, helocDrawTermYears: bestExDrawPeriodYears });
-    results.push(chooseBestXSummary(buttonEligibility, toQuote('Button', { ...buttonBaseQuote, program: 'Button', product: 'HELOC' }), standardRequestedRates, rateOverride => toQuote('Button', { ...calculateButtonStage1Quote(buttonInput as ButtonStage1Input, { selectedLoanAmount, helocDrawTermYears: bestExDrawPeriodYears, rateOverride }), program: 'Button', product: 'HELOC' })));
+    const buttonDocType = mapBestExDocTypeToButton(bestExDocType, 'HELOC');
+    if (!buttonDocType) results.push(makeIneligible('Button', 'Button', 'HELOC', `Button does not support ${bestExDocType} pricing for HELOC.`));
+    else {
+      const buttonInput = { ...input, buttonProduct: 'HELOC' as const, helocDrawTermYears: bestExDrawPeriodYears, buttonDocType };
+      const buttonEligibility = evaluateButtonStage1Eligibility(buttonInput as ButtonStage1Input, selectedLoanAmount);
+      const buttonBaseQuote = calculateButtonStage1Quote(buttonInput as ButtonStage1Input, { selectedLoanAmount, helocDrawTermYears: bestExDrawPeriodYears });
+      results.push(chooseBestXSummary(buttonEligibility, toQuote('Button', { ...buttonBaseQuote, program: 'Button', product: 'HELOC' }), standardRequestedRates, rateOverride => toQuote('Button', { ...calculateButtonStage1Quote(buttonInput as ButtonStage1Input, { selectedLoanAmount, helocDrawTermYears: bestExDrawPeriodYears, rateOverride }), program: 'Button', product: 'HELOC' })));
+    }
     results.push(makeIneligible('Vista', 'CES Only', 'HELOC', 'Vista only supports CES pricing in Best Ex.'));
     results.push(makeIneligible('NewRez', 'CES Only', 'HELOC', 'NewRez only supports CES pricing in Best Ex.'));
     results.push(makeIneligible('Deephaven', 'CES Only', 'HELOC', 'Deephaven only supports CES pricing in Best Ex.'));
@@ -66,20 +85,24 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
     else { const osbInput = { ...input, osbProgram: 'HELOC' as const, osbProduct: '30 Year Maturity' as const, osbLockPeriodDays: actualLockPeriodDays as OsbLockPeriod, helocDrawTermYears: bestExDrawPeriodYears }; const eligibility = evaluateOsbStage1Eligibility(osbInput, selectedLoanAmount); const baseQuote = calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); results.push(chooseBestXSummary(eligibility, toQuote('OSB', baseQuote), osbHelocRequestedRates, rateOverride => toQuote('OSB', calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })))); }
     if (bestExDrawPeriodYears === 10) results.push(makeIneligible('Verus', 'HELOC', '30 YR', 'Verus HELOC supports 3 or 5 year draw periods only.'));
     else if (actualLockPeriodDays !== 45 && actualLockPeriodDays !== 60) results.push(makeIneligible('Verus', 'HELOC', '30 YR', `Verus HELOC only supports padded lock pricing at 45 or 60 days, not ${actualLockPeriodDays}.`));
-    else { const verusInput = { ...input, verusProgram: 'HELOC' as const, verusProduct: '30 YR' as const, verusDocType: bestExDocType, verusDrawPeriodYears: bestExDrawPeriodYears as Exclude<VerusDrawPeriodYears, 2>, verusLockPeriodDays: actualLockPeriodDays as VerusLockPeriodDays }; const eligibility = evaluateVerusStage1Eligibility(verusInput, selectedLoanAmount); const baseQuote = calculateVerusStage1Quote(verusInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); results.push(chooseBestXSummary(eligibility, toQuote('Verus', baseQuote), standardRequestedRates, rateOverride => toQuote('Verus', calculateVerusStage1Quote(verusInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })))); }
+    else { const verusInput = { ...input, verusProgram: 'HELOC' as const, verusProduct: '30 YR' as const, verusDocType: mapBestExDocTypeToVerus(bestExDocType), verusDrawPeriodYears: bestExDrawPeriodYears as Exclude<VerusDrawPeriodYears, 2>, verusLockPeriodDays: actualLockPeriodDays as VerusLockPeriodDays }; const eligibility = evaluateVerusStage1Eligibility(verusInput, selectedLoanAmount); const baseQuote = calculateVerusStage1Quote(verusInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); results.push(chooseBestXSummary(eligibility, toQuote('Verus', baseQuote), standardRequestedRates, rateOverride => toQuote('Verus', calculateVerusStage1Quote(verusInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })))); }
   } else {
-    const buttonInput = { ...input, buttonProduct: 'CES' as const, buttonTermYears: bestExTermYears, buttonDocType: bestExDocType === 'Alt Doc' ? 'Bank Statement' as const : 'Full Doc' as const };
-    const buttonEligibility = evaluateButtonStage1Eligibility(buttonInput as ButtonStage1Input, selectedLoanAmount);
-    const buttonBaseQuote = calculateButtonStage1Quote(buttonInput as ButtonStage1Input, { selectedLoanAmount, cesTermYears: bestExTermYears });
-    results.push(chooseBestXSummary(buttonEligibility, toQuote('Button', { ...buttonBaseQuote, program: 'Button', product: 'CES' }), standardRequestedRates, rateOverride => toQuote('Button', { ...calculateButtonStage1Quote(buttonInput as ButtonStage1Input, { selectedLoanAmount, cesTermYears: bestExTermYears, rateOverride }), program: 'Button', product: 'CES' })));
+    const buttonDocType = mapBestExDocTypeToButton(bestExDocType, 'CES');
+    if (!buttonDocType) results.push(makeIneligible('Button', 'Button', 'CES', `Button does not support ${bestExDocType} pricing for CES.`));
+    else {
+      const buttonInput = { ...input, buttonProduct: 'CES' as const, buttonTermYears: bestExTermYears, buttonDocType };
+      const buttonEligibility = evaluateButtonStage1Eligibility(buttonInput as ButtonStage1Input, selectedLoanAmount);
+      const buttonBaseQuote = calculateButtonStage1Quote(buttonInput as ButtonStage1Input, { selectedLoanAmount, cesTermYears: bestExTermYears });
+      results.push(chooseBestXSummary(buttonEligibility, toQuote('Button', { ...buttonBaseQuote, program: 'Button', product: 'CES' }), standardRequestedRates, rateOverride => toQuote('Button', { ...calculateButtonStage1Quote(buttonInput as ButtonStage1Input, { selectedLoanAmount, cesTermYears: bestExTermYears, rateOverride }), program: 'Button', product: 'CES' })));
+    }
     const vistaProducts: Partial<Record<BestExTermYears, TesterInput['vistaProduct']>> = { 10: '10yr Fixed', 15: '15yr Fixed', 20: '20yr Fixed', 30: '30yr Fixed' };
     const vistaProduct = vistaProducts[bestExTermYears];
     if (!vistaProduct) results.push(makeIneligible('Vista', 'CES', `${bestExTermYears} Year`, `Vista does not support ${bestExTermYears}-year CES pricing.`));
-    else { const vistaInput = { ...input, vistaProduct, vistaDocType: bestExDocType === 'Alt Doc' ? 'Bank Statement' as const : 'Full Doc' as const }; const eligibility = evaluateVistaStage1Eligibility(vistaInput, selectedLoanAmount); const baseQuote = calculateVistaStage1Quote(vistaInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); results.push(chooseBestXSummary(eligibility, toQuote('Vista', baseQuote), standardRequestedRates, rateOverride => toQuote('Vista', calculateVistaStage1Quote(vistaInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })))); }
+    else { const vistaInput = { ...input, vistaProduct, vistaDocType: mapBestExDocTypeToVista(bestExDocType) }; const eligibility = evaluateVistaStage1Eligibility(vistaInput, selectedLoanAmount); const baseQuote = calculateVistaStage1Quote(vistaInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); results.push(chooseBestXSummary(eligibility, toQuote('Vista', baseQuote), standardRequestedRates, rateOverride => toQuote('Vista', calculateVistaStage1Quote(vistaInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })))); }
     const newrezProducts: Partial<Record<BestExTermYears, TesterInput['newrezProduct']>> = { 15: '15 Year Fixed', 20: '20 Year Fixed', 30: '30 Year Fixed' };
     const newrezProduct = newrezProducts[bestExTermYears];
     if (!newrezProduct) results.push(makeIneligible('NewRez', 'CES', `${bestExTermYears} Year`, `NewRez does not support ${bestExTermYears}-year CES pricing.`));
-    else if (bestExDocType === 'Alt Doc') results.push(makeIneligible('NewRez', 'CES', newrezProduct, 'NewRez Home Equity workbook section has no alt-doc pricing captured; leaving NewRez full-doc only.'));
+    else if (bestExDocType !== 'Full Doc') results.push(makeIneligible('NewRez', 'CES', newrezProduct, 'NewRez does not support alt-doc pricing in the Home Equity workbook.'));
     else { const newrezInput = { ...input, newrezProduct }; const eligibility = evaluateNewRezStage1Eligibility(newrezInput, selectedLoanAmount); const baseQuote = calculateNewRezStage1Quote(newrezInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); results.push(chooseBestXSummary(eligibility, toQuote('NewRez', baseQuote), standardRequestedRates, rateOverride => toQuote('NewRez', calculateNewRezStage1Quote(newrezInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })))); }
     const osbProducts: Partial<Record<BestExTermYears, TesterInput['osbProduct']>> = { 10: 'Fixed 10', 15: 'Fixed 15', 20: 'Fixed 20', 30: 'Fixed 30' };
     const osbProduct = osbProducts[bestExTermYears];
@@ -88,11 +111,12 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
     else { const osbInput = { ...input, osbProgram: '2nd Liens' as const, osbProduct, osbLockPeriodDays: actualLockPeriodDays as OsbLockPeriod }; const eligibility = evaluateOsbStage1Eligibility(osbInput, selectedLoanAmount); const baseQuote = calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); results.push(chooseBestXSummary(eligibility, toQuote('OSB', baseQuote), standardRequestedRates, rateOverride => toQuote('OSB', calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })))); }
     const verusProducts: Record<BestExTermYears, TesterInput['verusProduct']> = { 10: '10 YR FIX', 15: '15 YR FIX', 20: '20 YR FIX', 25: '25 YR FIX', 30: '30 YR FIX' };
     if (actualLockPeriodDays !== 45 && actualLockPeriodDays !== 60) results.push(makeIneligible('Verus', 'CES', verusProducts[bestExTermYears]!, `Verus only supports padded lock pricing at 45 or 60 days, not ${actualLockPeriodDays}.`));
-    else { const verusInput = { ...input, verusProgram: 'CES' as const, verusProduct: verusProducts[bestExTermYears], verusDocType: bestExDocType, verusLockPeriodDays: actualLockPeriodDays as VerusLockPeriodDays }; const eligibility = evaluateVerusStage1Eligibility(verusInput, selectedLoanAmount); const baseQuote = calculateVerusStage1Quote(verusInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); results.push(chooseBestXSummary(eligibility, toQuote('Verus', baseQuote), standardRequestedRates, rateOverride => toQuote('Verus', calculateVerusStage1Quote(verusInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })))); }
+    else { const verusInput = { ...input, verusProgram: 'CES' as const, verusProduct: verusProducts[bestExTermYears], verusDocType: mapBestExDocTypeToVerus(bestExDocType), verusLockPeriodDays: actualLockPeriodDays as VerusLockPeriodDays }; const eligibility = evaluateVerusStage1Eligibility(verusInput, selectedLoanAmount); const baseQuote = calculateVerusStage1Quote(verusInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); results.push(chooseBestXSummary(eligibility, toQuote('Verus', baseQuote), standardRequestedRates, rateOverride => toQuote('Verus', calculateVerusStage1Quote(verusInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })))); }
     const deephavenProducts: Partial<Record<BestExTermYears, TesterInput['deephavenProduct']>> = { 15: '15Y Fixed', 20: '20Y Fixed', 30: '30Y Fixed' };
     const deephavenProduct = deephavenProducts[bestExTermYears];
     if (!deephavenProduct) results.push(makeIneligible('Deephaven', 'Equity Advantage / Elite', `${bestExTermYears} Year`, `Deephaven does not support ${bestExTermYears}-year CES pricing.`));
-    else { const deephavenInput = { ...input, deephavenProduct, deephavenDocType: bestExDocType === 'Alt Doc' ? 'Bank Statement' as const : 'Full Doc' as const }; const eligibility = evaluateDeephavenStage1Eligibility(deephavenInput, selectedLoanAmount); const baseQuote = calculateDeephavenStage1Quote(deephavenInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); results.push(chooseBestXSummary(eligibility, toQuote('Deephaven', baseQuote), standardRequestedRates, rateOverride => toQuote('Deephaven', calculateDeephavenStage1Quote(deephavenInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })))); }
+    else if (bestExDocType !== 'Full Doc' && bestExDocType !== 'Bank Statement') results.push(makeIneligible('Deephaven', 'Equity Advantage / Elite', deephavenProduct, `Deephaven does not support ${bestExDocType} pricing in the current workbook-backed engine.`));
+    else { const deephavenInput = { ...input, deephavenProduct, deephavenDocType: bestExDocType === 'Bank Statement' ? 'Bank Statement' as const : 'Full Doc' as const }; const eligibility = evaluateDeephavenStage1Eligibility(deephavenInput, selectedLoanAmount); const baseQuote = calculateDeephavenStage1Quote(deephavenInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); results.push(chooseBestXSummary(eligibility, toQuote('Deephaven', baseQuote), standardRequestedRates, rateOverride => toQuote('Deephaven', calculateDeephavenStage1Quote(deephavenInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })))); }
   }
 
   results.sort((a, b) => (a.eligibility.eligible === b.eligibility.eligible ? 0 : a.eligibility.eligible ? -1 : 1) || (effectiveManualRateOverride !== undefined && a.eligibility.eligible && b.eligibility.eligible ? b.buyPrice - a.buyPrice || b.quote.purchasePrice - a.quote.purchasePrice : 0) || (a.windowMatched === b.windowMatched ? 0 : a.windowMatched ? -1 : 1) || (a.windowMatched && b.windowMatched ? a.quote.rate - b.quote.rate || Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget) || ((a.deltaFromTarget > 0) === (b.deltaFromTarget > 0) ? 0 : a.deltaFromTarget > 0 ? 1 : -1) || b.buyPrice - a.buyPrice : 0) || (a.eligibility.eligible && b.eligibility.eligible && !a.windowMatched && !b.windowMatched ? distanceToBestExWindow(a.quote.purchasePrice, bestExWindowLowerBound, bestExWindowUpperBound) - distanceToBestExWindow(b.quote.purchasePrice, bestExWindowLowerBound, bestExWindowUpperBound) || Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget) || a.quote.rate - b.quote.rate || b.buyPrice - a.buyPrice : 0) || a.investor.localeCompare(b.investor));

@@ -3,7 +3,7 @@ import { getTargetPurchasePriceForLoanAmount, type ButtonStage1Input } from './b
 
 export type VistaProgram = 'Second OO' | 'Second NOO';
 export type VistaProduct = '10yr Fixed' | '15yr Fixed' | '20yr Fixed' | '30yr Fixed';
-export type VistaDocType = 'Full Doc' | 'Bank Statement';
+export type VistaDocType = 'Full Doc' | 'Bank Statement' | '1099' | 'Asset Depletion' | 'P&L Only' | 'WVOE';
 
 export interface VistaPricingInput {
   product: VistaProduct;
@@ -70,12 +70,27 @@ type JsonProgram = {
       maxPrice: Record<string, number | null>;
       minPrice: Record<string, number | null>;
     };
-    cltvFullDoc: {
+    cltvDoc01: {
       rowRange: number[];
       cltvBuckets: string[];
       rows: JsonCltvRow[];
     };
-    cltvBankStatement?: {
+    cltvDoc02?: {
+      rowRange: number[];
+      cltvBuckets: string[];
+      rows: JsonCltvRow[];
+    };
+    cltvDoc03?: {
+      rowRange: number[];
+      cltvBuckets: string[];
+      rows: JsonCltvRow[];
+    };
+    cltvDoc04?: {
+      rowRange: number[];
+      cltvBuckets: string[];
+      rows: JsonCltvRow[];
+    };
+    cltvDoc05?: {
       rowRange: number[];
       cltvBuckets: string[];
       rows: JsonCltvRow[];
@@ -272,8 +287,12 @@ function buildCltvAdjustment(program: JsonProgram, creditScore: number, cltv: nu
   return { label: `${docType} CLTV: ${label}`, value: row.values[bucketIndex] ?? 0 };
 }
 
-function getCltvMatrix(program: JsonProgram, docType: VistaDocType): JsonProgram['sections']['cltvFullDoc'] | NonNullable<JsonProgram['sections']['cltvBankStatement']> | null {
-  return docType === 'Bank Statement' ? program.sections.cltvBankStatement ?? null : program.sections.cltvFullDoc;
+function getCltvMatrix(program: JsonProgram, docType: VistaDocType): JsonProgram['sections']['cltvDoc01'] | NonNullable<JsonProgram['sections']['cltvDoc02']> | NonNullable<JsonProgram['sections']['cltvDoc03']> | NonNullable<JsonProgram['sections']['cltvDoc04']> | NonNullable<JsonProgram['sections']['cltvDoc05']> | null {
+  if (docType === 'Full Doc') return program.sections.cltvDoc01;
+  if (docType === 'Bank Statement' || docType === '1099') return program.sections.cltvDoc02 ?? null;
+  if (docType === 'Asset Depletion') return program.inputName === 'Second OO' ? program.sections.cltvDoc03 ?? null : null;
+  if (docType === 'P&L Only' || docType === 'WVOE') return program.inputName === 'Second NOO' ? program.sections.cltvDoc04 ?? null : null;
+  return null;
 }
 
 function findCltvRow(program: JsonProgram, creditScore: number, docType: VistaDocType): JsonCltvRow | null {
@@ -413,7 +432,13 @@ function normalizeVistaProduct(product?: string): VistaProduct {
 }
 
 function normalizeVistaDocType(docType?: string): VistaDocType {
-  return String(docType || '').toLowerCase().includes('bank') ? 'Bank Statement' : 'Full Doc';
+  const value = String(docType || '').toLowerCase();
+  if (value.includes('bank')) return 'Bank Statement';
+  if (value.includes('1099')) return '1099';
+  if (value.includes('asset')) return 'Asset Depletion';
+  if (value.includes('p&l') || value.includes('p & l') || value.includes('pnl')) return 'P&L Only';
+  if (value.includes('wvoe')) return 'WVOE';
+  return 'Full Doc';
 }
 
 function normalizeOccupancy(occupancy?: string): string {

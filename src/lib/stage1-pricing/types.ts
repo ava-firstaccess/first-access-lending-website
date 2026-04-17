@@ -1,7 +1,8 @@
 export type PricingViewEngine = 'BestX' | 'Button' | 'Vista' | 'OSB' | 'NewRez' | 'Verus' | 'Deephaven';
 
 export type VistaProduct = '30yr Fixed' | '20yr Fixed' | '15yr Fixed' | '10yr Fixed';
-export type VistaDocType = 'Full Doc' | 'Bank Statement';
+export type SharedDocType = 'Full Doc' | 'Bank Statement' | '1099' | 'Asset Depletion' | 'P&L Only' | 'WVOE';
+export type VistaDocType = SharedDocType;
 export type NewRezProduct = '30 Year Fixed' | '20 Year Fixed' | '15 Year Fixed';
 export type OsbProgram = 'HELOC' | '2nd Liens';
 export type OsbProduct = '20 Year Maturity' | '30 Year Maturity' | 'Fixed 10' | 'Fixed 15' | 'Fixed 20' | 'Fixed 30';
@@ -15,7 +16,7 @@ export type DeephavenProgram = 'Equity Advantage' | 'Equity Advantage Elite';
 export type DeephavenProduct = '15Y Fixed' | '20Y Fixed' | '30Y Fixed';
 export type DeephavenDocType = 'Full Doc' | 'Bank Statement';
 export type ButtonProduct = 'HELOC' | 'CES';
-export type ButtonDocType = 'Full Doc' | 'Bank Statement';
+export type ButtonDocType = 'Full Doc' | 'Bank Statement' | 'Asset Depletion';
 export type BestExProduct = 'HELOC' | 'CES';
 export type BestExDrawPeriodYears = 3 | 5 | 10;
 export type BestExTermYears = 10 | 15 | 20 | 25 | 30;
@@ -56,7 +57,7 @@ export type TesterInput = {
   bestExDrawPeriodYears?: BestExDrawPeriodYears;
   bestExTermYears?: BestExTermYears;
   bestExLockPeriodDays?: BestExLockPeriodDays;
-  bestExDocType?: VerusDocType;
+  bestExDocType?: SharedDocType;
 };
 
 export type Stage1PricingEngine = 'Button' | 'Vista' | 'OSB' | 'NewRez' | 'Verus' | 'Deephaven';
@@ -94,7 +95,7 @@ export const defaultInput: TesterInput = {
   bestExDrawPeriodYears: 5,
   bestExTermYears: 30,
   bestExLockPeriodDays: 45,
-  bestExDocType: 'Standard',
+  bestExDocType: 'Full Doc',
   propertyState: 'CA',
   propertyValue: 750000,
   loanBalance: 250000,
