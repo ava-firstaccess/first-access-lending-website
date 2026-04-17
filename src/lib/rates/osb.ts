@@ -17,6 +17,7 @@ export interface OsbPricingInput {
   resultingLoanAmount: number;
   resultingCltv: number;
   creditScore: number;
+  dti: number | null;
   occupancy: string;
   structureType: string;
   unitCount: number;
@@ -109,6 +110,7 @@ export function buildOsbStage1PricingInput(stage1: ButtonStage1Input & {
     resultingLoanAmount,
     resultingCltv,
     creditScore: Number(stage1.creditScore || 0),
+    dti: Number.isFinite(Number(stage1.dti)) ? Number(stage1.dti) : null,
     occupancy: normalizeOccupancy(stage1.occupancy),
     structureType: normalizeStructureType(stage1.structureType),
     unitCount: Number(stage1.numberOfUnits || 1),
@@ -156,8 +158,29 @@ export function solveOsbStage1TargetRate(
   const program = getProgramData(input.program);
   const maxAvailable = calculateMaxAvailable(input);
   const selectedLoanAmount = Math.max(0, options.selectedLoanAmount ?? input.desiredLoanAmount ?? maxAvailable);
-  const targetPrice = clampTargetPrice(program, input.product, options.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount));
   const tolerance = options.tolerance ?? 0.125;
+  if (!isOsbDtiSupported(input) || selectedLoanAmount > maxAvailable || input.resultingCltv > calculateMaxLtv(input)) {
+    return {
+      program: input.program,
+      product: input.product,
+      maxAvailable,
+      maxLtv: calculateMaxLtv(input),
+      rate: 0,
+      noteRate: 0,
+      rateType: input.program === 'HELOC' ? 'Variable' : 'Fixed',
+      monthlyPayment: 0,
+      basePrice: 0,
+      llpaAdjustment: 0,
+      purchasePrice: 0,
+      targetPrice: roundToThree(options.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount)),
+      adjustments: [],
+      tolerance,
+      deltaFromTarget: 0,
+      withinTolerance: false,
+      withinToleranceAllowOverage: false,
+    };
+  }
+  const targetPrice = clampTargetPrice(program, input.product, options.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount));
   const adjustments = buildAdjustmentLines(input, selectedLoanAmount);
   const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
   const selected = pickRateAtOrBelowTarget(input, llpaAdjustment, targetPrice);
@@ -190,6 +213,23 @@ export function calculateOsbQuote(input: OsbPricingInput, options?: { selectedLo
   const program = getProgramData(input.program);
   const maxAvailable = calculateMaxAvailable(input);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? maxAvailable);
+  if (!isOsbDtiSupported(input) || selectedLoanAmount > maxAvailable || input.resultingCltv > calculateMaxLtv(input)) {
+    return {
+      program: input.program,
+      product: input.product,
+      maxAvailable,
+      maxLtv: calculateMaxLtv(input),
+      rate: 0,
+      noteRate: 0,
+      rateType: input.program === 'HELOC' ? 'Variable' : 'Fixed',
+      monthlyPayment: 0,
+      basePrice: 0,
+      llpaAdjustment: 0,
+      purchasePrice: 0,
+      targetPrice: roundToThree(options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount)),
+      adjustments: [],
+    };
+  }
   const targetPrice = clampTargetPrice(program, input.product, options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount));
   const adjustments = buildAdjustmentLines(input, selectedLoanAmount);
   const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
@@ -224,6 +264,7 @@ export function evaluateOsbEligibility(input: OsbPricingInput, selectedLoanAmoun
   const cltvBucketIndex = findCltvBucketIndex(program.cltvBuckets, input.resultingCltv);
 
   if (!findMatrixRow(program.creditMatrix, input.creditScore)) reasons.push('Credit score is outside the OSB matrix.');
+  if (!isOsbDtiSupported(input)) reasons.push('OSB second-lien DTI is only workbook-backed through 50.00%.');
   if (cltvBucketIndex === null) reasons.push('Resulting CLTV is outside the OSB matrix.');
   if (!program.pricing.products.some(item => item.label === input.product)) reasons.push('Selected OSB product is not available in the workbook.');
 
@@ -239,6 +280,9 @@ export function evaluateOsbEligibility(input: OsbPricingInput, selectedLoanAmoun
 
   const occupancy = findAdjustment(program.adjustments.loanType, occupancyLoanTypeLabel(input));
   if (occupancy && cltvBucketIndex !== null && adjustmentBucketValue(occupancy, cltvBucketIndex) === null) reasons.push(`Loan type ${occupancy.label} is not eligible at this CLTV in the workbook.`);
+
+  const dti = findAdjustment(program.adjustments.loanType, dtiLoanTypeLabel(input));
+  if (dti && cltvBucketIndex !== null && adjustmentBucketValue(dti, cltvBucketIndex) === null) reasons.push(`DTI bucket ${dti.label} is not eligible at this CLTV in the workbook.`);
 
   const property = findAdjustment(program.adjustments.property, propertyLabel(input));
   if (property && cltvBucketIndex !== null && adjustmentBucketValue(property, cltvBucketIndex) === null) reasons.push(`Property type ${property.label} is not eligible at this CLTV in the workbook.`);
@@ -273,6 +317,9 @@ function buildAdjustmentLines(input: OsbPricingInput, selectedLoanAmount: number
 
   const occupancy = findAdjustment(program.adjustments.loanType, occupancyLoanTypeLabel(input));
   if (occupancy) adjustments.push({ label: `Loan Type: ${occupancy.label}`, value: lookupAdjustmentValue(occupancy, program.cltvBuckets, input.resultingCltv) });
+
+  const dti = findAdjustment(program.adjustments.loanType, dtiLoanTypeLabel(input));
+  if (dti) adjustments.push({ label: `DTI: ${dti.label}`, value: lookupAdjustmentValue(dti, program.cltvBuckets, input.resultingCltv) });
 
   const property = findAdjustment(program.adjustments.property, propertyLabel(input));
   if (property) adjustments.push({ label: `Property: ${property.label}`, value: lookupAdjustmentValue(property, program.cltvBuckets, input.resultingCltv) });
@@ -440,8 +487,19 @@ function drawTermLabel(years: 3 | 5 | 10): string {
 function occupancyLoanTypeLabel(input: OsbPricingInput): string {
   if (input.occupancy === 'Investment') return 'Investor';
   if (input.occupancy === 'Second Home') return 'Second Home';
-  if (input.program === 'HELOC' && input.loanBalance > 0) return '1st Lien';
-  return input.program === 'HELOC' ? 'DTI > 43%' : '<=35.0% DTI';
+  return '';
+}
+
+function dtiLoanTypeLabel(input: OsbPricingInput): string {
+  const dti = input.dti ?? 0;
+  if (input.program === 'HELOC') return dti > 43 ? 'DTI > 43%' : '';
+  if (dti <= 35) return '<=35.0% DTI';
+  if (dti <= 45) return '35.01 - 45.0% DTI';
+  return '45.01 - 50.0% DTI';
+}
+
+function isOsbDtiSupported(input: OsbPricingInput): boolean {
+  return input.program === 'HELOC' || (input.dti ?? 0) <= 50;
 }
 
 function propertyLabel(input: OsbPricingInput): string {

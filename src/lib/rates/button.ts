@@ -38,6 +38,7 @@ export interface ButtonStage1Input {
   loanBalance?: number;
   desiredLoanAmount?: number;
   creditScore?: number;
+  dti?: number;
   occupancy?: string;
   structureType?: string;
   numberOfUnits?: number;
@@ -87,6 +88,7 @@ type Matrix = Array<Array<number | string | null>>;
 const NOTE_RATE_ROWS = ratesheet.noteRates as unknown as RateRow[];
 const CLTV_MATRIX = ratesheet.tables.cltv as { rows: string[]; columns: string[]; fullDoc: Matrix; altDoc: Matrix };
 const CASH_OUT_TABLE = ratesheet.tables.cashOut as { rows: string[]; columns: Array<string | null>; values: Matrix };
+const DTI_TABLE = ratesheet.tables.dti as { rows: string[]; columns: Array<string | number | null>; values: Matrix };
 const OCCUPANCY_TABLE = ratesheet.tables.occupancy as { rows: string[]; columns: Array<string | number | null>; values: Matrix };
 const UNIT_COUNT_TABLE = ratesheet.tables.unitCount as { rows: string[]; columns: Array<string | number | null>; values: Matrix };
 const MATURITY_TABLE = ratesheet.tables.maturity as { rows: string[]; columns: Array<string | number | null>; values: Matrix };
@@ -153,11 +155,11 @@ export function buildButtonStage1PricingInput(stage1: ButtonStage1Input): Button
     resultingLoanAmount,
     resultingCltv,
     creditScore: Number(stage1.creditScore || 0),
+    dti: Number.isFinite(Number(stage1.dti)) ? Number(stage1.dti) : null,
     occupancy: normalizeOccupancy(stage1.occupancy),
     structureType: normalizeStructureType(stage1.structureType),
     unitCount: Number(stage1.numberOfUnits || 1),
     cashOut: Boolean(stage1.cashOut),
-    dti: null,
     docType: stage1.buttonDocType ?? 'Full Doc',
     selfEmployed: false,
     bankStatementMonths: null,
@@ -480,12 +482,34 @@ function buildAdjustmentLines(
     adjustments.push({ label: 'Cash Out', value: getMatrixValue(CASH_OUT_TABLE.values, 0, cltvIndex) });
   }
 
+  const dtiAdjustment = getDtiAdjustment(input, cltvIndex, options);
+  if (dtiAdjustment) {
+    adjustments.push(dtiAdjustment);
+  }
+
   const termAdjustment = getTermAdjustment(input, cltvIndex, options);
   if (termAdjustment) {
     adjustments.push(termAdjustment);
   }
 
   return adjustments.filter(row => row.value !== 0);
+}
+
+function getDtiAdjustment(
+  input: ButtonPricingInput,
+  cltvIndex: number,
+  options?: {
+    helocDrawTermYears?: number;
+    helocTotalTermYears?: number;
+    cesTermYears?: number;
+  }
+): Stage1AdjustmentLine | null {
+  if (input.dti === null || input.dti <= 55 || input.dti > 60) return null;
+  const rowLabel = input.product === 'HELOC'
+    ? `${options?.helocDrawTermYears ?? 5}yr HELOC Draw`
+    : `${options?.cesTermYears ?? 30}yr IO (non-HELOC)`;
+  const value = getLookupValue(DTI_TABLE, rowLabel, cltvIndex);
+  return { label: 'DTI: 55.01% - 60.00%', value };
 }
 
 function getTermAdjustment(

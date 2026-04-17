@@ -111,7 +111,7 @@ export function buildNewRezStage1PricingInput(stage1: ButtonStage1Input & { newr
     unitCount: Number(stage1.numberOfUnits || 1),
     cashOut: Boolean(stage1.cashOut),
     selfEmployed: false,
-    dti: null,
+    dti: Number.isFinite(Number(stage1.dti)) ? Number(stage1.dti) : null,
   };
 }
 

@@ -19,6 +19,7 @@ export interface VerusPricingInput {
   resultingLoanAmount: number;
   resultingCltv: number;
   creditScore: number;
+  dti: number | null;
   occupancy: string;
   propertyState: string;
   structureType: string;
@@ -243,6 +244,7 @@ export function buildVerusStage1PricingInput(
     resultingLoanAmount,
     resultingCltv,
     creditScore: Number(stage1.creditScore || 0),
+    dti: Number.isFinite(Number(stage1.dti)) ? Number(stage1.dti) : null,
     occupancy: normalizeOccupancy(stage1.occupancy),
     propertyState: String(stage1.propertyState || '').toUpperCase(),
     structureType: String(stage1.structureType || ''),
@@ -262,6 +264,24 @@ export function calculateVerusStage1Quote(
 ): VerusQuote {
   const input = buildVerusStage1PricingInput(stage1);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? calculateMaxAvailable(stage1, input, input.desiredLoanAmount));
+  const maxAvailable = calculateMaxAvailable(stage1, input, selectedLoanAmount);
+  const maxLtv = calculateMaxLtv(stage1, input, selectedLoanAmount);
+  if ((input.dti ?? 0) > 50 || selectedLoanAmount > maxAvailable || input.resultingCltv > maxLtv) {
+    return {
+      program: input.program,
+      product: input.product,
+      maxAvailable,
+      maxLtv,
+      rate: 0,
+      noteRate: 0,
+      rateType: input.program === 'HELOC' ? 'Variable' : 'Fixed',
+      monthlyPayment: 0,
+      basePrice: 0,
+      llpaAdjustment: 0,
+      purchasePrice: 0,
+      adjustments: [],
+    };
+  }
   const rawTargetPrice = options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount);
   const targetPrice = input.program === 'HELOC' ? Math.min(rawTargetPrice, VERUS_HELOC_MAX_BUY_PRICE) : rawTargetPrice;
   const adjustments = buildAdjustmentLines(stage1, input, selectedLoanAmount);
@@ -331,6 +351,15 @@ export function evaluateVerusStage1Eligibility(
   const requested = Math.max(0, selectedLoanAmount ?? input.desiredLoanAmount ?? 0);
   const reasons: string[] = [];
 
+  if ((input.dti ?? 0) > 50) {
+    return {
+      eligible: false,
+      reasons: ['Verus DTI is only workbook-backed through 50.00%.'],
+      maxAvailable: 0,
+      resultingCltv: input.resultingCltv,
+    };
+  }
+
   if (input.creditScore < 660) reasons.push('Credit score is below the current supported Verus tester range.');
 
   const maxLtv = calculateMaxLtv(stage1, input, requested);
@@ -389,6 +418,7 @@ function calculateMaxLtv(
   selectedLoanAmount = input.desiredLoanAmount
 ): number {
   const docType = stage1.verusDocType ?? 'Standard';
+  if ((input.dti ?? 0) > 50) return 0;
 
   if (input.program === 'CES') {
     const ficoLabel = getVerusCesFicoLabel(input.creditScore);
@@ -403,6 +433,7 @@ function calculateMaxLtv(
         docType,
         ficoLabel,
         loanAmountLabel,
+        dtiLabel: getVerusDtiLabel(input.dti),
         occupancyLabel,
         propertyTypeLabel,
         propertyState: input.propertyState,
@@ -425,6 +456,7 @@ function calculateMaxLtv(
       docType,
       ficoLabel,
       loanAmountLabel,
+      dtiLabel: getVerusDtiLabel(input.dti),
       occupancyLabel,
       propertyTypeLabel,
       propertyState: input.propertyState,
@@ -543,9 +575,9 @@ function buildAdjustmentLines(
     const loanAmountValue = getVerusMatrixValue(VERUS_CES_LOAN_AMOUNT_TABLE, loanAmountLabel, cltvColumnIndex);
     if (loanAmountValue !== null) rows.push({ label: `Loan Amount: ${loanAmountLabel}`, value: loanAmountValue });
 
-    const dtiLabel = '<= 40%';
+    const dtiLabel = getVerusDtiLabel(input.dti);
     const dtiValue = getVerusMatrixValue(VERUS_CES_DTI_TABLE, dtiLabel, cltvColumnIndex);
-    if (dtiValue !== null) rows.push({ label: `DTI: ${dtiLabel} (default)`, value: dtiValue });
+    if (dtiValue !== null) rows.push({ label: `DTI: ${dtiLabel}`, value: dtiValue });
 
     const occupancyLabel = getVerusOccupancyLabel(input.occupancy);
     if (occupancyLabel) {
@@ -582,9 +614,9 @@ function buildAdjustmentLines(
   const drawTermValue = getVerusMatrixValue(VERUS_HELOC_DRAW_TERM_TABLE, String(drawYears * 12), cltvColumnIndex);
   if (drawTermValue !== null) rows.push({ label: `Draw Period: ${drawYears} Years`, value: drawTermValue });
 
-  const dtiLabel = '<= 40%';
+  const dtiLabel = getVerusDtiLabel(input.dti);
   const dtiValue = getVerusMatrixValue(VERUS_HELOC_DTI_TABLE, dtiLabel, cltvColumnIndex);
-  if (dtiValue !== null) rows.push({ label: `DTI: ${dtiLabel} (default)`, value: dtiValue });
+  if (dtiValue !== null) rows.push({ label: `DTI: ${dtiLabel}`, value: dtiValue });
 
   const loanAmountLabel = getVerusHelocLoanAmountLabel(selectedLoanAmount);
   const loanAmountValue = getVerusMatrixValue(VERUS_HELOC_LOAN_AMOUNT_TABLE, loanAmountLabel, cltvColumnIndex);
@@ -638,6 +670,12 @@ function getVerusHelocLoanAmountLabel(amount: number): string {
   if (amount <= 250000) return '$100,001 - $250,000';
   if (amount <= 350000) return '$250,001 - $350,000';
   return '$350,001 - $500,000';
+}
+
+function getVerusDtiLabel(dti: number | null): '<= 40%' | '40.01 - 45%' | '45.01 - 50%' {
+  if (dti === null || dti <= 40) return '<= 40%';
+  if (dti <= 45) return '40.01 - 45%';
+  return '45.01 - 50%';
 }
 
 function getVerusOccupancyLabel(occupancy: string): '2nd Home' | 'Investor' | null {
@@ -712,6 +750,7 @@ function isVerusCesColumnEligible(input: {
   docType: VerusDocType;
   ficoLabel: string;
   loanAmountLabel: string;
+  dtiLabel: '<= 40%' | '40.01 - 45%' | '45.01 - 50%';
   occupancyLabel: '2nd Home' | 'Investor' | null;
   propertyTypeLabel: 'Condo' | '2-4 Unit' | null;
   propertyState: string;
@@ -719,7 +758,7 @@ function isVerusCesColumnEligible(input: {
   const docTable = input.docType === 'Alt Doc' ? VERUS_CES_ALT_DOC_TABLE : VERUS_CES_STANDARD_DOC_2YR_TABLE;
   if (!isWorkbookEligibleCell(docTable, input.ficoLabel, input.columnIndex < VERUS_CES_DOC_CLTV_UPPER_BOUNDS.length ? input.columnIndex : null)) return false;
   if (!isWorkbookEligibleCell(VERUS_CES_LOAN_AMOUNT_TABLE, input.loanAmountLabel, input.columnIndex)) return false;
-  if (!isWorkbookEligibleCell(VERUS_CES_DTI_TABLE, '<= 40%', input.columnIndex)) return false;
+  if (!isWorkbookEligibleCell(VERUS_CES_DTI_TABLE, input.dtiLabel, input.columnIndex)) return false;
   if (input.occupancyLabel && !isWorkbookEligibleCell(VERUS_CES_OCCUPANCY_TABLE, input.occupancyLabel, input.columnIndex)) return false;
   if (input.propertyTypeLabel && !isWorkbookEligibleCell(VERUS_CES_PROPERTY_TYPE_TABLE, input.propertyTypeLabel, input.columnIndex)) return false;
   if (VERUS_STATE_BUCKET.has(input.propertyState) && !isWorkbookEligibleCell(VERUS_CES_STATE_TABLE, 'CT, IL, NJ, NY', input.columnIndex)) return false;
@@ -731,6 +770,7 @@ function isVerusHelocColumnEligible(input: {
   docType: VerusDocType;
   ficoLabel: string;
   loanAmountLabel: string;
+  dtiLabel: '<= 40%' | '40.01 - 45%' | '45.01 - 50%';
   occupancyLabel: '2nd Home' | 'Investor' | null;
   propertyTypeLabel: 'Condo' | '2-4 Unit' | null;
   propertyState: string;
@@ -739,7 +779,7 @@ function isVerusHelocColumnEligible(input: {
   const docTable = input.docType === 'Alt Doc' ? VERUS_HELOC_ALT_DOC_TABLE : VERUS_HELOC_STANDARD_DOC_2YR_TABLE;
   if (!isWorkbookEligibleCell(docTable, input.ficoLabel, input.columnIndex < VERUS_HELOC_DOC_CLTV_UPPER_BOUNDS.length ? input.columnIndex : null)) return false;
   if (!isWorkbookEligibleCell(VERUS_HELOC_DRAW_TERM_TABLE, String(input.drawYears * 12), input.columnIndex)) return false;
-  if (!isWorkbookEligibleCell(VERUS_HELOC_DTI_TABLE, '<= 40%', input.columnIndex)) return false;
+  if (!isWorkbookEligibleCell(VERUS_HELOC_DTI_TABLE, input.dtiLabel, input.columnIndex)) return false;
   if (!isWorkbookEligibleCell(VERUS_HELOC_LOAN_AMOUNT_TABLE, input.loanAmountLabel, input.columnIndex)) return false;
   if (input.occupancyLabel && !isWorkbookEligibleCell(VERUS_HELOC_OCCUPANCY_TABLE, input.occupancyLabel, input.columnIndex)) return false;
   if (input.propertyTypeLabel && !isWorkbookEligibleCell(VERUS_HELOC_PROPERTY_TYPE_TABLE, input.propertyTypeLabel, input.columnIndex)) return false;

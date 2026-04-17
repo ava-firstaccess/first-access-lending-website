@@ -15,6 +15,7 @@ export interface VistaPricingInput {
   resultingLoanAmount: number;
   resultingCltv: number;
   creditScore: number;
+  dti: number | null;
   occupancy: string;
   structureType: string;
   unitCount: number;
@@ -119,6 +120,7 @@ export function buildVistaStage1PricingInput(stage1: ButtonStage1Input & { vista
     resultingLoanAmount,
     resultingCltv,
     creditScore: Number(stage1.creditScore || 0),
+    dti: Number.isFinite(Number(stage1.dti)) ? Number(stage1.dti) : null,
     occupancy: normalizeOccupancy(stage1.occupancy),
     structureType: normalizeStructureType(stage1.structureType),
     unitCount: Number(stage1.numberOfUnits || 1),
@@ -142,8 +144,9 @@ export function calculateVistaQuote(
   const maxAvailable = calculateMaxAvailable(input);
   const maxLtv = calculateMaxLtv(input);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? maxAvailable);
+  const programDti = findAdjustment(PROGRAMS[getProgramKey(input)], 'dti', dtiLabel(input.dti));
 
-  if (selectedLoanAmount > maxAvailable || input.resultingCltv > maxLtv) {
+  if (selectedLoanAmount > maxAvailable || input.resultingCltv > maxLtv || (input.dti !== null && programDti?.value === null)) {
     return {
       program: program.inputName,
       maxAvailable,
@@ -202,6 +205,10 @@ export function evaluateVistaStage1Eligibility(
   if (docMatrix && propertyType && propertyType.values && !isWorkbookEligibleCell(propertyType.values, findCltvBucketIndex(program, input.resultingCltv, input.docType))) {
     reasons.push(`Vista ${propertyType.label} is not eligible at the selected CLTV in the current workbook.`);
   }
+  const dtiAdjustment = findAdjustment(program, 'dti', dtiLabel(input.dti));
+  if (input.dti !== null && dtiAdjustment?.value === null) {
+    reasons.push(`Vista DTI ${input.dti.toFixed(2)}% is not eligible in the current workbook.`);
+  }
   if (!findAdjustment(program, 'term', input.product)) reasons.push('Selected term is not available in the Vista ratesheet.');
   if (!findAdjustment(program, 'loanAmount', loanAmountLabel(requested))) reasons.push('Desired loan amount is outside the Vista loan amount table.');
   if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
@@ -221,6 +228,28 @@ export function solveVistaStage1TargetRate(
   const input = buildVistaStage1PricingInput(stage1);
   const selectedLoanAmount = Math.max(0, options.selectedLoanAmount ?? input.desiredLoanAmount ?? calculateMaxAvailable(input));
   const program = PROGRAMS[getProgramKey(input)];
+  const programDti = findAdjustment(program, 'dti', dtiLabel(input.dti));
+  if (input.dti !== null && programDti?.value === null) {
+    return {
+      program: program.inputName,
+      maxAvailable: calculateMaxAvailable(input),
+      maxLtv: calculateMaxLtv(input),
+      rate: 0,
+      noteRate: 0,
+      rateType: 'Fixed',
+      monthlyPayment: 0,
+      basePrice: 0,
+      llpaAdjustment: 0,
+      purchasePrice: 0,
+      adjustments: [],
+      product: input.product,
+      targetPrice: options.targetPrice,
+      tolerance: options.tolerance ?? 0.125,
+      deltaFromTarget: 0,
+      withinTolerance: false,
+      withinToleranceAllowOverage: false,
+    };
+  }
   const targetPrice = Math.min(options.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), getMaxPrice(program));
   const tolerance = options.tolerance ?? 0.125;
   const adjustments = buildAdjustmentLines(input, selectedLoanAmount);
@@ -302,6 +331,9 @@ function buildAdjustmentLines(input: VistaPricingInput, selectedLoanAmount: numb
     const purpose = findAdjustment(program, 'purpose', 'Cash-Out');
     if (purpose) adjustments.push({ label: `Purpose: ${purpose.label}`, value: purpose.value ?? 0 });
   }
+
+  const dti = findAdjustment(program, 'dti', dtiLabel(input.dti));
+  if (input.dti !== null && dti) adjustments.push({ label: `DTI: ${dti.label}`, value: dti.value ?? 0 });
 
   const propertyType = findAdjustment(program, 'propertyType', propertyTypeLabel(input));
   if (propertyType) {
@@ -431,6 +463,13 @@ function propertyTypeLabel(input: VistaPricingInput): string {
   if (input.structureType === 'Townhome') return 'Townhouse';
   if (input.structureType === 'PUD') return 'PUD';
   return 'SFR';
+}
+
+function dtiLabel(dti: number | null): string {
+  if (dti === null || dti <= 43) return '00.01-43';
+  if (dti <= 45) return '43.01-45';
+  if (dti <= 50) return '45.01-50';
+  return '50.01-55';
 }
 
 function loanAmountLabel(amount: number): string {
