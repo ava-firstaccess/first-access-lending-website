@@ -132,7 +132,10 @@ export function calculateDeephavenStage1Quote(
     return [{ program, maxAvailable, maxLtv, llpaAdjustment, selected }];
   });
 
-  const best = candidates.reduce<(typeof candidates)[number] | null>((winner, candidate) => {
+  const preferredCandidates = candidates.filter(candidate => candidate.program === 'Equity Advantage Elite');
+  const selectionPool = preferredCandidates.length > 0 ? preferredCandidates : candidates;
+
+  const best = selectionPool.reduce<(typeof selectionPool)[number] | null>((winner, candidate) => {
     if (!winner) return candidate;
     if (candidate.selected.purchasePrice > winner.selected.purchasePrice) return candidate;
     if (candidate.selected.purchasePrice === winner.selected.purchasePrice && candidate.selected.rate < winner.selected.rate) return candidate;
