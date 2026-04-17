@@ -57,7 +57,7 @@ export interface VistaEligibilityResult {
 }
 
 type ProgramKey = 'secondOO' | 'secondNOO';
-type JsonAdjustmentItem = { label: string; lookupKey: string; value: number | null };
+type JsonAdjustmentItem = { label: string; lookupKey: string; value: number | null; values?: Array<number | null> };
 type JsonPricingRow = { noteRate: number; basePrice: number };
 type JsonCltvRow = { creditScore: string; values: Array<number | null> };
 type JsonProgram = {
@@ -101,17 +101,6 @@ type JsonProgram = {
 
 const VISTA_PRODUCTS: VistaProduct[] = ['10yr Fixed', '15yr Fixed', '20yr Fixed', '30yr Fixed'];
 const PROGRAMS = (ratesheet as unknown as { programs: Record<ProgramKey, JsonProgram> }).programs;
-
-/**
- * Hard-coded guide overlay:
- * Vista 2-4 unit property-type caps are stricter than the doc-type CLTV grids.
- * The current parser only captures property-type as a flat LLPA item and misses
- * the ratesheet's bucket-level N/A cutoff for 2-4 units. Until the parser is
- * upgraded to preserve those bucketized property-type caps, enforce the known
- * multi-unit ceiling here. If the Vista guide / ratesheet changes, update this
- * constant and the related eligibility message together.
- */
-const VISTA_MULTI_UNIT_MAX_CLTV = 0.75;
 
 export function buildVistaStage1PricingInput(stage1: ButtonStage1Input & { vistaProduct?: VistaProduct; vistaDocType?: VistaDocType }): VistaPricingInput {
   const propertyValue = Number(stage1.propertyValue || 0);
@@ -209,7 +198,10 @@ export function evaluateVistaStage1Eligibility(
   if (!docMatrix) reasons.push(`Vista ${input.docType} pricing is not available in the workbook.`);
   if (docMatrix && !findCltvRow(program, input.creditScore, input.docType)) reasons.push(`Credit score is outside the Vista ${input.docType} matrix.`);
   if (docMatrix && findCltvBucketIndex(program, input.resultingCltv, input.docType) === null) reasons.push(`Resulting CLTV is outside the Vista ${input.docType} matrix.`);
-  if (input.unitCount > 1 && input.resultingCltv > VISTA_MULTI_UNIT_MAX_CLTV) reasons.push('Vista 2-4 unit properties are currently hard-capped at 75% CLTV. If the guide changes, update VISTA_MULTI_UNIT_MAX_CLTV in vista.ts.');
+  const propertyType = findAdjustment(program, 'propertyType', propertyTypeLabel(input));
+  if (docMatrix && propertyType && propertyType.values && !isWorkbookEligibleCell(propertyType.values, findCltvBucketIndex(program, input.resultingCltv, input.docType))) {
+    reasons.push(`Vista ${propertyType.label} is not eligible at the selected CLTV in the current workbook.`);
+  }
   if (!findAdjustment(program, 'term', input.product)) reasons.push('Selected term is not available in the Vista ratesheet.');
   if (!findAdjustment(program, 'loanAmount', loanAmountLabel(requested))) reasons.push('Desired loan amount is outside the Vista loan amount table.');
   if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
@@ -274,13 +266,16 @@ function calculateMaxLtv(input: VistaPricingInput): number {
 
   const lastEligibleIndex = row.values.reduce<number>((best, value, index) => value !== null ? index : best, -1);
   if (lastEligibleIndex < 0) return 0;
-  const docTypeMaxCltv = upperBoundForCltvLabel(matrix.cltvBuckets[lastEligibleIndex]) / 100;
+  let maxEligibleIndex = lastEligibleIndex;
 
-  if (input.unitCount > 1) {
-    return Math.min(docTypeMaxCltv, VISTA_MULTI_UNIT_MAX_CLTV);
+  const propertyType = findAdjustment(program, 'propertyType', propertyTypeLabel(input));
+  if (propertyType?.values) {
+    const propertyTypeEligibleIndex = lastEligibleIndexForValues(propertyType.values);
+    if (propertyTypeEligibleIndex < 0) return 0;
+    maxEligibleIndex = Math.min(maxEligibleIndex, propertyTypeEligibleIndex);
   }
 
-  return docTypeMaxCltv;
+  return upperBoundForCltvLabel(matrix.cltvBuckets[maxEligibleIndex]) / 100;
 }
 
 function buildAdjustmentLines(input: VistaPricingInput, selectedLoanAmount: number): VistaAdjustmentLine[] {
@@ -309,7 +304,10 @@ function buildAdjustmentLines(input: VistaPricingInput, selectedLoanAmount: numb
   }
 
   const propertyType = findAdjustment(program, 'propertyType', propertyTypeLabel(input));
-  if (propertyType) adjustments.push({ label: `Property Type: ${propertyType.label}`, value: propertyType.value ?? 0 });
+  if (propertyType) {
+    const propertyTypeValue = propertyType.values?.[cltv ? findCltvBucketIndex(program, input.resultingCltv, input.docType) ?? 0 : 0] ?? propertyType.value;
+    adjustments.push({ label: `Property Type: ${propertyType.label}`, value: propertyTypeValue ?? 0 });
+  }
 
   return adjustments;
 }
@@ -349,6 +347,17 @@ function findCltvBucketIndex(program: JsonProgram, cltv: number, docType: VistaD
 function findAdjustment(program: JsonProgram, category: string, label: string): JsonAdjustmentItem | null {
   const items = program.sections.adjustments[category]?.items ?? [];
   return items.find(item => item.label === label) ?? null;
+}
+
+function lastEligibleIndexForValues(values: Array<number | null>): number {
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    if (values[index] !== null) return index;
+  }
+  return -1;
+}
+
+function isWorkbookEligibleCell(values: Array<number | null>, index: number | null): boolean {
+  return index !== null && index >= 0 && index < values.length && values[index] !== null;
 }
 
 function getMaxPrice(program: JsonProgram): number {

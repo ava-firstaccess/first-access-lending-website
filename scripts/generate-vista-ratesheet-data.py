@@ -169,19 +169,23 @@ def parse_cltv_groups(ws, spec):
     return groups
 
 
-def parse_adjustment_rows(ws, start_row, end_row):
+def parse_adjustment_rows(ws, start_row, end_row, *, matrix=False):
     items = []
     for r in range(start_row, end_row + 1):
         label = normalize_value(ws.cell(r, 14).value)
         lookup = normalize_value(ws.cell(r, 19).value)
         value = price(ws.cell(r, 20).value)
-        if label is None and lookup is None and value is None:
+        values = [price(ws.cell(r, c).value) for c in range(20, 28)] if matrix else None
+        if label is None and lookup is None and value is None and not (matrix and any(v is not None for v in values or [])):
             continue
-        items.append({
+        item = {
             'label': str(label) if label is not None else '',
             'lookupKey': str(lookup) if lookup is not None else '',
             'value': value,
-        })
+        }
+        if matrix:
+            item['values'] = values
+        items.append(item)
     return items
 
 
@@ -234,7 +238,7 @@ def main():
                 'adjustments': {
                     category: {
                         'rows': list(row_range),
-                        'items': parse_adjustment_rows(ws, row_range[0], row_range[1]),
+                        'items': parse_adjustment_rows(ws, row_range[0], row_range[1], matrix=(category == 'propertyType')),
                     }
                     for category, row_range in spec['adjustmentRows'].items()
                 },
