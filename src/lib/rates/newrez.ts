@@ -81,6 +81,15 @@ type SelectedExecution = {
 const DATA = ratesheet as JsonRatesheet;
 const DEFAULT_NEWREZ_END_SECONDS: NewRezEndSeconds = 'BE45';
 
+/**
+ * Hard-coded guide overlay:
+ * NewRez Home Equity should be treated as 1-unit only.
+ * The workbook-backed parser does not expose this clearly from the ratesheet,
+ * so we enforce it here on purpose. If NewRez guide / workbook support changes,
+ * update this constant and the eligibility message together.
+ */
+const NEWREZ_MAX_UNIT_COUNT = 1;
+
 export function buildNewRezStage1PricingInput(stage1: ButtonStage1Input & { newrezProduct?: NewRezProduct }): NewRezPricingInput {
   const propertyValue = Number(stage1.propertyValue || 0);
   const loanBalance = Number(stage1.loanBalance || 0);
@@ -115,7 +124,27 @@ export function calculateNewRezStage1Quote(
 
 export function calculateNewRezQuote(input: NewRezPricingInput, options?: { selectedLoanAmount?: number; targetPrice?: number; rateOverride?: number }): NewRezQuote {
   const maxAvailable = calculateMaxAvailable(input);
+  const maxLtv = calculateMaxLtv(input);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? maxAvailable);
+
+  if (selectedLoanAmount > maxAvailable || input.resultingCltv > maxLtv || input.unitCount > NEWREZ_MAX_UNIT_COUNT) {
+    return {
+      program: 'NewRez',
+      product: input.product,
+      endSeconds: DEFAULT_NEWREZ_END_SECONDS,
+      maxAvailable,
+      maxLtv,
+      rate: 0,
+      noteRate: 0,
+      rateType: 'Fixed',
+      monthlyPayment: 0,
+      basePrice: 0,
+      llpaAdjustment: 0,
+      purchasePrice: 0,
+      adjustments: [],
+    };
+  }
+
   const targetPrice = options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount);
   const adjustments = buildAdjustmentLines(input, selectedLoanAmount);
   const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
@@ -126,7 +155,7 @@ export function calculateNewRezQuote(input: NewRezPricingInput, options?: { sele
     product: input.product,
     endSeconds: selected.endSeconds,
     maxAvailable,
-    maxLtv: calculateMaxLtv(input),
+    maxLtv,
     rate: selected.noteRate,
     noteRate: selected.noteRate,
     rateType: 'Fixed',
@@ -151,6 +180,7 @@ export function evaluateNewRezEligibility(input: NewRezPricingInput, selectedLoa
   const requested = Math.max(0, selectedLoanAmount ?? input.desiredLoanAmount ?? 0);
   const matrix = getCltvMatrix(input.product);
 
+  if (input.unitCount > NEWREZ_MAX_UNIT_COUNT) reasons.push('NewRez is currently hard-blocked to 1-unit properties only. If the guide changes, update NEWREZ_MAX_UNIT_COUNT in newrez.ts.');
   if (!findCreditRow(matrix, input.creditScore)) reasons.push('Credit score is outside the NewRez matrix.');
   if (findCltvBucketIndex(matrix.cltvBuckets, input.resultingCltv) === null) reasons.push('Resulting CLTV is outside the NewRez matrix.');
   if (findLoanAmountRow(requested) === null) reasons.push('Desired loan amount is outside the NewRez loan amount table.');
@@ -208,6 +238,8 @@ function calculateMaxAvailable(input: NewRezPricingInput): number {
 }
 
 function calculateMaxLtv(input: NewRezPricingInput): number {
+  if (input.unitCount > NEWREZ_MAX_UNIT_COUNT) return 0;
+
   const matrix = getCltvMatrix(input.product);
   const row = findCreditRow(matrix, input.creditScore);
   if (!row) return 0;

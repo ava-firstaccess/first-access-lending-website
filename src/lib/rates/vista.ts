@@ -102,6 +102,17 @@ type JsonProgram = {
 const VISTA_PRODUCTS: VistaProduct[] = ['10yr Fixed', '15yr Fixed', '20yr Fixed', '30yr Fixed'];
 const PROGRAMS = (ratesheet as unknown as { programs: Record<ProgramKey, JsonProgram> }).programs;
 
+/**
+ * Hard-coded guide overlay:
+ * Vista 2-4 unit property-type caps are stricter than the doc-type CLTV grids.
+ * The current parser only captures property-type as a flat LLPA item and misses
+ * the ratesheet's bucket-level N/A cutoff for 2-4 units. Until the parser is
+ * upgraded to preserve those bucketized property-type caps, enforce the known
+ * multi-unit ceiling here. If the Vista guide / ratesheet changes, update this
+ * constant and the related eligibility message together.
+ */
+const VISTA_MULTI_UNIT_MAX_CLTV = 0.75;
+
 export function buildVistaStage1PricingInput(stage1: ButtonStage1Input & { vistaProduct?: VistaProduct; vistaDocType?: VistaDocType }): VistaPricingInput {
   const propertyValue = Number(stage1.propertyValue || 0);
   const loanBalance = Number(stage1.loanBalance || 0);
@@ -140,7 +151,26 @@ export function calculateVistaQuote(
   const programKey = getProgramKey(input);
   const program = PROGRAMS[programKey];
   const maxAvailable = calculateMaxAvailable(input);
+  const maxLtv = calculateMaxLtv(input);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? maxAvailable);
+
+  if (selectedLoanAmount > maxAvailable || input.resultingCltv > maxLtv) {
+    return {
+      program: program.inputName,
+      maxAvailable,
+      maxLtv,
+      rate: 0,
+      noteRate: 0,
+      rateType: 'Fixed',
+      monthlyPayment: 0,
+      basePrice: 0,
+      llpaAdjustment: 0,
+      purchasePrice: 0,
+      adjustments: [],
+      product: input.product,
+    };
+  }
+
   const targetPrice = Math.min(options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), getMaxPrice(program));
   const adjustments = buildAdjustmentLines(input, selectedLoanAmount);
   const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
@@ -151,7 +181,7 @@ export function calculateVistaQuote(
   return {
     program: program.inputName,
     maxAvailable,
-    maxLtv: calculateMaxLtv(input),
+    maxLtv,
     rate: selected.noteRate,
     noteRate: selected.noteRate,
     rateType: 'Fixed',
@@ -179,6 +209,7 @@ export function evaluateVistaStage1Eligibility(
   if (!docMatrix) reasons.push(`Vista ${input.docType} pricing is not available in the workbook.`);
   if (docMatrix && !findCltvRow(program, input.creditScore, input.docType)) reasons.push(`Credit score is outside the Vista ${input.docType} matrix.`);
   if (docMatrix && findCltvBucketIndex(program, input.resultingCltv, input.docType) === null) reasons.push(`Resulting CLTV is outside the Vista ${input.docType} matrix.`);
+  if (input.unitCount > 1 && input.resultingCltv > VISTA_MULTI_UNIT_MAX_CLTV) reasons.push('Vista 2-4 unit properties are currently hard-capped at 75% CLTV. If the guide changes, update VISTA_MULTI_UNIT_MAX_CLTV in vista.ts.');
   if (!findAdjustment(program, 'term', input.product)) reasons.push('Selected term is not available in the Vista ratesheet.');
   if (!findAdjustment(program, 'loanAmount', loanAmountLabel(requested))) reasons.push('Desired loan amount is outside the Vista loan amount table.');
   if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
@@ -243,7 +274,13 @@ function calculateMaxLtv(input: VistaPricingInput): number {
 
   const lastEligibleIndex = row.values.reduce<number>((best, value, index) => value !== null ? index : best, -1);
   if (lastEligibleIndex < 0) return 0;
-  return upperBoundForCltvLabel(matrix.cltvBuckets[lastEligibleIndex]) / 100;
+  const docTypeMaxCltv = upperBoundForCltvLabel(matrix.cltvBuckets[lastEligibleIndex]) / 100;
+
+  if (input.unitCount > 1) {
+    return Math.min(docTypeMaxCltv, VISTA_MULTI_UNIT_MAX_CLTV);
+  }
+
+  return docTypeMaxCltv;
 }
 
 function buildAdjustmentLines(input: VistaPricingInput, selectedLoanAmount: number): VistaAdjustmentLine[] {
