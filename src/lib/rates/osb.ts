@@ -293,6 +293,7 @@ function calculateMaxLtv(input: OsbPricingInput): number {
 function pickRateClosestToRequested(input: OsbPricingInput, llpaAdjustment: number, requestedRate: number): { rate: number; basePrice: number; purchasePrice: number } {
   const program = getProgramData(input.program);
   const key = productKey(input.product);
+  const workbookRequestedRate = toWorkbookRate(input, requestedRate);
   let best = { rate: program.pricing.rowsData[0].rate, basePrice: program.pricing.rowsData[0].prices[key] ?? 0, purchasePrice: 0 };
   let bestDelta = Number.POSITIVE_INFINITY;
 
@@ -300,7 +301,7 @@ function pickRateClosestToRequested(input: OsbPricingInput, llpaAdjustment: numb
     const basePrice = row.prices[key];
     if (basePrice == null) continue;
     const purchasePrice = roundToThree(basePrice + llpaAdjustment);
-    const delta = Math.abs(row.rate - requestedRate);
+    const delta = Math.abs(row.rate - workbookRequestedRate);
     if (delta < bestDelta || (delta === bestDelta && row.rate > best.rate)) {
       best = { rate: row.rate, basePrice, purchasePrice };
       bestDelta = delta;
@@ -339,6 +340,13 @@ function calculateDisplayedRate(input: OsbPricingInput, workbookRate: number): n
   const program = getProgramData(input.program);
   const primeRate = Number(program.armFeatures?.['Index-PRIME'] ?? 0) * 100;
   return roundToThree(primeRate + workbookRate);
+}
+
+function toWorkbookRate(input: OsbPricingInput, displayedRate: number): number {
+  if (input.program !== 'HELOC') return displayedRate;
+  const program = getProgramData(input.program);
+  const primeRate = Number(program.armFeatures?.['Index-PRIME'] ?? 0) * 100;
+  return roundToThree(displayedRate - primeRate);
 }
 
 function calculateMonthlyPayment(input: OsbPricingInput, loanAmount: number, noteRate: number): number {
