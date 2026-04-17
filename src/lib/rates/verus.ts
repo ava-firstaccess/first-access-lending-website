@@ -261,7 +261,7 @@ export function calculateVerusStage1Quote(
   options?: { selectedLoanAmount?: number; targetPrice?: number; rateOverride?: number }
 ): VerusQuote {
   const input = buildVerusStage1PricingInput(stage1);
-  const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? calculateMaxAvailable(input));
+  const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? calculateMaxAvailable(stage1, input, input.desiredLoanAmount));
   const rawTargetPrice = options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount);
   const targetPrice = input.program === 'HELOC' ? Math.min(rawTargetPrice, VERUS_HELOC_MAX_BUY_PRICE) : rawTargetPrice;
   const adjustments = buildAdjustmentLines(stage1, input, selectedLoanAmount);
@@ -275,8 +275,8 @@ export function calculateVerusStage1Quote(
     return {
       program: 'HELOC',
       product: input.product,
-      maxAvailable: calculateMaxAvailable(input),
-      maxLtv: calculateMaxLtv(input),
+      maxAvailable: calculateMaxAvailable(stage1, input, selectedLoanAmount),
+      maxLtv: calculateMaxLtv(stage1, input, selectedLoanAmount),
       rate: noteRate,
       noteRate,
       rateType: 'Variable',
@@ -304,8 +304,8 @@ export function calculateVerusStage1Quote(
   return {
     program: 'CES',
     product: input.product,
-    maxAvailable: calculateMaxAvailable(input),
-    maxLtv: calculateMaxLtv(input),
+    maxAvailable: calculateMaxAvailable(stage1, input, selectedLoanAmount),
+    maxLtv: calculateMaxLtv(stage1, input, selectedLoanAmount),
     rate: selected.rate,
     noteRate: selected.rate,
     rateType: 'Fixed',
@@ -332,13 +332,18 @@ export function evaluateVerusStage1Eligibility(
   const reasons: string[] = [];
 
   if (input.creditScore < 660) reasons.push('Credit score is below the current supported Verus tester range.');
-  if (input.resultingCltv > calculateMaxLtv(input)) reasons.push('Resulting CLTV exceeds the current supported Verus tester range.');
-  if (requested > calculateMaxAvailable(input)) reasons.push('Desired loan amount exceeds the current max available amount.');
+
+  const maxLtv = calculateMaxLtv(stage1, input, requested);
+  const maxAvailable = calculateMaxAvailable(stage1, input, requested);
+
+  if (maxLtv <= 0) reasons.push('This Verus scenario is not eligible in the current workbook.');
+  else if (input.resultingCltv > maxLtv) reasons.push('Resulting CLTV exceeds the current supported Verus workbook range.');
+  if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
 
   return {
     eligible: reasons.length === 0,
     reasons,
-    maxAvailable: calculateMaxAvailable(input),
+    maxAvailable,
     resultingCltv: input.resultingCltv,
   };
 }
@@ -370,14 +375,64 @@ export function solveVerusStage1TargetRate(
   };
 }
 
-function calculateMaxAvailable(input: VerusPricingInput): number {
-  return Math.max(0, input.propertyValue * calculateMaxLtv(input) - input.loanBalance);
+function calculateMaxAvailable(
+  stage1: ButtonStage1Input & { verusDocType?: VerusDocType; verusDrawPeriodYears?: VerusDrawPeriodYears; verusLockPeriodDays?: VerusLockPeriodDays },
+  input: VerusPricingInput,
+  selectedLoanAmount = input.desiredLoanAmount
+): number {
+  return Math.max(0, input.propertyValue * calculateMaxLtv(stage1, input, selectedLoanAmount) - input.loanBalance);
 }
 
-function calculateMaxLtv(input: VerusPricingInput): number {
-  if (input.occupancy === 'Investment') return input.creditScore >= 700 ? 0.8 : 0.75;
-  if (input.occupancy === 'Second Home') return input.creditScore >= 700 ? 0.85 : 0.8;
-  return input.creditScore >= 700 ? 0.9 : 0.85;
+function calculateMaxLtv(
+  stage1: ButtonStage1Input & { verusDocType?: VerusDocType; verusDrawPeriodYears?: VerusDrawPeriodYears; verusLockPeriodDays?: VerusLockPeriodDays },
+  input: VerusPricingInput,
+  selectedLoanAmount = input.desiredLoanAmount
+): number {
+  const docType = stage1.verusDocType ?? 'Standard';
+
+  if (input.program === 'CES') {
+    const ficoLabel = getVerusCesFicoLabel(input.creditScore);
+    const loanAmountLabel = getVerusCesLoanAmountLabel(selectedLoanAmount);
+    const occupancyLabel = getVerusOccupancyLabel(input.occupancy);
+    const propertyTypeLabel = getVerusPropertyTypeLabel(input);
+
+    let maxEligible = 0;
+    for (let index = 0; index < VERUS_CES_CLTV_UPPER_BOUNDS.length; index += 1) {
+      const cltvEligible = isVerusCesColumnEligible({
+        columnIndex: index,
+        docType,
+        ficoLabel,
+        loanAmountLabel,
+        occupancyLabel,
+        propertyTypeLabel,
+        propertyState: input.propertyState,
+      });
+      if (cltvEligible) maxEligible = VERUS_CES_CLTV_UPPER_BOUNDS[index] / 100;
+    }
+    return maxEligible;
+  }
+
+  const ficoLabel = getVerusHelocFicoLabel(input.creditScore);
+  const loanAmountLabel = getVerusHelocLoanAmountLabel(selectedLoanAmount);
+  const occupancyLabel = getVerusOccupancyLabel(input.occupancy);
+  const propertyTypeLabel = getVerusPropertyTypeLabel(input);
+  const drawYears = stage1.verusDrawPeriodYears ?? 5;
+
+  let maxEligible = 0;
+  for (let index = 0; index < VERUS_HELOC_CLTV_UPPER_BOUNDS.length; index += 1) {
+    const cltvEligible = isVerusHelocColumnEligible({
+      columnIndex: index,
+      docType,
+      ficoLabel,
+      loanAmountLabel,
+      occupancyLabel,
+      propertyTypeLabel,
+      propertyState: input.propertyState,
+      drawYears,
+    });
+    if (cltvEligible) maxEligible = VERUS_HELOC_CLTV_UPPER_BOUNDS[index] / 100;
+  }
+  return maxEligible;
 }
 
 function pickCesExecutionByRate(product: VerusCesProduct, docType: VerusDocType, requestedRate: number, llpaAdjustment = 0) {
@@ -556,22 +611,17 @@ function buildAdjustmentLines(
   return rows;
 }
 
-function getVerusHelocCltvColumnIndex(resultingCltv: number): number {
-  const cltvPct = resultingCltv * 100;
-  const upperBounds = [50, 55, 60, 65, 70, 75, 80, 85, 90];
-  for (let i = 0; i < upperBounds.length; i += 1) {
-    if (cltvPct <= upperBounds[i]) return i;
-  }
-  return upperBounds.length - 1;
+const VERUS_HELOC_CLTV_UPPER_BOUNDS = [50, 55, 60, 65, 70, 75, 80, 85, 90] as const;
+const VERUS_HELOC_DOC_CLTV_UPPER_BOUNDS = [50, 55, 60, 65, 70, 75, 80, 85] as const;
+const VERUS_CES_CLTV_UPPER_BOUNDS = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95] as const;
+const VERUS_CES_DOC_CLTV_UPPER_BOUNDS = [50, 55, 60, 65, 70, 75, 80, 85] as const;
+
+function getVerusHelocCltvColumnIndex(resultingCltv: number): number | null {
+  return getCltvColumnIndex(resultingCltv, VERUS_HELOC_CLTV_UPPER_BOUNDS);
 }
 
-function getVerusHelocDocCltvColumnIndex(resultingCltv: number): number {
-  const cltvPct = resultingCltv * 100;
-  const upperBounds = [50, 55, 60, 65, 70, 75, 80, 85];
-  for (let i = 0; i < upperBounds.length; i += 1) {
-    if (cltvPct <= upperBounds[i]) return i;
-  }
-  return upperBounds.length - 1;
+function getVerusHelocDocCltvColumnIndex(resultingCltv: number): number | null {
+  return getCltvColumnIndex(resultingCltv, VERUS_HELOC_DOC_CLTV_UPPER_BOUNDS);
 }
 
 function getVerusHelocFicoLabel(creditScore: number): string {
@@ -603,22 +653,12 @@ function getVerusPropertyTypeLabel(input: VerusPricingInput): 'Condo' | '2-4 Uni
   return null;
 }
 
-function getVerusCesCltvColumnIndex(resultingCltv: number): number {
-  const cltvPct = resultingCltv * 100;
-  const upperBounds = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95];
-  for (let i = 0; i < upperBounds.length; i += 1) {
-    if (cltvPct <= upperBounds[i]) return i;
-  }
-  return upperBounds.length - 1;
+function getVerusCesCltvColumnIndex(resultingCltv: number): number | null {
+  return getCltvColumnIndex(resultingCltv, VERUS_CES_CLTV_UPPER_BOUNDS);
 }
 
-function getVerusCesDocCltvColumnIndex(resultingCltv: number): number {
-  const cltvPct = resultingCltv * 100;
-  const upperBounds = [50, 55, 60, 65, 70, 75, 80, 85];
-  for (let i = 0; i < upperBounds.length; i += 1) {
-    if (cltvPct <= upperBounds[i]) return i;
-  }
-  return upperBounds.length - 1;
+function getVerusCesDocCltvColumnIndex(resultingCltv: number): number | null {
+  return getCltvColumnIndex(resultingCltv, VERUS_CES_DOC_CLTV_UPPER_BOUNDS);
 }
 
 function getVerusCesFicoLabel(creditScore: number): string {
@@ -641,12 +681,70 @@ function getVerusCesLoanAmountLabel(amount: number): string {
   return '$500,001 - $750,000';
 }
 
-function getVerusMatrixValue(table: VerusSecondPriceMatrixTable, rowLabel: string, columnIndex: number): number | null {
-  const rowIndex = table.rows.findIndex(row => row === rowLabel);
-  if (rowIndex < 0) return null;
-  const cell = table.values[rowIndex]?.[columnIndex];
+function getVerusMatrixValue(table: VerusSecondPriceMatrixTable, rowLabel: string, columnIndex: number | null): number | null {
+  const cell = getVerusMatrixCell(table, rowLabel, columnIndex);
   if (cell === null || cell === undefined || cell === 'NA') return null;
   return Number(cell);
+}
+
+function getVerusMatrixCell(table: VerusSecondPriceMatrixTable, rowLabel: string, columnIndex: number | null): MatrixCell | undefined {
+  if (columnIndex === null) return undefined;
+  const rowIndex = table.rows.findIndex(row => row === rowLabel);
+  if (rowIndex < 0) return undefined;
+  return table.values[rowIndex]?.[columnIndex];
+}
+
+function getCltvColumnIndex(resultingCltv: number, upperBounds: readonly number[]): number | null {
+  const cltvPct = resultingCltv * 100;
+  for (let i = 0; i < upperBounds.length; i += 1) {
+    if (cltvPct <= upperBounds[i]) return i;
+  }
+  return null;
+}
+
+function isWorkbookEligibleCell(table: VerusSecondPriceMatrixTable, rowLabel: string, columnIndex: number | null): boolean {
+  const cell = getVerusMatrixCell(table, rowLabel, columnIndex);
+  return cell !== null && cell !== undefined && cell !== 'NA';
+}
+
+function isVerusCesColumnEligible(input: {
+  columnIndex: number;
+  docType: VerusDocType;
+  ficoLabel: string;
+  loanAmountLabel: string;
+  occupancyLabel: '2nd Home' | 'Investor' | null;
+  propertyTypeLabel: 'Condo' | '2-4 Unit' | null;
+  propertyState: string;
+}): boolean {
+  const docTable = input.docType === 'Alt Doc' ? VERUS_CES_ALT_DOC_TABLE : VERUS_CES_STANDARD_DOC_2YR_TABLE;
+  if (!isWorkbookEligibleCell(docTable, input.ficoLabel, input.columnIndex < VERUS_CES_DOC_CLTV_UPPER_BOUNDS.length ? input.columnIndex : null)) return false;
+  if (!isWorkbookEligibleCell(VERUS_CES_LOAN_AMOUNT_TABLE, input.loanAmountLabel, input.columnIndex)) return false;
+  if (!isWorkbookEligibleCell(VERUS_CES_DTI_TABLE, '<= 40%', input.columnIndex)) return false;
+  if (input.occupancyLabel && !isWorkbookEligibleCell(VERUS_CES_OCCUPANCY_TABLE, input.occupancyLabel, input.columnIndex)) return false;
+  if (input.propertyTypeLabel && !isWorkbookEligibleCell(VERUS_CES_PROPERTY_TYPE_TABLE, input.propertyTypeLabel, input.columnIndex)) return false;
+  if (VERUS_STATE_BUCKET.has(input.propertyState) && !isWorkbookEligibleCell(VERUS_CES_STATE_TABLE, 'CT, IL, NJ, NY', input.columnIndex)) return false;
+  return true;
+}
+
+function isVerusHelocColumnEligible(input: {
+  columnIndex: number;
+  docType: VerusDocType;
+  ficoLabel: string;
+  loanAmountLabel: string;
+  occupancyLabel: '2nd Home' | 'Investor' | null;
+  propertyTypeLabel: 'Condo' | '2-4 Unit' | null;
+  propertyState: string;
+  drawYears: VerusDrawPeriodYears;
+}): boolean {
+  const docTable = input.docType === 'Alt Doc' ? VERUS_HELOC_ALT_DOC_TABLE : VERUS_HELOC_STANDARD_DOC_2YR_TABLE;
+  if (!isWorkbookEligibleCell(docTable, input.ficoLabel, input.columnIndex < VERUS_HELOC_DOC_CLTV_UPPER_BOUNDS.length ? input.columnIndex : null)) return false;
+  if (!isWorkbookEligibleCell(VERUS_HELOC_DRAW_TERM_TABLE, String(input.drawYears * 12), input.columnIndex)) return false;
+  if (!isWorkbookEligibleCell(VERUS_HELOC_DTI_TABLE, '<= 40%', input.columnIndex)) return false;
+  if (!isWorkbookEligibleCell(VERUS_HELOC_LOAN_AMOUNT_TABLE, input.loanAmountLabel, input.columnIndex)) return false;
+  if (input.occupancyLabel && !isWorkbookEligibleCell(VERUS_HELOC_OCCUPANCY_TABLE, input.occupancyLabel, input.columnIndex)) return false;
+  if (input.propertyTypeLabel && !isWorkbookEligibleCell(VERUS_HELOC_PROPERTY_TYPE_TABLE, input.propertyTypeLabel, input.columnIndex)) return false;
+  if (VERUS_STATE_BUCKET.has(input.propertyState) && !isWorkbookEligibleCell(VERUS_HELOC_STATE_TABLE, 'CT, IL, NJ, NY', input.columnIndex)) return false;
+  return true;
 }
 
 function normalizeProgram(program?: string, product?: string): VerusProgram {
