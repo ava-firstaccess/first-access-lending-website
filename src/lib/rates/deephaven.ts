@@ -329,7 +329,7 @@ function programSupportsDocType(program: DeephavenProgram, docType: DeephavenDoc
   const programData = DATA.programs[sourceProgram(program)];
   if (docType === 'Full Doc') return true;
   if (docType === 'Bank Statement') return (programData.documentationAdjustments?.bankStatement ?? []).length > 0;
-  return Boolean(findByLabel(programData.documentationAdjustments?.pnlOnly ?? [], termAdjustmentLabel(product)));
+  return (programData.documentationAdjustments?.pnlOnly ?? []).length > 0;
 }
 
 function normalizeOccupancy(value?: string): string {
@@ -361,7 +361,7 @@ function buildAdjustmentLines(input: DeephavenPricingInput, selectedLoanAmount: 
     pushAdjustment(lines, 'Doc Type: Bank Statement', readAdjustmentValue(findCreditRow(programData.documentationAdjustments?.bankStatement ?? [], input.creditScore), cltvIndex));
   }
   if (input.docType === 'P&L Only') {
-    pushAdjustment(lines, 'Doc Type: P&L Only', readAdjustmentValue(findByLabel(programData.documentationAdjustments?.pnlOnly ?? [], termAdjustmentLabel(input.product)), cltvIndex));
+    pushAdjustment(lines, 'Doc Type: P&L Only', readAdjustmentValue(findCreditRow(programData.documentationAdjustments?.pnlOnly ?? [], input.creditScore), cltvIndex));
   }
   pushAdjustment(lines, 'Term', readAdjustmentValue(findByLabel(programData.adjustments.term, termAdjustmentLabel(input.product)), cltvIndex));
   pushAdjustment(lines, 'Occupancy', readAdjustmentValue(findByLabel(programData.adjustments.occupancy, input.occupancy), cltvIndex));
