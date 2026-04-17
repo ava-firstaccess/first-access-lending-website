@@ -3,7 +3,7 @@ import { getTargetPurchasePriceForLoanAmount, type ButtonStage1Input } from './b
 import type { Stage1AdjustmentLine } from './shared';
 
 export type DeephavenProgram = 'Equity Advantage' | 'Equity Advantage Elite';
-export type DeephavenProduct = '15Y Fixed' | '30Y Fixed';
+export type DeephavenProduct = '15Y Fixed' | '20Y Fixed' | '30Y Fixed';
 
 export interface DeephavenPricingInput {
   program: DeephavenProgram;
@@ -47,7 +47,7 @@ export interface DeephavenEligibilityResult {
   resultingCltv: number;
 }
 
-type PricingRow = { rate: number; prices: Record<DeephavenProduct, number | null> };
+type PricingRow = { rate: number; prices: Record<'15Y Fixed' | '30Y Fixed', number | null> };
 type ProgramData = {
   minPrice: number;
   maxPriceTiers: Array<{ upToLoanAmount: number; maxPrice: number }>;
@@ -137,7 +137,7 @@ export function calculateDeephavenStage1Quote(
     rate: best.selected.rate,
     noteRate: best.selected.rate,
     rateType: 'Fixed',
-    monthlyPayment: amortizedPayment(selectedLoanAmount, best.selected.rate, input.product === '15Y Fixed' ? 15 : 30),
+    monthlyPayment: amortizedPayment(selectedLoanAmount, best.selected.rate, termYears(input.product)),
     basePrice: best.selected.basePrice,
     llpaAdjustment: 0,
     purchasePrice: best.selected.purchasePrice,
@@ -200,11 +200,12 @@ export function solveDeephavenStage1TargetRate(
 
 function pickExecutionByRate(input: DeephavenPricingInput, requestedRate: number, program = input.program) {
   const rows = DATA.programs[sourceProgram(program)].pricing;
-  let best = { rate: rows[0].rate, basePrice: Number(rows[0].prices[input.product] ?? 0), purchasePrice: Number(rows[0].prices[input.product] ?? 0) };
+  const productKey = pricingProduct(input.product);
+  let best = { rate: rows[0].rate, basePrice: Number(rows[0].prices[productKey] ?? 0), purchasePrice: Number(rows[0].prices[productKey] ?? 0) };
   let bestDelta = Number.POSITIVE_INFINITY;
 
   for (const row of rows) {
-    const basePrice = Number(row.prices[input.product] ?? 0);
+    const basePrice = Number(row.prices[productKey] ?? 0);
     if (!Number.isFinite(basePrice) || basePrice <= 0) continue;
     const purchasePrice = roundToThree(basePrice);
     const delta = Math.abs(row.rate - requestedRate);
@@ -219,12 +220,13 @@ function pickExecutionByRate(input: DeephavenPricingInput, requestedRate: number
 
 function pickExecution(input: DeephavenPricingInput, targetPrice: number, program = input.program) {
   const rows = DATA.programs[sourceProgram(program)].pricing;
+  const productKey = pricingProduct(input.product);
   let bestUnder: { rate: number; basePrice: number; purchasePrice: number } | null = null;
-  let fallback = { rate: rows[0].rate, basePrice: Number(rows[0].prices[input.product] ?? 0), purchasePrice: Number(rows[0].prices[input.product] ?? 0) };
+  let fallback = { rate: rows[0].rate, basePrice: Number(rows[0].prices[productKey] ?? 0), purchasePrice: Number(rows[0].prices[productKey] ?? 0) };
   let fallbackDelta = Number.POSITIVE_INFINITY;
 
   for (const row of rows) {
-    const basePrice = Number(row.prices[input.product] ?? 0);
+    const basePrice = Number(row.prices[productKey] ?? 0);
     if (!Number.isFinite(basePrice) || basePrice <= 0) continue;
     const purchasePrice = roundToThree(basePrice);
     if (purchasePrice <= targetPrice && (!bestUnder || purchasePrice > bestUnder.purchasePrice)) {
@@ -285,8 +287,19 @@ function normalizeProgram(value?: string): DeephavenProgram {
   return String(value || '').toLowerCase().includes('elite') ? 'Equity Advantage Elite' : 'Equity Advantage';
 }
 
+function pricingProduct(product: DeephavenProduct): '15Y Fixed' | '30Y Fixed' {
+  return product === '15Y Fixed' ? '15Y Fixed' : '30Y Fixed';
+}
+
+function termYears(product: DeephavenProduct): number {
+  return product === '15Y Fixed' ? 15 : product === '20Y Fixed' ? 20 : 30;
+}
+
 function normalizeProduct(value?: string): DeephavenProduct {
-  return String(value || '').includes('15') ? '15Y Fixed' : '30Y Fixed';
+  const text = String(value || '');
+  if (text.includes('15')) return '15Y Fixed';
+  if (text.includes('20')) return '20Y Fixed';
+  return '30Y Fixed';
 }
 
 function normalizeOccupancy(value?: string): string {

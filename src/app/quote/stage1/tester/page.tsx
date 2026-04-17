@@ -708,6 +708,7 @@ export default function Stage1TesterPage() {
       const vistaProducts: Partial<Record<BestExTermYears, VistaProduct>> = {
         10: '10yr Fixed',
         15: '15yr Fixed',
+        20: '20yr Fixed',
         30: '30yr Fixed',
       };
       const vistaProduct = vistaProducts[bestExTermYears];
@@ -751,6 +752,7 @@ export default function Stage1TesterPage() {
 
       const newrezProducts: Partial<Record<BestExTermYears, NewRezProduct>> = {
         15: '15 Year Fixed',
+        20: '20 Year Fixed',
         30: '30 Year Fixed',
       };
       const newrezProduct = newrezProducts[bestExTermYears];
@@ -795,6 +797,7 @@ export default function Stage1TesterPage() {
       const osbProducts: Partial<Record<BestExTermYears, OsbProduct>> = {
         10: 'Fixed 10',
         15: 'Fixed 15',
+        20: 'Fixed 20',
         30: 'Fixed 30',
       };
       const osbProduct = osbProducts[bestExTermYears];
@@ -896,6 +899,7 @@ export default function Stage1TesterPage() {
 
       const deephavenProducts: Partial<Record<BestExTermYears, DeephavenProduct>> = {
         15: '15Y Fixed',
+        20: '20Y Fixed',
         30: '30Y Fixed',
       };
       const deephavenProduct = deephavenProducts[bestExTermYears];
