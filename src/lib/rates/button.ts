@@ -195,8 +195,8 @@ export function calculateButtonQuote(
   const cltvIndex = getCltvBucketIndex(input.resultingCltv);
   const cltvAdj = getMatrixValue(CLTV_MATRIX[docKey], ficoIndex, cltvIndex);
 
-  const adjustments = buildAdjustmentLines(input, cltvIndex, options);
-  const llpaAdjustment = roundToThree(cltvAdj + adjustments.reduce((sum, row) => sum + row.value, 0));
+  const adjustments = buildAdjustmentLines(input, cltvIndex, options, cltvAdj);
+  const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
   const selected = options?.rateOverride !== undefined
     ? pickNoteRateClosestToRequested(input.product, docKey, llpaAdjustment, options.rateOverride)
     : pickNoteRateAtOrBelowTarget(input.product, docKey, llpaAdjustment, targetPrice);
@@ -302,8 +302,8 @@ export function solveButtonStage1TargetRate(
   const ficoIndex = getFicoBucketIndex(input.creditScore);
   const cltvIndex = getCltvBucketIndex(input.resultingCltv);
   const cltvAdj = getMatrixValue(CLTV_MATRIX[docKey], ficoIndex, cltvIndex);
-  const adjustments = buildAdjustmentLines(input, cltvIndex, options);
-  const llpaAdjustment = roundToThree(cltvAdj + adjustments.reduce((sum, row) => sum + row.value, 0));
+  const adjustments = buildAdjustmentLines(input, cltvIndex, options, cltvAdj);
+  const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
 
   const selected = pickNoteRateAtOrBelowTarget(input.product, docKey, llpaAdjustment, targetPrice);
   const monthlyPayment = calculateMonthlyPayment(input.product, selected.noteRate, selected.purchasePrice, selectedLoanAmount, options);
@@ -463,13 +463,20 @@ function buildAdjustmentLines(
     helocDrawTermYears?: number;
     helocTotalTermYears?: number;
     cesTermYears?: number;
-  }
+  },
+  cltvAdj?: number
 ): Stage1AdjustmentLine[] {
   const adjustments: Stage1AdjustmentLine[] = [];
   const occupancy = normalizeOccupancy(input.occupancy);
   const normalizedStructure = normalizeStructureType(input.structureType);
 
   adjustments.push({ label: `Doc Type: ${input.docType}`, value: 0 });
+  if (cltvAdj !== undefined) {
+    adjustments.push({
+      label: `${input.docType} CLTV: ${FICO_BUCKETS[getFicoBucketIndex(input.creditScore)].label} / ${CLTV_BUCKETS[cltvIndex].label}`,
+      value: cltvAdj,
+    });
+  }
   adjustments.push({ label: 'Lock Period: 45 Day', value: BUTTON_45_DAY_LOCK_ADJUSTMENT });
 
   if (occupancy === 'Second Home') {
