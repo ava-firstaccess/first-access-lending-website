@@ -99,7 +99,6 @@ export function calculateDeephavenStage1Quote(
     const candidateInput = { ...input, program };
     const maxAvailable = calculateMaxAvailableForProgram(candidateInput, program);
     const maxLtv = calculateMaxLtvForProgram(candidateInput, program);
-    if (input.occupancy === 'Primary') return [];
     if (input.creditScore < minCreditScore(program)) return [];
     if (input.resultingCltv > maxLtv) return [];
     if (selectedLoanAmount > maxAvailable) return [];
@@ -156,14 +155,12 @@ export function evaluateDeephavenStage1Eligibility(
   const maxLtv = Math.max(...DEEPHAVEN_PROGRAMS.map(program => calculateMaxLtvForProgram({ ...input, program }, program)));
   const anyEligible = DEEPHAVEN_PROGRAMS.some(program => {
     const candidateInput = { ...input, program };
-    return input.occupancy !== 'Primary'
-      && input.creditScore >= minCreditScore(program)
+    return input.creditScore >= minCreditScore(program)
       && input.resultingCltv <= calculateMaxLtvForProgram(candidateInput, program)
       && requested <= calculateMaxAvailableForProgram(candidateInput, program);
   });
 
   if (!anyEligible) {
-    if (input.occupancy === 'Primary') reasons.push('Deephaven tester is wired for non-owner occupied CES scenarios.');
     if (DEEPHAVEN_PROGRAMS.every(program => input.creditScore < minCreditScore(program))) reasons.push('Credit score is below the current supported Deephaven tester range.');
     if (DEEPHAVEN_PROGRAMS.every(program => input.resultingCltv > calculateMaxLtvForProgram({ ...input, program }, program))) reasons.push('Resulting CLTV exceeds the current supported Deephaven tester range.');
     if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
