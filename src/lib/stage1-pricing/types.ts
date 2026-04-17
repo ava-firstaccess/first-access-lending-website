@@ -102,7 +102,7 @@ export const defaultInput: TesterInput = {
   loanBalance: 250000,
   desiredLoanAmount: 100000,
   creditScore: 740,
-  dti: 40,
+  dti: 35,
   occupancy: 'Owner-Occupied',
   structureType: 'SFR',
   numberOfUnits: 1,
