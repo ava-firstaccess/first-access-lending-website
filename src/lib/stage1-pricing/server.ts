@@ -54,7 +54,7 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
   const standardRequestedRates = buildRequestedRates(3, 20); const osbHelocRequestedRates = buildRequestedRates(0.5, 8); const results: InvestorSummary[] = [];
 
   if (bestExProduct === 'HELOC') {
-    const buttonInput = { ...input, buttonProduct: 'HELOC' as const, helocDrawTermYears: bestExDrawPeriodYears };
+    const buttonInput = { ...input, buttonProduct: 'HELOC' as const, helocDrawTermYears: bestExDrawPeriodYears, buttonDocType: bestExDocType === 'Alt Doc' ? 'Bank Statement' as const : 'Full Doc' as const };
     const buttonEligibility = evaluateButtonStage1Eligibility(buttonInput as ButtonStage1Input, selectedLoanAmount);
     const buttonBaseQuote = calculateButtonStage1Quote(buttonInput as ButtonStage1Input, { selectedLoanAmount, helocDrawTermYears: bestExDrawPeriodYears });
     results.push(chooseBestXSummary(buttonEligibility, toQuote('Button', { ...buttonBaseQuote, program: 'Button', product: 'HELOC' }), standardRequestedRates, rateOverride => toQuote('Button', { ...calculateButtonStage1Quote(buttonInput as ButtonStage1Input, { selectedLoanAmount, helocDrawTermYears: bestExDrawPeriodYears, rateOverride }), program: 'Button', product: 'HELOC' })));
@@ -67,7 +67,7 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
     else if (actualLockPeriodDays !== 45 && actualLockPeriodDays !== 60) results.push(makeIneligible('Verus', 'HELOC', '30 YR', `Verus HELOC only supports padded lock pricing at 45 or 60 days, not ${actualLockPeriodDays}.`));
     else { const verusInput = { ...input, verusProgram: 'HELOC' as const, verusProduct: '30 YR' as const, verusDocType: bestExDocType, verusDrawPeriodYears: bestExDrawPeriodYears as Exclude<VerusDrawPeriodYears, 2>, verusLockPeriodDays: actualLockPeriodDays as VerusLockPeriodDays }; const eligibility = evaluateVerusStage1Eligibility(verusInput, selectedLoanAmount); const baseQuote = calculateVerusStage1Quote(verusInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); results.push(chooseBestXSummary(eligibility, toQuote('Verus', baseQuote), standardRequestedRates, rateOverride => toQuote('Verus', calculateVerusStage1Quote(verusInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })))); }
   } else {
-    const buttonInput = { ...input, buttonProduct: 'CES' as const, buttonTermYears: bestExTermYears };
+    const buttonInput = { ...input, buttonProduct: 'CES' as const, buttonTermYears: bestExTermYears, buttonDocType: bestExDocType === 'Alt Doc' ? 'Bank Statement' as const : 'Full Doc' as const };
     const buttonEligibility = evaluateButtonStage1Eligibility(buttonInput as ButtonStage1Input, selectedLoanAmount);
     const buttonBaseQuote = calculateButtonStage1Quote(buttonInput as ButtonStage1Input, { selectedLoanAmount, cesTermYears: bestExTermYears });
     results.push(chooseBestXSummary(buttonEligibility, toQuote('Button', { ...buttonBaseQuote, program: 'Button', product: 'CES' }), standardRequestedRates, rateOverride => toQuote('Button', { ...calculateButtonStage1Quote(buttonInput as ButtonStage1Input, { selectedLoanAmount, cesTermYears: bestExTermYears, rateOverride }), program: 'Button', product: 'CES' })));

@@ -43,6 +43,7 @@ export interface ButtonStage1Input {
   numberOfUnits?: number;
   cashOut?: boolean;
   buttonTermYears?: 10 | 15 | 20 | 25 | 30;
+  buttonDocType?: ButtonDocType;
 }
 
 export interface ButtonQuote {
@@ -157,7 +158,7 @@ export function buildButtonStage1PricingInput(stage1: ButtonStage1Input): Button
     unitCount: Number(stage1.numberOfUnits || 1),
     cashOut: Boolean(stage1.cashOut),
     dti: null,
-    docType: 'Full Doc',
+    docType: stage1.buttonDocType ?? 'Full Doc',
     selfEmployed: false,
     bankStatementMonths: null,
   };

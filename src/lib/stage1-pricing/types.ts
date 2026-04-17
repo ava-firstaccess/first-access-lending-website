@@ -13,6 +13,7 @@ export type VerusLockPeriodDays = 30 | 45 | 60;
 export type DeephavenProgram = 'Equity Advantage' | 'Equity Advantage Elite';
 export type DeephavenProduct = '15Y Fixed' | '20Y Fixed' | '30Y Fixed';
 export type ButtonProduct = 'HELOC' | 'CES';
+export type ButtonDocType = 'Full Doc' | 'Bank Statement';
 export type BestExProduct = 'HELOC' | 'CES';
 export type BestExDrawPeriodYears = 3 | 5 | 10;
 export type BestExTermYears = 10 | 15 | 20 | 25 | 30;
@@ -33,6 +34,7 @@ export type TesterInput = {
   numberOfUnits?: number;
   cashOut?: boolean;
   buttonTermYears?: 10 | 15 | 20 | 25 | 30;
+  buttonDocType?: ButtonDocType;
   vistaProduct?: VistaProduct;
   newrezProduct?: NewRezProduct;
   osbProgram?: OsbProgram;
@@ -81,6 +83,7 @@ export const defaultInput: TesterInput = {
   deephavenProduct: '30Y Fixed',
   helocDrawTermYears: 5,
   buttonTermYears: 20,
+  buttonDocType: 'Full Doc',
   bestExProduct: 'HELOC',
   bestExDrawPeriodYears: 5,
   bestExTermYears: 30,
