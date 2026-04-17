@@ -115,43 +115,50 @@ export function calculateDeephavenStage1Quote(
 ): DeephavenQuote {
   const input = buildDeephavenStage1PricingInput(stage1);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? Math.max(...DEEPHAVEN_PROGRAMS.map(program => calculateMaxAvailableForProgram(input, program))));
+  const targetPrice = options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount);
 
   const candidates = DEEPHAVEN_PROGRAMS.flatMap(program => {
     const candidateInput = { ...input, program };
     const maxAvailable = calculateMaxAvailableForProgram(candidateInput, program);
     const maxLtv = calculateMaxLtvForProgram(candidateInput, program);
+    if (!programSupportsDocType(program, input.docType, input.product)) return [];
     if (input.creditScore < minCreditScore(program)) return [];
     if (input.resultingCltv > maxLtv) return [];
     if (selectedLoanAmount > maxAvailable) return [];
-    if (!programSupportsDocType(program, input.docType, input.product)) return [];
     const llpaAdjustment = calculateLlpaAdjustment(candidateInput, selectedLoanAmount, program);
-    const targetPrice = clampTargetPrice(candidateInput, options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), selectedLoanAmount, program);
     const selected = options?.rateOverride !== undefined
       ? pickExecutionByRate(candidateInput, options.rateOverride, program, llpaAdjustment)
-      : pickExecution(candidateInput, targetPrice, program, llpaAdjustment);
+      : pickExecution(candidateInput, clampTargetPrice(candidateInput, targetPrice, selectedLoanAmount, program), program, llpaAdjustment);
     return [{ program, maxAvailable, maxLtv, llpaAdjustment, selected }];
   });
-
-  const fallbackProgram = DEEPHAVEN_PROGRAMS[0];
-  const fallbackInput = { ...input, program: fallbackProgram };
-  const fallbackLlpaAdjustment = calculateLlpaAdjustment(fallbackInput, selectedLoanAmount, fallbackProgram);
-  const fallbackTargetPrice = clampTargetPrice(fallbackInput, options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), selectedLoanAmount, fallbackProgram);
-  const fallbackSelected = options?.rateOverride !== undefined
-    ? pickExecutionByRate(fallbackInput, options.rateOverride, fallbackProgram, fallbackLlpaAdjustment)
-    : pickExecution(fallbackInput, fallbackTargetPrice, fallbackProgram, fallbackLlpaAdjustment);
 
   const best = candidates.reduce<(typeof candidates)[number] | null>((winner, candidate) => {
     if (!winner) return candidate;
     if (candidate.selected.purchasePrice > winner.selected.purchasePrice) return candidate;
     if (candidate.selected.purchasePrice === winner.selected.purchasePrice && candidate.selected.rate < winner.selected.rate) return candidate;
     return winner;
-  }, null) ?? {
-    program: fallbackProgram,
-    maxAvailable: calculateMaxAvailableForProgram(fallbackInput, fallbackProgram),
-    maxLtv: calculateMaxLtvForProgram(fallbackInput, fallbackProgram),
-    llpaAdjustment: fallbackLlpaAdjustment,
-    selected: fallbackSelected,
-  };
+  }, null);
+
+  if (!best) {
+    const docCompatiblePrograms = DEEPHAVEN_PROGRAMS.filter(program => programSupportsDocType(program, input.docType, input.product));
+    const summaryPrograms = docCompatiblePrograms.length > 0 ? docCompatiblePrograms : DEEPHAVEN_PROGRAMS;
+    const maxLtv = Math.max(...summaryPrograms.map(program => calculateMaxLtvForProgram({ ...input, program }, program)));
+    const maxAvailable = Math.max(...summaryPrograms.map(program => calculateMaxAvailableForProgram({ ...input, program }, program)));
+    return {
+      program: summaryPrograms[0] ?? input.program,
+      product: input.product,
+      maxAvailable,
+      maxLtv,
+      rate: 0,
+      noteRate: 0,
+      rateType: 'Fixed',
+      monthlyPayment: 0,
+      basePrice: 0,
+      llpaAdjustment: 0,
+      purchasePrice: 0,
+      adjustments: [],
+    };
+  }
 
   return {
     program: best.program,
