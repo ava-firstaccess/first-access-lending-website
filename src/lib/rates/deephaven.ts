@@ -275,12 +275,26 @@ function calculateMaxAvailableForProgram(input: DeephavenPricingInput, program: 
 
 function calculateMaxLtvForProgram(input: DeephavenPricingInput, program: DeephavenProgram): number {
   const programData = DATA.programs[sourceProgram(program)];
-  const row = findCreditRow(programData.creditAdjustments, input.creditScore);
-  if (!row) return 0;
-  for (let index = row.values.length - 1; index >= 0; index -= 1) {
-    if (row.values[index] !== null) return Number(programData.cltvBuckets[index] ?? 0);
+  const fullDocRow = findCreditRow(programData.creditAdjustments, input.creditScore);
+  if (!fullDocRow) return 0;
+
+  let maxEligibleIndex = lastEligibleIndex(fullDocRow.values);
+  if (maxEligibleIndex < 0) return 0;
+
+  if (input.docType === 'Bank Statement') {
+    const docRow = findCreditRow(programData.documentationAdjustments?.bankStatement ?? [], input.creditScore);
+    if (!docRow) return 0;
+    maxEligibleIndex = Math.min(maxEligibleIndex, lastEligibleIndex(docRow.values));
   }
-  return 0;
+
+  if (input.docType === 'P&L Only') {
+    const docRow = findCreditRow(programData.documentationAdjustments?.pnlOnly ?? [], input.creditScore);
+    if (!docRow) return 0;
+    maxEligibleIndex = Math.min(maxEligibleIndex, lastEligibleIndex(docRow.values));
+  }
+
+  if (maxEligibleIndex < 0) return 0;
+  return Number(programData.cltvBuckets[maxEligibleIndex] ?? 0);
 }
 
 function minCreditScore(program: DeephavenProgram): number {
@@ -389,6 +403,13 @@ function findCltvBucketIndex(buckets: Array<number | null>, cltv: number): numbe
 
 function readAdjustmentValue(row: AdjustmentRow | undefined, cltvIndex: number): number | null {
   return row?.values?.[cltvIndex] ?? null;
+}
+
+function lastEligibleIndex(values: Array<number | null>): number {
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    if (values[index] !== null) return index;
+  }
+  return -1;
 }
 
 function findByLabel(rows: AdjustmentRow[], label: string): AdjustmentRow | undefined {
