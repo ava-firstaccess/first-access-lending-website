@@ -68,7 +68,7 @@ export type Stage1ExecutionQuote = { engine: Stage1PricingEngine; program: strin
 export type Stage1TargetExecutionQuote = Stage1ExecutionQuote & { targetPrice: number; tolerance: number; deltaFromTarget: number; withinTolerance: boolean; withinToleranceAllowOverage: boolean };
 export type Stage1PricingEngineResult = { eligibility: Stage1Eligibility; quote: Stage1ExecutionQuote; targetQuote: Stage1TargetExecutionQuote };
 
-export type InvestorSummary = { investor: string; eligibility: Stage1Eligibility; quote: Stage1ExecutionQuote; discountPoints: number; buyPrice: number; windowMatched: boolean; deltaFromTarget: number };
+export type InvestorSummary = { investor: string; eligibility: Stage1Eligibility; quote: Stage1ExecutionQuote; discountPoints: number; buyPrice: number; windowMatched: boolean; deltaFromTarget: number; targetPrice: number; maxPrice: number };
 
 export type Stage1PricingRequest = { engine: PricingViewEngine; input: TesterInput; targetPriceOverride?: string; manualRateOverride?: string; tolerance?: number };
 export type Stage1PricingResponse = { defaultBackendTargetPrice: number; effectiveTargetPrice: number; activeResult: Stage1PricingEngineResult | null; results: InvestorSummary[] };
