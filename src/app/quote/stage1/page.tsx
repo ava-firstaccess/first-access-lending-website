@@ -7,7 +7,7 @@ import QuestionCard from '@/components/quote/QuestionCard';
 import QuoteBuilder from '@/components/quote/QuoteBuilder';
 import AddressAutocomplete from '@/components/quote/AddressAutocomplete';
 import { useStepTracker } from '@/hooks/useStepTracker';
-import { calculateButtonStage1Quote } from '@/lib/rates/button';
+import type { Stage1PricingResponse } from '@/lib/stage1-pricing/types';
 
 type ProductType = 'HELOC' | 'CES' | 'CashOut' | 'NoCashRefi';
 
@@ -30,6 +30,39 @@ interface Stage1Data {
   numberOfUnits?: number;
   unitNumber?: string;
   _creditScoreInput?: string; // transient: raw text input for credit score editing
+}
+
+function mapStage1Occupancy(data: Stage1Data): 'Owner-Occupied' | 'Second Home' | 'Investment' {
+  if (data.propertyType === 'Investment') return 'Investment';
+  if (data.propertyType === '2nd Home') return data.occupancy === 'Rental' ? 'Investment' : 'Second Home';
+  return 'Owner-Occupied';
+}
+
+function mapStage1StructureType(structureType?: Stage1Data['structureType']): 'SFR' | 'Condo' | 'Townhome' | 'PUD' | '2-4 Unit' {
+  if (structureType === 'Townhouse') return 'Townhome';
+  if (structureType === 'Multi-Family') return '2-4 Unit';
+  return (structureType as 'SFR' | 'Condo' | 'Townhome' | 'PUD' | '2-4 Unit') || 'SFR';
+}
+
+function estimateDesiredLoanAmount(data: Stage1Data): number {
+  const propertyValue = Number(data.propertyValue || 0);
+  const loanBalance = Number(data.loanBalance || 0);
+  const creditScore = Number(data.creditScore || 0);
+  const propertyType = data.propertyType || 'Primary';
+  if (!propertyValue || !creditScore) return 0;
+
+  let maxLtv = 0.8;
+  if (creditScore >= 720) {
+    maxLtv = propertyType === 'Primary' ? 0.9 : propertyType === '2nd Home' ? 0.85 : 0.8;
+  } else if (creditScore >= 680) {
+    maxLtv = propertyType === 'Primary' ? 0.85 : propertyType === '2nd Home' ? 0.8 : 0.75;
+  } else if (creditScore >= 640) {
+    maxLtv = propertyType === 'Primary' ? 0.8 : propertyType === '2nd Home' ? 0.75 : 0.7;
+  } else {
+    maxLtv = propertyType === 'Primary' ? 0.7 : propertyType === '2nd Home' ? 0.65 : 0.6;
+  }
+
+  return Math.max(0, Math.round((propertyValue * maxLtv) - loanBalance));
 }
 
 // Question flow depends on product + property type selections
@@ -64,7 +97,6 @@ export default function Stage1() {
   const [data, setData] = useState<Stage1Data>({});
   const [animating, setAnimating] = useState(false);
   const [bounceRef, setBounceRef] = useState<string | null>(null);
-  const [prefilled, setPrefilled] = useState(false);
   const [quote, setQuote] = useState({
     maxAvailable: 0,
     rateRange: { min: 0, max: 0 },
@@ -78,7 +110,6 @@ export default function Stage1() {
       if (stored) {
         const prefillData = JSON.parse(stored) as Partial<Stage1Data>;
         setData(prev => ({ ...prev, ...prefillData }));
-        setPrefilled(true);
         localStorage.removeItem('stage1Prefill'); // consume once
       }
     } catch (e) {
@@ -95,63 +126,77 @@ export default function Stage1() {
 
   // Calculate quote whenever data changes
   useEffect(() => {
-    calculateQuote();
-  }, [data]);
+    const { product, propertyValue, loanBalance, creditScore, propertyState } = data;
 
-  const calculateQuote = () => {
-    const { propertyValue, loanBalance, creditScore, propertyType, cashOutAmount, product } = data;
-    if (!propertyValue || !creditScore) return;
-
-    // LTV limits by credit score + property type
-    const propType = propertyType || 'Primary';
-    const score = creditScore;
-    
-    let maxLtv = 0.80;
-    if (score >= 720) {
-      maxLtv = propType === 'Primary' ? 0.90 : propType === '2nd Home' ? 0.85 : 0.80;
-    } else if (score >= 680) {
-      maxLtv = propType === 'Primary' ? 0.85 : propType === '2nd Home' ? 0.80 : 0.75;
-    } else if (score >= 640) {
-      maxLtv = propType === 'Primary' ? 0.80 : propType === '2nd Home' ? 0.75 : 0.70;
-    } else {
-      maxLtv = propType === 'Primary' ? 0.70 : propType === '2nd Home' ? 0.65 : 0.60;
-    }
-
-    const maxLoan = propertyValue * maxLtv;
-    const currentBalance = loanBalance || 0;
-    
-    let maxAvailable: number;
-    if (product === 'CashOut') {
-      maxAvailable = Math.max(0, maxLoan - currentBalance - (cashOutAmount || 0));
-    } else if (product === 'NoCashRefi') {
-      maxAvailable = Math.max(0, maxLoan - currentBalance);
-    } else {
-      // HELOC/CES: max available IS the cash they can get
-      maxAvailable = Math.max(0, maxLoan - currentBalance);
-    }
-
-    if (product === 'HELOC' || product === 'CES') {
-      const buttonQuote = calculateButtonStage1Quote({
-        product,
-        propertyState: data.propertyState,
-        propertyValue,
-        loanBalance: currentBalance,
-        desiredLoanAmount: cashOutAmount || 0,
-        creditScore: score,
-        occupancy: propType,
-        structureType: data.structureType,
-        numberOfUnits: data.numberOfUnits,
-        cashOut: Boolean(cashOutAmount && cashOutAmount > 0),
-      });
-
-      setQuote({
-        maxAvailable: Math.round(buttonQuote.maxAvailable),
-        rateRange: { min: buttonQuote.rate, max: buttonQuote.rate },
-        monthlyPayment: Math.round(buttonQuote.monthlyPayment)
-      });
+    if (!propertyValue || creditScore === undefined) {
+      setQuote({ maxAvailable: 0, rateRange: { min: 0, max: 0 }, monthlyPayment: 0 });
       return;
     }
 
+    if (product === 'HELOC' || product === 'CES') {
+      if (!propertyState) return;
+      const timeout = window.setTimeout(async () => {
+        try {
+          const desiredLoanAmount = estimateDesiredLoanAmount(data);
+          const response = await fetch('/api/stage1-pricing', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              engine: 'BestX',
+              input: {
+                bestExProduct: product,
+                bestExDrawPeriodYears: 5,
+                bestExTermYears: 20,
+                bestExLockPeriodDays: 30,
+                bestExDocType: 'Full Doc',
+                propertyState,
+                propertyValue,
+                loanBalance: Number(loanBalance || 0),
+                desiredLoanAmount,
+                creditScore: Number(creditScore || 0),
+                dti: 35,
+                occupancy: mapStage1Occupancy(data),
+                structureType: mapStage1StructureType(data.structureType),
+                numberOfUnits: Number(data.numberOfUnits || 1),
+                cashOut: false,
+              }
+            })
+          });
+          if (!response.ok) throw new Error('stage1 pricing failed');
+          const pricing = await response.json() as Stage1PricingResponse;
+          const bestEligible = pricing.results.find(result => result.eligibility.eligible);
+          if (!bestEligible) return;
+          setQuote({
+            maxAvailable: Math.round(bestEligible.eligibility.maxAvailable),
+            rateRange: { min: bestEligible.quote.rate, max: bestEligible.quote.rate },
+            monthlyPayment: Math.round(bestEligible.quote.monthlyPayment),
+          });
+        } catch (error) {
+          console.error('Failed to load live Stage 1 pricing', error);
+        }
+      }, 250);
+      return () => window.clearTimeout(timeout);
+    }
+
+    const propertyType = data.propertyType || 'Primary';
+    const score = Number(creditScore || 0);
+    let maxLtv = 0.80;
+    if (score >= 720) {
+      maxLtv = propertyType === 'Primary' ? 0.90 : propertyType === '2nd Home' ? 0.85 : 0.80;
+    } else if (score >= 680) {
+      maxLtv = propertyType === 'Primary' ? 0.85 : propertyType === '2nd Home' ? 0.80 : 0.75;
+    } else if (score >= 640) {
+      maxLtv = propertyType === 'Primary' ? 0.80 : propertyType === '2nd Home' ? 0.75 : 0.70;
+    } else {
+      maxLtv = propertyType === 'Primary' ? 0.70 : propertyType === '2nd Home' ? 0.65 : 0.60;
+    }
+
+    const maxLoan = propertyValue * maxLtv;
+    const currentBalance = Number(loanBalance || 0);
+    const cashOutAmount = Number(data.cashOutAmount || 0);
+    const maxAvailable = product === 'CashOut'
+      ? Math.max(0, maxLoan - currentBalance - cashOutAmount)
+      : Math.max(0, maxLoan - currentBalance);
     const monthlyRate = 7.5 / 100 / 12;
     const monthlyPayment = maxAvailable > 0 ? maxAvailable * monthlyRate : 0;
 
@@ -160,26 +205,11 @@ export default function Stage1() {
       rateRange: { min: 7.5, max: 8.0 },
       monthlyPayment: Math.round(monthlyPayment)
     });
-  };
+  }, [data]);
 
-  const updateData = useCallback((field: keyof Stage1Data, value: any) => {
+  const updateData = useCallback(<K extends keyof Stage1Data>(field: K, value: Stage1Data[K]) => {
     setData(prev => ({ ...prev, [field]: value }));
   }, []);
-
-  // Auto-advance with bounce animation for selection-type questions
-  const selectAndAdvance = useCallback((field: keyof Stage1Data, value: any, optionKey: string) => {
-    if (animating) return;
-    updateData(field, value);
-    setBounceRef(optionKey);
-    setAnimating(true);
-
-    // Double bounce then advance
-    setTimeout(() => {
-      setBounceRef(null);
-      setAnimating(false);
-      goForward();
-    }, 600);
-  }, [animating, step, flow]);
 
   const goForward = useCallback(() => {
     const nextFlow = getQuestionFlow(data);
@@ -199,6 +229,20 @@ export default function Stage1() {
       setStep(prev => prev + 1);
     }
   }, [step, data, router, trackStep]);
+
+  // Auto-advance with bounce animation for selection-type questions
+  const selectAndAdvance = useCallback(<K extends keyof Stage1Data>(field: K, value: Stage1Data[K], optionKey: string) => {
+    if (animating) return;
+    updateData(field, value);
+    setBounceRef(optionKey);
+    setAnimating(true);
+
+    setTimeout(() => {
+      setBounceRef(null);
+      setAnimating(false);
+      goForward();
+    }, 600);
+  }, [animating, goForward, updateData]);
 
   const goBack = () => {
     if (step > 0) setStep(prev => prev - 1);
