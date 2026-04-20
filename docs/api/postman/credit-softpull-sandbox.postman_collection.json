@@ -1,0 +1,113 @@
+{
+  "info": {
+    "name": "Credit Soft Pull Sandbox",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "GET Soft Pull Metadata",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/credit/softpull",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "credit",
+            "softpull"
+          ]
+        }
+      }
+    },
+    {
+      "name": "POST Soft Pull Happy Path",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"mode\": \"sandbox\",\n  \"borrower\": {\n    \"firstName\": \"Test\",\n    \"lastName\": \"Borrower\",\n    \"dob\": \"1990-01-01\",\n    \"ssn\": \"111-11-0000\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/credit/softpull",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "credit",
+            "softpull"
+          ]
+        }
+      }
+    },
+    {
+      "name": "POST Soft Pull With Co-Borrower",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"mode\": \"sandbox\",\n  \"borrower\": {\n    \"firstName\": \"Test\",\n    \"lastName\": \"Borrower\",\n    \"dob\": \"1990-01-01\",\n    \"ssn\": \"111-11-0000\"\n  },\n  \"coborrower\": {\n    \"firstName\": \"Jane\",\n    \"lastName\": \"Borrower\",\n    \"dob\": \"1991-02-02\",\n    \"ssn\": \"222-22-2222\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/credit/softpull",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "credit",
+            "softpull"
+          ]
+        }
+      }
+    },
+    {
+      "name": "POST Soft Pull Blocked Borrower",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"mode\": \"sandbox\",\n  \"borrower\": {\n    \"firstName\": \"Real\",\n    \"lastName\": \"Consumer\",\n    \"ssn\": \"111-22-3333\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/credit/softpull",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "credit",
+            "softpull"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import {
   assertSandboxOnly,
   buildMockCreditResponse,
   getCreditPullMode,
+  getSsnLast4,
 } from '@/lib/credit';
 
 export async function POST(req: NextRequest) {
@@ -25,6 +26,18 @@ export async function POST(req: NextRequest) {
     }
 
     const borrower = body?.borrower || {};
+    const coborrower = body?.coborrower || null;
+
+    if (!borrower?.firstName || !borrower?.lastName) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Borrower firstName and lastName are required.',
+        },
+        { status: 400 }
+      );
+    }
+
     assertApprovedTestBorrower({
       firstName: borrower.firstName,
       lastName: borrower.lastName,
@@ -48,8 +61,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ...buildMockCreditResponse({
-        firstName: borrower.firstName,
-        lastName: borrower.lastName,
+        borrower,
+        coborrower: coborrower?.firstName && coborrower?.lastName ? coborrower : undefined,
       }),
       approvedTestBorrowers: APPROVED_TEST_BORROWERS.map((item) => ({
         firstName: item.firstName,
@@ -79,6 +92,11 @@ export async function GET() {
       firstName: item.firstName,
       lastName: item.lastName,
       ssnLast4: item.ssnLast4,
+      exampleBorrower: {
+        firstName: item.firstName,
+        lastName: item.lastName,
+        ssnLast4: getSsnLast4({ ssnLast4: item.ssnLast4 }),
+      },
     })),
     message:
       'Use POST /api/credit/softpull with an approved test borrower only. Production pulls are blocked by default.',

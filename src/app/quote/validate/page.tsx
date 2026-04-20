@@ -50,6 +50,7 @@ export default function ValidatePage() {
   // Credit results
   const [mortgages, setMortgages] = useState<Mortgage[]>([]);
   const [creditScore, setCreditScore] = useState<number | null>(null);
+  const [creditError, setCreditError] = useState<string | null>(null);
 
   // Updated numbers
   const [updatedCashAvailable] = useState<number | null>(null);
@@ -148,33 +149,59 @@ export default function ValidatePage() {
 
   const handleCreditPull = async () => {
     setLoading(true);
-    // TODO: Call credit API with DOB + SSN
-    // For now, simulate with mock data
-    setTimeout(() => {
-      setCreditScore(742);
-      setMortgages([
-        {
-          id: '1',
-          lender: 'Wells Fargo',
-          balance: 325000,
-          monthlyPayment: 2100,
-          accountType: 'Conventional',
-          openDate: '2019-06-15',
-          matchedPropertyIndex: null,
+    setCreditError(null);
+
+    try {
+      const res = await fetch('/api/credit/softpull', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        {
-          id: '2',
-          lender: 'PennyMac',
-          balance: 48000,
-          monthlyPayment: 450,
-          accountType: 'Home Equity Loan',
-          openDate: '2022-03-01',
-          matchedPropertyIndex: null,
-        },
-      ]);
-      setLoading(false);
+        body: JSON.stringify({
+          mode: 'sandbox',
+          borrower: {
+            firstName: formData['Borrower - First Name'],
+            lastName: formData['Borrower - Last Name'],
+            dob,
+            ssn,
+          },
+          coborrower: hasCoBorrower
+            ? {
+                firstName: formData['Co-Borrower - First Name'],
+                lastName: formData['Co-Borrower - Last Name'],
+                dob: cobDob,
+                ssn: cobSsn,
+              }
+            : undefined,
+        }),
+      });
+
+      const payload = await res.json();
+
+      if (!res.ok || !payload?.success) {
+        throw new Error(payload?.error || 'Soft credit check failed.');
+      }
+
+      setCreditScore(Number(payload?.scores?.representative) || null);
+      setMortgages(
+        Array.isArray(payload?.mortgages)
+          ? payload.mortgages.map((mortgage: any) => ({
+              id: String(mortgage.id),
+              lender: String(mortgage.lender || mortgage.creditor || 'Unknown Lender'),
+              balance: Number(mortgage.balance) || 0,
+              monthlyPayment: Number(mortgage.monthlyPayment) || 0,
+              accountType: String(mortgage.accountType || 'Mortgage'),
+              openDate: String(mortgage.openDate || ''),
+              matchedPropertyIndex: null,
+            }))
+          : []
+      );
       goToStep('mortgages');
-    }, 3000);
+    } catch (error) {
+      setCreditError(error instanceof Error ? error.message : 'Soft credit check failed.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleMortgageMatch = (mortgageId: string, propertyIndex: number | null) => {
@@ -303,6 +330,12 @@ export default function ValidatePage() {
                   <p className="text-xs text-gray-500">256-bit encrypted. This is a soft pull that will not affect your credit score.</p>
                 </div>
               </div>
+
+              {creditError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {creditError}
+                </div>
+              )}
 
               <button
                 onClick={handleCreditPull}
