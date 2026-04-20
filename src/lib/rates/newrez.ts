@@ -250,7 +250,10 @@ function calculateMaxLtv(input: NewRezPricingInput): number {
 
   const lastEligibleIndex = row.values.reduce<number>((best, value, index) => value !== null ? index : best, -1);
   if (lastEligibleIndex < 0) return 0;
-  return upperBoundForCltvLabel(matrix.cltvBuckets[lastEligibleIndex]) / 100;
+
+  // NewRez guides restrict Home Equity to 90% max CLTV. The workbook/ratesheet
+  // uses an open-ended >85% bucket, which should not be interpreted past 90%.
+  return Math.min(0.9, upperBoundForCltvLabel(matrix.cltvBuckets[lastEligibleIndex]) / 100);
 }
 
 function buildAdjustmentLines(input: NewRezPricingInput, selectedLoanAmount: number): NewRezAdjustmentLine[] {
