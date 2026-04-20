@@ -16,6 +16,10 @@ const LICENSED_STATES = new Set([
 ]);
 const MIN_LOAN_AMOUNT = 50000;
 
+function floorDisplayedMaxAvailable(amount: number): number {
+  return amount > 0 ? Math.max(MIN_LOAN_AMOUNT, Math.round(amount)) : 0;
+}
+
 interface Stage1Data {
   product?: ProductType;
   propertyAddress?: string;
@@ -68,6 +72,15 @@ function getStage1MaxAvailable(data: Stage1Data, creditScoreOverride?: number): 
 
 function estimateDesiredLoanAmount(data: Stage1Data, creditScoreOverride?: number): number {
   return getStage1MaxAvailable(data, creditScoreOverride);
+}
+
+function getDisplayRateRange(rateA: number, rateB?: number) {
+  if (!rateA && !rateB) return { min: 0, max: 0 };
+  if (!rateB) return { min: rateA, max: rateA };
+  return {
+    min: Math.min(rateA, rateB),
+    max: Math.max(rateA, rateB),
+  };
 }
 
 // Question flow depends on product + property type selections
@@ -140,7 +153,7 @@ export default function Stage1() {
 
     if ((product === 'HELOC' || product === 'CES') && !hasCreditScore) {
       setQuote({
-        maxAvailable: getStage1MaxAvailable(data, optimisticCreditScore),
+        maxAvailable: floorDisplayedMaxAvailable(getStage1MaxAvailable(data, optimisticCreditScore)),
         rateRange: { min: 0, max: 0 },
         monthlyPayment: 0
       });
@@ -151,42 +164,58 @@ export default function Stage1() {
       if (!propertyState || !hasCreditScore) return;
       const timeout = window.setTimeout(async () => {
         try {
-          const desiredLoanAmount = estimateDesiredLoanAmount(data);
-          const response = await fetch('/api/stage1-pricing', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              engine: 'BestX',
-              input: {
-                bestExProduct: product,
-                bestExDrawPeriodYears: 5,
-                bestExTermYears: 20,
-                bestExLockPeriodDays: 30,
-                bestExDocType: 'Full Doc',
-                propertyState,
-                propertyValue,
-                loanBalance: Number(loanBalance || 0),
-                desiredLoanAmount,
-                creditScore: Number(creditScore || 0),
-                dti: 35,
-                occupancy: mapStage1Occupancy(data),
-                structureType: mapStage1StructureType(data.structureType),
-                numberOfUnits: Number(data.numberOfUnits || 1),
-                cashOut: false,
-              }
-            })
+          const calculatedMaxAvailable = estimateDesiredLoanAmount(data);
+          const displayedMaxAvailable = floorDisplayedMaxAvailable(calculatedMaxAvailable);
+          const buildPricingBody = (desiredLoanAmount: number) => ({
+            engine: 'BestX',
+            input: {
+              bestExProduct: product,
+              bestExDrawPeriodYears: 5,
+              bestExTermYears: 20,
+              bestExLockPeriodDays: 30,
+              bestExDocType: 'Full Doc',
+              propertyState,
+              propertyValue,
+              loanBalance: Number(loanBalance || 0),
+              desiredLoanAmount,
+              creditScore: Number(creditScore || 0),
+              dti: 35,
+              occupancy: mapStage1Occupancy(data),
+              structureType: mapStage1StructureType(data.structureType),
+              numberOfUnits: Number(data.numberOfUnits || 1),
+              cashOut: false,
+            }
           });
-          if (!response.ok) throw new Error('stage1 pricing failed');
-          const pricing = await response.json() as Stage1PricingResponse;
-          const bestEligible = pricing.results.find(result => result.eligibility.eligible);
-          if (!bestEligible || bestEligible.eligibility.maxAvailable < MIN_LOAN_AMOUNT) {
+
+          const [minResponse, maxResponse] = await Promise.all([
+            fetch('/api/stage1-pricing', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(buildPricingBody(MIN_LOAN_AMOUNT))
+            }),
+            fetch('/api/stage1-pricing', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(buildPricingBody(displayedMaxAvailable))
+            })
+          ]);
+          if (!minResponse.ok || !maxResponse.ok) throw new Error('stage1 pricing failed');
+
+          const minPricing = await minResponse.json() as Stage1PricingResponse;
+          const maxPricing = await maxResponse.json() as Stage1PricingResponse;
+          const minEligible = minPricing.results.find(result => result.eligibility.eligible);
+          const maxEligible = maxPricing.results.find(result => result.eligibility.eligible);
+          const baseResult = maxEligible ?? minEligible;
+
+          if (!baseResult) {
             setQuote({ maxAvailable: 0, rateRange: { min: 0, max: 0 }, monthlyPayment: 0 });
             return;
           }
+
           setQuote({
-            maxAvailable: Math.round(bestEligible.eligibility.maxAvailable),
-            rateRange: { min: bestEligible.quote.rate, max: bestEligible.quote.rate },
-            monthlyPayment: Math.round(bestEligible.quote.monthlyPayment),
+            maxAvailable: displayedMaxAvailable,
+            rateRange: getDisplayRateRange(minEligible?.quote.rate ?? 0, maxEligible?.quote.rate ?? minEligible?.quote.rate),
+            monthlyPayment: Math.round(baseResult.quote.monthlyPayment),
           });
         } catch (error) {
           console.error('Failed to load live Stage 1 pricing', error);
@@ -198,7 +227,7 @@ export default function Stage1() {
 
     if (!hasCreditScore) {
       setQuote({
-        maxAvailable: getStage1MaxAvailable(data, optimisticCreditScore),
+        maxAvailable: floorDisplayedMaxAvailable(getStage1MaxAvailable(data, optimisticCreditScore)),
         rateRange: { min: 0, max: 0 },
         monthlyPayment: 0
       });
@@ -214,7 +243,7 @@ export default function Stage1() {
     const monthlyPayment = adjustedMaxAvailable > 0 ? adjustedMaxAvailable * monthlyRate : 0;
 
     setQuote({
-      maxAvailable: Math.round(adjustedMaxAvailable),
+      maxAvailable: floorDisplayedMaxAvailable(adjustedMaxAvailable),
       rateRange: { min: 7.5, max: 8.0 },
       monthlyPayment: Math.round(monthlyPayment)
     });

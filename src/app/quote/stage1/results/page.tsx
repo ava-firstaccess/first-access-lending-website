@@ -34,10 +34,14 @@ function mapStructureType(structureType: string): 'SFR' | 'Condo' | 'Townhome' |
   return (structureType as 'SFR' | 'Condo' | 'Townhome' | 'PUD' | '2-4 Unit') || 'SFR';
 }
 
+function floorDisplayedMaxAvailable(amount: number) {
+  return amount > 0 ? Math.max(MIN_LOAN_AMOUNT, Math.round(amount)) : 0;
+}
+
 function clampLoanAmount(value: number, maxAvailable: number) {
   if (maxAvailable <= 0) return 0;
-  const minAllowed = Math.min(MIN_LOAN_AMOUNT, maxAvailable);
-  return Math.max(minAllowed, Math.min(value, maxAvailable));
+  const displayedMax = floorDisplayedMaxAvailable(maxAvailable);
+  return Math.max(MIN_LOAN_AMOUNT, Math.min(value, displayedMax));
 }
 
 function calcQuote(
@@ -371,8 +375,12 @@ export default function ResultsPage() {
     return () => { cancelled = true; };
   }, [cashOutAmount, cesLoanAmount, cesQuote.maxAvailable, cesTerm, creditScore, loanBalance, numberOfUnits, propertyOccupancy, propertyType, propertyValue, stage1.propertyState, structureType]);
 
-  const displayedHelocQuote = helocLiveQuote ?? helocQuote;
-  const displayedCesQuote = cesLiveQuote ?? cesQuote;
+  const displayedHelocQuote = helocLiveQuote
+    ? { ...helocLiveQuote, maxAvailable: floorDisplayedMaxAvailable(helocLiveQuote.maxAvailable) }
+    : { ...helocQuote, maxAvailable: floorDisplayedMaxAvailable(helocQuote.maxAvailable) };
+  const displayedCesQuote = cesLiveQuote
+    ? { ...cesLiveQuote, maxAvailable: floorDisplayedMaxAvailable(cesLiveQuote.maxAvailable) }
+    : { ...cesQuote, maxAvailable: floorDisplayedMaxAvailable(cesQuote.maxAvailable) };
 
   // Initialize loan amounts to max when quotes change
   useEffect(() => {
