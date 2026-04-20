@@ -44,11 +44,32 @@ export async function POST(req: NextRequest) {
       assertApprovedProdTestBorrower({
         firstName: borrower.firstName,
         lastName: borrower.lastName,
+        middleName: borrower.middleName,
+        suffixName: borrower.suffixName,
+        dob: borrower.dob,
         ssn: borrower.ssn,
         ssnLast4: borrower.ssnLast4,
+        address: borrower.address,
+        city: borrower.city,
+        state: borrower.state,
+        zip: borrower.zip,
+        preferredResponseFormat: borrower.preferredResponseFormat,
       });
 
-      const result = await submitMeridianLinkProdTest();
+      const result = await submitMeridianLinkProdTest({
+        firstName: borrower.firstName,
+        lastName: borrower.lastName,
+        middleName: borrower.middleName,
+        suffixName: borrower.suffixName,
+        dob: borrower.dob,
+        ssn: borrower.ssn,
+        ssnLast4: borrower.ssnLast4,
+        address: borrower.address,
+        city: borrower.city,
+        state: borrower.state,
+        zip: borrower.zip,
+        preferredResponseFormat: borrower.preferredResponseFormat,
+      });
 
       return NextResponse.json({
         ...result,
@@ -132,7 +153,15 @@ export async function GET() {
     approvedProdTestBorrower: {
       firstName: MERIDIANLINK_APPROVED_PROD_TEST.firstName,
       lastName: MERIDIANLINK_APPROVED_PROD_TEST.lastName,
+      middleName: MERIDIANLINK_APPROVED_PROD_TEST.middleName,
+      suffixName: MERIDIANLINK_APPROVED_PROD_TEST.suffixName,
+      dob: MERIDIANLINK_APPROVED_PROD_TEST.dob,
       ssn: MERIDIANLINK_APPROVED_PROD_TEST.ssn,
+      address: MERIDIANLINK_APPROVED_PROD_TEST.address,
+      city: MERIDIANLINK_APPROVED_PROD_TEST.city,
+      state: MERIDIANLINK_APPROVED_PROD_TEST.state,
+      zip: MERIDIANLINK_APPROVED_PROD_TEST.zip,
+      preferredResponseFormat: MERIDIANLINK_APPROVED_PROD_TEST.preferredResponseFormat,
       routeMode: 'production-test',
       provider: 'meridianlink',
     },

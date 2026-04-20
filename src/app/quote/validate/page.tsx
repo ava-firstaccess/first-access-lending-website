@@ -28,6 +28,40 @@ interface Mortgage {
   matchedPropertyIndex: number | null; // null = unmatched
 }
 
+interface CreditApiMetadata {
+  provider?: string;
+  supportedModes?: string[];
+  approvedProdTestBorrower?: {
+    firstName?: string;
+    lastName?: string;
+    middleName?: string;
+    suffixName?: string;
+    dob?: string;
+    ssn?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    preferredResponseFormat?: string;
+    routeMode?: string;
+    provider?: string;
+  };
+}
+
+interface ProdTestBorrowerForm {
+  firstName: string;
+  lastName: string;
+  middleName: string;
+  suffixName: string;
+  dob: string;
+  ssn: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  preferredResponseFormat: string;
+}
+
 type QuoteFormData = Record<string, any>;
 
 export default function ValidatePage() {
@@ -51,6 +85,21 @@ export default function ValidatePage() {
   const [mortgages, setMortgages] = useState<Mortgage[]>([]);
   const [creditScore, setCreditScore] = useState<number | null>(null);
   const [creditError, setCreditError] = useState<string | null>(null);
+  const [apiMetadata, setApiMetadata] = useState<CreditApiMetadata | null>(null);
+  const [prodTestBorrower, setProdTestBorrower] = useState<ProdTestBorrowerForm>({
+    firstName: '',
+    lastName: '',
+    middleName: '',
+    suffixName: '',
+    dob: '',
+    ssn: '',
+    address: '',
+    city: '',
+    state: '',
+    zip: '',
+    preferredResponseFormat: 'Html',
+  });
+  const [prodTestResult, setProdTestResult] = useState<Record<string, any> | null>(null);
 
   // Updated numbers
   const [updatedCashAvailable] = useState<number | null>(null);
@@ -61,6 +110,33 @@ export default function ValidatePage() {
   const [properties, setProperties] = useState<{ address: string; index: number }[]>([]);
 
   useEffect(() => {
+    const loadCreditMetadata = async () => {
+      try {
+        const res = await fetch('/api/credit/softpull');
+        if (!res.ok) return;
+        const payload = await res.json();
+        setApiMetadata(payload);
+        if (payload?.approvedProdTestBorrower) {
+          setProdTestBorrower((prev) => ({
+            firstName: payload.approvedProdTestBorrower.firstName || prev.firstName,
+            lastName: payload.approvedProdTestBorrower.lastName || prev.lastName,
+            middleName: payload.approvedProdTestBorrower.middleName || prev.middleName,
+            suffixName: payload.approvedProdTestBorrower.suffixName || prev.suffixName,
+            dob: payload.approvedProdTestBorrower.dob || prev.dob,
+            ssn: payload.approvedProdTestBorrower.ssn || prev.ssn,
+            address: payload.approvedProdTestBorrower.address || prev.address,
+            city: payload.approvedProdTestBorrower.city || prev.city,
+            state: payload.approvedProdTestBorrower.state || prev.state,
+            zip: payload.approvedProdTestBorrower.zip || prev.zip,
+            preferredResponseFormat:
+              payload.approvedProdTestBorrower.preferredResponseFormat || prev.preferredResponseFormat,
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to load credit metadata', err);
+      }
+    };
+
     const hydrate = async () => {
       const params = new URLSearchParams(window.location.search);
       const applicationId = params.get('applicationId');
@@ -122,6 +198,7 @@ export default function ValidatePage() {
       }
     };
 
+    loadCreditMetadata();
     hydrate();
   }, []);
 
@@ -141,6 +218,16 @@ export default function ValidatePage() {
     { label: 'Finalize Details', icon: '📝', state: 'upcoming' as const },
   ];
   const hasCoBorrower = formData['Borrower - Has Co-Borrower'] === 'Yes';
+  const isMeridianLinkProdTest = (apiMetadata?.provider || '').toLowerCase() === 'meridianlink';
+  const prodTestRequiredReady = Boolean(
+    prodTestBorrower.firstName &&
+      prodTestBorrower.lastName &&
+      prodTestBorrower.ssn &&
+      prodTestBorrower.address &&
+      prodTestBorrower.city &&
+      prodTestBorrower.state &&
+      prodTestBorrower.zip
+  );
 
   const goToStep = (step: ValidationStep) => {
     setCurrentStep(step);
@@ -150,36 +237,51 @@ export default function ValidatePage() {
   const handleCreditPull = async () => {
     setLoading(true);
     setCreditError(null);
+    setProdTestResult(null);
 
     try {
+      const requestBody = isMeridianLinkProdTest
+        ? {
+            mode: 'production-test',
+            borrower: {
+              ...prodTestBorrower,
+            },
+          }
+        : {
+            mode: 'sandbox',
+            borrower: {
+              firstName: formData['Borrower - First Name'],
+              lastName: formData['Borrower - Last Name'],
+              dob,
+              ssn,
+            },
+            coborrower: hasCoBorrower
+              ? {
+                  firstName: formData['Co-Borrower - First Name'],
+                  lastName: formData['Co-Borrower - Last Name'],
+                  dob: cobDob,
+                  ssn: cobSsn,
+                }
+              : undefined,
+          };
+
       const res = await fetch('/api/credit/softpull', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          mode: 'sandbox',
-          borrower: {
-            firstName: formData['Borrower - First Name'],
-            lastName: formData['Borrower - Last Name'],
-            dob,
-            ssn,
-          },
-          coborrower: hasCoBorrower
-            ? {
-                firstName: formData['Co-Borrower - First Name'],
-                lastName: formData['Co-Borrower - Last Name'],
-                dob: cobDob,
-                ssn: cobSsn,
-              }
-            : undefined,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const payload = await res.json();
 
       if (!res.ok || !payload?.success) {
         throw new Error(payload?.error || 'Soft credit check failed.');
+      }
+
+      if (isMeridianLinkProdTest) {
+        setProdTestResult(payload);
+        return;
       }
 
       setCreditScore(Number(payload?.scores?.representative) || null);
@@ -266,58 +368,176 @@ export default function ValidatePage() {
             </div>
 
             <div className="space-y-6">
-              {/* Borrower */}
-              <div>
-                <h3 className="font-semibold text-gray-800 mb-3">Borrower - {formData['Borrower - First Name']} {formData['Borrower - Last Name']}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Date of Birth <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={dob}
-                      onChange={(e) => setDob(e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none text-lg"
-                      required
-                    />
+              {isMeridianLinkProdTest ? (
+                <>
+                  <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-4 text-sm text-blue-800">
+                    <p className="font-semibold">Temporary MeridianLink production test mode</p>
+                    <p className="mt-1">
+                      This page is temporarily acting as a test harness for the approved Bill Testcase file. The
+                      borrower fields below are sent directly to the MeridianLink production-test route.
+                    </p>
                   </div>
-                  <SSNField
-                    label="Social Security Number"
-                    name="borrower-ssn"
-                    value={ssn}
-                    onChange={(_, v) => setSsn(v)}
-                    required
-                  />
-                </div>
-              </div>
 
-              {/* Co-Borrower */}
-              {hasCoBorrower && (
-                <div className="border-t border-gray-200 pt-6">
-                  <h3 className="font-semibold text-gray-800 mb-3">Co-Borrower - {formData['Co-Borrower - First Name']} {formData['Co-Borrower - Last Name']}</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Date of Birth <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        value={cobDob}
-                        onChange={(e) => setCobDob(e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none text-lg"
+                  <div>
+                    <h3 className="font-semibold text-gray-800 mb-3">Approved test borrower details</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
+                        <input
+                          type="text"
+                          value={prodTestBorrower.firstName}
+                          onChange={(e) => setProdTestBorrower(prev => ({ ...prev, firstName: e.target.value }))}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Middle Name</label>
+                        <input
+                          type="text"
+                          value={prodTestBorrower.middleName}
+                          onChange={(e) => setProdTestBorrower(prev => ({ ...prev, middleName: e.target.value }))}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
+                        <input
+                          type="text"
+                          value={prodTestBorrower.lastName}
+                          onChange={(e) => setProdTestBorrower(prev => ({ ...prev, lastName: e.target.value }))}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Suffix</label>
+                        <input
+                          type="text"
+                          value={prodTestBorrower.suffixName}
+                          onChange={(e) => setProdTestBorrower(prev => ({ ...prev, suffixName: e.target.value }))}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none"
+                        />
+                      </div>
+                      <SSNField
+                        label="Social Security Number"
+                        name="prod-test-ssn"
+                        value={prodTestBorrower.ssn}
+                        onChange={(_, v) => setProdTestBorrower(prev => ({ ...prev, ssn: v }))}
+                        required
+                      />
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Response Format</label>
+                        <select
+                          value={prodTestBorrower.preferredResponseFormat}
+                          onChange={(e) => setProdTestBorrower(prev => ({ ...prev, preferredResponseFormat: e.target.value }))}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none"
+                        >
+                          <option value="Html">Html</option>
+                          <option value="Xml">Xml</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="font-semibold text-gray-800 mb-3">Current residence used in the request XML</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Street Address <span className="text-red-500">*</span></label>
+                        <input
+                          type="text"
+                          value={prodTestBorrower.address}
+                          onChange={(e) => setProdTestBorrower(prev => ({ ...prev, address: e.target.value }))}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">City <span className="text-red-500">*</span></label>
+                        <input
+                          type="text"
+                          value={prodTestBorrower.city}
+                          onChange={(e) => setProdTestBorrower(prev => ({ ...prev, city: e.target.value }))}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">State <span className="text-red-500">*</span></label>
+                        <input
+                          type="text"
+                          maxLength={2}
+                          value={prodTestBorrower.state}
+                          onChange={(e) => setProdTestBorrower(prev => ({ ...prev, state: e.target.value.toUpperCase() }))}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">ZIP Code <span className="text-red-500">*</span></label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={prodTestBorrower.zip}
+                          onChange={(e) => setProdTestBorrower(prev => ({ ...prev, zip: e.target.value }))}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Borrower */}
+                  <div>
+                    <h3 className="font-semibold text-gray-800 mb-3">Borrower - {formData['Borrower - First Name']} {formData['Borrower - Last Name']}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Date of Birth <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          value={dob}
+                          onChange={(e) => setDob(e.target.value)}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none text-lg"
+                          required
+                        />
+                      </div>
+                      <SSNField
+                        label="Social Security Number"
+                        name="borrower-ssn"
+                        value={ssn}
+                        onChange={(_, v) => setSsn(v)}
                         required
                       />
                     </div>
-                    <SSNField
-                      label="Social Security Number"
-                      name="coborrower-ssn"
-                      value={cobSsn}
-                      onChange={(_, v) => setCobSsn(v)}
-                      required
-                    />
                   </div>
-                </div>
+
+                  {/* Co-Borrower */}
+                  {hasCoBorrower && (
+                    <div className="border-t border-gray-200 pt-6">
+                      <h3 className="font-semibold text-gray-800 mb-3">Co-Borrower - {formData['Co-Borrower - First Name']} {formData['Co-Borrower - Last Name']}</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Date of Birth <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="date"
+                            value={cobDob}
+                            onChange={(e) => setCobDob(e.target.value)}
+                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none text-lg"
+                            required
+                          />
+                        </div>
+                        <SSNField
+                          label="Social Security Number"
+                          name="coborrower-ssn"
+                          value={cobSsn}
+                          onChange={(_, v) => setCobSsn(v)}
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Security notice */}
@@ -339,9 +559,17 @@ export default function ValidatePage() {
 
               <button
                 onClick={handleCreditPull}
-                disabled={loading || !dob || ssn.length < 9 || (hasCoBorrower && (!cobDob || cobSsn.length < 9))}
+                disabled={
+                  loading ||
+                  (isMeridianLinkProdTest
+                    ? !prodTestRequiredReady
+                    : !dob || ssn.length < 9 || (hasCoBorrower && (!cobDob || cobSsn.length < 9)))
+                }
                 className={`w-full py-4 px-6 rounded-xl font-semibold text-lg transition-all ${
-                  !loading && dob && ssn.length >= 9 && (!hasCoBorrower || (cobDob && cobSsn.length >= 9))
+                  !loading &&
+                  (isMeridianLinkProdTest
+                    ? prodTestRequiredReady
+                    : dob && ssn.length >= 9 && (!hasCoBorrower || (cobDob && cobSsn.length >= 9)))
                     ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg'
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 }`}
@@ -352,12 +580,25 @@ export default function ValidatePage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
-                    Pulling Credit Report...
+                    {isMeridianLinkProdTest ? 'Submitting MeridianLink Test...' : 'Pulling Credit Report...'}
                   </span>
+                ) : isMeridianLinkProdTest ? (
+                  'Submit MeridianLink Bill Test →'
                 ) : (
                   'Run Credit Check →'
                 )}
               </button>
+
+              {prodTestResult && (
+                <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-4 text-sm text-green-800">
+                  <p className="font-semibold">MeridianLink test submitted successfully.</p>
+                  <div className="mt-2 space-y-1 text-xs md:text-sm">
+                    <p><span className="font-medium">Status:</span> {String(prodTestResult.status || 'Submit')}</p>
+                    <p><span className="font-medium">Vendor Order ID:</span> {String(prodTestResult.vendorOrderIdentifier || 'Not returned')}</p>
+                    <p><span className="font-medium">Borrower:</span> {String(prodTestResult.borrower?.firstName || '')} {String(prodTestResult.borrower?.lastName || '')}</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

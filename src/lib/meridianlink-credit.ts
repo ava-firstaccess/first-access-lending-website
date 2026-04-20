@@ -14,6 +14,39 @@ export const MERIDIANLINK_APPROVED_PROD_TEST = {
   preferredResponseFormat: 'Html',
 };
 
+export type MeridianLinkProdTestBorrowerInput = {
+  firstName?: unknown;
+  lastName?: unknown;
+  middleName?: unknown;
+  suffixName?: unknown;
+  dob?: unknown;
+  ssn?: unknown;
+  ssnLast4?: unknown;
+  address?: unknown;
+  city?: unknown;
+  state?: unknown;
+  zip?: unknown;
+  preferredResponseFormat?: unknown;
+};
+
+function sanitizeProdTestBorrower(input: MeridianLinkProdTestBorrowerInput = {}) {
+  return {
+    firstName: String(input.firstName || MERIDIANLINK_APPROVED_PROD_TEST.firstName).trim(),
+    lastName: String(input.lastName || MERIDIANLINK_APPROVED_PROD_TEST.lastName).trim(),
+    middleName: String(input.middleName || MERIDIANLINK_APPROVED_PROD_TEST.middleName).trim(),
+    suffixName: String(input.suffixName || MERIDIANLINK_APPROVED_PROD_TEST.suffixName).trim(),
+    dob: String(input.dob || MERIDIANLINK_APPROVED_PROD_TEST.dob).trim(),
+    ssn: String(input.ssn || input.ssnLast4 || MERIDIANLINK_APPROVED_PROD_TEST.ssn).replace(/\D/g, ''),
+    address: String(input.address || MERIDIANLINK_APPROVED_PROD_TEST.address).trim(),
+    city: String(input.city || MERIDIANLINK_APPROVED_PROD_TEST.city).trim(),
+    state: String(input.state || MERIDIANLINK_APPROVED_PROD_TEST.state).trim(),
+    zip: String(input.zip || MERIDIANLINK_APPROVED_PROD_TEST.zip).trim(),
+    preferredResponseFormat:
+      String(input.preferredResponseFormat || MERIDIANLINK_APPROVED_PROD_TEST.preferredResponseFormat).trim() ||
+      'Html',
+  };
+}
+
 function xmlEscape(value: string) {
   return value
     .replace(/&/g, '&amp;')
@@ -49,15 +82,11 @@ export function getMeridianLinkConfig() {
   };
 }
 
-export function assertApprovedProdTestBorrower(input: {
-  firstName?: unknown;
-  lastName?: unknown;
-  ssn?: unknown;
-  ssnLast4?: unknown;
-}) {
-  const firstName = String(input.firstName || '').trim().toLowerCase();
-  const lastName = String(input.lastName || '').trim().toLowerCase();
-  const ssnDigits = String(input.ssn || input.ssnLast4 || '').replace(/\D/g, '');
+export function assertApprovedProdTestBorrower(input: MeridianLinkProdTestBorrowerInput) {
+  const borrower = sanitizeProdTestBorrower(input);
+  const firstName = borrower.firstName.toLowerCase();
+  const lastName = borrower.lastName.toLowerCase();
+  const ssnDigits = borrower.ssn;
 
   if (
     firstName !== MERIDIANLINK_APPROVED_PROD_TEST.firstName.toLowerCase() ||
@@ -68,8 +97,8 @@ export function assertApprovedProdTestBorrower(input: {
   }
 }
 
-export function buildMeridianLinkSubmitXml() {
-  const t = MERIDIANLINK_APPROVED_PROD_TEST;
+export function buildMeridianLinkSubmitXml(input: MeridianLinkProdTestBorrowerInput = {}) {
+  const t = sanitizeProdTestBorrower(input);
 
   return `<?xml version="1.0" encoding="utf-8"?>
 <MESSAGE xmlns="http://www.mismo.org/residential/2009/schemas" xmlns:p2="http://www.w3.org/1999/xlink" xmlns:p3="inetapi/MISMO3_4_MCL_Extension.xsd" MessageType="Request">
@@ -185,9 +214,10 @@ function getFirstMatch(xml: string, tagName: string) {
   return match ? match[1].trim() : null;
 }
 
-export async function submitMeridianLinkProdTest() {
+export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorrowerInput = {}) {
   const config = getMeridianLinkConfig();
-  const xml = buildMeridianLinkSubmitXml();
+  const borrower = sanitizeProdTestBorrower(input);
+  const xml = buildMeridianLinkSubmitXml(borrower);
 
   const auth = Buffer.from(`${config.username}:${config.password}`).toString('base64');
   const response = await fetch(config.baseUrl, {
@@ -207,11 +237,20 @@ export async function submitMeridianLinkProdTest() {
     throw new Error(`MeridianLink submit failed (${response.status}): ${responseText.slice(0, 500)}`);
   }
 
+  const errorCategory = getFirstMatch(responseText, 'ErrorMessageCategoryCode');
+  const errorMessage = getFirstMatch(responseText, 'ErrorMessageText');
+  if (errorCategory || errorMessage) {
+    throw new Error(
+      `MeridianLink returned ${errorCategory || 'ProviderError'}${errorMessage ? `: ${errorMessage}` : ''}`
+    );
+  }
+
   return {
     success: true as const,
     provider: 'meridianlink',
     mode: 'production-test' as const,
     requestType: 'Submit',
+    borrower,
     vendorOrderIdentifier: getFirstMatch(responseText, 'VendorOrderIdentifier'),
     status: getFirstMatch(responseText, 'CreditReportRequestActionType') || 'Submit',
     rawResponse: responseText,
