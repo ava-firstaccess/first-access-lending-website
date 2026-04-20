@@ -429,6 +429,10 @@ export default function ResultsPage() {
     'NoCashRefi': 'Rate & Term Refinance'
   };
 
+  const productColumns = product === 'CES'
+    ? ['CES', 'HELOC'] as const
+    : ['HELOC', 'CES'] as const;
+
   const consentText = "By submitting the inquiry, I expressly consent to receive communications via automatic telephone dialing system or by artificial/pre-recorded message, email, or by text message from First Access Lending or their agents at the telephone number above (even if my number is currently listed on any state, federal, local, or corporate Do Not Call list) including my wireless number if provided, for the purpose of receiving information on mortgage products and services. Message frequency varies. Carrier message and data rates may apply. Reply HELP to a text message for help. Reply STOP to a text message to opt out. I understand that my consent is not required as a condition of purchasing any goods or services and that I may revoke my consent at any time by email to info@firstaccesslending.com or calling 1-855-605-8811. I also acknowledge that I have read and agree to the Privacy Policy and Terms and Condition. For help or additional info contact info@firstaccesslending.com.";
 
   async function handleRefiLeadSubmit() {
@@ -512,146 +516,144 @@ export default function ResultsPage() {
               {/* Two columns */}
               <div className="grid md:grid-cols-2 gap-6 mb-8">
 
-                {/* HELOC Column */}
-                <div className={`rounded-xl border-2 p-6 flex flex-col ${product === 'HELOC' ? 'border-blue-400 bg-blue-50/30' : 'border-gray-200'}`}>
-                  <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">HELOC</h3>
+                {productColumns.map((columnProduct) => {
+                  if (columnProduct === 'HELOC') {
+                    return (
+                      <div key="HELOC" className={`rounded-xl border-2 p-6 flex flex-col ${product === 'HELOC' ? 'border-blue-400 bg-blue-50/30' : 'border-gray-200'}`}>
+                        <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">HELOC</h3>
 
-                  {/* Max Available */}
-                  <div className="bg-blue-50 rounded-lg p-4 text-center mb-5">
-                    <div className="text-xs text-blue-600 font-medium mb-1">Max Available</div>
-                    <div className="text-2xl font-bold text-blue-900">${displayedHelocQuote.maxAvailable.toLocaleString()}</div>
-                  </div>
+                        <div className="bg-blue-50 rounded-lg p-4 text-center mb-5">
+                          <div className="text-xs text-blue-600 font-medium mb-1">Max Available</div>
+                          <div className="text-2xl font-bold text-blue-900">${displayedHelocQuote.maxAvailable.toLocaleString()}</div>
+                        </div>
 
-                  {/* Loan Amount Slider */}
-                  <div className="mb-5 bg-gray-50 rounded-lg p-4">
-                    <LoanAmountSlider
-                      value={effectiveHelocAmount}
-                      max={displayedHelocQuote.maxAvailable}
-                      min={Math.min(MIN_LOAN_AMOUNT, displayedHelocQuote.maxAvailable)}
-                      onChange={setHelocLoanAmount}
-                    />
-                  </div>
+                        <div className="mb-5 bg-gray-50 rounded-lg p-4">
+                          <LoanAmountSlider
+                            value={effectiveHelocAmount}
+                            max={displayedHelocQuote.maxAvailable}
+                            min={Math.min(MIN_LOAN_AMOUNT, displayedHelocQuote.maxAvailable)}
+                            onChange={setHelocLoanAmount}
+                          />
+                        </div>
 
-                  {/* Term Toggles */}
-                  <div className="space-y-3 mb-5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500 font-medium">Total Term</span>
-                      <PillToggle
-                        options={[{ label: '20yr', value: 20 }, { label: '30yr', value: 30 }]}
-                        value={helocTotalTerm}
-                        onChange={setHelocTotalTerm}
-                      />
+                        <div className="space-y-3 mb-5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-500 font-medium">Total Term</span>
+                            <PillToggle
+                              options={[{ label: '20yr', value: 20 }, { label: '30yr', value: 30 }]}
+                              value={helocTotalTerm}
+                              onChange={setHelocTotalTerm}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-500 font-medium">Draw Period</span>
+                            <PillToggle
+                              options={[{ label: '3yr', value: 3 }, { label: '5yr', value: 5 }, { label: '10yr', value: 10 }]}
+                              value={helocDrawTerm}
+                              onChange={(v) => setHelocDrawTerm(Math.min(v, helocTotalTerm - 5))}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-auto">
+                          <div className="bg-green-50 rounded-lg p-4 text-center mb-3">
+                            <div className="text-xs text-green-600 font-medium mb-1">Estimated Rate</div>
+                            <div className="text-2xl font-bold text-green-900">{displayedHelocQuote.rate.toFixed(2)}%</div>
+                            <div className="text-xs text-green-600 mt-0.5">{displayedHelocQuote.rateType}</div>
+                            {'investor' in displayedHelocQuote && displayedHelocQuote.investor ? (
+                              <div className="text-xs text-green-700 mt-1">{displayedHelocQuote.investor}{displayedHelocQuote.program ? ` • ${displayedHelocQuote.program}` : ''}</div>
+                            ) : null}
+                          </div>
+                          <div className="bg-orange-50 rounded-lg p-4 text-center">
+                            <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly (Draw Period)</div>
+                            <div className="text-2xl font-bold text-orange-900">${displayedHelocQuote.monthlyPayment.toLocaleString()}</div>
+                            <div className="text-xs text-orange-600 mt-0.5">Interest only</div>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              const s1 = JSON.parse(localStorage.getItem('stage1-data') || '{}');
+                              s1.product = 'HELOC';
+                              s1.helocTotalTerm = String(helocTotalTerm);
+                              s1.helocDrawTerm = String(helocDrawTerm);
+                              s1.desiredLoanAmount = String(effectiveHelocAmount);
+                              s1.maxAvailable = String(displayedHelocQuote.maxAvailable);
+                              localStorage.setItem('stage1-data', JSON.stringify(s1));
+                              router.push(skipOtp ? '/quote/stage2' : '/quote/verify');
+                            }}
+                            className="w-full mt-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm"
+                          >
+                            Select HELOC &amp; Get Access! →
+                          </button>
+                          <p className="text-xs text-gray-400 mt-2 text-center">Fully digital until you choose otherwise</p>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key="CES" className={`rounded-xl border-2 p-6 flex flex-col ${product === 'CES' ? 'border-blue-400 bg-blue-50/30' : 'border-gray-200'}`}>
+                      <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">Closed-End Second</h3>
+
+                      <div className="bg-blue-50 rounded-lg p-4 text-center mb-5">
+                        <div className="text-xs text-blue-600 font-medium mb-1">Max Available</div>
+                        <div className="text-2xl font-bold text-blue-900">${displayedCesQuote.maxAvailable.toLocaleString()}</div>
+                      </div>
+
+                      <div className="mb-5 bg-gray-50 rounded-lg p-4">
+                        <LoanAmountSlider
+                          value={effectiveCesAmount}
+                          max={displayedCesQuote.maxAvailable}
+                          min={Math.min(MIN_LOAN_AMOUNT, displayedCesQuote.maxAvailable)}
+                          onChange={setCesLoanAmount}
+                        />
+                      </div>
+
+                      <div className="space-y-3 mb-5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500 font-medium">Term</span>
+                          <PillToggle
+                            options={[{ label: '20yr', value: 20 }, { label: '30yr', value: 30 }]}
+                            value={cesTerm}
+                            onChange={setCesTerm}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-auto">
+                        <div className="bg-green-50 rounded-lg p-4 text-center mb-3">
+                          <div className="text-xs text-green-600 font-medium mb-1">Estimated Rate</div>
+                          <div className="text-2xl font-bold text-green-900">{displayedCesQuote.rate.toFixed(2)}%</div>
+                          <div className="text-xs text-green-600 mt-0.5">{displayedCesQuote.rateType}</div>
+                          {'investor' in displayedCesQuote && displayedCesQuote.investor ? (
+                            <div className="text-xs text-green-700 mt-1">{displayedCesQuote.investor}{displayedCesQuote.program ? ` • ${displayedCesQuote.program}` : ''}</div>
+                          ) : null}
+                        </div>
+                        <div className="bg-orange-50 rounded-lg p-4 text-center">
+                          <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly Payment</div>
+                          <div className="text-2xl font-bold text-orange-900">${displayedCesQuote.monthlyPayment.toLocaleString()}</div>
+                          <div className="text-xs text-orange-600 mt-0.5">Principal &amp; Interest</div>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            const s1 = JSON.parse(localStorage.getItem('stage1-data') || '{}');
+                            s1.product = 'CES';
+                            s1.cesTerm = String(cesTerm);
+                            s1.desiredLoanAmount = String(effectiveCesAmount);
+                            s1.maxAvailable = String(displayedCesQuote.maxAvailable);
+                            localStorage.setItem('stage1-data', JSON.stringify(s1));
+                            router.push(skipOtp ? '/quote/stage2' : '/quote/verify');
+                          }}
+                          className="w-full mt-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm"
+                        >
+                          Select CES &amp; Get Access! →
+                        </button>
+                        <p className="text-xs text-gray-400 mt-2 text-center">Fully digital until you choose otherwise</p>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500 font-medium">Draw Period</span>
-                      <PillToggle
-                        options={[{ label: '3yr', value: 3 }, { label: '5yr', value: 5 }, { label: '10yr', value: 10 }]}
-                        value={helocDrawTerm}
-                        onChange={(v) => setHelocDrawTerm(Math.min(v, helocTotalTerm - 5))}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Rate + Payment + CTA pinned to bottom */}
-                  <div className="mt-auto">
-                    <div className="bg-green-50 rounded-lg p-4 text-center mb-3">
-                      <div className="text-xs text-green-600 font-medium mb-1">Estimated Rate</div>
-                      <div className="text-2xl font-bold text-green-900">{displayedHelocQuote.rate.toFixed(2)}%</div>
-                      <div className="text-xs text-green-600 mt-0.5">{displayedHelocQuote.rateType}</div>
-                      {'investor' in displayedHelocQuote && displayedHelocQuote.investor ? (
-                        <div className="text-xs text-green-700 mt-1">{displayedHelocQuote.investor}{displayedHelocQuote.program ? ` • ${displayedHelocQuote.program}` : ''}</div>
-                      ) : null}
-                    </div>
-                    <div className="bg-orange-50 rounded-lg p-4 text-center">
-                      <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly (Draw Period)</div>
-                      <div className="text-2xl font-bold text-orange-900">${displayedHelocQuote.monthlyPayment.toLocaleString()}</div>
-                      <div className="text-xs text-orange-600 mt-0.5">Interest only</div>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        const s1 = JSON.parse(localStorage.getItem('stage1-data') || '{}');
-                        s1.product = 'HELOC';
-                        s1.helocTotalTerm = String(helocTotalTerm);
-                        s1.helocDrawTerm = String(helocDrawTerm);
-                        s1.desiredLoanAmount = String(effectiveHelocAmount);
-                        s1.maxAvailable = String(displayedHelocQuote.maxAvailable);
-                        localStorage.setItem('stage1-data', JSON.stringify(s1));
-                        router.push(skipOtp ? '/quote/stage2' : '/quote/verify');
-                      }}
-                      className="w-full mt-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm"
-                    >
-                      Select HELOC &amp; Get Access! →
-                    </button>
-                    <p className="text-xs text-gray-400 mt-2 text-center">Fully digital until you choose otherwise</p>
-                  </div>
-                </div>
-
-                {/* CES Column */}
-                <div className={`rounded-xl border-2 p-6 flex flex-col ${product === 'CES' ? 'border-blue-400 bg-blue-50/30' : 'border-gray-200'}`}>
-                  <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">Closed-End Second</h3>
-
-                  {/* Max Available */}
-                  <div className="bg-blue-50 rounded-lg p-4 text-center mb-5">
-                    <div className="text-xs text-blue-600 font-medium mb-1">Max Available</div>
-                    <div className="text-2xl font-bold text-blue-900">${displayedCesQuote.maxAvailable.toLocaleString()}</div>
-                  </div>
-
-                  {/* Loan Amount Slider */}
-                  <div className="mb-5 bg-gray-50 rounded-lg p-4">
-                    <LoanAmountSlider
-                      value={effectiveCesAmount}
-                      max={displayedCesQuote.maxAvailable}
-                      min={Math.min(MIN_LOAN_AMOUNT, displayedCesQuote.maxAvailable)}
-                      onChange={setCesLoanAmount}
-                    />
-                  </div>
-
-                  {/* Term Toggle */}
-                  <div className="space-y-3 mb-5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500 font-medium">Term</span>
-                      <PillToggle
-                        options={[{ label: '20yr', value: 20 }, { label: '30yr', value: 30 }]}
-                        value={cesTerm}
-                        onChange={setCesTerm}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Rate + Payment + CTA pinned to bottom */}
-                  <div className="mt-auto">
-                    <div className="bg-green-50 rounded-lg p-4 text-center mb-3">
-                      <div className="text-xs text-green-600 font-medium mb-1">Estimated Rate</div>
-                      <div className="text-2xl font-bold text-green-900">{displayedCesQuote.rate.toFixed(2)}%</div>
-                      <div className="text-xs text-green-600 mt-0.5">{displayedCesQuote.rateType}</div>
-                      {'investor' in displayedCesQuote && displayedCesQuote.investor ? (
-                        <div className="text-xs text-green-700 mt-1">{displayedCesQuote.investor}{displayedCesQuote.program ? ` • ${displayedCesQuote.program}` : ''}</div>
-                      ) : null}
-                    </div>
-                    <div className="bg-orange-50 rounded-lg p-4 text-center">
-                      <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly Payment</div>
-                      <div className="text-2xl font-bold text-orange-900">${displayedCesQuote.monthlyPayment.toLocaleString()}</div>
-                      <div className="text-xs text-orange-600 mt-0.5">Principal &amp; Interest</div>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        const s1 = JSON.parse(localStorage.getItem('stage1-data') || '{}');
-                        s1.product = 'CES';
-                        s1.cesTerm = String(cesTerm);
-                        s1.desiredLoanAmount = String(effectiveCesAmount);
-                        s1.maxAvailable = String(displayedCesQuote.maxAvailable);
-                        localStorage.setItem('stage1-data', JSON.stringify(s1));
-                        router.push(skipOtp ? '/quote/stage2' : '/quote/verify');
-                      }}
-                      className="w-full mt-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm"
-                    >
-                      Select CES &amp; Get Access! →
-                    </button>
-                    <p className="text-xs text-gray-400 mt-2 text-center">Fully digital until you choose otherwise</p>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
 
               {/* HELOC Explainer */}
