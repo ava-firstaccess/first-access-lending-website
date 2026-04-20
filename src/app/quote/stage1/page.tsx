@@ -85,14 +85,12 @@ function getDisplayRateRange(rateA: number, rateB?: number) {
 
 // Question flow depends on product + property type selections
 function getQuestionFlow(data: Stage1Data): string[] {
-  const flow: string[] = ['product', 'address', 'propertyValue', 'loanBalance', 'creditScore', 'structureType'];
+  const flow: string[] = ['product', 'address', 'propertyType', 'propertyValue', 'loanBalance', 'structureType'];
 
   // Condo gets unit #, multi-family gets unit count
   if (data.structureType === 'Condo' || data.structureType === 'Multi-Family') {
     flow.push('unitInfo');
   }
-
-  flow.push('propertyType');
 
   // Only ask occupancy for 2nd Home
   if (data.propertyType === '2nd Home') {
@@ -103,6 +101,8 @@ function getQuestionFlow(data: Stage1Data): string[] {
   if (data.product === 'CashOut') {
     flow.push('cashOutAmount');
   }
+
+  flow.push('creditScore');
 
   return flow;
 }
@@ -474,6 +474,7 @@ export default function Stage1() {
             isValid={!!data.creditScore}
             onContinue={goForward}
             onBack={step > 0 ? goBack : undefined}
+            continueText="Continue to customize loan amount, term, payment and select rate"
           >
             <div className="space-y-4">
               <input

@@ -10,6 +10,7 @@ interface QuestionCardProps {
   onContinue?: () => void;
   onBack?: () => void;
   showContinue?: boolean;
+  continueText?: string;
   isValid?: boolean;
   progress?: number; // 0-100
 }
@@ -21,6 +22,7 @@ export default function QuestionCard({
   onContinue,
   onBack,
   showContinue = true,
+  continueText = 'Continue',
   isValid = true,
   progress = 0
 }: QuestionCardProps) {
@@ -83,7 +85,7 @@ export default function QuestionCard({
                   : 'bg-gray-200 text-gray-400 cursor-not-allowed'
               }`}
             >
-              Continue
+              {continueText}
             </button>
 
             {/* Exit Ramp */}
