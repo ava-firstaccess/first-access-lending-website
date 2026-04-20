@@ -14,6 +14,7 @@ type ProductType = 'HELOC' | 'CES' | 'CashOut' | 'NoCashRefi';
 const LICENSED_STATES = new Set([
   'AL','AZ','CA','CO','CT','FL','GA','IL','MA','MD','MI','NJ','NY','OH','OR','PA','VA'
 ]);
+const MIN_LOAN_AMOUNT = 50000;
 
 interface Stage1Data {
   product?: ProductType;
@@ -44,10 +45,10 @@ function mapStage1StructureType(structureType?: Stage1Data['structureType']): 'S
   return (structureType as 'SFR' | 'Condo' | 'Townhome' | 'PUD' | '2-4 Unit') || 'SFR';
 }
 
-function estimateDesiredLoanAmount(data: Stage1Data): number {
+function getStage1MaxAvailable(data: Stage1Data, creditScoreOverride?: number): number {
   const propertyValue = Number(data.propertyValue || 0);
   const loanBalance = Number(data.loanBalance || 0);
-  const creditScore = Number(data.creditScore || 0);
+  const creditScore = Number(creditScoreOverride ?? data.creditScore ?? 0);
   const propertyType = data.propertyType || 'Primary';
   if (!propertyValue || !creditScore) return 0;
 
@@ -65,9 +66,13 @@ function estimateDesiredLoanAmount(data: Stage1Data): number {
   return Math.max(0, Math.round((propertyValue * maxLtv) - loanBalance));
 }
 
+function estimateDesiredLoanAmount(data: Stage1Data, creditScoreOverride?: number): number {
+  return getStage1MaxAvailable(data, creditScoreOverride);
+}
+
 // Question flow depends on product + property type selections
 function getQuestionFlow(data: Stage1Data): string[] {
-  const flow: string[] = ['product', 'address', 'structureType'];
+  const flow: string[] = ['product', 'address', 'propertyValue', 'loanBalance', 'creditScore', 'structureType'];
 
   // Condo gets unit #, multi-family gets unit count
   if (data.structureType === 'Condo' || data.structureType === 'Multi-Family') {
@@ -80,8 +85,6 @@ function getQuestionFlow(data: Stage1Data): string[] {
   if (data.propertyType === '2nd Home') {
     flow.push('occupancy');
   }
-
-  flow.push('propertyValue', 'loanBalance', 'creditScore');
 
   // Cash-Out Refi: ask desired cash out amount
   if (data.product === 'CashOut') {
@@ -127,14 +130,25 @@ export default function Stage1() {
   // Calculate quote whenever data changes
   useEffect(() => {
     const { product, propertyValue, loanBalance, creditScore, propertyState } = data;
+    const hasCreditScore = creditScore !== undefined;
+    const optimisticCreditScore = 780;
 
-    if (!propertyValue || creditScore === undefined) {
+    if (!propertyValue) {
       setQuote({ maxAvailable: 0, rateRange: { min: 0, max: 0 }, monthlyPayment: 0 });
       return;
     }
 
+    if ((product === 'HELOC' || product === 'CES') && !hasCreditScore) {
+      setQuote({
+        maxAvailable: getStage1MaxAvailable(data, optimisticCreditScore),
+        rateRange: { min: 0, max: 0 },
+        monthlyPayment: 0
+      });
+      return;
+    }
+
     if (product === 'HELOC' || product === 'CES') {
-      if (!propertyState) return;
+      if (!propertyState || !hasCreditScore) return;
       const timeout = window.setTimeout(async () => {
         try {
           const desiredLoanAmount = estimateDesiredLoanAmount(data);
@@ -165,7 +179,10 @@ export default function Stage1() {
           if (!response.ok) throw new Error('stage1 pricing failed');
           const pricing = await response.json() as Stage1PricingResponse;
           const bestEligible = pricing.results.find(result => result.eligibility.eligible);
-          if (!bestEligible) return;
+          if (!bestEligible || bestEligible.eligibility.maxAvailable < MIN_LOAN_AMOUNT) {
+            setQuote({ maxAvailable: 0, rateRange: { min: 0, max: 0 }, monthlyPayment: 0 });
+            return;
+          }
           setQuote({
             maxAvailable: Math.round(bestEligible.eligibility.maxAvailable),
             rateRange: { min: bestEligible.quote.rate, max: bestEligible.quote.rate },
@@ -173,35 +190,31 @@ export default function Stage1() {
           });
         } catch (error) {
           console.error('Failed to load live Stage 1 pricing', error);
+          setQuote({ maxAvailable: 0, rateRange: { min: 0, max: 0 }, monthlyPayment: 0 });
         }
       }, 250);
       return () => window.clearTimeout(timeout);
     }
 
-    const propertyType = data.propertyType || 'Primary';
-    const score = Number(creditScore || 0);
-    let maxLtv = 0.80;
-    if (score >= 720) {
-      maxLtv = propertyType === 'Primary' ? 0.90 : propertyType === '2nd Home' ? 0.85 : 0.80;
-    } else if (score >= 680) {
-      maxLtv = propertyType === 'Primary' ? 0.85 : propertyType === '2nd Home' ? 0.80 : 0.75;
-    } else if (score >= 640) {
-      maxLtv = propertyType === 'Primary' ? 0.80 : propertyType === '2nd Home' ? 0.75 : 0.70;
-    } else {
-      maxLtv = propertyType === 'Primary' ? 0.70 : propertyType === '2nd Home' ? 0.65 : 0.60;
+    if (!hasCreditScore) {
+      setQuote({
+        maxAvailable: getStage1MaxAvailable(data, optimisticCreditScore),
+        rateRange: { min: 0, max: 0 },
+        monthlyPayment: 0
+      });
+      return;
     }
 
-    const maxLoan = propertyValue * maxLtv;
-    const currentBalance = Number(loanBalance || 0);
+    const maxAvailable = getStage1MaxAvailable(data);
     const cashOutAmount = Number(data.cashOutAmount || 0);
-    const maxAvailable = product === 'CashOut'
-      ? Math.max(0, maxLoan - currentBalance - cashOutAmount)
-      : Math.max(0, maxLoan - currentBalance);
+    const adjustedMaxAvailable = product === 'CashOut'
+      ? Math.max(0, maxAvailable - cashOutAmount)
+      : maxAvailable;
     const monthlyRate = 7.5 / 100 / 12;
-    const monthlyPayment = maxAvailable > 0 ? maxAvailable * monthlyRate : 0;
+    const monthlyPayment = adjustedMaxAvailable > 0 ? adjustedMaxAvailable * monthlyRate : 0;
 
     setQuote({
-      maxAvailable: Math.round(maxAvailable),
+      maxAvailable: Math.round(adjustedMaxAvailable),
       rateRange: { min: 7.5, max: 8.0 },
       monthlyPayment: Math.round(monthlyPayment)
     });

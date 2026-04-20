@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import React, { useState, useEffect, useMemo } from 'react';
 import { TextField, PhoneField } from '@/components/quote/FormField';
 import { calculateButtonStage1Quote } from '@/lib/rates/button';
+import type { Stage1PricingResponse } from '@/lib/stage1-pricing/types';
+
+const MIN_LOAN_AMOUNT = 50000;
 
 interface QuoteCalc {
   maxAvailable: number;
@@ -12,6 +15,29 @@ interface QuoteCalc {
   monthlyPayment: number;
   maxLtv: number;
   rateType: string;
+}
+
+interface LiveQuoteCalc extends QuoteCalc {
+  investor?: string;
+  program?: string;
+}
+
+function mapStage1Occupancy(propertyType: string, occupancy: string): 'Owner-Occupied' | 'Second Home' | 'Investment' {
+  if (propertyType === 'Investment') return 'Investment';
+  if (propertyType === '2nd Home') return occupancy === 'Rental' ? 'Investment' : 'Second Home';
+  return 'Owner-Occupied';
+}
+
+function mapStructureType(structureType: string): 'SFR' | 'Condo' | 'Townhome' | 'PUD' | '2-4 Unit' {
+  if (structureType === 'Townhouse') return 'Townhome';
+  if (structureType === 'Multi-Family') return '2-4 Unit';
+  return (structureType as 'SFR' | 'Condo' | 'Townhome' | 'PUD' | '2-4 Unit') || 'SFR';
+}
+
+function clampLoanAmount(value: number, maxAvailable: number) {
+  if (maxAvailable <= 0) return 0;
+  const minAllowed = Math.min(MIN_LOAN_AMOUNT, maxAvailable);
+  return Math.max(minAllowed, Math.min(value, maxAvailable));
 }
 
 function calcQuote(
@@ -163,6 +189,8 @@ export default function ResultsPage() {
   const [helocDrawTerm, setHelocDrawTerm] = useState<number>(5);
   const [helocLoanAmount, setHelocLoanAmount] = useState<number | null>(null);
   const [cesLoanAmount, setCesLoanAmount] = useState<number | null>(null);
+  const [helocLiveQuote, setHelocLiveQuote] = useState<LiveQuoteCalc | null>(null);
+  const [cesLiveQuote, setCesLiveQuote] = useState<LiveQuoteCalc | null>(null);
   const skipOtp = process.env.NEXT_PUBLIC_SKIP_OTP === 'true';
 
   useEffect(() => {
@@ -238,34 +266,144 @@ export default function ResultsPage() {
     [propertyValue, loanBalance, creditScore, propertyOccupancy, structureType, numberOfUnits, cashOutAmount, cesTerm, cesLoanAmount, stage1.propertyState]
   );
 
-  // Initialize loan amounts to max when quotes change
   useEffect(() => {
-    if (helocQuote.maxAvailable > 0 && helocLoanAmount === null) {
-      setHelocLoanAmount(helocQuote.maxAvailable);
+    let cancelled = false;
+
+    async function loadHelocQuote() {
+      try {
+        const response = await fetch('/api/stage1-pricing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            engine: 'BestX',
+            input: {
+              bestExProduct: 'HELOC',
+              bestExDrawPeriodYears: helocDrawTerm,
+              bestExTermYears: helocTotalTerm,
+              bestExLockPeriodDays: 45,
+              bestExDocType: 'Full Doc',
+              propertyState: String(stage1.propertyState || ''),
+              propertyValue,
+              loanBalance,
+              desiredLoanAmount: clampLoanAmount(helocLoanAmount ?? helocQuote.maxAvailable, helocQuote.maxAvailable),
+              creditScore,
+              dti: 35,
+              occupancy: mapStage1Occupancy(propertyType, propertyOccupancy),
+              structureType: mapStructureType(structureType),
+              numberOfUnits,
+              cashOut: Boolean(cashOutAmount > 0),
+            },
+          }),
+        });
+        if (!response.ok) throw new Error('HELOC pricing failed');
+        const pricing = await response.json() as Stage1PricingResponse;
+        const bestEligible = pricing.results.find(result => result.eligibility.eligible);
+        if (!cancelled) {
+          setHelocLiveQuote(bestEligible && bestEligible.eligibility.maxAvailable >= MIN_LOAN_AMOUNT ? {
+            maxAvailable: Math.round(bestEligible.eligibility.maxAvailable),
+            rate: bestEligible.quote.rate,
+            monthlyPayment: Math.round(bestEligible.quote.monthlyPayment),
+            maxLtv: bestEligible.quote.maxLtv,
+            rateType: 'Variable',
+            investor: bestEligible.investor,
+            program: bestEligible.quote.program,
+          } : null);
+        }
+      } catch (error) {
+        console.error('Failed to load HELOC quote', error);
+        if (!cancelled) setHelocLiveQuote(null);
+      }
     }
-  }, [helocQuote.maxAvailable, helocLoanAmount]);
+
+    loadHelocQuote();
+    return () => { cancelled = true; };
+  }, [cashOutAmount, creditScore, helocDrawTerm, helocLoanAmount, helocQuote.maxAvailable, helocTotalTerm, loanBalance, numberOfUnits, propertyOccupancy, propertyType, propertyValue, stage1.propertyState, structureType]);
 
   useEffect(() => {
-    if (cesQuote.maxAvailable > 0 && cesLoanAmount === null) {
-      setCesLoanAmount(cesQuote.maxAvailable);
+    let cancelled = false;
+
+    async function loadCesQuote() {
+      try {
+        const response = await fetch('/api/stage1-pricing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            engine: 'BestX',
+            input: {
+              bestExProduct: 'CES',
+              bestExTermYears: cesTerm,
+              bestExLockPeriodDays: 45,
+              bestExDocType: 'Full Doc',
+              propertyState: String(stage1.propertyState || ''),
+              propertyValue,
+              loanBalance,
+              desiredLoanAmount: clampLoanAmount(cesLoanAmount ?? cesQuote.maxAvailable, cesQuote.maxAvailable),
+              creditScore,
+              dti: 35,
+              occupancy: mapStage1Occupancy(propertyType, propertyOccupancy),
+              structureType: mapStructureType(structureType),
+              numberOfUnits,
+              cashOut: Boolean(cashOutAmount > 0),
+            },
+          }),
+        });
+        if (!response.ok) throw new Error('CES pricing failed');
+        const pricing = await response.json() as Stage1PricingResponse;
+        const bestEligible = pricing.results.find(result => result.eligibility.eligible);
+        if (!cancelled) {
+          setCesLiveQuote(bestEligible && bestEligible.eligibility.maxAvailable >= MIN_LOAN_AMOUNT ? {
+            maxAvailable: Math.round(bestEligible.eligibility.maxAvailable),
+            rate: bestEligible.quote.rate,
+            monthlyPayment: Math.round(bestEligible.quote.monthlyPayment),
+            maxLtv: bestEligible.quote.maxLtv,
+            rateType: 'Fixed',
+            investor: bestEligible.investor,
+            program: bestEligible.quote.program,
+          } : null);
+        }
+      } catch (error) {
+        console.error('Failed to load CES quote', error);
+        if (!cancelled) setCesLiveQuote(null);
+      }
     }
-  }, [cesQuote.maxAvailable, cesLoanAmount]);
+
+    loadCesQuote();
+    return () => { cancelled = true; };
+  }, [cashOutAmount, cesLoanAmount, cesQuote.maxAvailable, cesTerm, creditScore, loanBalance, numberOfUnits, propertyOccupancy, propertyType, propertyValue, stage1.propertyState, structureType]);
+
+  const displayedHelocQuote = helocLiveQuote ?? helocQuote;
+  const displayedCesQuote = cesLiveQuote ?? cesQuote;
+
+  // Initialize loan amounts to max when quotes change
+  useEffect(() => {
+    if (displayedHelocQuote.maxAvailable > 0 && helocLoanAmount === null) {
+      setHelocLoanAmount(clampLoanAmount(displayedHelocQuote.maxAvailable, displayedHelocQuote.maxAvailable));
+    }
+  }, [displayedHelocQuote.maxAvailable, helocLoanAmount]);
+
+  useEffect(() => {
+    if (displayedCesQuote.maxAvailable > 0 && cesLoanAmount === null) {
+      setCesLoanAmount(clampLoanAmount(displayedCesQuote.maxAvailable, displayedCesQuote.maxAvailable));
+    }
+  }, [displayedCesQuote.maxAvailable, cesLoanAmount]);
 
   // Clamp loan amounts to max when terms change
   useEffect(() => {
-    if (helocLoanAmount !== null && helocLoanAmount > helocQuote.maxAvailable) {
-      setHelocLoanAmount(helocQuote.maxAvailable);
+    if (helocLoanAmount !== null) {
+      const clamped = clampLoanAmount(helocLoanAmount, displayedHelocQuote.maxAvailable);
+      if (clamped !== helocLoanAmount) setHelocLoanAmount(clamped);
     }
-  }, [helocQuote.maxAvailable, helocLoanAmount]);
+  }, [displayedHelocQuote.maxAvailable, helocLoanAmount]);
 
   useEffect(() => {
-    if (cesLoanAmount !== null && cesLoanAmount > cesQuote.maxAvailable) {
-      setCesLoanAmount(cesQuote.maxAvailable);
+    if (cesLoanAmount !== null) {
+      const clamped = clampLoanAmount(cesLoanAmount, displayedCesQuote.maxAvailable);
+      if (clamped !== cesLoanAmount) setCesLoanAmount(clamped);
     }
-  }, [cesQuote.maxAvailable, cesLoanAmount]);
+  }, [displayedCesQuote.maxAvailable, cesLoanAmount]);
 
-  const effectiveHelocAmount = helocLoanAmount ?? helocQuote.maxAvailable;
-  const effectiveCesAmount = cesLoanAmount ?? cesQuote.maxAvailable;
+  const effectiveHelocAmount = helocLoanAmount ?? clampLoanAmount(displayedHelocQuote.maxAvailable, displayedHelocQuote.maxAvailable);
+  const effectiveCesAmount = cesLoanAmount ?? clampLoanAmount(displayedCesQuote.maxAvailable, displayedCesQuote.maxAvailable);
 
   // Recalculate payments based on chosen loan amount
   const helocRepaymentYears = helocTotalTerm - helocDrawTerm;
@@ -373,15 +511,15 @@ export default function ResultsPage() {
                   {/* Max Available */}
                   <div className="bg-blue-50 rounded-lg p-4 text-center mb-5">
                     <div className="text-xs text-blue-600 font-medium mb-1">Max Available</div>
-                    <div className="text-2xl font-bold text-blue-900">${helocQuote.maxAvailable.toLocaleString()}</div>
+                    <div className="text-2xl font-bold text-blue-900">${displayedHelocQuote.maxAvailable.toLocaleString()}</div>
                   </div>
 
                   {/* Loan Amount Slider */}
                   <div className="mb-5 bg-gray-50 rounded-lg p-4">
                     <LoanAmountSlider
                       value={effectiveHelocAmount}
-                      max={helocQuote.maxAvailable}
-                      min={Math.min(10000, helocQuote.maxAvailable)}
+                      max={displayedHelocQuote.maxAvailable}
+                      min={Math.min(MIN_LOAN_AMOUNT, displayedHelocQuote.maxAvailable)}
                       onChange={setHelocLoanAmount}
                     />
                   </div>
@@ -410,12 +548,15 @@ export default function ResultsPage() {
                   <div className="mt-auto">
                     <div className="bg-green-50 rounded-lg p-4 text-center mb-3">
                       <div className="text-xs text-green-600 font-medium mb-1">Estimated Rate</div>
-                      <div className="text-2xl font-bold text-green-900">{helocQuote.rate.toFixed(2)}%</div>
-                      <div className="text-xs text-green-600 mt-0.5">Variable</div>
+                      <div className="text-2xl font-bold text-green-900">{displayedHelocQuote.rate.toFixed(2)}%</div>
+                      <div className="text-xs text-green-600 mt-0.5">{displayedHelocQuote.rateType}</div>
+                      {'investor' in displayedHelocQuote && displayedHelocQuote.investor ? (
+                        <div className="text-xs text-green-700 mt-1">{displayedHelocQuote.investor}{displayedHelocQuote.program ? ` • ${displayedHelocQuote.program}` : ''}</div>
+                      ) : null}
                     </div>
                     <div className="bg-orange-50 rounded-lg p-4 text-center">
                       <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly (Draw Period)</div>
-                      <div className="text-2xl font-bold text-orange-900">${helocQuote.monthlyPayment.toLocaleString()}</div>
+                      <div className="text-2xl font-bold text-orange-900">${displayedHelocQuote.monthlyPayment.toLocaleString()}</div>
                       <div className="text-xs text-orange-600 mt-0.5">Interest only</div>
                     </div>
 
@@ -426,7 +567,7 @@ export default function ResultsPage() {
                         s1.helocTotalTerm = String(helocTotalTerm);
                         s1.helocDrawTerm = String(helocDrawTerm);
                         s1.desiredLoanAmount = String(effectiveHelocAmount);
-                        s1.maxAvailable = String(helocQuote.maxAvailable);
+                        s1.maxAvailable = String(displayedHelocQuote.maxAvailable);
                         localStorage.setItem('stage1-data', JSON.stringify(s1));
                         router.push(skipOtp ? '/quote/stage2' : '/quote/verify');
                       }}
@@ -445,15 +586,15 @@ export default function ResultsPage() {
                   {/* Max Available */}
                   <div className="bg-blue-50 rounded-lg p-4 text-center mb-5">
                     <div className="text-xs text-blue-600 font-medium mb-1">Max Available</div>
-                    <div className="text-2xl font-bold text-blue-900">${cesQuote.maxAvailable.toLocaleString()}</div>
+                    <div className="text-2xl font-bold text-blue-900">${displayedCesQuote.maxAvailable.toLocaleString()}</div>
                   </div>
 
                   {/* Loan Amount Slider */}
                   <div className="mb-5 bg-gray-50 rounded-lg p-4">
                     <LoanAmountSlider
                       value={effectiveCesAmount}
-                      max={cesQuote.maxAvailable}
-                      min={Math.min(10000, cesQuote.maxAvailable)}
+                      max={displayedCesQuote.maxAvailable}
+                      min={Math.min(MIN_LOAN_AMOUNT, displayedCesQuote.maxAvailable)}
                       onChange={setCesLoanAmount}
                     />
                   </div>
@@ -474,12 +615,15 @@ export default function ResultsPage() {
                   <div className="mt-auto">
                     <div className="bg-green-50 rounded-lg p-4 text-center mb-3">
                       <div className="text-xs text-green-600 font-medium mb-1">Estimated Rate</div>
-                      <div className="text-2xl font-bold text-green-900">{cesQuote.rate.toFixed(2)}%</div>
-                      <div className="text-xs text-green-600 mt-0.5">Fixed</div>
+                      <div className="text-2xl font-bold text-green-900">{displayedCesQuote.rate.toFixed(2)}%</div>
+                      <div className="text-xs text-green-600 mt-0.5">{displayedCesQuote.rateType}</div>
+                      {'investor' in displayedCesQuote && displayedCesQuote.investor ? (
+                        <div className="text-xs text-green-700 mt-1">{displayedCesQuote.investor}{displayedCesQuote.program ? ` • ${displayedCesQuote.program}` : ''}</div>
+                      ) : null}
                     </div>
                     <div className="bg-orange-50 rounded-lg p-4 text-center">
                       <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly Payment</div>
-                      <div className="text-2xl font-bold text-orange-900">${cesQuote.monthlyPayment.toLocaleString()}</div>
+                      <div className="text-2xl font-bold text-orange-900">${displayedCesQuote.monthlyPayment.toLocaleString()}</div>
                       <div className="text-xs text-orange-600 mt-0.5">Principal &amp; Interest</div>
                     </div>
 
@@ -489,7 +633,7 @@ export default function ResultsPage() {
                         s1.product = 'CES';
                         s1.cesTerm = String(cesTerm);
                         s1.desiredLoanAmount = String(effectiveCesAmount);
-                        s1.maxAvailable = String(cesQuote.maxAvailable);
+                        s1.maxAvailable = String(displayedCesQuote.maxAvailable);
                         localStorage.setItem('stage1-data', JSON.stringify(s1));
                         router.push(skipOtp ? '/quote/stage2' : '/quote/verify');
                       }}
