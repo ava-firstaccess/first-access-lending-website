@@ -132,12 +132,47 @@ Collection file:
 Suggested Postman variable:
 - `baseUrl = http://localhost:3000`
 
+## MeridianLink prod test mode
+
+A locked prod-test path now exists for the approved MeridianLink test borrower only.
+
+Request mode:
+- `production-test`
+
+Required provider setting:
+- `CREDIT_API_PROVIDER=meridianlink`
+
+Approved prod test borrower:
+- `Bill Testcase`
+- SSN `000000015`
+
+Current behavior:
+- only the exact approved prod test borrower is allowed
+- anything else is rejected before the provider call
+- the route submits the approved test-order XML to MeridianLink and returns the vendor order id when present
+
+Important deployment note:
+- local Mac testing can fall back to Keychain labels `birchwood-credit-username` and `birchwood-credit-password`
+- deployed/Vercel testing should use env vars instead: `BIRCHWOOD_CREDIT_USERNAME`, `BIRCHWOOD_CREDIT_PASSWORD`, `BIRCHWOOD_CREDIT_BASE_URL`, `BIRCHWOOD_CREDIT_INTERFACE`
+
+### Prod test curl example
+
+```bash
+curl -X POST http://localhost:3000/api/credit/softpull \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mode": "production-test",
+    "borrower": {
+      "firstName": "Bill",
+      "lastName": "Testcase",
+      "ssn": "000000015"
+    }
+  }'
+```
+
 ## Next real integration step
 
-When Birchwood sandbox docs and credentials are confirmed:
-
-1. keep the sandbox-only guard
-2. add a provider adapter in `src/lib/credit-birchwood.ts`
-3. keep this response contract stable
-4. swap the `mock` branch in `src/app/api/credit/softpull/route.ts`
-5. log one real sandbox smoke-test payload and response
+1. run the first approved MeridianLink prod test pull
+2. inspect the real MISMO response fields returned by Birchwood/MeridianLink
+3. normalize score, liabilities, and mortgage tradelines into the same route contract used by the mock sandbox flow
+4. keep the production-test allowlist in place until Zach explicitly wants broader non-test borrower support
