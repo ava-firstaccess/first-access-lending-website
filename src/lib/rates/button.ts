@@ -540,11 +540,23 @@ function getTermAdjustment(
 ): Stage1AdjustmentLine | null {
   if (input.product === 'HELOC') {
     const drawYears = options?.helocDrawTermYears ?? 5;
-    const label = `${drawYears}yr IO (non-HELOC)`;
-    return {
-      label: `${drawYears} Year Draw`,
-      value: getLookupValue(DRAW_TABLE.nonHeloc, label, cltvIndex),
-    };
+
+    if (drawYears === 10) {
+      return {
+        label: '10 Year Draw',
+        value: getLookupValue(DRAW_TABLE.heloc, '10yr HELOC Draw', cltvIndex),
+      };
+    }
+
+    if (drawYears === 3 || drawYears === 5) {
+      const label = `${drawYears}yr IO (non-HELOC)`;
+      return {
+        label: `${drawYears} Year Draw`,
+        value: getLookupValue(DRAW_TABLE.nonHeloc, label, cltvIndex),
+      };
+    }
+
+    return null;
   }
 
   const cesTerm = options?.cesTermYears ?? 30;
