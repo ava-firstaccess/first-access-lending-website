@@ -29,6 +29,10 @@
 - Supabase + Upstash + Twilio OTP flow
 - Server-side session storage (replace localStorage)
 - Save/resume application across devices
+- Put `/pricer` behind authenticated user login
+- Require 2FA for `/pricer` access
+- Remove public exposure of investor names from `/pricer` and its API responses
+- Public quote endpoints and results pages should return/display rate-only data, not investor or program names. Keep investor selection server-side only.
 
 ### Submission Pipeline
 - API route to create Encompass loan from Stage 2 data
