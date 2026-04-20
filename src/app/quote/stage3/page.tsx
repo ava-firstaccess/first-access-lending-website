@@ -4,8 +4,6 @@
 import { useRouter } from 'next/navigation';
 import React, { useState, useEffect, useMemo } from 'react';
 
-type ValidationStep = 'avm' | 'credit' | 'mortgages' | 'updated-quote' | 'closing-costs';
-
 type VerifyResult = {
   tier: 'estimate' | 'verified' | 'low_confidence' | 'no_data' | 'error';
   hcValue?: number;
@@ -78,17 +76,19 @@ function parseAddress(fullAddress: string): { street: string; zipcode: string } 
   return { street: fullAddress, zipcode: '' };
 }
 
+type Stage3Data = Record<string, unknown>;
+
 export default function Stage3Page() {
   const router = useRouter();
-  const steps: { key: ValidationStep; label: string; icon: string }[] = [
-    { key: 'avm', label: 'Property Verification', icon: '🏠' },
-    { key: 'credit', label: 'Credit Check', icon: '📊' },
-    { key: 'mortgages', label: 'Mortgages', icon: '🏦' },
-    { key: 'updated-quote', label: 'Updated Quote', icon: '💰' },
-    { key: 'closing-costs', label: 'Closing Costs', icon: '📋' },
+  const steps = [
+    { label: 'Quote', icon: '💬', state: 'done' as const },
+    { label: 'Property Value', icon: '🏠', state: 'current' as const },
+    { label: 'Soft Credit Check', icon: '📊', state: 'upcoming' as const },
+    { label: 'Update Quote', icon: '💰', state: 'upcoming' as const },
+    { label: 'Finalize Details', icon: '📝', state: 'upcoming' as const },
   ];
   const [loaded, setLoaded] = useState(false);
-  const [stage1, setStage1] = useState<Record<string, any>>({});
+  const [stage1, setStage1] = useState<Stage3Data>({});
   const [status, setStatus] = useState<'pre' | 'loading' | 'done' | 'error'>('pre');
   const [result, setResult] = useState<VerifyResult | null>(null);
   const [loanAmount, setLoanAmount] = useState<number>(0);
@@ -108,14 +108,20 @@ export default function Stage3Page() {
       const stage1Parsed = stage1Raw ? JSON.parse(stage1Raw) : {};
       const stage2Parsed = stage2Raw ? JSON.parse(stage2Raw) : {};
       const merged = { ...stage1Parsed, ...stage2Parsed };
-      setStage1(merged);
-      setLoanAmount(Number(merged.desiredLoanAmount) || 0);
+      const hydrateTimer = window.setTimeout(() => {
+        setStage1(merged);
+        setLoanAmount(Number(merged.desiredLoanAmount) || 0);
+        setLoaded(true);
+      }, 0);
+
+      return () => {
+        window.clearTimeout(hydrateTimer);
+      };
     } catch {
       router.push('/quote/stage1');
       return;
     }
 
-    setLoaded(true);
   }, [router]);
 
   const propertyValue = Number(stage1.propertyValue) || 0;
@@ -141,7 +147,7 @@ export default function Stage3Page() {
     return baseRate + creditAdj + (propertyAdj[propertyType] || 0) + ltvAdj;
   }
 
-  const previousRate = useMemo(() => getRateForScenario(desiredLoanAmount), [desiredLoanAmount, product, creditScore, propertyType, loanBalance, propertyValue]);
+  const previousRate = getRateForScenario(desiredLoanAmount);
   const updatedRate = useMemo(() => {
     const validatedValue = result?.hcValue || propertyValue;
     const effectiveMax = result?.newMaxLoan || desiredLoanAmount;
@@ -213,8 +219,9 @@ export default function Stage3Page() {
       }
 
       setStatus('done');
-    } catch (err: any) {
-      setResult({ tier: 'error', error: err.message });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to verify property value.';
+      setResult({ tier: 'error', error: message });
       setStatus('error');
     }
   }
@@ -264,28 +271,32 @@ export default function Stage3Page() {
       <div className="container mx-auto px-4 max-w-3xl">
 
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Verifying Your Application</h1>
-          <p className="text-gray-600">A few quick checks to finalize your quote.</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Confirm Your Property Value</h1>
+          <p className="text-gray-600">This helps us tighten up your quote before the next step.</p>
         </div>
 
         <div className="mb-8 bg-white rounded-xl shadow-sm p-4">
           <div className="flex items-center justify-between">
             {steps.map((step, i) => (
-              <React.Fragment key={step.key}>
+              <React.Fragment key={step.label}>
                 <div className="flex flex-col items-center gap-1">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all ${
-                    i === 0 ? 'bg-blue-600 text-white ring-4 ring-blue-100' : 'bg-gray-100 text-gray-400'
+                    step.state === 'done'
+                      ? 'bg-green-500 text-white'
+                      : step.state === 'current'
+                      ? 'bg-blue-600 text-white ring-4 ring-blue-100'
+                      : 'bg-gray-100 text-gray-400'
                   }`}>
-                    {step.icon}
+                    {step.state === 'done' ? '✓' : step.icon}
                   </div>
                   <span className={`text-xs font-medium hidden md:block ${
-                    i === 0 ? 'text-gray-700' : 'text-gray-400'
+                    step.state !== 'upcoming' ? 'text-gray-700' : 'text-gray-400'
                   }`}>
                     {step.label}
                   </span>
                 </div>
                 {i < steps.length - 1 && (
-                  <div className="flex-1 h-0.5 mx-2 bg-gray-200" />
+                  <div className={`flex-1 h-0.5 mx-2 ${step.state === 'done' ? 'bg-green-500' : 'bg-gray-200'}`} />
                 )}
               </React.Fragment>
             ))}
@@ -304,10 +315,10 @@ export default function Stage3Page() {
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
-                  Stage 3: Verification
+                  Step 1: Property Value
                 </div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  Verify Your Property Value
+                  Confirm Your Property Value
                 </h1>
                 <p className="text-gray-600 mb-4">
                   We&apos;ll validate your property&apos;s current market value using AI-powered analytics
@@ -553,7 +564,7 @@ export default function Stage3Page() {
                       : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
                   }`}
                 >
-                  Submit and Continue with ${loanAmount.toLocaleString()} →
+                  Continue to Soft Credit Check with ${loanAmount.toLocaleString()} →
                 </button>
               )}
 

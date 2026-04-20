@@ -1,13 +1,13 @@
-// Post-Submission Validation Flow
-// Step 1: AVM Check → Step 2: Credit Pull (DOB+SSN) → Step 3: Mortgage Assignment
-// → Step 4: Updated Quote → Step 5: Closing Costs
+// Quote Review Flow
+// Quote → Property Value → Soft Credit Check → Update Quote → Finalize Details
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { SSNField, PhoneField } from '@/components/quote/FormField';
+import { SSNField } from '@/components/quote/FormField';
 
-type ValidationStep = 'credit' | 'mortgages' | 'updated-quote' | 'closing-costs';
+type ValidationStep = 'credit' | 'mortgages' | 'updated-quote';
 
 // Mock data types (will be replaced with API responses)
 interface AVMResult {
@@ -28,12 +28,7 @@ interface Mortgage {
   matchedPropertyIndex: number | null; // null = unmatched
 }
 
-interface ClosingCostItem {
-  category: string;
-  description: string;
-  amount: number;
-  paidBy: 'Borrower' | 'Lender' | 'Third Party';
-}
+type QuoteFormData = Record<string, any>;
 
 export default function ValidatePage() {
   const router = useRouter();
@@ -41,7 +36,7 @@ export default function ValidatePage() {
   const [loading, setLoading] = useState(false);
 
   // Form data from submission
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [formData, setFormData] = useState<QuoteFormData>({});
 
   // Credit pull form
   const [dob, setDob] = useState('');
@@ -57,13 +52,9 @@ export default function ValidatePage() {
   const [creditScore, setCreditScore] = useState<number | null>(null);
 
   // Updated numbers
-  const [updatedCashAvailable, setUpdatedCashAvailable] = useState<number | null>(null);
-  const [updatedRate, setUpdatedRate] = useState<number | null>(null);
+  const [updatedCashAvailable] = useState<number | null>(null);
+  const [updatedRate] = useState<number | null>(null);
   const [originalCashAvailable, setOriginalCashAvailable] = useState<number>(0);
-  const [originalRate, setOriginalRate] = useState<number>(0);
-
-  // Closing costs
-  const [closingCosts, setClosingCosts] = useState<ClosingCostItem[]>([]);
 
   // Properties from form
   const [properties, setProperties] = useState<{ address: string; index: number }[]>([]);
@@ -74,8 +65,8 @@ export default function ValidatePage() {
       const applicationId = params.get('applicationId');
       const sessionToken = params.get('sessionToken');
 
-      let hydratedData: any = null;
-      let stage1Data: any = null;
+      let hydratedData: QuoteFormData | null = null;
+      let stage1Data: QuoteFormData | null = null;
 
       if (applicationId) {
         try {
@@ -114,7 +105,6 @@ export default function ValidatePage() {
         }
         setProperties(props);
         setOriginalCashAvailable(Number(hydratedData.desiredLoanAmount) || Number(hydratedData.maxAvailable) || 0);
-        setOriginalRate(Number(hydratedData.interestRate) || 0);
       }
 
       const statedValue = Number((hydratedData || stage1Data || {}).propertyValue || 0);
@@ -135,14 +125,20 @@ export default function ValidatePage() {
   }, []);
 
   const steps = [
-    { key: 'avm', label: 'Property Verification', icon: '🏠' },
-    { key: 'credit', label: 'Credit Check', icon: '📊' },
-    { key: 'mortgages', label: 'Mortgages', icon: '🏦' },
-    { key: 'updated-quote', label: 'Updated Quote', icon: '💰' },
-    { key: 'closing-costs', label: 'Closing Costs', icon: '📋' },
-  ] as const;
-
-  const currentStepIndex = steps.findIndex(s => s.key === currentStep);
+    { label: 'Quote', icon: '💬', state: 'done' as const },
+    { label: 'Property Value', icon: '🏠', state: 'done' as const },
+    {
+      label: 'Soft Credit Check',
+      icon: '📊',
+      state: (currentStep === 'credit' || currentStep === 'mortgages') ? 'current' as const : 'done' as const,
+    },
+    {
+      label: 'Update Quote',
+      icon: '💰',
+      state: currentStep === 'updated-quote' ? 'current' as const : 'upcoming' as const,
+    },
+    { label: 'Finalize Details', icon: '📝', state: 'upcoming' as const },
+  ];
   const hasCoBorrower = formData['Borrower - Has Co-Borrower'] === 'Yes';
 
   const goToStep = (step: ValidationStep) => {
@@ -193,40 +189,33 @@ export default function ValidatePage() {
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Verifying Your Application</h1>
-          <p className="text-gray-600">A few quick checks to finalize your quote.</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Soft Credit Check</h1>
+          <p className="text-gray-600">A quick review to tighten up your quote before you finalize details.</p>
         </div>
 
         {/* Step Progress */}
         <div className="mb-8 bg-white rounded-xl shadow-sm p-4">
           <div className="flex items-center justify-between">
             {steps.map((step, i) => (
-              <React.Fragment key={step.key}>
-                <button
-                  onClick={() => (step.key !== 'avm' && i <= currentStepIndex) ? goToStep(step.key) : null}
-                  className={`flex flex-col items-center gap-1 transition-colors ${
-                    step.key !== 'avm' && i <= currentStepIndex ? 'cursor-pointer' : 'cursor-default'
-                  }`}
-                >
+              <React.Fragment key={step.label}>
+                <div className="flex flex-col items-center gap-1">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all ${
-                    i < currentStepIndex
+                    step.state === 'done'
                       ? 'bg-green-500 text-white'
-                      : i === currentStepIndex
+                      : step.state === 'current'
                       ? 'bg-blue-600 text-white ring-4 ring-blue-100'
                       : 'bg-gray-100 text-gray-400'
                   }`}>
-                    {i < currentStepIndex ? '✓' : step.icon}
+                    {step.state === 'done' ? '✓' : step.icon}
                   </div>
                   <span className={`text-xs font-medium hidden md:block ${
-                    i <= currentStepIndex ? 'text-gray-700' : 'text-gray-400'
+                    step.state !== 'upcoming' ? 'text-gray-700' : 'text-gray-400'
                   }`}>
                     {step.label}
                   </span>
-                </button>
+                </div>
                 {i < steps.length - 1 && (
-                  <div className={`flex-1 h-0.5 mx-2 ${
-                    i < currentStepIndex ? 'bg-green-500' : 'bg-gray-200'
-                  }`} />
+                  <div className={`flex-1 h-0.5 mx-2 ${step.state === 'done' ? 'bg-green-500' : 'bg-gray-200'}`} />
                 )}
               </React.Fragment>
             ))}
@@ -242,8 +231,11 @@ export default function ValidatePage() {
               <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-100 rounded-full mb-4">
                 <span className="text-3xl">📊</span>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Credit Verification</h2>
-              <p className="text-gray-600">We need a few more details to pull your credit report.</p>
+              <div className="inline-flex items-center rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700 mb-4">
+                Step 2 of 3 in this section
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Soft Credit Check</h2>
+              <p className="text-gray-600">We need a few more details to run the soft pull and tighten up your quote.</p>
             </div>
 
             <div className="space-y-6">
@@ -346,10 +338,13 @@ export default function ValidatePage() {
               <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
                 <span className="text-3xl">🏦</span>
               </div>
+              <div className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700 mb-4">
+                Review reported mortgages
+              </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Match Your Mortgages</h2>
               <p className="text-gray-600">
                 We found {mortgages.length} mortgage{mortgages.length !== 1 ? 's' : ''} on your credit report.
-                Please match them to your properties.
+                Match each one to the right property so the updated quote is accurate.
               </p>
               {creditScore && (
                 <div className="inline-flex items-center gap-2 mt-3 bg-green-50 px-4 py-2 rounded-full">
@@ -385,7 +380,7 @@ export default function ValidatePage() {
                           {prop.address.split(',')[0]}
                         </option>
                       ))}
-                      <option value={-1}>❓ I don't recognize this</option>
+                      <option value={-1}>❓ I don&apos;t recognize this</option>
                     </select>
                   </div>
                 </div>
@@ -403,7 +398,7 @@ export default function ValidatePage() {
             {mortgages.some(m => m.matchedPropertyIndex === -1) && (
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
                 <p className="text-blue-700 text-sm font-medium mb-2">
-                  It looks like you may have a property we don't have listed.
+                  It looks like you may have a property we don&apos;t have listed.
                 </p>
                 <button
                   className="text-blue-600 hover:text-blue-700 font-medium text-sm underline"
@@ -426,7 +421,7 @@ export default function ValidatePage() {
                   : 'bg-gray-200 text-gray-400 cursor-not-allowed'
               }`}
             >
-              Continue →
+              Continue to Updated Quote →
             </button>
           </div>
         )}
@@ -440,11 +435,13 @@ export default function ValidatePage() {
               <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mb-4">
                 <span className="text-3xl">💰</span>
               </div>
+              <div className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 mb-4">
+                Updated quote + estimated costs
+              </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Your Updated Quote</h2>
-              <p className="text-gray-600">Based on your verified home value and credit.</p>
+              <p className="text-gray-600">Based on your verified home value and soft credit check.</p>
             </div>
 
-            {/* Before / After comparison */}
             <div className="grid grid-cols-2 gap-4 mb-8">
               <div className="bg-gray-50 rounded-xl p-5">
                 <p className="text-sm text-gray-500 mb-1 text-center">Original Estimate</p>
@@ -456,14 +453,12 @@ export default function ValidatePage() {
               </div>
             </div>
 
-            {/* Rate info */}
             <div className="bg-blue-50 rounded-xl p-5 mb-8 text-center">
               <p className="text-sm text-blue-600 mb-1">Estimated Rate</p>
               <p className="text-4xl font-bold text-blue-700">{(updatedRate || 7.99).toFixed(2)}%</p>
               <p className="text-xs text-blue-500 mt-1">Based on {creditScore || 'your'} credit score</p>
             </div>
 
-            {/* Loan details summary */}
             <div className="border border-gray-200 rounded-xl divide-y divide-gray-200 mb-8">
               <div className="flex justify-between px-5 py-3">
                 <span className="text-gray-600">Product</span>
@@ -483,67 +478,21 @@ export default function ValidatePage() {
               </div>
             </div>
 
-            <button
-              onClick={() => goToStep('closing-costs')}
-              className="w-full py-4 px-6 rounded-xl font-semibold text-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all"
-            >
-              Proceed to See Your Closing Costs →
-            </button>
-          </div>
-        )}
-
-        {/* ═══════════════════════════════════════════════
-            STEP 5: CLOSING COST ESTIMATE
-        ═══════════════════════════════════════════════ */}
-        {currentStep === 'closing-costs' && (
-          <div className="bg-white rounded-2xl shadow-md p-8">
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-100 rounded-full mb-4">
-                <span className="text-3xl">📋</span>
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Estimated Closing Costs</h2>
-              <p className="text-gray-600">Here's what to expect at closing.</p>
-            </div>
-
-            {/* Fee breakdown table */}
             <div className="border border-gray-200 rounded-xl overflow-hidden mb-8">
-              {/* Header */}
               <div className="bg-gray-50 px-5 py-3 flex justify-between text-sm font-semibold text-gray-700">
-                <span>Description</span>
+                <span>Estimated Costs</span>
                 <span>Amount</span>
               </div>
-
-              {/* Loan Costs */}
               <div className="px-5 py-2 bg-blue-50 text-sm font-semibold text-blue-700">Loan Costs</div>
               {[
                 { desc: 'Origination Fee (1%)', amount: Math.round((updatedCashAvailable || originalCashAvailable) * 0.01) },
                 { desc: 'Appraisal Fee', amount: 500 },
                 { desc: 'Credit Report', amount: 75 },
                 { desc: 'Flood Certification', amount: 15 },
-              ].map((item, i) => (
-                <div key={i} className="flex justify-between px-5 py-2.5 text-sm border-t border-gray-100">
-                  <span className="text-gray-700">{item.desc}</span>
-                  <span className="font-medium text-gray-900">${item.amount.toLocaleString()}</span>
-                </div>
-              ))}
-
-              {/* Title Costs */}
-              <div className="px-5 py-2 bg-blue-50 text-sm font-semibold text-blue-700 border-t border-gray-200">Title & Settlement</div>
-              {[
                 { desc: 'Title Search', amount: 250 },
                 { desc: 'Title Insurance (Lender)', amount: 350 },
                 { desc: 'Settlement/Closing Fee', amount: 495 },
                 { desc: 'Recording Fees', amount: 150 },
-              ].map((item, i) => (
-                <div key={i} className="flex justify-between px-5 py-2.5 text-sm border-t border-gray-100">
-                  <span className="text-gray-700">{item.desc}</span>
-                  <span className="font-medium text-gray-900">${item.amount.toLocaleString()}</span>
-                </div>
-              ))}
-
-              {/* Prepaid */}
-              <div className="px-5 py-2 bg-blue-50 text-sm font-semibold text-blue-700 border-t border-gray-200">Prepaids</div>
-              {[
                 { desc: 'Prepaid Interest (15 days)', amount: Math.round(((updatedCashAvailable || originalCashAvailable) * 0.0799 / 365) * 15) },
                 { desc: 'Homeowners Insurance (2 mo)', amount: 300 },
               ].map((item, i) => (
@@ -552,8 +501,6 @@ export default function ValidatePage() {
                   <span className="font-medium text-gray-900">${item.amount.toLocaleString()}</span>
                 </div>
               ))}
-
-              {/* Total */}
               <div className="flex justify-between px-5 py-4 bg-gray-900 text-white font-bold text-lg">
                 <span>Estimated Total</span>
                 <span>${(
@@ -569,23 +516,12 @@ export default function ValidatePage() {
               These are estimates only. Actual closing costs may vary. Your loan officer will provide a detailed Loan Estimate.
             </p>
 
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={() => router.push('/quote/stage2')}
-                className="py-4 px-6 rounded-xl font-semibold text-gray-700 border-2 border-gray-300 hover:bg-gray-50 transition-all"
-              >
-                ← Back to Application
-              </button>
-              <button
-                onClick={() => {
-                  // TODO: Final submission / lock
-                  alert('Application locked! Your loan officer will reach out within 24 hours.');
-                }}
-                className="py-4 px-6 rounded-xl font-semibold text-lg bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg hover:shadow-xl transition-all"
-              >
-                Lock My Rate ✓
-              </button>
-            </div>
+            <button
+              onClick={() => router.push('/quote/finalize-details')}
+              className="w-full py-4 px-6 rounded-xl font-semibold text-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all"
+            >
+              Continue to Finalize Details →
+            </button>
           </div>
         )}
 
