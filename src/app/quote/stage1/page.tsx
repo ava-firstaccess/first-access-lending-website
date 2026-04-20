@@ -174,7 +174,7 @@ export default function Stage1() {
             engine: 'BestX',
             input: {
               bestExProduct: product,
-              bestExDrawPeriodYears: 5,
+              bestExDrawPeriodYears: 3,
               bestExTermYears: 20,
               bestExLockPeriodDays: 30,
               bestExDocType: 'Full Doc',

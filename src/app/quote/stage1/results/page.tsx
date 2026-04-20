@@ -190,7 +190,7 @@ export default function ResultsPage() {
   const [leadError, setLeadError] = useState<string | null>(null);
   const [cesTerm, setCesTerm] = useState<number>(20);
   const [helocTotalTerm, setHelocTotalTerm] = useState<number>(20);
-  const [helocDrawTerm, setHelocDrawTerm] = useState<number>(5);
+  const [helocDrawTerm, setHelocDrawTerm] = useState<number>(3);
   const [helocLoanAmount, setHelocLoanAmount] = useState<number | null>(null);
   const [cesLoanAmount, setCesLoanAmount] = useState<number | null>(null);
   const [helocLiveQuote, setHelocLiveQuote] = useState<LiveQuoteCalc | null>(null);
@@ -203,7 +203,9 @@ export default function ResultsPage() {
       try {
         const parsed = JSON.parse(raw);
         setStage1(parsed);
-        if (parsed.drawTerm) setHelocDrawTerm(Number(parsed.drawTerm));
+        if (parsed.helocDrawTerm) setHelocDrawTerm(Number(parsed.helocDrawTerm));
+        else if (parsed.drawTerm) setHelocDrawTerm(Number(parsed.drawTerm));
+        else setHelocDrawTerm(3);
       } catch {
         router.push('/quote/stage1');
         return;
