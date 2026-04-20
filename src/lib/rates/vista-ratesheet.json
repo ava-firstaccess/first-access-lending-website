@@ -14,167 +14,167 @@
           "rowsData": [
             {
               "noteRate": 12.375,
-              "basePrice": 113.875
+              "basePrice": 114.0
             },
             {
               "noteRate": 12.25,
-              "basePrice": 113.75
+              "basePrice": 113.875
             },
             {
               "noteRate": 12.125,
-              "basePrice": 113.625
+              "basePrice": 113.75
             },
             {
               "noteRate": 12.0,
-              "basePrice": 113.5
+              "basePrice": 113.625
             },
             {
               "noteRate": 11.875,
-              "basePrice": 113.375
+              "basePrice": 113.5
             },
             {
               "noteRate": 11.75,
-              "basePrice": 113.25
+              "basePrice": 113.375
             },
             {
               "noteRate": 11.625,
-              "basePrice": 113.125
+              "basePrice": 113.25
             },
             {
               "noteRate": 11.5,
-              "basePrice": 113.0
+              "basePrice": 113.125
             },
             {
               "noteRate": 11.375,
-              "basePrice": 112.875
+              "basePrice": 113.0
             },
             {
               "noteRate": 11.25,
-              "basePrice": 112.75
+              "basePrice": 112.875
             },
             {
               "noteRate": 11.125,
-              "basePrice": 112.625
+              "basePrice": 112.75
             },
             {
               "noteRate": 11.0,
-              "basePrice": 112.5
+              "basePrice": 112.625
             },
             {
               "noteRate": 10.875,
-              "basePrice": 112.25
+              "basePrice": 112.375
             },
             {
               "noteRate": 10.75,
-              "basePrice": 112.0
+              "basePrice": 112.125
             },
             {
               "noteRate": 10.625,
-              "basePrice": 111.75
+              "basePrice": 111.875
             },
             {
               "noteRate": 10.5,
-              "basePrice": 111.5
+              "basePrice": 111.625
             },
             {
               "noteRate": 10.375,
-              "basePrice": 111.25
+              "basePrice": 111.375
             },
             {
               "noteRate": 10.25,
-              "basePrice": 111.0
+              "basePrice": 111.125
             },
             {
               "noteRate": 10.125,
-              "basePrice": 110.75
+              "basePrice": 110.875
             },
             {
               "noteRate": 10.0,
-              "basePrice": 110.375
+              "basePrice": 110.5
             },
             {
               "noteRate": 9.875,
-              "basePrice": 110.0
+              "basePrice": 110.125
             },
             {
               "noteRate": 9.75,
-              "basePrice": 109.625
+              "basePrice": 109.75
             },
             {
               "noteRate": 9.625,
-              "basePrice": 109.25
+              "basePrice": 109.375
             },
             {
               "noteRate": 9.5,
-              "basePrice": 108.875
+              "basePrice": 109.0
             },
             {
               "noteRate": 9.375,
-              "basePrice": 108.5
+              "basePrice": 108.625
             },
             {
               "noteRate": 9.25,
-              "basePrice": 108.125
+              "basePrice": 108.25
             },
             {
               "noteRate": 9.125,
-              "basePrice": 107.75
+              "basePrice": 107.875
             },
             {
               "noteRate": 9.0,
-              "basePrice": 107.375
+              "basePrice": 107.5
             },
             {
               "noteRate": 8.875,
-              "basePrice": 107.0
+              "basePrice": 107.125
             },
             {
               "noteRate": 8.75,
-              "basePrice": 106.625
+              "basePrice": 106.75
             },
             {
               "noteRate": 8.625,
-              "basePrice": 106.125
+              "basePrice": 106.25
             },
             {
               "noteRate": 8.5,
-              "basePrice": 105.625
+              "basePrice": 105.75
             },
             {
               "noteRate": 8.375,
-              "basePrice": 105.125
+              "basePrice": 105.25
             },
             {
               "noteRate": 8.25,
-              "basePrice": 104.5
+              "basePrice": 104.625
             },
             {
               "noteRate": 8.125,
-              "basePrice": 103.875
+              "basePrice": 104.0
             },
             {
               "noteRate": 8.0,
-              "basePrice": 103.25
+              "basePrice": 103.375
             },
             {
               "noteRate": 7.875,
-              "basePrice": 102.625
+              "basePrice": 102.75
             },
             {
               "noteRate": 7.75,
-              "basePrice": 101.875
+              "basePrice": 102.0
             },
             {
               "noteRate": 7.625,
-              "basePrice": 101.125
+              "basePrice": 101.25
             },
             {
               "noteRate": 7.5,
-              "basePrice": 100.375
+              "basePrice": 100.5
             },
             {
               "noteRate": 7.375,
-              "basePrice": 99.625
+              "basePrice": 99.75
             }
           ],
           "maxPrice": {
@@ -1522,167 +1522,167 @@
           "rowsData": [
             {
               "noteRate": 13.375,
-              "basePrice": 113.875
+              "basePrice": 114.0
             },
             {
               "noteRate": 13.25,
-              "basePrice": 113.75
+              "basePrice": 113.875
             },
             {
               "noteRate": 13.125,
-              "basePrice": 113.625
+              "basePrice": 113.75
             },
             {
               "noteRate": 13.0,
-              "basePrice": 113.5
+              "basePrice": 113.625
             },
             {
               "noteRate": 12.875,
-              "basePrice": 113.375
+              "basePrice": 113.5
             },
             {
               "noteRate": 12.75,
-              "basePrice": 113.25
+              "basePrice": 113.375
             },
             {
               "noteRate": 12.625,
-              "basePrice": 113.125
+              "basePrice": 113.25
             },
             {
               "noteRate": 12.5,
-              "basePrice": 113.0
+              "basePrice": 113.125
             },
             {
               "noteRate": 12.375,
-              "basePrice": 112.875
+              "basePrice": 113.0
             },
             {
               "noteRate": 12.25,
-              "basePrice": 112.75
+              "basePrice": 112.875
             },
             {
               "noteRate": 12.125,
-              "basePrice": 112.625
+              "basePrice": 112.75
             },
             {
               "noteRate": 12.0,
-              "basePrice": 112.5
+              "basePrice": 112.625
             },
             {
               "noteRate": 11.875,
-              "basePrice": 112.375
+              "basePrice": 112.5
             },
             {
               "noteRate": 11.75,
-              "basePrice": 112.25
+              "basePrice": 112.375
             },
             {
               "noteRate": 11.625,
-              "basePrice": 112.125
+              "basePrice": 112.25
             },
             {
               "noteRate": 11.5,
-              "basePrice": 112.0
+              "basePrice": 112.125
             },
             {
               "noteRate": 11.375,
-              "basePrice": 111.75
+              "basePrice": 111.875
             },
             {
               "noteRate": 11.25,
-              "basePrice": 111.5
+              "basePrice": 111.625
             },
             {
               "noteRate": 11.125,
-              "basePrice": 111.25
+              "basePrice": 111.375
             },
             {
               "noteRate": 11.0,
-              "basePrice": 111.0
+              "basePrice": 111.125
             },
             {
               "noteRate": 10.875,
-              "basePrice": 110.75
+              "basePrice": 110.875
             },
             {
               "noteRate": 10.75,
-              "basePrice": 110.5
+              "basePrice": 110.625
             },
             {
               "noteRate": 10.625,
-              "basePrice": 110.25
+              "basePrice": 110.375
             },
             {
               "noteRate": 10.5,
-              "basePrice": 110.0
+              "basePrice": 110.125
             },
             {
               "noteRate": 10.375,
-              "basePrice": 109.75
+              "basePrice": 109.875
             },
             {
               "noteRate": 10.25,
-              "basePrice": 109.375
+              "basePrice": 109.5
             },
             {
               "noteRate": 10.125,
-              "basePrice": 109.0
+              "basePrice": 109.125
             },
             {
               "noteRate": 10.0,
-              "basePrice": 108.625
+              "basePrice": 108.75
             },
             {
               "noteRate": 9.875,
-              "basePrice": 108.25
+              "basePrice": 108.375
             },
             {
               "noteRate": 9.75,
-              "basePrice": 107.875
+              "basePrice": 108.0
             },
             {
               "noteRate": 9.625,
-              "basePrice": 107.5
+              "basePrice": 107.625
             },
             {
               "noteRate": 9.5,
-              "basePrice": 107.125
+              "basePrice": 107.25
             },
             {
               "noteRate": 9.375,
-              "basePrice": 106.75
+              "basePrice": 106.875
             },
             {
               "noteRate": 9.25,
-              "basePrice": 106.25
+              "basePrice": 106.375
             },
             {
               "noteRate": 9.125,
-              "basePrice": 105.75
+              "basePrice": 105.875
             },
             {
               "noteRate": 9.0,
-              "basePrice": 105.125
+              "basePrice": 105.25
             },
             {
               "noteRate": 8.875,
-              "basePrice": 104.5
+              "basePrice": 104.625
             },
             {
               "noteRate": 8.75,
-              "basePrice": 103.875
+              "basePrice": 104.0
             },
             {
               "noteRate": 8.625,
-              "basePrice": 103.125
+              "basePrice": 103.25
             },
             {
               "noteRate": 8.5,
-              "basePrice": 102.375
+              "basePrice": 102.5
             },
             {
               "noteRate": 8.375,
-              "basePrice": 101.625
+              "basePrice": 101.75
             }
           ],
           "maxPrice": {

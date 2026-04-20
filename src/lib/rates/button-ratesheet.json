@@ -6,7 +6,7 @@
       "noteRate": 12,
       "prices": {
         "fullDoc": {
-          "HELOC": 108.3125,
+          "HELOC": 108.375,
           "CES": 108.9375
         },
         "altDoc": {
@@ -19,8 +19,8 @@
       "noteRate": 11.875,
       "prices": {
         "fullDoc": {
-          "HELOC": 108.3125,
-          "CES": 108.875
+          "HELOC": 108.375,
+          "CES": 108.9375
         },
         "altDoc": {
           "HELOC": 108.875,
@@ -33,7 +33,7 @@
       "prices": {
         "fullDoc": {
           "HELOC": 108.3125,
-          "CES": 108.875
+          "CES": 108.9375
         },
         "altDoc": {
           "HELOC": 108.875,
@@ -58,7 +58,7 @@
       "noteRate": 11.5,
       "prices": {
         "fullDoc": {
-          "HELOC": 108.25,
+          "HELOC": 108.3125,
           "CES": 108.875
         },
         "altDoc": {
@@ -72,10 +72,10 @@
       "prices": {
         "fullDoc": {
           "HELOC": 108.25,
-          "CES": 108.8125
+          "CES": 108.875
         },
         "altDoc": {
-          "HELOC": 108.6875,
+          "HELOC": 108.75,
           "CES": null
         }
       }
@@ -84,7 +84,7 @@
       "noteRate": 11.25,
       "prices": {
         "fullDoc": {
-          "HELOC": 108.1875,
+          "HELOC": 108.25,
           "CES": 108.8125
         },
         "altDoc": {
@@ -97,11 +97,11 @@
       "noteRate": 11.125,
       "prices": {
         "fullDoc": {
-          "HELOC": 108.125,
+          "HELOC": 108.1875,
           "CES": 108.75
         },
         "altDoc": {
-          "HELOC": 108.4375,
+          "HELOC": 108.5,
           "CES": null
         }
       }
@@ -110,11 +110,11 @@
       "noteRate": 11,
       "prices": {
         "fullDoc": {
-          "HELOC": 108.0625,
-          "CES": 108.6875
+          "HELOC": 108.125,
+          "CES": 108.75
         },
         "altDoc": {
-          "HELOC": 108.375,
+          "HELOC": 108.3125,
           "CES": null
         }
       }
@@ -127,7 +127,7 @@
           "CES": 108.625
         },
         "altDoc": {
-          "HELOC": 108.25,
+          "HELOC": 108.1875,
           "CES": null
         }
       }
@@ -136,11 +136,11 @@
       "noteRate": 10.75,
       "prices": {
         "fullDoc": {
-          "HELOC": 107.875,
+          "HELOC": 107.9375,
           "CES": 108.5625
         },
         "altDoc": {
-          "HELOC": 108.0625,
+          "HELOC": 108.125,
           "CES": null
         }
       }
@@ -166,7 +166,7 @@
           "CES": 108.3125
         },
         "altDoc": {
-          "HELOC": 107.8125,
+          "HELOC": 107.875,
           "CES": null
         }
       }
@@ -214,8 +214,8 @@
       "noteRate": 10,
       "prices": {
         "fullDoc": {
-          "HELOC": 107.25,
-          "CES": 107.9375
+          "HELOC": 107.3125,
+          "CES": 108
         },
         "altDoc": {
           "HELOC": 107.375,
@@ -227,11 +227,11 @@
       "noteRate": 9.875,
       "prices": {
         "fullDoc": {
-          "HELOC": 107.125,
+          "HELOC": 107.1875,
           "CES": 107.8125
         },
         "altDoc": {
-          "HELOC": 107.1875,
+          "HELOC": 107.25,
           "CES": null
         }
       }
@@ -240,11 +240,11 @@
       "noteRate": 9.75,
       "prices": {
         "fullDoc": {
-          "HELOC": 106.9375,
-          "CES": 107.625
+          "HELOC": 107,
+          "CES": 107.6875
         },
         "altDoc": {
-          "HELOC": 107.125,
+          "HELOC": 107.1875,
           "CES": null
         }
       }
@@ -266,11 +266,11 @@
       "noteRate": 9.5,
       "prices": {
         "fullDoc": {
-          "HELOC": 106.625,
+          "HELOC": 106.6875,
           "CES": 107.3125
         },
         "altDoc": {
-          "HELOC": 106.875,
+          "HELOC": 106.9375,
           "CES": null
         }
       }
@@ -280,7 +280,7 @@
       "prices": {
         "fullDoc": {
           "HELOC": 106.5,
-          "CES": 107.125
+          "CES": 107.1875
         },
         "altDoc": {
           "HELOC": 106.75,
@@ -292,7 +292,7 @@
       "noteRate": 9.25,
       "prices": {
         "fullDoc": {
-          "HELOC": 106.25,
+          "HELOC": 106.3125,
           "CES": 107
         },
         "altDoc": {
@@ -306,7 +306,7 @@
       "prices": {
         "fullDoc": {
           "HELOC": 106.125,
-          "CES": 106.8125
+          "CES": 106.875
         },
         "altDoc": {
           "HELOC": 106.5,
@@ -322,7 +322,7 @@
           "CES": 106.625
         },
         "altDoc": {
-          "HELOC": 106.375,
+          "HELOC": 106.4375,
           "CES": null
         }
       }
@@ -331,11 +331,11 @@
       "noteRate": 8.875,
       "prices": {
         "fullDoc": {
-          "HELOC": 105.625,
-          "CES": 106.375
+          "HELOC": 105.6875,
+          "CES": 106.4375
         },
         "altDoc": {
-          "HELOC": 106.25,
+          "HELOC": 106.3125,
           "CES": null
         }
       }
@@ -348,7 +348,7 @@
           "CES": 106.1875
         },
         "altDoc": {
-          "HELOC": 106.125,
+          "HELOC": 106.1875,
           "CES": null
         }
       }
@@ -357,8 +357,8 @@
       "noteRate": 8.625,
       "prices": {
         "fullDoc": {
-          "HELOC": 105.125,
-          "CES": 105.875
+          "HELOC": 105.1875,
+          "CES": 105.9375
         },
         "altDoc": {
           "HELOC": 105.875,
@@ -370,11 +370,11 @@
       "noteRate": 8.5,
       "prices": {
         "fullDoc": {
-          "HELOC": 104.875,
-          "CES": 105.625
+          "HELOC": 104.9375,
+          "CES": 105.75
         },
         "altDoc": {
-          "HELOC": 105.6875,
+          "HELOC": 105.625,
           "CES": null
         }
       }
@@ -383,11 +383,11 @@
       "noteRate": 8.375,
       "prices": {
         "fullDoc": {
-          "HELOC": 104.625,
+          "HELOC": 104.6875,
           "CES": 105.4375
         },
         "altDoc": {
-          "HELOC": 105.375,
+          "HELOC": 105.4375,
           "CES": null
         }
       }
@@ -397,10 +397,10 @@
       "prices": {
         "fullDoc": {
           "HELOC": 104.3125,
-          "CES": 105.125
+          "CES": 105.1875
         },
         "altDoc": {
-          "HELOC": 105.125,
+          "HELOC": 105.1875,
           "CES": null
         }
       }
@@ -410,7 +410,7 @@
       "prices": {
         "fullDoc": {
           "HELOC": 104,
-          "CES": 104.8125
+          "CES": 104.875
         },
         "altDoc": {
           "HELOC": 104.9375,
@@ -448,8 +448,8 @@
       "noteRate": 7.75,
       "prices": {
         "fullDoc": {
-          "HELOC": 102.875,
-          "CES": 103.75
+          "HELOC": 102.9375,
+          "CES": 103.8125
         },
         "altDoc": {
           "HELOC": 103.9375,
@@ -461,11 +461,11 @@
       "noteRate": 7.625,
       "prices": {
         "fullDoc": {
-          "HELOC": 102.5,
-          "CES": 103.4375
+          "HELOC": 102.5625,
+          "CES": 103.5
         },
         "altDoc": {
-          "HELOC": 103.5625,
+          "HELOC": 103.625,
           "CES": null
         }
       }
@@ -474,7 +474,7 @@
       "noteRate": 7.5,
       "prices": {
         "fullDoc": {
-          "HELOC": 102.0625,
+          "HELOC": 102.125,
           "CES": 103.0625
         },
         "altDoc": {
@@ -487,11 +487,11 @@
       "noteRate": 7.375,
       "prices": {
         "fullDoc": {
-          "HELOC": 101.625,
-          "CES": 102.5625
+          "HELOC": 101.75,
+          "CES": 102.625
         },
         "altDoc": {
-          "HELOC": 102.5625,
+          "HELOC": 102.625,
           "CES": null
         }
       }
@@ -500,8 +500,8 @@
       "noteRate": 7.25,
       "prices": {
         "fullDoc": {
-          "HELOC": 101.1875,
-          "CES": 102.125
+          "HELOC": 101.25,
+          "CES": 102.1875
         },
         "altDoc": {
           "HELOC": 101.9375,
@@ -513,11 +513,11 @@
       "noteRate": 7.125,
       "prices": {
         "fullDoc": {
-          "HELOC": 100.6875,
-          "CES": 101.625
+          "HELOC": 100.75,
+          "CES": 101.6875
         },
         "altDoc": {
-          "HELOC": 101.3125,
+          "HELOC": 101.375,
           "CES": null
         }
       }
@@ -1299,7 +1299,7 @@
     "occupancy": {
       "rows": [
         "Second Home",
-        "2-4 Unit",
+        "2-4 Units",
         "Investor"
       ],
       "columns": [
@@ -1344,7 +1344,7 @@
     "unitCount": {
       "rows": [
         "Second Home",
-        "2-4 Unit",
+        "2-4 Units",
         "Investor"
       ],
       "columns": [
