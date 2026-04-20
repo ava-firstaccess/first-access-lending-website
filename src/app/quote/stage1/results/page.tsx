@@ -301,10 +301,14 @@ export default function ResultsPage() {
         });
         if (!response.ok) throw new Error('HELOC pricing failed');
         const pricing = await response.json() as Stage1PricingResponse;
-        const bestEligible = pricing.results.find(result => result.eligibility.eligible);
+        const eligibleResults = pricing.results.filter(result => result.eligibility.eligible);
+        const bestEligible = eligibleResults[0];
+        const maxAvailableAcrossEligible = eligibleResults.length
+          ? Math.max(...eligibleResults.map(result => result.eligibility.maxAvailable))
+          : 0;
         if (!cancelled) {
-          setHelocLiveQuote(bestEligible && bestEligible.eligibility.maxAvailable >= MIN_LOAN_AMOUNT ? {
-            maxAvailable: Math.round(bestEligible.eligibility.maxAvailable),
+          setHelocLiveQuote(bestEligible && maxAvailableAcrossEligible >= MIN_LOAN_AMOUNT ? {
+            maxAvailable: Math.round(maxAvailableAcrossEligible),
             rate: bestEligible.quote.rate,
             monthlyPayment: Math.round(bestEligible.quote.monthlyPayment),
             maxLtv: bestEligible.quote.maxLtv,
@@ -353,10 +357,14 @@ export default function ResultsPage() {
         });
         if (!response.ok) throw new Error('CES pricing failed');
         const pricing = await response.json() as Stage1PricingResponse;
-        const bestEligible = pricing.results.find(result => result.eligibility.eligible);
+        const eligibleResults = pricing.results.filter(result => result.eligibility.eligible);
+        const bestEligible = eligibleResults[0];
+        const maxAvailableAcrossEligible = eligibleResults.length
+          ? Math.max(...eligibleResults.map(result => result.eligibility.maxAvailable))
+          : 0;
         if (!cancelled) {
-          setCesLiveQuote(bestEligible && bestEligible.eligibility.maxAvailable >= MIN_LOAN_AMOUNT ? {
-            maxAvailable: Math.round(bestEligible.eligibility.maxAvailable),
+          setCesLiveQuote(bestEligible && maxAvailableAcrossEligible >= MIN_LOAN_AMOUNT ? {
+            maxAvailable: Math.round(maxAvailableAcrossEligible),
             rate: bestEligible.quote.rate,
             monthlyPayment: Math.round(bestEligible.quote.monthlyPayment),
             maxLtv: bestEligible.quote.maxLtv,
