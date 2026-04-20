@@ -85,12 +85,14 @@ function getDisplayRateRange(rateA: number, rateB?: number) {
 
 // Question flow depends on product + property type selections
 function getQuestionFlow(data: Stage1Data): string[] {
-  const flow: string[] = ['product', 'address', 'propertyType', 'propertyValue', 'loanBalance', 'structureType'];
+  const flow: string[] = ['product', 'address', 'propertyValue', 'loanBalance', 'structureType'];
 
   // Condo gets unit #, multi-family gets unit count
   if (data.structureType === 'Condo' || data.structureType === 'Multi-Family') {
     flow.push('unitInfo');
   }
+
+  flow.push('propertyType');
 
   // Only ask occupancy for 2nd Home
   if (data.propertyType === '2nd Home') {
