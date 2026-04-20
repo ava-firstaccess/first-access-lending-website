@@ -81,24 +81,6 @@ export default function VerifyPage() {
     setLoading(false);
   };
 
-  const handleCodeInput = useCallback((index: number, value: string) => {
-    const digit = value.replace(/\D/g, '').slice(-1);
-    const newCode = [...code];
-    newCode[index] = digit;
-    setCode(newCode);
-    setError('');
-
-    // Auto-advance to next input
-    if (digit && index < 3) {
-      codeRefs[index + 1].current?.focus();
-    }
-
-    // Auto-submit when all 4 digits entered
-    if (digit && index === 3 && newCode.every(d => d !== '')) {
-      handleVerifyOTP(newCode.join(''));
-    }
-  }, [code]);
-
   const handleCodeKeyDown = (index: number, e: React.KeyboardEvent) => {
     if (e.key === 'Backspace' && !code[index] && index > 0) {
       codeRefs[index - 1].current?.focus();
@@ -116,7 +98,7 @@ export default function VerifyPage() {
     }
   };
 
-  const handleVerifyOTP = async (codeStr: string) => {
+  async function handleVerifyOTP(codeStr: string) {
     setLoading(true);
     setError('');
 
@@ -158,16 +140,32 @@ export default function VerifyPage() {
       // If we have Stage 1 data, start there so they review/confirm the quote
       const hasStage1 = localStorage.getItem('stage1Prefill');
       if (hasStage1) {
-        router.push('/quote/stage1?prefilled=1');
+        router.push('/quote/start?prefilled=1');
       } else {
-        router.push('/quote/stage2');
+        router.push('/quote/next-steps');
       }
 
     } catch {
       setError('Network error. Please try again.');
     }
     setLoading(false);
-  };
+  }
+
+  const handleCodeInput = useCallback((index: number, value: string) => {
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const newCode = [...code];
+    newCode[index] = digit;
+    setCode(newCode);
+    setError('');
+
+    if (digit && index < 3) {
+      codeRefs[index + 1].current?.focus();
+    }
+
+    if (digit && index === 3 && newCode.every(d => d !== '')) {
+      handleVerifyOTP(newCode.join(''));
+    }
+  }, [code, codeRefs]);
 
   const handleResend = async () => {
     if (resendTimer > 0) return;
@@ -180,7 +178,7 @@ export default function VerifyPage() {
 
         {/* Back link */}
         <button
-          onClick={() => step === 'code' ? setStep('phone') : router.push('/quote/stage1/results')}
+          onClick={() => step === 'code' ? setStep('phone') : router.push('/quote/results')}
           className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium mb-6"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -204,7 +202,7 @@ export default function VerifyPage() {
                   Verify Your Phone
                 </h1>
                 <p className="text-gray-600">
-                  We'll text you a code to secure your application.
+                  We&apos;ll text you a code to secure your application.
                   <br />
                   <span className="text-sm text-gray-500">No spam, no sales calls.</span>
                 </p>
@@ -364,7 +362,7 @@ export default function VerifyPage() {
                       disabled={loading}
                       className="text-blue-600 hover:text-blue-700 font-medium text-sm"
                     >
-                      Didn't receive it? Send again
+                      Didn&apos;t receive it? Send again
                     </button>
                   )}
                 </div>

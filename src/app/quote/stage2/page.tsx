@@ -5,14 +5,14 @@ import { useRouter } from 'next/navigation';
 const steps = [
   {
     title: 'Property Value',
-    path: '/quote/stage3',
+    path: '/quote/property-value',
     icon: '🏠',
     description: 'Confirm the home value we should use before we tighten the quote.',
     state: 'Start here',
   },
   {
     title: 'Soft Credit Check',
-    path: '/quote/validate',
+    path: '/quote/soft-credit',
     icon: '📊',
     description: 'Run the soft pull, review mortgages, and confirm the updated quote.',
     state: 'Step 2',
@@ -68,7 +68,7 @@ export default function Stage2EntryPage() {
             <p className="text-sm text-gray-600">When someone leaves the quote results, bring them here first, then into Property Value.</p>
           </div>
           <button
-            onClick={() => router.push('/quote/stage3')}
+            onClick={() => router.push('/quote/property-value')}
             className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
           >
             Continue to Property Value →

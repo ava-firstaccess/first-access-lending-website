@@ -502,7 +502,7 @@ function Stage2Content() {
 
   const handleBackToResults = () => {
     // Stage 1 data lives in localStorage - results page reads from there
-    router.push('/quote/stage1/results');
+    router.push('/quote/results');
   };
 
   // Step navigation

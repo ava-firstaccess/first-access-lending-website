@@ -150,7 +150,7 @@ function ComingSoonContent() {
           </p>
 
           <button
-            onClick={() => router.push('/quote/stage1')}
+            onClick={() => router.push('/quote/start')}
             className="text-blue-600 hover:text-blue-700 text-sm font-medium underline underline-offset-2"
           >
             ← Back to application

@@ -207,11 +207,11 @@ export default function ResultsPage() {
         else if (parsed.drawTerm) setHelocDrawTerm(Number(parsed.drawTerm));
         else setHelocDrawTerm(3);
       } catch {
-        router.push('/quote/stage1');
+        router.push('/quote/start');
         return;
       }
     } else {
-      router.push('/quote/stage1');
+      router.push('/quote/start');
       return;
     }
     setLoaded(true);
@@ -586,7 +586,7 @@ export default function ResultsPage() {
                               s1.desiredLoanAmount = String(effectiveHelocAmount);
                               s1.maxAvailable = String(displayedHelocQuote.maxAvailable);
                               localStorage.setItem('stage1-data', JSON.stringify(s1));
-                              router.push(skipOtp ? '/quote/stage2' : '/quote/verify');
+                              router.push(skipOtp ? '/quote/next-steps' : '/quote/verify-contact');
                             }}
                             className="w-full mt-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm"
                           >
@@ -647,7 +647,7 @@ export default function ResultsPage() {
                             s1.desiredLoanAmount = String(effectiveCesAmount);
                             s1.maxAvailable = String(displayedCesQuote.maxAvailable);
                             localStorage.setItem('stage1-data', JSON.stringify(s1));
-                            router.push(skipOtp ? '/quote/stage2' : '/quote/verify');
+                            router.push(skipOtp ? '/quote/next-steps' : '/quote/verify-contact');
                           }}
                           className="w-full mt-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm"
                         >
@@ -764,7 +764,7 @@ export default function ResultsPage() {
               </svg>
               Call 1-888-885-7789
             </a>
-            <button onClick={() => router.push('/quote/stage1')} className="text-gray-500 hover:text-gray-700 text-sm font-medium">
+            <button onClick={() => router.push('/quote/start')} className="text-gray-500 hover:text-gray-700 text-sm font-medium">
               Start Over
             </button>
           </div>

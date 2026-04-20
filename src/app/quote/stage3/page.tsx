@@ -100,7 +100,7 @@ export default function Stage3Page() {
     const stage2Raw = localStorage.getItem('stage2-progress');
 
     if (!stage1Raw && !stage2Raw) {
-      router.push('/quote/stage1');
+      router.push('/quote/start');
       return;
     }
 
@@ -118,7 +118,7 @@ export default function Stage3Page() {
         window.clearTimeout(hydrateTimer);
       };
     } catch {
-      router.push('/quote/stage1');
+      router.push('/quote/start');
       return;
     }
 
@@ -249,7 +249,7 @@ export default function Stage3Page() {
     localStorage.setItem('stage2-progress', JSON.stringify(s2));
 
     // Continue into the post-verification validation flow
-    router.push('/quote/validate');
+    router.push('/quote/soft-credit');
   }
 
   if (!loaded) {

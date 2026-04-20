@@ -279,7 +279,7 @@ export default function Stage1() {
         Object.entries(data).filter(([k]) => !k.startsWith('_'))
       );
       localStorage.setItem('stage1-data', JSON.stringify(stage1Clean));
-      router.push('/quote/stage1/results');
+      router.push('/quote/results');
     } else {
       setStep(prev => prev + 1);
     }

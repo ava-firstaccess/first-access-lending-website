@@ -22,7 +22,7 @@ export default function QuoteLanding() {
         <div className="space-y-4">
           
           {/* New? Get Started - Primary CTA */}
-          <Link href="/quote/stage1" className="block group">
+          <Link href="/quote/start" className="block group">
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-lg hover:shadow-xl transition-all p-6 border-2 border-transparent hover:scale-[1.02]">
               <div className="flex items-center justify-between">
                 <div className="text-left">
@@ -41,7 +41,7 @@ export default function QuoteLanding() {
           </Link>
 
           {/* Already Working With Us */}
-          <Link href="/quote/verify" className="block group">
+          <Link href="/quote/verify-contact" className="block group">
             <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all p-6 border-2 border-blue-100 hover:border-blue-300">
               <div className="flex items-center justify-between">
                 <div className="text-left">
