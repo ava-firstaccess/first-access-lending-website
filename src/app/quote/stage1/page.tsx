@@ -476,7 +476,7 @@ export default function Stage1() {
             isValid={!!data.creditScore}
             onContinue={goForward}
             onBack={step > 0 ? goBack : undefined}
-            continueText="Continue to customize loan amount, term, payment and select rate"
+            continueText="Next Step: Customize"
           >
             <div className="space-y-4">
               <input
