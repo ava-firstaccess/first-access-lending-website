@@ -6,6 +6,7 @@ interface QuoteBuilderProps {
   desiredLoanAmount?: number;
   rateRange?: { min: number; max: number };
   monthlyPayment?: number;
+  monthlyPaymentRange?: { min: number; max: number };
   progress: number;
   stage: 'stage1' | 'stage2';
 }
@@ -15,6 +16,7 @@ export default function QuoteBuilder({
   desiredLoanAmount,
   rateRange,
   monthlyPayment,
+  monthlyPaymentRange,
   progress,
   stage
 }: QuoteBuilderProps) {
@@ -86,8 +88,12 @@ export default function QuoteBuilder({
           <label className="text-sm text-gray-600 block mb-1">
             {stage === 'stage1' ? '~Monthly Payment' : 'Monthly Payment'}
           </label>
-          <div className={`text-2xl font-bold ${monthlyPayment ? 'text-gray-900' : 'text-gray-300'}`}>
-            {monthlyPayment ? formatCurrency(monthlyPayment) : '$—'}
+          <div className={`text-2xl font-bold ${(monthlyPayment || monthlyPaymentRange) ? 'text-gray-900' : 'text-gray-300'}`}>
+            {stage === 'stage1' && monthlyPaymentRange
+              ? `${formatCurrency(monthlyPaymentRange.min)} - ${formatCurrency(monthlyPaymentRange.max)}`
+              : monthlyPayment
+                ? formatCurrency(monthlyPayment)
+                : '$—'}
           </div>
         </div>
 

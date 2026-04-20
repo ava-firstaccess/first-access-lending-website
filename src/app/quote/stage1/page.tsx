@@ -116,7 +116,8 @@ export default function Stage1() {
   const [quote, setQuote] = useState({
     maxAvailable: 0,
     rateRange: { min: 0, max: 0 },
-    monthlyPayment: 0
+    monthlyPayment: 0,
+    monthlyPaymentRange: { min: 0, max: 0 }
   });
 
   // Load prefill data from localStorage (set by verify page after OTP)
@@ -147,7 +148,7 @@ export default function Stage1() {
     const optimisticCreditScore = 780;
 
     if (!propertyValue) {
-      setQuote({ maxAvailable: 0, rateRange: { min: 0, max: 0 }, monthlyPayment: 0 });
+      setQuote({ maxAvailable: 0, rateRange: { min: 0, max: 0 }, monthlyPayment: 0, monthlyPaymentRange: { min: 0, max: 0 } });
       return;
     }
 
@@ -155,7 +156,8 @@ export default function Stage1() {
       setQuote({
         maxAvailable: floorDisplayedMaxAvailable(getStage1MaxAvailable(data, optimisticCreditScore)),
         rateRange: { min: 0, max: 0 },
-        monthlyPayment: 0
+        monthlyPayment: 0,
+        monthlyPaymentRange: { min: 0, max: 0 }
       });
       return;
     }
@@ -208,18 +210,25 @@ export default function Stage1() {
           const baseResult = maxEligible ?? minEligible;
 
           if (!baseResult) {
-            setQuote({ maxAvailable: 0, rateRange: { min: 0, max: 0 }, monthlyPayment: 0 });
+            setQuote({ maxAvailable: 0, rateRange: { min: 0, max: 0 }, monthlyPayment: 0, monthlyPaymentRange: { min: 0, max: 0 } });
             return;
           }
+
+          const minPayment = Math.round(minEligible?.quote.monthlyPayment ?? baseResult.quote.monthlyPayment);
+          const maxPayment = Math.round(maxEligible?.quote.monthlyPayment ?? minEligible?.quote.monthlyPayment ?? baseResult.quote.monthlyPayment);
 
           setQuote({
             maxAvailable: displayedMaxAvailable,
             rateRange: getDisplayRateRange(minEligible?.quote.rate ?? 0, maxEligible?.quote.rate ?? minEligible?.quote.rate),
             monthlyPayment: Math.round(baseResult.quote.monthlyPayment),
+            monthlyPaymentRange: {
+              min: Math.min(minPayment, maxPayment),
+              max: Math.max(minPayment, maxPayment),
+            },
           });
         } catch (error) {
           console.error('Failed to load live Stage 1 pricing', error);
-          setQuote({ maxAvailable: 0, rateRange: { min: 0, max: 0 }, monthlyPayment: 0 });
+          setQuote({ maxAvailable: 0, rateRange: { min: 0, max: 0 }, monthlyPayment: 0, monthlyPaymentRange: { min: 0, max: 0 } });
         }
       }, 250);
       return () => window.clearTimeout(timeout);
@@ -229,7 +238,8 @@ export default function Stage1() {
       setQuote({
         maxAvailable: floorDisplayedMaxAvailable(getStage1MaxAvailable(data, optimisticCreditScore)),
         rateRange: { min: 0, max: 0 },
-        monthlyPayment: 0
+        monthlyPayment: 0,
+        monthlyPaymentRange: { min: 0, max: 0 }
       });
       return;
     }
@@ -245,7 +255,8 @@ export default function Stage1() {
     setQuote({
       maxAvailable: floorDisplayedMaxAvailable(adjustedMaxAvailable),
       rateRange: { min: 7.5, max: 8.0 },
-      monthlyPayment: Math.round(monthlyPayment)
+      monthlyPayment: Math.round(monthlyPayment),
+      monthlyPaymentRange: { min: Math.round(monthlyPayment), max: Math.round(monthlyPayment) }
     });
   }, [data]);
 
@@ -698,6 +709,7 @@ export default function Stage1() {
               maxAvailable={quote.maxAvailable}
               rateRange={quote.rateRange}
               monthlyPayment={quote.monthlyPayment}
+              monthlyPaymentRange={quote.monthlyPaymentRange}
               progress={progress}
               stage="stage1"
             />
@@ -711,6 +723,7 @@ export default function Stage1() {
             maxAvailable={quote.maxAvailable}
             rateRange={quote.rateRange}
             monthlyPayment={quote.monthlyPayment}
+            monthlyPaymentRange={quote.monthlyPaymentRange}
             progress={progress}
             stage="stage1"
           />
