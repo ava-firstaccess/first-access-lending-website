@@ -1,0 +1,60 @@
+{
+  "info": {
+    "name": "Bill Prod Test via Website API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Postman collection for testing the live First Access Lending soft credit production-test route."
+  },
+  "item": [
+    {
+      "name": "GET Soft Pull Metadata",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/credit/softpull",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "credit",
+            "softpull"
+          ]
+        }
+      }
+    },
+    {
+      "name": "POST Bill Production Test",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"mode\": \"production-test\",\n  \"borrower\": {\n    \"firstName\": \"Bill\",\n    \"middleName\": \"C\",\n    \"lastName\": \"Testcase\",\n    \"suffixName\": \"JR\",\n    \"ssn\": \"000000015\",\n    \"address\": \"8842 48th Ave\",\n    \"city\": \"Anthill\",\n    \"state\": \"MO\",\n    \"zip\": \"65488\",\n    \"preferredResponseFormat\": \"Html\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/credit/softpull",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "credit",
+            "softpull"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://first-access-lending-website.vercel.app"
+    }
+  ]
+}

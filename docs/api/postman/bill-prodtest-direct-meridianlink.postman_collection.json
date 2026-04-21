@@ -1,0 +1,75 @@
+{
+  "info": {
+    "name": "Bill Prod Test Direct to Birchwood MeridianLink",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Direct MeridianLink SmartAPI production-test request for the approved Bill Testcase file. Uses Birchwood credentials and interface id."
+  },
+  "item": [
+    {
+      "name": "POST New Credit Order Direct",
+      "request": {
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{loginId}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{password}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/xml",
+            "type": "text"
+          },
+          {
+            "key": "MCL-Interface",
+            "value": "{{interfaceId}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MESSAGE xmlns=\"http://www.mismo.org/residential/2009/schemas\" xmlns:p2=\"http://www.w3.org/1999/xlink\" xmlns:p3=\"inetapi/MISMO3_4_MCL_Extension.xsd\" MessageType=\"Request\">\n  <ABOUT_VERSIONS>\n    <ABOUT_VERSION>\n      <DataVersionIdentifier>201703</DataVersionIdentifier>\n    </ABOUT_VERSION>\n  </ABOUT_VERSIONS>\n  <DEAL_SETS>\n    <DEAL_SET>\n      <DEALS>\n        <DEAL>\n          <PARTIES>\n            <PARTY p2:label=\"Party1\">\n              <INDIVIDUAL>\n                <NAME>\n                  <FirstName>Bill</FirstName>\n                  <LastName>Testcase</LastName>\n                  <MiddleName>C</MiddleName>\n                  <SuffixName>JR</SuffixName>\n                </NAME>\n              </INDIVIDUAL>\n              <ROLES>\n                <ROLE>\n                  <BORROWER>\n                    <RESIDENCES>\n                      <RESIDENCE>\n                        <ADDRESS>\n                          <AddressLineText>8842 48th Ave</AddressLineText>\n                          <CityName>Anthill</CityName>\n                          <CountryCode>US</CountryCode>\n                          <PostalCode>65488</PostalCode>\n                          <StateCode>MO</StateCode>\n                        </ADDRESS>\n                        <RESIDENCE_DETAIL>\n                          <BorrowerResidencyType>Current</BorrowerResidencyType>\n                        </RESIDENCE_DETAIL>\n                      </RESIDENCE>\n                    </RESIDENCES>\n                  </BORROWER>\n                  <ROLE_DETAIL>\n                    <PartyRoleType>Borrower</PartyRoleType>\n                  </ROLE_DETAIL>\n                </ROLE>\n              </ROLES>\n              <TAXPAYER_IDENTIFIERS>\n                <TAXPAYER_IDENTIFIER>\n                  <TaxpayerIdentifierType>SocialSecurityNumber</TaxpayerIdentifierType>\n                  <TaxpayerIdentifierValue>000000015</TaxpayerIdentifierValue>\n                </TAXPAYER_IDENTIFIER>\n              </TAXPAYER_IDENTIFIERS>\n            </PARTY>\n          </PARTIES>\n          <RELATIONSHIPS>\n            <RELATIONSHIP p2:arcrole=\"urn:fdc:Meridianlink.com:2017:mortgage/PARTY_IsVerifiedBy_SERVICE\" p2:from=\"Party1\" p2:to=\"Service1\"/>\n          </RELATIONSHIPS>\n          <SERVICES>\n            <SERVICE p2:label=\"Service1\">\n              <CREDIT>\n                <CREDIT_REQUEST>\n                  <CREDIT_REQUEST_DATAS>\n                    <CREDIT_REQUEST_DATA>\n                      <CREDIT_REPOSITORY_INCLUDED>\n                        <CreditRepositoryIncludedEquifaxIndicator>true</CreditRepositoryIncludedEquifaxIndicator>\n                        <CreditRepositoryIncludedExperianIndicator>true</CreditRepositoryIncludedExperianIndicator>\n                        <CreditRepositoryIncludedTransUnionIndicator>true</CreditRepositoryIncludedTransUnionIndicator>\n                        <EXTENSION>\n                          <OTHER>\n                            <p3:RequestEquifaxScore>true</p3:RequestEquifaxScore>\n                            <p3:RequestExperianFraud>true</p3:RequestExperianFraud>\n                            <p3:RequestExperianScore>true</p3:RequestExperianScore>\n                            <p3:RequestTransUnionFraud>true</p3:RequestTransUnionFraud>\n                            <p3:RequestTransUnionScore>true</p3:RequestTransUnionScore>\n                          </OTHER>\n                        </EXTENSION>\n                      </CREDIT_REPOSITORY_INCLUDED>\n                      <CREDIT_REQUEST_DATA_DETAIL>\n                        <CreditReportRequestActionType>Submit</CreditReportRequestActionType>\n                      </CREDIT_REQUEST_DATA_DETAIL>\n                    </CREDIT_REQUEST_DATA>\n                  </CREDIT_REQUEST_DATAS>\n                </CREDIT_REQUEST>\n              </CREDIT>\n              <SERVICE_PRODUCT>\n                <SERVICE_PRODUCT_REQUEST>\n                  <SERVICE_PRODUCT_DETAIL>\n                    <ServiceProductDescription>CreditOrder</ServiceProductDescription>\n                    <EXTENSION>\n                      <OTHER>\n                        <p3:SERVICE_PREFERRED_RESPONSE_FORMATS>\n                          <p3:SERVICE_PREFERRED_RESPONSE_FORMAT>\n                            <p3:SERVICE_PREFERRED_RESPONSE_FORMAT_DETAIL>\n                              <p3:PreferredResponseFormatType>Html</p3:PreferredResponseFormatType>\n                            </p3:SERVICE_PREFERRED_RESPONSE_FORMAT_DETAIL>\n                          </p3:SERVICE_PREFERRED_RESPONSE_FORMAT>\n                        </p3:SERVICE_PREFERRED_RESPONSE_FORMATS>\n                      </OTHER>\n                    </EXTENSION>\n                  </SERVICE_PRODUCT_DETAIL>\n                </SERVICE_PRODUCT_REQUEST>\n              </SERVICE_PRODUCT>\n            </SERVICE>\n          </SERVICES>\n        </DEAL>\n      </DEALS>\n    </DEAL_SET>\n  </DEAL_SETS>\n</MESSAGE>\n",
+          "options": {
+            "raw": {
+              "language": "xml"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}",
+          "host": [
+            "{{baseUrl}}"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://birchwood.meridianlink.com/inetapi/request_products.aspx"
+    },
+    {
+      "key": "loginId",
+      "value": "api-fal"
+    },
+    {
+      "key": "password",
+      "value": "REPLACE_ME"
+    },
+    {
+      "key": "interfaceId",
+      "value": "FirstAccess040926"
+    }
+  ]
+}
