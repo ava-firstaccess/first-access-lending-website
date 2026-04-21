@@ -72,11 +72,28 @@ export async function POST(req: NextRequest) {
       });
 
       return NextResponse.json({
-        ...result,
+        success: result.success,
+        provider: result.provider,
+        mode: result.mode,
+        requestType: result.requestType,
+        status: result.status,
+        vendorOrderIdentifier: result.vendorOrderIdentifier,
+        borrower: {
+          firstName: result.borrower.firstName,
+          lastName: result.borrower.lastName,
+          middleName: result.borrower.middleName,
+          suffixName: result.borrower.suffixName,
+          address: result.borrower.address,
+          city: result.borrower.city,
+          state: result.borrower.state,
+          zip: result.borrower.zip,
+          preferredResponseFormat: result.borrower.preferredResponseFormat,
+          ssnLast4: result.borrower.ssn.slice(-4),
+        },
         approvedProdTestBorrower: {
           firstName: MERIDIANLINK_APPROVED_PROD_TEST.firstName,
           lastName: MERIDIANLINK_APPROVED_PROD_TEST.lastName,
-          ssn: MERIDIANLINK_APPROVED_PROD_TEST.ssn,
+          ssnLast4: MERIDIANLINK_APPROVED_PROD_TEST.ssn.slice(-4),
         },
       });
     }
@@ -156,7 +173,7 @@ export async function GET() {
       middleName: MERIDIANLINK_APPROVED_PROD_TEST.middleName,
       suffixName: MERIDIANLINK_APPROVED_PROD_TEST.suffixName,
       dob: MERIDIANLINK_APPROVED_PROD_TEST.dob,
-      ssn: MERIDIANLINK_APPROVED_PROD_TEST.ssn,
+      ssnLast4: MERIDIANLINK_APPROVED_PROD_TEST.ssn.slice(-4),
       address: MERIDIANLINK_APPROVED_PROD_TEST.address,
       city: MERIDIANLINK_APPROVED_PROD_TEST.city,
       state: MERIDIANLINK_APPROVED_PROD_TEST.state,

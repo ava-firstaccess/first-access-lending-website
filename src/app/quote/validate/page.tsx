@@ -37,7 +37,7 @@ interface CreditApiMetadata {
     middleName?: string;
     suffixName?: string;
     dob?: string;
-    ssn?: string;
+    ssnLast4?: string;
     address?: string;
     city?: string;
     state?: string;
@@ -123,7 +123,7 @@ export default function ValidatePage() {
             middleName: payload.approvedProdTestBorrower.middleName || prev.middleName,
             suffixName: payload.approvedProdTestBorrower.suffixName || prev.suffixName,
             dob: payload.approvedProdTestBorrower.dob || prev.dob,
-            ssn: payload.approvedProdTestBorrower.ssn || prev.ssn,
+            ssn: prev.ssn,
             address: payload.approvedProdTestBorrower.address || prev.address,
             city: payload.approvedProdTestBorrower.city || prev.city,
             state: payload.approvedProdTestBorrower.state || prev.state,
