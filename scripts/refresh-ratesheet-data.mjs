@@ -256,35 +256,35 @@ function generateVerus() {
 function generateArcHome() {
   const workbookPath = path.join(SOURCE_ROOT, 'getaccess', 'ratesheets', 'latest_arc_home.xlsx');
   const workbook = XLSX.readFile(workbookPath, { raw: true, cellDates: true });
-  const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Corr - Del Non-Agency'], { header: 1, raw: true, blankrows: false });
+  const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Corr - Del Non-Agency'], { header: 1, raw: true, blankrows: true });
   const lockColumns = ['15 Day', '30 Day', '45 Day', '60 Day', '75 Day', '90 Day'];
 
-  const noteRates = parsePricingBlock(rows, 1072, 1089, 2, 3, lockColumns);
+  const noteRates = parsePricingBlock(rows, 1071, 1088, 1, 2, lockColumns);
 
   return writeJson('arc-home-ratesheet.json', {
     sourceWorkbook: workbookPath,
     sheet: 'Corr - Del Non-Agency',
     section: 'All Arc Closed End Second Lien - Base Pricing',
     title: 'Correspondent Delegated Non-Agency Rates',
-    priceCode: String(rawCell(rows, 1127, 14) ?? ''),
+    priceCode: String(rawCell(rows, 1126, 13) ?? '').replace(/^Price Code:\s*/i, ''),
     program: 'Arc Home',
     products: ['10 Year Maturity', '15 Year Maturity', '20 Year Maturity', '30 Year Maturity'],
     pricing: { rows: noteRates },
     adjustments: {
-      term: parseRows(rows, 1132, 1135, 14, 15, 15).map(row => ({ label: String(row.label), value: price(row.values[0]) })),
-      cltvBuckets: Array.from({ length: 6 }, (_, index) => String(rawCell(rows, 1133, 6 + index) ?? '')),
-      fico: parseRows(rows, 1133, 1140, 3, 6, 11),
-      loanAmount: parseRows(rows, 1143, 1148, 3, 6, 11),
-      occupancy: parseRows(rows, 1151, 1153, 3, 6, 11),
-      dti: parseRows(rows, 1156, 1156, 3, 6, 11),
-      propertyType: parseRows(rows, 1159, 1162, 3, 6, 11),
+      term: parseRows(rows, 1131, 1134, 13, 14, 14).map(row => ({ label: String(row.label), value: price(row.values[0]) })),
+      cltvBuckets: Array.from({ length: 6 }, (_, index) => String(rawCell(rows, 1132, 5 + index) ?? '')),
+      fico: parseRows(rows, 1133, 1139, 2, 5, 10),
+      loanAmount: parseRows(rows, 1142, 1147, 2, 5, 10),
+      occupancy: parseRows(rows, 1150, 1152, 2, 5, 10),
+      dti: parseRows(rows, 1155, 1155, 2, 5, 10),
+      propertyType: parseRows(rows, 1158, 1161, 2, 5, 10),
       maxPrice: {
-        conditionLabel: String(rawCell(rows, 1138, 14) ?? ''),
+        conditionLabel: String(rawCell(rows, 1137, 13) ?? ''),
         rows: [
-          { term: '10 Year Maturity', withCondition: price(rawCell(rows, 1140, 14)), allElse: price(rawCell(rows, 1140, 15)) },
-          { term: '15 Year Maturity', withCondition: price(rawCell(rows, 1141, 14)), allElse: price(rawCell(rows, 1141, 15)) },
-          { term: '20 Year Maturity', withCondition: price(rawCell(rows, 1142, 14)), allElse: price(rawCell(rows, 1142, 15)) },
-          { term: '30 Year Maturity', withCondition: price(rawCell(rows, 1143, 14)), allElse: price(rawCell(rows, 1143, 15)) },
+          { term: '10 Year Maturity', withCondition: price(rawCell(rows, 1139, 13)), allElse: price(rawCell(rows, 1139, 14)) },
+          { term: '15 Year Maturity', withCondition: price(rawCell(rows, 1140, 13)), allElse: price(rawCell(rows, 1140, 14)) },
+          { term: '20 Year Maturity', withCondition: price(rawCell(rows, 1141, 13)), allElse: price(rawCell(rows, 1141, 14)) },
+          { term: '30 Year Maturity', withCondition: price(rawCell(rows, 1142, 13)), allElse: price(rawCell(rows, 1142, 14)) },
         ],
       },
     },
