@@ -253,11 +253,64 @@ function generateVerus() {
   });
 }
 
+function generateArcHome() {
+  const workbookPath = path.join(SOURCE_ROOT, 'getaccess', 'ratesheets', 'latest_arc_home.xlsx');
+  const workbook = XLSX.readFile(workbookPath, { raw: true, cellDates: true });
+  const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Corr - Del Non-Agency'], { header: 1, raw: true, blankrows: false });
+
+  const noteRates = [];
+  for (let row = 103; row <= 119; row += 1) {
+    const rate = price(rawCell(rows, row, 2));
+    if (rate === null) continue;
+    noteRates.push({
+      noteRate: rate,
+      prices: {
+        '15 Day': price(rawCell(rows, row, 3)),
+        '30 Day': price(rawCell(rows, row, 4)),
+        '45 Day': price(rawCell(rows, row, 5)),
+        '60 Day': price(rawCell(rows, row, 6)),
+      },
+    });
+  }
+
+  return writeJson('arc-home-ratesheet.json', {
+    sourceWorkbook: workbookPath,
+    sheet: 'Corr - Del Non-Agency',
+    title: 'Correspondent Delegated Non-Agency Rates',
+    priceCode: String(rawCell(rows, 148, 14) ?? ''),
+    noteRates,
+    adjustments: {
+      ltvAdjusters: {
+        label: String(rawCell(rows, 150, 6) ?? ''),
+        rows: parseRows(rows, 154, 162, 3, 6, 13),
+      },
+      ficoAdjusters: {
+        label: String(rawCell(rows, 163, 3) ?? ''),
+        rows: parseRows(rows, 164, 169, 3, 6, 13),
+      },
+      loanAmountCaps: {
+        label: String(rawCell(rows, 170, 15) ?? ''),
+        rows: [
+          { label: String(rawCell(rows, 171, 3) ?? ''), maxPrice: price(rawCell(rows, 171, 16)) },
+          { label: String(rawCell(rows, 172, 3) ?? ''), maxPrice: price(rawCell(rows, 172, 16)) },
+          { label: String(rawCell(rows, 173, 3) ?? ''), maxPrice: price(rawCell(rows, 173, 16)) },
+          { label: String(rawCell(rows, 174, 3) ?? ''), maxPrice: price(rawCell(rows, 174, 16)) },
+          { label: String(rawCell(rows, 175, 3) ?? ''), maxPrice: price(rawCell(rows, 175, 16)) },
+          { label: String(rawCell(rows, 176, 3) ?? ''), maxPrice: price(rawCell(rows, 176, 16)) },
+          { label: String(rawCell(rows, 177, 3) ?? ''), maxPrice: price(rawCell(rows, 177, 16)) },
+          { label: String(rawCell(rows, 178, 3) ?? ''), maxPrice: price(rawCell(rows, 178, 16)) },
+          { label: String(rawCell(rows, 179, 3) ?? ''), maxPrice: price(rawCell(rows, 179, 16)) },
+        ],
+      },
+    },
+  });
+}
+
 function main() {
   run('python3', ['scripts/generate-button-ratesheet-data.py']);
   run('python3', ['scripts/generate-osb-ratesheet-data.py']);
   run('python3', ['scripts/generate-vista-ratesheet-data.py']);
-  const outputs = [generateNewRez(), generateDeephaven(), generateVerus()];
+  const outputs = [generateNewRez(), generateDeephaven(), generateVerus(), generateArcHome()];
   console.log(JSON.stringify({ updated: outputs }, null, 2));
 }
 
