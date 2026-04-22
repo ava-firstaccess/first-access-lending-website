@@ -1,0 +1,185 @@
+{
+  "sourceWorkbook": "/Users/ava/Documents/GitHub/first-access-lending/getaccess/ratesheets/latest_arc_home.xlsx",
+  "sheet": "Corr - Del Non-Agency",
+  "title": "Correspondent Delegated Non-Agency Rates",
+  "priceCode": "",
+  "noteRates": [
+    {
+      "noteRate": 106.518,
+      "prices": {
+        "15 Day": 106.456,
+        "30 Day": 106.393,
+        "45 Day": 106.331,
+        "60 Day": null
+      }
+    },
+    {
+      "noteRate": 106.846,
+      "prices": {
+        "15 Day": 106.784,
+        "30 Day": 106.721,
+        "45 Day": 106.659,
+        "60 Day": null
+      }
+    },
+    {
+      "noteRate": 107.128,
+      "prices": {
+        "15 Day": 107.065,
+        "30 Day": 107.003,
+        "45 Day": 106.94,
+        "60 Day": null
+      }
+    },
+    {
+      "noteRate": 107.409,
+      "prices": {
+        "15 Day": 107.346,
+        "30 Day": 107.284,
+        "45 Day": 107.221,
+        "60 Day": null
+      }
+    },
+    {
+      "noteRate": 107.69,
+      "prices": {
+        "15 Day": 107.628,
+        "30 Day": 107.565,
+        "45 Day": 107.503,
+        "60 Day": null
+      }
+    },
+    {
+      "noteRate": 107.94,
+      "prices": {
+        "15 Day": 107.878,
+        "30 Day": 107.815,
+        "45 Day": 107.753,
+        "60 Day": null
+      }
+    },
+    {
+      "noteRate": 108.19,
+      "prices": {
+        "15 Day": 108.128,
+        "30 Day": 108.065,
+        "45 Day": 108.003,
+        "60 Day": null
+      }
+    },
+    {
+      "noteRate": 108.44,
+      "prices": {
+        "15 Day": 108.378,
+        "30 Day": 108.315,
+        "45 Day": 108.253,
+        "60 Day": null
+      }
+    },
+    {
+      "noteRate": 108.69,
+      "prices": {
+        "15 Day": 108.628,
+        "30 Day": 108.565,
+        "45 Day": 108.503,
+        "60 Day": null
+      }
+    },
+    {
+      "noteRate": 108.94,
+      "prices": {
+        "15 Day": 108.878,
+        "30 Day": 108.815,
+        "45 Day": 108.753,
+        "60 Day": null
+      }
+    },
+    {
+      "noteRate": 109.19,
+      "prices": {
+        "15 Day": 109.128,
+        "30 Day": 109.065,
+        "45 Day": 109.003,
+        "60 Day": null
+      }
+    },
+    {
+      "noteRate": 109.44,
+      "prices": {
+        "15 Day": 109.378,
+        "30 Day": 109.315,
+        "45 Day": 109.253,
+        "60 Day": null
+      }
+    },
+    {
+      "noteRate": 109.69,
+      "prices": {
+        "15 Day": 109.628,
+        "30 Day": 109.565,
+        "45 Day": 109.503,
+        "60 Day": null
+      }
+    },
+    {
+      "noteRate": 109.94,
+      "prices": {
+        "15 Day": 109.878,
+        "30 Day": 109.815,
+        "45 Day": 109.753,
+        "60 Day": null
+      }
+    }
+  ],
+  "adjustments": {
+    "ltvAdjusters": {
+      "label": "-0.5",
+      "rows": []
+    },
+    "ficoAdjusters": {
+      "label": "",
+      "rows": []
+    },
+    "loanAmountCaps": {
+      "label": "",
+      "rows": [
+        {
+          "label": "",
+          "maxPrice": null
+        },
+        {
+          "label": "",
+          "maxPrice": null
+        },
+        {
+          "label": "",
+          "maxPrice": null
+        },
+        {
+          "label": "",
+          "maxPrice": null
+        },
+        {
+          "label": "",
+          "maxPrice": null
+        },
+        {
+          "label": "",
+          "maxPrice": null
+        },
+        {
+          "label": "",
+          "maxPrice": null
+        },
+        {
+          "label": "",
+          "maxPrice": null
+        },
+        {
+          "label": "",
+          "maxPrice": null
+        }
+      ]
+    }
+  }
+}
