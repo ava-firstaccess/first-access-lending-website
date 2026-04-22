@@ -98,7 +98,7 @@ const DRAW_TABLE = ratesheet.tables.draw as {
 };
 
 const BUTTON_MAX_PURCHASE_PRICE = 105;
-const BUTTON_45_DAY_LOCK_ADJUSTMENT = 0.125;
+const BUTTON_45_DAY_LOCK_ADJUSTMENT = -0.125;
 
 const SECOND_LIEN_MARGIN_TARGETS = [
   { min: 0, max: 100000, backendFee: 0.06 },
