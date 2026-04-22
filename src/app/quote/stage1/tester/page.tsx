@@ -1,5 +1,5 @@
-import { Stage1PricingPage } from '@/components/Stage1PricingPage';
+import { redirect } from 'next/navigation';
 
 export default function Page() {
-  return <Stage1PricingPage mode="tester" />;
+  redirect('/tester');
 }
