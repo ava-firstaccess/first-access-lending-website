@@ -168,13 +168,15 @@ export function calculateArcHomeStage1Quote(
     };
   }
 
-  const adjustments = buildAdjustmentLines(input, selectedLoanAmount);
-  const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
+  const baseAdjustments = buildAdjustmentLines(input, selectedLoanAmount);
+  const llpaAdjustment = roundToThree(baseAdjustments.reduce((sum, row) => sum + row.value, 0));
   const maxPrice = getMaxPriceCap(input.product);
   const effectiveTargetPrice = Math.min(targetPrice, maxPrice);
   const selected = options?.rateOverride !== undefined
     ? pickExecutionByRate(input, options.rateOverride, llpaAdjustment)
     : pickExecutionAtOrBelowTarget(input, effectiveTargetPrice, llpaAdjustment);
+  const lockPeriodAdjustment = getLockPeriodDisplayAdjustment(input.lockPeriodDays, selected.noteRate);
+  const adjustments = [{ label: `Lock Period: ${input.lockPeriodDays} Day`, value: lockPeriodAdjustment }, ...baseAdjustments];
 
   return {
     program: 'Arc Home',
@@ -375,8 +377,20 @@ function getPricingRow(lockPeriodDays: ArcHomeLockPeriod): PriceRow | null {
   return rows.length > 0 ? rows[0] : null;
 }
 
+function getPriceRowByNoteRate(noteRate: number): PriceRow | null {
+  return getPricingRows().find(row => Math.abs(row.noteRate - noteRate) < 0.0001) ?? null;
+}
+
 function getBasePrice(row: PriceRow, lockPeriodDays: ArcHomeLockPeriod): number {
   return Number(row.prices[LOCK_PERIOD_COLUMNS[lockPeriodDays]] ?? 0);
+}
+
+function getLockPeriodDisplayAdjustment(lockPeriodDays: ArcHomeLockPeriod, noteRate: number): number {
+  const row = getPriceRowByNoteRate(noteRate);
+  if (!row) return 0;
+  const selected = getBasePrice(row, lockPeriodDays);
+  const benchmark = getBasePrice(row, 45);
+  return roundToThree(selected - benchmark);
 }
 
 function getMaxPriceCap(product: ArcHomeProduct): number {
