@@ -1,4 +1,4 @@
-export type PricingViewEngine = 'BestX' | 'Button' | 'Vista' | 'OSB' | 'NewRez' | 'Verus' | 'Deephaven';
+export type PricingViewEngine = 'BestX' | 'Button' | 'Arc Home' | 'Vista' | 'OSB' | 'NewRez' | 'Verus' | 'Deephaven';
 
 export type VistaProduct = '30yr Fixed' | '20yr Fixed' | '15yr Fixed' | '10yr Fixed';
 export type SharedDocType = 'Full Doc' | 'Bank Statement' | '1099' | 'Asset Depletion' | 'P&L Only' | 'WVOE';
@@ -15,6 +15,8 @@ export type VerusLockPeriodDays = 30 | 45 | 60;
 export type DeephavenProgram = 'Equity Advantage' | 'Equity Advantage Elite';
 export type DeephavenProduct = '15Y Fixed' | '20Y Fixed' | '30Y Fixed';
 export type DeephavenDocType = 'Full Doc' | 'Bank Statement' | 'P&L Only';
+export type ArcHomeProduct = '10 Year Maturity' | '15 Year Maturity' | '20 Year Maturity' | '30 Year Maturity';
+export type ArcHomeLockPeriodDays = 15 | 30 | 45 | 60 | 75 | 90;
 export type ButtonProduct = 'HELOC' | 'CES';
 export type ButtonDocType = 'Full Doc' | 'Bank Statement' | 'Asset Depletion';
 export type BestExProduct = 'HELOC' | 'CES';
@@ -26,6 +28,8 @@ export type StructureType = 'SFR' | 'Condo' | 'Townhome' | 'PUD' | '2-4 Unit';
 
 export type TesterInput = {
   buttonProduct?: ButtonProduct;
+  arcHomeProduct?: ArcHomeProduct;
+  arcHomeLockPeriodDays?: ArcHomeLockPeriodDays;
   product?: string;
   propertyState?: string;
   propertyValue?: number;
@@ -61,7 +65,7 @@ export type TesterInput = {
   bestExDocType?: SharedDocType;
 };
 
-export type Stage1PricingEngine = 'Button' | 'Vista' | 'OSB' | 'NewRez' | 'Verus' | 'Deephaven';
+export type Stage1PricingEngine = 'Button' | 'Arc Home' | 'Vista' | 'OSB' | 'NewRez' | 'Verus' | 'Deephaven';
 export type Stage1AdjustmentLine = { label: string; value: number };
 export type Stage1Eligibility = { eligible: boolean; reasons: string[]; maxAvailable: number; resultingCltv: number };
 export type Stage1ExecutionQuote = { engine: Stage1PricingEngine; program: string; product: string; maxAvailable: number; rate: number; noteRate: number; monthlyPayment: number; maxLtv: number; purchasePrice: number; basePrice: number; llpaAdjustment: number; adjustments: Stage1AdjustmentLine[] };
@@ -75,6 +79,8 @@ export type Stage1PricingResponse = { defaultBackendTargetPrice: number; effecti
 
 export const defaultInput: TesterInput = {
   buttonProduct: 'HELOC',
+  arcHomeProduct: '30 Year Maturity',
+  arcHomeLockPeriodDays: 45,
   vistaProduct: '30yr Fixed',
   vistaDocType: 'Full Doc',
   newrezProduct: '30 Year Fixed',
