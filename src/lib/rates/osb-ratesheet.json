@@ -1017,8 +1017,8 @@
       },
       "lockAdjustments": [
         {
-          "label": "15 day",
-          "value": 0.15
+          "label": "30 day",
+          "value": 0
         },
         {
           "label": "45 day",
@@ -1854,8 +1854,8 @@
       },
       "lockAdjustments": [
         {
-          "label": "15 day",
-          "value": 0.15
+          "label": "30 day",
+          "value": 0
         },
         {
           "label": "45 day",

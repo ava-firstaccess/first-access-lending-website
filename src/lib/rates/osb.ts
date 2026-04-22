@@ -5,7 +5,7 @@ export type OsbProgram = '2nd Liens' | 'HELOC';
 export type OsbSecondLienProduct = 'Fixed 10' | 'Fixed 15' | 'Fixed 20' | 'Fixed 30';
 export type OsbHelocProduct = '20 Year Maturity' | '30 Year Maturity';
 export type OsbProduct = OsbSecondLienProduct | OsbHelocProduct;
-export type OsbLockPeriod = 15 | 45 | 60;
+export type OsbLockPeriod = 30 | 45 | 60;
 
 export interface OsbPricingInput {
   program: OsbProgram;
@@ -290,7 +290,6 @@ export function evaluateOsbEligibility(input: OsbPricingInput, selectedLoanAmoun
   const state = findAdjustment(program.adjustments.property, 'Tier 2 States: Other*');
   if (state && !TIER_1_STATES.has(input.propertyState) && cltvBucketIndex !== null && adjustmentBucketValue(state, cltvBucketIndex) === null) reasons.push('Tier 2 state pricing is not eligible at this CLTV in the workbook.');
 
-  if (findLockAdjustment(program.lockAdjustments, lockPeriodLabel(input.lockPeriodDays)) === null) reasons.push('Selected lock period is not available in the workbook.');
   if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
 
   return {
@@ -329,8 +328,8 @@ function buildAdjustmentLines(input: OsbPricingInput, selectedLoanAmount: number
     adjustments.push({ label: 'State: Tier 2 States: Other*', value: lookupAdjustmentValue(state, program.cltvBuckets, input.resultingCltv) });
   }
 
-  const lock = findLockAdjustment(program.lockAdjustments, lockPeriodLabel(input.lockPeriodDays));
-  if (lock?.value) adjustments.push({ label: `Lock Period: ${lock.label}`, value: lock.value });
+  const lock = getLockAdjustment(program.lockAdjustments, lockPeriodLabel(input.lockPeriodDays));
+  adjustments.push({ label: `Lock Period: ${lock.label}`, value: lock.value });
 
   return adjustments.filter(row => Number.isFinite(row.value));
 }
@@ -450,8 +449,9 @@ function findAdjustment(rows: JsonBucketRow[], label: string): JsonBucketRow | n
   return rows.find(row => String(row.label ?? row.creditScore ?? '') === label) ?? null;
 }
 
-function findLockAdjustment(rows: Array<{ label: string; value: number | null }>, label: string) {
-  return rows.find(row => row.label === label) ?? null;
+function getLockAdjustment(rows: Array<{ label: string; value: number | null }>, label: string): { label: string; value: number } {
+  const row = rows.find(item => item.label === label);
+  return { label, value: row?.value ?? 0 };
 }
 
 function lookupAdjustmentValue(row: JsonBucketRow, buckets: string[], cltv: number): number {

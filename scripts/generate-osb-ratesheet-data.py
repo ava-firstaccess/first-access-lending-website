@@ -28,6 +28,19 @@ def price(value):
     return value
 
 
+def normalize_lock_adjustments(sheet, row_start, row_end, label_col, value_col):
+    raw = {
+        str(sheet.cell(row, label_col).value).strip(): price(sheet.cell(row, value_col).value)
+        for row in range(row_start, row_end + 1)
+        if sheet.cell(row, label_col).value
+    }
+    return [
+        {'label': '30 day', 'value': raw.get('30 day', 0) or 0},
+        {'label': '45 day', 'value': raw.get('45 day', 0) or 0},
+        {'label': '60 day', 'value': raw.get('60 day', 0) or 0},
+    ]
+
+
 wb = load_workbook(WORKBOOK, data_only=True)
 
 second = wb['2nd Liens']
@@ -87,10 +100,7 @@ data = {
                     for row in range(35, 40)
                 ],
             },
-            'lockAdjustments': [
-                {'label': str(second.cell(row, 24).value), 'value': price(second.cell(row, 25).value)}
-                for row in range(19, 22)
-            ],
+            'lockAdjustments': normalize_lock_adjustments(second, 19, 21, 24, 25),
         },
         'heloc': {
             'sheet': 'HELOC',
@@ -143,10 +153,7 @@ data = {
                     for row in range(33, 40)
                 ],
             },
-            'lockAdjustments': [
-                {'label': str(heloc.cell(row, 22).value), 'value': price(heloc.cell(row, 23).value)}
-                for row in range(21, 24)
-            ],
+            'lockAdjustments': normalize_lock_adjustments(heloc, 21, 23, 22, 23),
             'armFeatures': {
                 str(heloc.cell(row, 19).value): normalize(heloc.cell(row, 20).value)
                 for row in range(21, 26)
