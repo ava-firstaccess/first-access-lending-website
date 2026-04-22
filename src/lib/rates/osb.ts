@@ -1,5 +1,6 @@
 import ratesheet from './osb-ratesheet.json';
 import { getTargetPurchasePriceForLoanAmount, type ButtonStage1Input } from './button';
+import type { SharedDocType } from '@/lib/stage1-pricing/types';
 
 export type OsbProgram = '2nd Liens' | 'HELOC';
 export type OsbSecondLienProduct = 'Fixed 10' | 'Fixed 15' | 'Fixed 20' | 'Fixed 30';
@@ -10,6 +11,7 @@ export type OsbLockPeriod = 30 | 45 | 60;
 export interface OsbPricingInput {
   program: OsbProgram;
   product: OsbProduct;
+  docType: SharedDocType;
   propertyState: string;
   propertyValue: number;
   loanBalance: number;
@@ -78,6 +80,7 @@ type JsonProgram = {
   cltvBuckets: string[];
   creditMatrix: JsonBucketRow[];
   adjustments: Record<string, JsonBucketRow[]>;
+  documentationAdjustments?: Array<{ label: string; value: number | null }>;
   lockAdjustments: Array<{ label: string; value: number | null }>;
   armFeatures?: {
     'Index-PRIME'?: number;
@@ -90,6 +93,7 @@ const TIER_1_STATES = new Set(['NV', 'LA', 'FL', 'GA', 'SC', 'CO', 'AZ', 'NC']);
 export function buildOsbStage1PricingInput(stage1: ButtonStage1Input & {
   osbProgram?: OsbProgram;
   osbProduct?: OsbProduct;
+  osbDocType?: SharedDocType;
   osbLockPeriodDays?: OsbLockPeriod;
   helocDrawTermYears?: 3 | 5 | 10;
 }): OsbPricingInput {
@@ -115,6 +119,7 @@ export function buildOsbStage1PricingInput(stage1: ButtonStage1Input & {
     structureType: normalizeStructureType(stage1.structureType),
     unitCount: Number(stage1.numberOfUnits || 1),
     cashOut: Boolean(stage1.cashOut),
+    docType: (stage1 as ButtonStage1Input & { osbDocType?: SharedDocType }).osbDocType ?? 'Full Doc',
     helocDrawTermYears: stage1.helocDrawTermYears ?? 5,
     lockPeriodDays: stage1.osbLockPeriodDays ?? 45,
   };
@@ -124,6 +129,7 @@ export function calculateOsbStage1Quote(
   stage1: ButtonStage1Input & {
     osbProgram?: OsbProgram;
     osbProduct?: OsbProduct;
+    osbDocType?: SharedDocType;
     osbLockPeriodDays?: OsbLockPeriod;
     helocDrawTermYears?: 3 | 5 | 10;
   },
@@ -136,6 +142,7 @@ export function evaluateOsbStage1Eligibility(
   stage1: ButtonStage1Input & {
     osbProgram?: OsbProgram;
     osbProduct?: OsbProduct;
+    osbDocType?: SharedDocType;
     osbLockPeriodDays?: OsbLockPeriod;
     helocDrawTermYears?: 3 | 5 | 10;
   },
@@ -149,6 +156,7 @@ export function solveOsbStage1TargetRate(
   stage1: ButtonStage1Input & {
     osbProgram?: OsbProgram;
     osbProduct?: OsbProduct;
+    osbDocType?: SharedDocType;
     osbLockPeriodDays?: OsbLockPeriod;
     helocDrawTermYears?: 3 | 5 | 10;
   },
@@ -306,6 +314,11 @@ function buildAdjustmentLines(input: OsbPricingInput, selectedLoanAmount: number
   const cltv = buildCltvAdjustment(program, input.creditScore, input.resultingCltv);
   if (cltv) adjustments.push(cltv);
 
+  if (input.program === '2nd Liens' && input.docType !== 'Full Doc') {
+    const doc = findDocumentationAdjustment(program.documentationAdjustments, input.docType);
+    if (doc) adjustments.push({ label: `Doc Type: ${doc.label}`, value: doc.value });
+  }
+
   if (input.program === 'HELOC') {
     const draw = findAdjustment(program.adjustments.drawTerm, drawTermLabel(input.helocDrawTermYears));
     if (draw) adjustments.push({ label: `Draw Term: ${draw.label}`, value: lookupAdjustmentValue(draw, program.cltvBuckets, input.resultingCltv) });
@@ -447,6 +460,12 @@ function findCltvBucketIndex(buckets: string[], cltv: number): number | null {
 
 function findAdjustment(rows: JsonBucketRow[], label: string): JsonBucketRow | null {
   return rows.find(row => String(row.label ?? row.creditScore ?? '') === label) ?? null;
+}
+
+function findDocumentationAdjustment(rows: Array<{ label: string; value: number | null }> | undefined, label: SharedDocType): { label: string; value: number } | null {
+  if (!rows) return null;
+  const row = rows.find(item => item.label === label);
+  return row ? { label, value: row.value ?? 0 } : null;
 }
 
 function getLockAdjustment(rows: Array<{ label: string; value: number | null }>, label: string): { label: string; value: number } {

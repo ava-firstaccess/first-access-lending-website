@@ -100,6 +100,13 @@ data = {
                     for row in range(35, 40)
                 ],
             },
+            'documentationAdjustments': [
+                {'label': 'Bank Statement', 'value': 0},
+                {'label': '1099', 'value': 0},
+                {'label': 'Asset Depletion', 'value': 0},
+                {'label': 'P&L Only', 'value': 0},
+                {'label': 'WVOE', 'value': 0},
+            ],
             'lockAdjustments': normalize_lock_adjustments(second, 19, 21, 24, 25),
         },
         'heloc': {

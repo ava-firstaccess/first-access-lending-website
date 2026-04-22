@@ -72,8 +72,9 @@ function mapBestExDocTypeToVerus(docType: SharedDocType, product: 'CES' | 'HELOC
   return null;
 }
 
-function mapBestExDocTypeToOsb(docType: SharedDocType): 'Full Doc' | null {
-  return docType === 'Full Doc' ? 'Full Doc' : null;
+function mapBestExDocTypeToOsb(docType: SharedDocType, product: 'HELOC' | 'CES'): SharedDocType | null {
+  if (product === 'HELOC') return docType === 'Full Doc' ? 'Full Doc' : null;
+  return docType;
 }
 
 function mapBestExDocTypeToDeephaven(docType: SharedDocType): DeephavenDocType | null {
@@ -159,10 +160,10 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
     results.push(makeIneligible('Vista', 'CES Only', 'HELOC', 'Vista only supports CES pricing in Best Ex.'));
     results.push(makeIneligible('NewRez', 'CES Only', 'HELOC', 'NewRez only supports CES pricing in Best Ex.'));
     results.push(makeIneligible('Deephaven', 'CES Only', 'HELOC', 'Deephaven only supports CES pricing in Best Ex.'));
-    const osbDocType = mapBestExDocTypeToOsb(bestExDocType);
+    const osbDocType = mapBestExDocTypeToOsb(bestExDocType, 'HELOC');
     if (!osbDocType) results.push(makeIneligible('OSB', 'HELOC', '30 Year Maturity', `OSB does not support ${bestExDocType} pricing in this engine.`));
     else if (actualLockPeriodDays !== 30 && actualLockPeriodDays !== 45 && actualLockPeriodDays !== 60) results.push(makeIneligible('OSB', 'HELOC', '30 Year Maturity', `OSB HELOC only supports padded lock pricing at 30, 45, or 60 days, not ${actualLockPeriodDays}.`));
-    else { const osbInput = { ...input, osbProgram: 'HELOC' as const, osbProduct: '30 Year Maturity' as const, osbLockPeriodDays: actualLockPeriodDays as OsbLockPeriod, helocDrawTermYears: bestExDrawPeriodYears }; const eligibility = evaluateOsbStage1Eligibility(osbInput, selectedLoanAmount); const baseQuote = calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); const maxPrice = solveOsbStage1TargetRate(osbInput, { targetPrice: 999, tolerance, selectedLoanAmount }).purchasePrice; results.push(chooseBestXSummary(eligibility, toQuote('OSB', baseQuote), osbHelocRequestedRates, rateOverride => toQuote('OSB', calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })), maxPrice)); }
+    else { const osbInput = { ...input, osbProgram: 'HELOC' as const, osbProduct: '30 Year Maturity' as const, osbDocType: osbDocType ?? 'Full Doc', osbLockPeriodDays: actualLockPeriodDays as OsbLockPeriod, helocDrawTermYears: bestExDrawPeriodYears }; const eligibility = evaluateOsbStage1Eligibility(osbInput, selectedLoanAmount); const baseQuote = calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); const maxPrice = solveOsbStage1TargetRate(osbInput, { targetPrice: 999, tolerance, selectedLoanAmount }).purchasePrice; results.push(chooseBestXSummary(eligibility, toQuote('OSB', baseQuote), osbHelocRequestedRates, rateOverride => toQuote('OSB', calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })), maxPrice)); }
     const verusDocType = mapBestExDocTypeToVerus(bestExDocType, 'HELOC');
     if (!verusDocType) results.push(makeIneligible('Verus', 'HELOC', '30 YR', `Verus does not support ${bestExDocType} pricing for HELOC.`));
     else if (bestExDrawPeriodYears === 10) results.push(makeIneligible('Verus', 'HELOC', '30 YR', 'Verus HELOC supports 3 or 5 year draw periods only.'));
@@ -189,11 +190,11 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
     else { const newrezInput = { ...input, newrezProduct }; const eligibility = evaluateNewRezStage1Eligibility(newrezInput, selectedLoanAmount); const baseQuote = calculateNewRezStage1Quote(newrezInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); const maxPrice = solveNewRezStage1TargetRate(newrezInput, { targetPrice: 999, tolerance, selectedLoanAmount }).purchasePrice; results.push(chooseBestXSummary(eligibility, toQuote('NewRez', baseQuote), standardRequestedRates, rateOverride => toQuote('NewRez', calculateNewRezStage1Quote(newrezInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })), maxPrice)); }
     const osbProducts: Partial<Record<BestExTermYears, TesterInput['osbProduct']>> = { 10: 'Fixed 10', 15: 'Fixed 15', 20: 'Fixed 20', 30: 'Fixed 30' };
     const osbProduct = osbProducts[bestExTermYears];
-    const osbDocType = mapBestExDocTypeToOsb(bestExDocType);
+    const osbDocType = mapBestExDocTypeToOsb(bestExDocType, 'CES');
     if (!osbProduct) results.push(makeIneligible('OSB', '2nd Liens', `${bestExTermYears} Year`, `OSB does not support ${bestExTermYears}-year CES pricing.`));
     else if (!osbDocType) results.push(makeIneligible('OSB', '2nd Liens', osbProduct, `OSB does not support ${bestExDocType} pricing in this engine.`));
     else if (actualLockPeriodDays !== 30 && actualLockPeriodDays !== 45 && actualLockPeriodDays !== 60) results.push(makeIneligible('OSB', '2nd Liens', osbProduct, `OSB only supports padded lock pricing at 30, 45, or 60 days, not ${actualLockPeriodDays}.`));
-    else { const osbInput = { ...input, osbProgram: '2nd Liens' as const, osbProduct, osbLockPeriodDays: actualLockPeriodDays as OsbLockPeriod }; const eligibility = evaluateOsbStage1Eligibility(osbInput, selectedLoanAmount); const baseQuote = calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); const maxPrice = solveOsbStage1TargetRate(osbInput, { targetPrice: 999, tolerance, selectedLoanAmount }).purchasePrice; results.push(chooseBestXSummary(eligibility, toQuote('OSB', baseQuote), standardRequestedRates, rateOverride => toQuote('OSB', calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })), maxPrice)); }
+    else { const osbInput = { ...input, osbProgram: '2nd Liens' as const, osbProduct, osbDocType: osbDocType ?? 'Full Doc', osbLockPeriodDays: actualLockPeriodDays as OsbLockPeriod }; const eligibility = evaluateOsbStage1Eligibility(osbInput, selectedLoanAmount); const baseQuote = calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); const maxPrice = solveOsbStage1TargetRate(osbInput, { targetPrice: 999, tolerance, selectedLoanAmount }).purchasePrice; results.push(chooseBestXSummary(eligibility, toQuote('OSB', baseQuote), standardRequestedRates, rateOverride => toQuote('OSB', calculateOsbStage1Quote(osbInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })), maxPrice)); }
     const verusProducts: Record<BestExTermYears, TesterInput['verusProduct']> = { 10: '10 YR FIX', 15: '15 YR FIX', 20: '20 YR FIX', 25: '25 YR FIX', 30: '30 YR FIX' };
     const verusDocType = mapBestExDocTypeToVerus(bestExDocType, 'CES');
     if (!verusDocType) results.push(makeIneligible('Verus', 'CES', verusProducts[bestExTermYears]!, `Verus does not support ${bestExDocType} pricing for CES.`));
