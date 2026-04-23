@@ -102,7 +102,7 @@ export const defaultInput: TesterInput = {
   bestExProduct: 'HELOC',
   bestExDrawPeriodYears: 5,
   bestExTermYears: 30,
-  bestExLockPeriodDays: 45,
+  bestExLockPeriodDays: 30,
   bestExDocType: 'Full Doc',
   propertyState: 'CA',
   propertyValue: 750000,

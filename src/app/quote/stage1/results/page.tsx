@@ -286,7 +286,7 @@ export default function ResultsPage() {
               bestExProduct: 'HELOC',
               bestExDrawPeriodYears: helocDrawTerm,
               bestExTermYears: helocTotalTerm,
-              bestExLockPeriodDays: 45,
+              bestExLockPeriodDays: 30,
               bestExDocType: 'Full Doc',
               propertyState: String(stage1.propertyState || ''),
               propertyValue,
@@ -342,7 +342,7 @@ export default function ResultsPage() {
             input: {
               bestExProduct: 'CES',
               bestExTermYears: cesTerm,
-              bestExLockPeriodDays: 45,
+              bestExLockPeriodDays: 30,
               bestExDocType: 'Full Doc',
               propertyState: String(stage1.propertyState || ''),
               propertyValue,

@@ -98,7 +98,8 @@ const DRAW_TABLE = ratesheet.tables.draw as {
 };
 
 const BUTTON_MAX_PURCHASE_PRICE = 105;
-const BUTTON_45_DAY_LOCK_ADJUSTMENT = -0.125;
+const BUTTON_LOCK_EXTENSION_PER_15_DAYS = -0.125;
+const BUTTON_LOCK_BASELINE_DAYS = 30;
 
 const SECOND_LIEN_MARGIN_TARGETS = [
   { min: 0, max: 99999, backendFee: 0.06 },
@@ -184,6 +185,7 @@ export function calculateButtonQuote(
     helocDrawTermYears?: number;
     helocTotalTermYears?: number;
     cesTermYears?: number;
+    lockPeriodDays?: number;
   }
 ): ButtonQuote {
   const maxAvailable = calculateMaxAvailable(input);
@@ -226,6 +228,7 @@ export function calculateButtonStage1Quote(
     helocDrawTermYears?: number;
     helocTotalTermYears?: number;
     cesTermYears?: number;
+    lockPeriodDays?: number;
   }
 ): ButtonQuote {
   return calculateButtonQuote(buildButtonStage1PricingInput(stage1), options);
@@ -295,6 +298,7 @@ export function solveButtonStage1TargetRate(
     helocDrawTermYears?: number;
     helocTotalTermYears?: number;
     cesTermYears?: number;
+    lockPeriodDays?: number;
   }
 ): ButtonTargetRateQuote {
   const input = buildButtonStage1PricingInput(stage1);
@@ -467,12 +471,14 @@ function buildAdjustmentLines(
     helocDrawTermYears?: number;
     helocTotalTermYears?: number;
     cesTermYears?: number;
+    lockPeriodDays?: number;
   },
   cltvAdj?: number
 ): Stage1AdjustmentLine[] {
   const adjustments: Stage1AdjustmentLine[] = [];
   const occupancy = normalizeOccupancy(input.occupancy);
   const normalizedStructure = normalizeStructureType(input.structureType);
+  const lockPeriodDays = Math.max(0, Math.round(options?.lockPeriodDays ?? 60));
 
   adjustments.push({ label: `Doc Type: ${input.docType}`, value: 0 });
   if (cltvAdj !== undefined) {
@@ -481,7 +487,10 @@ function buildAdjustmentLines(
       value: cltvAdj,
     });
   }
-  adjustments.push({ label: 'Lock Period: 45 Day', value: BUTTON_45_DAY_LOCK_ADJUSTMENT });
+  const lockExtensionCount = (lockPeriodDays - BUTTON_LOCK_BASELINE_DAYS) / 15;
+  if (Number.isFinite(lockExtensionCount) && Math.abs(lockExtensionCount - Math.round(lockExtensionCount)) < 1e-9) {
+    adjustments.push({ label: `Lock Period: ${lockPeriodDays} Day`, value: roundToThree(lockExtensionCount * BUTTON_LOCK_EXTENSION_PER_15_DAYS) });
+  }
 
   if (occupancy === 'Second Home') {
     adjustments.push({ label: 'Second Home', value: getLookupValue(OCCUPANCY_TABLE, 'Second Home', cltvIndex) });
@@ -497,7 +506,7 @@ function buildAdjustmentLines(
     adjustments.push({ label: 'Cash Out', value: getMatrixValue(CASH_OUT_TABLE.values, 0, cltvIndex) });
   }
 
-  const dtiAdjustment = getDtiAdjustment(input, cltvIndex, options);
+  const dtiAdjustment = getDtiAdjustment(input, cltvIndex);
   if (dtiAdjustment) {
     adjustments.push(dtiAdjustment);
   }
@@ -512,12 +521,7 @@ function buildAdjustmentLines(
 
 function getDtiAdjustment(
   input: ButtonPricingInput,
-  cltvIndex: number,
-  _options?: {
-    helocDrawTermYears?: number;
-    helocTotalTermYears?: number;
-    cesTermYears?: number;
-  }
+  cltvIndex: number
 ): Stage1AdjustmentLine | null {
   const dtiLabel = getButtonDtiLabel(input.dti);
   if (!dtiLabel) return null;
