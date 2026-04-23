@@ -6,7 +6,7 @@ export type NewRezEndSeconds = 'BE15' | 'BE30' | 'BE45' | 'BE60' | 'BE75' | 'BE9
 
 export interface NewRezPricingInput {
   product: NewRezProduct;
-  lockPeriodDays: 45 | 60 | 75 | 90;
+  lockPeriodDays: 15 | 30 | 45 | 60;
   propertyState: string;
   propertyValue: number;
   loanBalance: number;
@@ -104,7 +104,7 @@ export function buildNewRezStage1PricingInput(stage1: ButtonStage1Input & { newr
 
   return {
     product: normalizeProduct(stage1.newrezProduct),
-    lockPeriodDays: ((Number(stage1.newrezLockPeriodDays ?? 30) || 30) + 30) as 45 | 60 | 75 | 90,
+    lockPeriodDays: normalizeNewRezLockPeriodDays(stage1.newrezLockPeriodDays),
     propertyState: String(stage1.propertyState || '').toUpperCase(),
     propertyValue,
     loanBalance,
@@ -169,7 +169,7 @@ export function calculateNewRezQuote(input: NewRezPricingInput, options?: { sele
     basePrice: selected.basePrice,
     llpaAdjustment,
     purchasePrice: selected.purchasePrice,
-    adjustments: [...adjustments, { label: `End Seconds: ${selected.endSeconds} (${input.lockPeriodDays - 30} day pad)`, value: 0 }],
+    adjustments: [...adjustments, { label: `End Seconds: ${selected.endSeconds} (30 day pad, ${input.lockPeriodDays} day lock)`, value: 0 }],
   };
 }
 
@@ -191,7 +191,7 @@ export function evaluateNewRezEligibility(input: NewRezPricingInput, selectedLoa
   if (findCltvBucketIndex(matrix.cltvBuckets, input.resultingCltv) === null) reasons.push('Resulting CLTV is outside the NewRez matrix.');
   if (findLoanAmountRow(requested) === null) reasons.push('Desired loan amount is outside the NewRez loan amount table.');
   if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
-  if (input.lockPeriodDays !== 45 && input.lockPeriodDays !== 60 && input.lockPeriodDays !== 75 && input.lockPeriodDays !== 90) reasons.push('NewRez only supports 15, 30, 45, and 60 day lock pads (45, 60, 75, and 90 day actual locks).');
+  if (input.lockPeriodDays !== 15 && input.lockPeriodDays !== 30 && input.lockPeriodDays !== 45 && input.lockPeriodDays !== 60) reasons.push('NewRez only supports 15, 30, 45, and 60 day lock options.');
 
   return {
     eligible: reasons.length === 0,
@@ -227,7 +227,7 @@ export function solveNewRezStage1TargetRate(
     basePrice: selected.basePrice,
     llpaAdjustment,
     purchasePrice: selected.purchasePrice,
-    adjustments: [...adjustments, { label: `End Seconds: ${selected.endSeconds} (${input.lockPeriodDays - 30} day pad)`, value: 0 }],
+    adjustments: [...adjustments, { label: `End Seconds: ${selected.endSeconds} (30 day pad, ${input.lockPeriodDays} day lock)`, value: 0 }],
     targetPrice: roundToThree(targetPrice),
     tolerance,
     deltaFromTarget: selected.deltaFromTarget,
@@ -297,9 +297,13 @@ function buildAdjustmentLines(input: NewRezPricingInput, selectedLoanAmount: num
   return adjustments.filter(row => Number.isFinite(row.value));
 }
 
-const NEWREZ_LOCK_COLUMN_MAP: Record<45 | 60 | 75 | 90, NewRezEndSeconds> = { 45: 'BE15', 60: 'BE30', 75: 'BE45', 90: 'BE60' };
+const NEWREZ_LOCK_COLUMN_MAP: Record<15 | 30 | 45 | 60, NewRezEndSeconds> = { 15: 'BE45', 30: 'BE60', 45: 'BE75', 60: 'BE90' };
 
-function pickExecution(product: NewRezProduct, lockPeriodDays: 45 | 60 | 75 | 90, llpaAdjustment: number, targetPrice: number, tolerance?: number, rateOverride?: number): SelectedExecution {
+function normalizeNewRezLockPeriodDays(lockPeriodDays?: 15 | 30 | 45 | 60): 15 | 30 | 45 | 60 {
+  return lockPeriodDays === 15 || lockPeriodDays === 30 || lockPeriodDays === 45 || lockPeriodDays === 60 ? lockPeriodDays : 30;
+}
+
+function pickExecution(product: NewRezProduct, lockPeriodDays: 15 | 30 | 45 | 60, llpaAdjustment: number, targetPrice: number, tolerance?: number, rateOverride?: number): SelectedExecution {
   const sheet = DATA.pricing[product];
   const executionColumn = NEWREZ_LOCK_COLUMN_MAP[lockPeriodDays];
   if (!sheet.columns.includes(executionColumn)) {
