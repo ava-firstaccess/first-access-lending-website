@@ -46,6 +46,7 @@ export type TesterInput = {
   buttonDocType?: ButtonDocType;
   vistaProduct?: VistaProduct;
   vistaDocType?: VistaDocType;
+  vistaLockPeriodDays?: 30 | 45 | 60;
   newrezProduct?: NewRezProduct;
   newrezLockPeriodDays?: 15 | 30 | 45 | 60;
   osbProgram?: OsbProgram;
@@ -87,6 +88,7 @@ export const defaultInput: TesterInput = {
   arcHomeLockPeriodDays: 45,
   vistaProduct: '30yr Fixed',
   vistaDocType: 'Full Doc',
+  vistaLockPeriodDays: 45,
   newrezProduct: '30 Year Fixed',
   newrezLockPeriodDays: 30,
   osbProgram: 'HELOC',

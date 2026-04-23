@@ -16,6 +16,7 @@ export interface VistaPricingInput {
   resultingCltv: number;
   creditScore: number;
   dti: number | null;
+  lockPeriodDays: 30 | 45 | 60;
   occupancy: string;
   structureType: string;
   unitCount: number;
@@ -103,7 +104,7 @@ type JsonProgram = {
 const VISTA_PRODUCTS: VistaProduct[] = ['10yr Fixed', '15yr Fixed', '20yr Fixed', '30yr Fixed'];
 const PROGRAMS = (ratesheet as unknown as { programs: Record<ProgramKey, JsonProgram> }).programs;
 
-export function buildVistaStage1PricingInput(stage1: ButtonStage1Input & { vistaProduct?: VistaProduct; vistaDocType?: VistaDocType }): VistaPricingInput {
+export function buildVistaStage1PricingInput(stage1: ButtonStage1Input & { vistaProduct?: VistaProduct; vistaDocType?: VistaDocType; vistaLockPeriodDays?: 30 | 45 | 60 }): VistaPricingInput {
   const propertyValue = Number(stage1.propertyValue || 0);
   const loanBalance = Number(stage1.loanBalance || 0);
   const desiredLoanAmount = Number(stage1.desiredLoanAmount || 0);
@@ -113,6 +114,7 @@ export function buildVistaStage1PricingInput(stage1: ButtonStage1Input & { vista
   return {
     product: normalizeVistaProduct(stage1.vistaProduct),
     docType: normalizeVistaDocType(stage1.vistaDocType),
+    lockPeriodDays: normalizeVistaLockPeriodDays(stage1.vistaLockPeriodDays),
     propertyState: String(stage1.propertyState || '').toUpperCase(),
     propertyValue,
     loanBalance,
@@ -129,7 +131,7 @@ export function buildVistaStage1PricingInput(stage1: ButtonStage1Input & { vista
 }
 
 export function calculateVistaStage1Quote(
-  stage1: ButtonStage1Input & { vistaProduct?: VistaProduct; vistaDocType?: VistaDocType },
+  stage1: ButtonStage1Input & { vistaProduct?: VistaProduct; vistaDocType?: VistaDocType; vistaLockPeriodDays?: 30 | 45 | 60 },
   options?: { selectedLoanAmount?: number; targetPrice?: number; rateOverride?: number }
 ): VistaQuote {
   return calculateVistaQuote(buildVistaStage1PricingInput(stage1), options);
@@ -188,7 +190,7 @@ export function calculateVistaQuote(
 }
 
 export function evaluateVistaStage1Eligibility(
-  stage1: ButtonStage1Input & { vistaProduct?: VistaProduct; vistaDocType?: VistaDocType },
+  stage1: ButtonStage1Input & { vistaProduct?: VistaProduct; vistaDocType?: VistaDocType; vistaLockPeriodDays?: 30 | 45 | 60 },
   selectedLoanAmount?: number
 ): VistaEligibilityResult {
   const input = buildVistaStage1PricingInput(stage1);
@@ -224,7 +226,7 @@ export function evaluateVistaStage1Eligibility(
 }
 
 export function solveVistaStage1TargetRate(
-  stage1: ButtonStage1Input & { vistaProduct?: VistaProduct; vistaDocType?: VistaDocType },
+  stage1: ButtonStage1Input & { vistaProduct?: VistaProduct; vistaDocType?: VistaDocType; vistaLockPeriodDays?: 30 | 45 | 60 },
   options: { targetPrice: number; tolerance?: number; selectedLoanAmount?: number }
 ): VistaTargetRateQuote {
   const input = buildVistaStage1PricingInput(stage1);
@@ -319,7 +321,7 @@ function buildAdjustmentLines(input: VistaPricingInput, selectedLoanAmount: numb
   const term = findAdjustment(program, 'term', input.product);
   if (term) adjustments.push({ label: `Term: ${term.label}`, value: term.value ?? 0 });
 
-  const lockTerm = findAdjustment(program, 'lockTerm', '45 Day');
+  const lockTerm = findAdjustment(program, 'lockTerm', vistaLockPeriodLabel(input.lockPeriodDays));
   if (lockTerm) adjustments.push({ label: `Lock Period: ${lockTerm.label}`, value: lockTerm.value ?? 0 });
 
   const amountLabel = loanAmountLabel(selectedLoanAmount);
@@ -515,6 +517,14 @@ function matchesCreditScoreLabel(label: string, creditScore: number): boolean {
 function upperBoundForCltvLabel(label: string): number {
   const right = label.split('-')[1] ?? label;
   return Number(String(right).replace('%', '').trim());
+}
+
+function normalizeVistaLockPeriodDays(lockPeriodDays?: 30 | 45 | 60): 30 | 45 | 60 {
+  return lockPeriodDays === 30 || lockPeriodDays === 45 || lockPeriodDays === 60 ? lockPeriodDays : 45;
+}
+
+function vistaLockPeriodLabel(lockPeriodDays: 30 | 45 | 60): string {
+  return `${lockPeriodDays} Day`;
 }
 
 function normalizeVistaProduct(product?: string): VistaProduct {
