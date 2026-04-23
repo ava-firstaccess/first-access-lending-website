@@ -15,6 +15,7 @@ export type VerusLockPeriodDays = 30 | 45 | 60;
 export type DeephavenProgram = 'Equity Advantage' | 'Equity Advantage Elite';
 export type DeephavenProduct = '15Y Fixed' | '20Y Fixed' | '30Y Fixed';
 export type DeephavenDocType = 'Full Doc' | 'Bank Statement' | 'P&L Only';
+export type DeephavenLockPeriodDays = 15 | 30;
 export type ArcHomeProduct = '10 Year Maturity' | '15 Year Maturity' | '20 Year Maturity' | '30 Year Maturity';
 export type ArcHomeLockPeriodDays = 15 | 30 | 45 | 60 | 75 | 90;
 export type ButtonProduct = 'HELOC' | 'CES';
@@ -57,6 +58,7 @@ export type TesterInput = {
   deephavenProgram?: DeephavenProgram;
   deephavenProduct?: DeephavenProduct;
   deephavenDocType?: DeephavenDocType;
+  deephavenLockPeriodDays?: 15 | 30;
   helocDrawTermYears?: 3 | 5 | 10;
   bestExProduct?: BestExProduct;
   bestExDrawPeriodYears?: BestExDrawPeriodYears;
@@ -96,6 +98,7 @@ export const defaultInput: TesterInput = {
   deephavenProgram: 'Equity Advantage',
   deephavenProduct: '30Y Fixed',
   deephavenDocType: 'Full Doc',
+  deephavenLockPeriodDays: 30,
   helocDrawTermYears: 5,
   buttonTermYears: 20,
   buttonDocType: 'Full Doc',

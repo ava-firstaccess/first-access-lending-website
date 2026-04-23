@@ -10,6 +10,7 @@ export interface DeephavenPricingInput {
   program: DeephavenProgram;
   product: DeephavenProduct;
   docType: DeephavenDocType;
+  lockPeriodDays: 45 | 60;
   propertyValue: number;
   loanBalance: number;
   desiredLoanAmount: number;
@@ -83,7 +84,7 @@ const DEEPHAVEN_PROGRAM_MAP: Record<DeephavenProgram, 'Expanded Prime' | 'Non-Pr
 const DEEPHAVEN_PROGRAMS: DeephavenProgram[] = ['Equity Advantage', 'Equity Advantage Elite'];
 
 export function buildDeephavenStage1PricingInput(
-  stage1: ButtonStage1Input & { deephavenProgram?: DeephavenProgram; deephavenProduct?: DeephavenProduct; deephavenDocType?: DeephavenDocType }
+  stage1: ButtonStage1Input & { deephavenProgram?: DeephavenProgram; deephavenProduct?: DeephavenProduct; deephavenDocType?: DeephavenDocType; deephavenLockPeriodDays?: 15 | 30 }
 ): DeephavenPricingInput {
   const propertyValue = Number(stage1.propertyValue || 0);
   const loanBalance = Number(stage1.loanBalance || 0);
@@ -95,6 +96,7 @@ export function buildDeephavenStage1PricingInput(
     program: normalizeProgram(stage1.deephavenProgram),
     product: normalizeProduct(stage1.deephavenProduct),
     docType: normalizeDocType(stage1.deephavenDocType),
+    lockPeriodDays: ((Number(stage1.deephavenLockPeriodDays ?? 30) || 30) + 30) as 45 | 60,
     propertyValue,
     loanBalance,
     desiredLoanAmount,
@@ -113,7 +115,7 @@ function sourceProgram(program: DeephavenProgram): 'Expanded Prime' | 'Non-Prime
 }
 
 export function calculateDeephavenStage1Quote(
-  stage1: ButtonStage1Input & { deephavenProgram?: DeephavenProgram; deephavenProduct?: DeephavenProduct; deephavenDocType?: DeephavenDocType },
+  stage1: ButtonStage1Input & { deephavenProgram?: DeephavenProgram; deephavenProduct?: DeephavenProduct; deephavenDocType?: DeephavenDocType; deephavenLockPeriodDays?: 15 | 30 },
   options?: { selectedLoanAmount?: number; targetPrice?: number; rateOverride?: number }
 ): DeephavenQuote {
   const input = buildDeephavenStage1PricingInput(stage1);
@@ -124,7 +126,8 @@ export function calculateDeephavenStage1Quote(
     const candidateInput = { ...input, program };
     const maxAvailable = calculateMaxAvailableForProgram(candidateInput, program);
     const maxLtv = calculateMaxLtvForProgram(candidateInput, program);
-    if (!programSupportsDocType(program, input.docType, input.product)) return [];
+    if (!programSupportsDocType(program, input.docType)) return [];
+    if (input.lockPeriodDays !== 45 && input.lockPeriodDays !== 60) return [];
     if (input.creditScore < minCreditScore(program)) return [];
     if (input.resultingCltv > maxLtv) return [];
     if (selectedLoanAmount > maxAvailable) return [];
@@ -146,7 +149,7 @@ export function calculateDeephavenStage1Quote(
   }, null);
 
   if (!best) {
-    const docCompatiblePrograms = DEEPHAVEN_PROGRAMS.filter(program => programSupportsDocType(program, input.docType, input.product));
+    const docCompatiblePrograms = DEEPHAVEN_PROGRAMS.filter(program => programSupportsDocType(program, input.docType));
     const summaryPrograms = docCompatiblePrograms.length > 0 ? docCompatiblePrograms : DEEPHAVEN_PROGRAMS;
     const maxLtv = Math.max(...summaryPrograms.map(program => calculateMaxLtvForProgram({ ...input, program }, program)));
     const maxAvailable = Math.max(...summaryPrograms.map(program => calculateMaxAvailableForProgram({ ...input, program }, program)));
@@ -192,14 +195,15 @@ export function evaluateDeephavenStage1Eligibility(
   const maxAvailable = Math.max(...DEEPHAVEN_PROGRAMS.map(program => calculateMaxAvailableForProgram({ ...input, program }, program)));
   const anyEligible = DEEPHAVEN_PROGRAMS.some(program => {
     const candidateInput = { ...input, program };
-    return programSupportsDocType(program, input.docType, input.product)
+    return programSupportsDocType(program, input.docType)
       && input.creditScore >= minCreditScore(program)
       && input.resultingCltv <= calculateMaxLtvForProgram(candidateInput, program)
       && requested <= calculateMaxAvailableForProgram(candidateInput, program);
   });
 
   if (!anyEligible) {
-    if (DEEPHAVEN_PROGRAMS.every(program => !programSupportsDocType(program, input.docType, input.product))) reasons.push(`Deephaven ${input.docType} pricing is not available in the workbook for ${input.product}.`);
+    if (DEEPHAVEN_PROGRAMS.every(program => !programSupportsDocType(program, input.docType))) reasons.push(`Deephaven ${input.docType} pricing is not available in the workbook for ${input.product}.`);
+    if (input.lockPeriodDays !== 45 && input.lockPeriodDays !== 60) reasons.push('Deephaven only supports 15 and 30 day lock pads (45 and 60 day actual locks).');
     if (DEEPHAVEN_PROGRAMS.every(program => input.creditScore < minCreditScore(program))) reasons.push('Credit score is below the current supported Deephaven tester range.');
     if (DEEPHAVEN_PROGRAMS.every(program => input.resultingCltv > calculateMaxLtvForProgram({ ...input, program }, program))) reasons.push('Resulting CLTV exceeds the current supported Deephaven tester range.');
     if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
@@ -214,7 +218,7 @@ export function evaluateDeephavenStage1Eligibility(
 }
 
 export function solveDeephavenStage1TargetRate(
-  stage1: ButtonStage1Input & { deephavenProgram?: DeephavenProgram; deephavenProduct?: DeephavenProduct; deephavenDocType?: DeephavenDocType },
+  stage1: ButtonStage1Input & { deephavenProgram?: DeephavenProgram; deephavenProduct?: DeephavenProduct; deephavenDocType?: DeephavenDocType; deephavenLockPeriodDays?: 15 | 30 },
   options: { targetPrice: number; tolerance?: number; selectedLoanAmount?: number }
 ): DeephavenTargetRateQuote {
   const input = buildDeephavenStage1PricingInput(stage1);
@@ -352,7 +356,7 @@ function normalizeDocType(value?: string): DeephavenDocType {
   return 'Full Doc';
 }
 
-function programSupportsDocType(program: DeephavenProgram, docType: DeephavenDocType, product: DeephavenProduct): boolean {
+function programSupportsDocType(program: DeephavenProgram, docType: DeephavenDocType): boolean {
   const programData = DATA.programs[sourceProgram(program)];
   if (docType === 'Full Doc') return true;
   if (docType === 'Bank Statement') return (programData.documentationAdjustments?.bankStatement ?? []).length > 0;
@@ -378,6 +382,8 @@ function calculateLlpaAdjustment(input: DeephavenPricingInput, selectedLoanAmoun
   return roundToThree(buildAdjustmentLines(input, selectedLoanAmount, program).reduce((sum, line) => sum + line.value, 0));
 }
 
+const DEEPHAVEN_LOCK_ADJUSTMENTS: Record<45 | 60, number> = { 45: -0.15, 60: -0.3 };
+
 function buildAdjustmentLines(input: DeephavenPricingInput, selectedLoanAmount: number, program = input.program): Stage1AdjustmentLine[] {
   const programData = DATA.programs[sourceProgram(program)];
   const cltvIndex = findCltvBucketIndex(programData.cltvBuckets, input.resultingCltv);
@@ -399,6 +405,8 @@ function buildAdjustmentLines(input: DeephavenPricingInput, selectedLoanAmount: 
   if (input.propertyState === 'FL' || input.propertyState === 'TX') {
     pushAdjustment(lines, 'State (FL / TX)', readAdjustmentValue(programData.adjustments.state[0], cltvIndex));
   }
+
+  pushAdjustment(lines, `Lock Period: ${input.lockPeriodDays} Day`, DEEPHAVEN_LOCK_ADJUSTMENTS[input.lockPeriodDays]);
 
   return lines;
 }
