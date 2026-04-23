@@ -101,7 +101,7 @@ const BUTTON_MAX_PURCHASE_PRICE = 105;
 const BUTTON_45_DAY_LOCK_ADJUSTMENT = -0.125;
 
 const SECOND_LIEN_MARGIN_TARGETS = [
-  { min: 0, max: 100000, backendFee: 0.06 },
+  { min: 0, max: 99999, backendFee: 0.06 },
   { min: 100000, max: 150000, backendFee: 0.06 },
   { min: 150000, max: 200000, backendFee: 0.05 },
   { min: 200000, max: 250000, backendFee: 0.045 },
