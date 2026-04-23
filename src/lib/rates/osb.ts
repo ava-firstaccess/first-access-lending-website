@@ -275,6 +275,7 @@ export function evaluateOsbEligibility(input: OsbPricingInput, selectedLoanAmoun
   if (!isOsbDtiSupported(input)) reasons.push('OSB second-lien DTI is only workbook-backed through 50.00%.');
   if (cltvBucketIndex === null) reasons.push('Resulting CLTV is outside the OSB matrix.');
   if (!program.pricing.products.some(item => item.label === input.product)) reasons.push('Selected OSB product is not available in the workbook.');
+  if (input.docType !== 'Full Doc') reasons.push('OSB does not support alt-doc pricing.');
 
   if (input.program === 'HELOC') {
     const draw = findAdjustment(program.adjustments.drawTerm, drawTermLabel(input.helocDrawTermYears));

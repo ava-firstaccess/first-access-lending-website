@@ -57,7 +57,7 @@ function toQuote(engine: Stage1ExecutionQuote['engine'], quote: EngineQuoteLike)
 function mapBestExDocTypeToButton(docType: SharedDocType, product: 'HELOC' | 'CES'): ButtonDocType | null {
   if (docType === 'Full Doc') return 'Full Doc';
   if (docType === 'Bank Statement') return product === 'HELOC' ? 'Bank Statement' : null;
-  if (docType === 'Asset Depletion') return product === 'HELOC' ? 'Asset Depletion' : null;
+  if (docType === 'Asset Depletion') return null;
   return null;
 }
 
@@ -73,8 +73,7 @@ function mapBestExDocTypeToVerus(docType: SharedDocType, product: 'CES' | 'HELOC
 }
 
 function mapBestExDocTypeToOsb(docType: SharedDocType, product: 'HELOC' | 'CES'): SharedDocType | null {
-  if (product === 'HELOC') return docType === 'Full Doc' ? 'Full Doc' : null;
-  return docType;
+  return docType === 'Full Doc' ? 'Full Doc' : null;
 }
 
 function mapBestExDocTypeToDeephaven(docType: SharedDocType): DeephavenDocType | null {

@@ -260,6 +260,10 @@ export function evaluateButtonEligibility(input: ButtonPricingInput, selectedLoa
     reasons.push(`Button ${input.docType} pricing is not available for CES in the current workbook.`);
   }
 
+  if (input.product === 'HELOC' && input.docType === 'Asset Depletion') {
+    reasons.push('Button Asset Depletion pricing is not available for HELOC in the current workbook.');
+  }
+
   return {
     eligible: reasons.length === 0,
     reasons,
