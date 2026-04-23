@@ -67,6 +67,8 @@ export function getMeridianLinkConfig() {
     process.env.BIRCHWOOD_CREDIT_BASE_URL ||
     'https://birchwood.meridianlink.com/inetapi/request_products.aspx';
   const interfaceId = process.env.BIRCHWOOD_CREDIT_INTERFACE || 'FirstAccess040926';
+  const clientIdentifierHeader = process.env.BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER_HEADER || 'Client-Identifier';
+  const clientIdentifier = process.env.BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER || 'B0';
   const username =
     process.env.BIRCHWOOD_CREDIT_USERNAME ||
     getSecretFromKeychain(process.env.BIRCHWOOD_CREDIT_USERNAME_KEYCHAIN_LABEL || 'birchwood-credit-username');
@@ -77,6 +79,8 @@ export function getMeridianLinkConfig() {
   return {
     baseUrl,
     interfaceId,
+    clientIdentifierHeader,
+    clientIdentifier,
     username,
     password,
   };
@@ -226,6 +230,7 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
       Authorization: `Basic ${auth}`,
       'Content-Type': 'application/xml',
       'MCL-Interface': config.interfaceId,
+      [config.clientIdentifierHeader]: config.clientIdentifier,
     },
     body: xml,
     cache: 'no-store',

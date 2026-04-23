@@ -34,6 +34,11 @@
             "key": "MCL-Interface",
             "value": "{{interfaceId}}",
             "type": "text"
+          },
+          {
+            "key": "Client-Identifier",
+            "value": "{{clientIdentifier}}",
+            "type": "text"
           }
         ],
         "body": {
@@ -70,6 +75,10 @@
     {
       "key": "interfaceId",
       "value": "FirstAccess040926"
+    },
+    {
+      "key": "clientIdentifier",
+      "value": "B0"
     }
   ]
 }

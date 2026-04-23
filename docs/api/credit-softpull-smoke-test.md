@@ -153,7 +153,8 @@ Current behavior:
 
 Important deployment note:
 - local Mac testing can fall back to Keychain labels `birchwood-credit-username` and `birchwood-credit-password`
-- deployed/Vercel testing should use env vars instead: `BIRCHWOOD_CREDIT_USERNAME`, `BIRCHWOOD_CREDIT_PASSWORD`, `BIRCHWOOD_CREDIT_BASE_URL`, `BIRCHWOOD_CREDIT_INTERFACE`
+- deployed/Vercel testing should use env vars instead: `BIRCHWOOD_CREDIT_USERNAME`, `BIRCHWOOD_CREDIT_PASSWORD`, `BIRCHWOOD_CREDIT_BASE_URL`, `BIRCHWOOD_CREDIT_INTERFACE`, `BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER`, `BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER_HEADER`
+- MeridianLink also expects the separate client identifier value, currently defaulted to `B0`
 
 ### Prod test curl example
 
