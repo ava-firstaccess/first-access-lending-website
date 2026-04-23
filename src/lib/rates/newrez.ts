@@ -6,6 +6,7 @@ export type NewRezEndSeconds = 'BE15' | 'BE30' | 'BE45' | 'BE60' | 'BE75' | 'BE9
 
 export interface NewRezPricingInput {
   product: NewRezProduct;
+  lockPeriodDays: 45 | 60 | 75 | 90;
   propertyState: string;
   propertyValue: number;
   loanBalance: number;
@@ -94,7 +95,7 @@ const DEFAULT_NEWREZ_END_SECONDS: NewRezEndSeconds = 'BE45';
  */
 const NEWREZ_MAX_UNIT_COUNT = 1;
 
-export function buildNewRezStage1PricingInput(stage1: ButtonStage1Input & { newrezProduct?: NewRezProduct }): NewRezPricingInput {
+export function buildNewRezStage1PricingInput(stage1: ButtonStage1Input & { newrezProduct?: NewRezProduct; newrezLockPeriodDays?: 15 | 30 | 45 | 60 }): NewRezPricingInput {
   const propertyValue = Number(stage1.propertyValue || 0);
   const loanBalance = Number(stage1.loanBalance || 0);
   const desiredLoanAmount = Number(stage1.desiredLoanAmount || 0);
@@ -103,6 +104,7 @@ export function buildNewRezStage1PricingInput(stage1: ButtonStage1Input & { newr
 
   return {
     product: normalizeProduct(stage1.newrezProduct),
+    lockPeriodDays: ((Number(stage1.newrezLockPeriodDays ?? 30) || 30) + 30) as 45 | 60 | 75 | 90,
     propertyState: String(stage1.propertyState || '').toUpperCase(),
     propertyValue,
     loanBalance,
@@ -120,7 +122,7 @@ export function buildNewRezStage1PricingInput(stage1: ButtonStage1Input & { newr
 }
 
 export function calculateNewRezStage1Quote(
-  stage1: ButtonStage1Input & { newrezProduct?: NewRezProduct },
+  stage1: ButtonStage1Input & { newrezProduct?: NewRezProduct; newrezLockPeriodDays?: 15 | 30 | 45 | 60 },
   options?: { selectedLoanAmount?: number; targetPrice?: number; rateOverride?: number }
 ): NewRezQuote {
   return calculateNewRezQuote(buildNewRezStage1PricingInput(stage1), options);
@@ -152,7 +154,7 @@ export function calculateNewRezQuote(input: NewRezPricingInput, options?: { sele
   const targetPrice = options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount);
   const adjustments = buildAdjustmentLines(input, selectedLoanAmount);
   const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
-  const selected = pickExecution(input.product, llpaAdjustment, targetPrice, undefined, options?.rateOverride);
+  const selected = pickExecution(input.product, input.lockPeriodDays, llpaAdjustment, targetPrice, undefined, options?.rateOverride);
 
   return {
     program: 'NewRez',
@@ -167,12 +169,12 @@ export function calculateNewRezQuote(input: NewRezPricingInput, options?: { sele
     basePrice: selected.basePrice,
     llpaAdjustment,
     purchasePrice: selected.purchasePrice,
-    adjustments: [...adjustments, { label: `End Seconds: ${selected.endSeconds}`, value: 0 }],
+    adjustments: [...adjustments, { label: `End Seconds: ${selected.endSeconds} (${input.lockPeriodDays - 30} day pad)`, value: 0 }],
   };
 }
 
 export function evaluateNewRezStage1Eligibility(
-  stage1: ButtonStage1Input & { newrezProduct?: NewRezProduct },
+  stage1: ButtonStage1Input & { newrezProduct?: NewRezProduct; newrezLockPeriodDays?: 15 | 30 | 45 | 60 },
   selectedLoanAmount?: number
 ): NewRezEligibilityResult {
   return evaluateNewRezEligibility(buildNewRezStage1PricingInput(stage1), selectedLoanAmount);
@@ -189,6 +191,7 @@ export function evaluateNewRezEligibility(input: NewRezPricingInput, selectedLoa
   if (findCltvBucketIndex(matrix.cltvBuckets, input.resultingCltv) === null) reasons.push('Resulting CLTV is outside the NewRez matrix.');
   if (findLoanAmountRow(requested) === null) reasons.push('Desired loan amount is outside the NewRez loan amount table.');
   if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
+  if (input.lockPeriodDays !== 45 && input.lockPeriodDays !== 60 && input.lockPeriodDays !== 75 && input.lockPeriodDays !== 90) reasons.push('NewRez only supports 15, 30, 45, and 60 day lock pads (45, 60, 75, and 90 day actual locks).');
 
   return {
     eligible: reasons.length === 0,
@@ -199,7 +202,7 @@ export function evaluateNewRezEligibility(input: NewRezPricingInput, selectedLoa
 }
 
 export function solveNewRezStage1TargetRate(
-  stage1: ButtonStage1Input & { newrezProduct?: NewRezProduct },
+  stage1: ButtonStage1Input & { newrezProduct?: NewRezProduct; newrezLockPeriodDays?: 15 | 30 | 45 | 60 },
   options: { targetPrice: number; tolerance?: number; selectedLoanAmount?: number }
 ): NewRezTargetRateQuote {
   const input = buildNewRezStage1PricingInput(stage1);
@@ -209,7 +212,7 @@ export function solveNewRezStage1TargetRate(
   const tolerance = options.tolerance ?? 0.125;
   const adjustments = buildAdjustmentLines(input, selectedLoanAmount);
   const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
-  const selected = pickExecution(input.product, llpaAdjustment, targetPrice, tolerance);
+  const selected = pickExecution(input.product, input.lockPeriodDays, llpaAdjustment, targetPrice, tolerance);
 
   return {
     program: 'NewRez',
@@ -224,7 +227,7 @@ export function solveNewRezStage1TargetRate(
     basePrice: selected.basePrice,
     llpaAdjustment,
     purchasePrice: selected.purchasePrice,
-    adjustments: [...adjustments, { label: `End Seconds: ${selected.endSeconds}`, value: 0 }],
+    adjustments: [...adjustments, { label: `End Seconds: ${selected.endSeconds} (${input.lockPeriodDays - 30} day pad)`, value: 0 }],
     targetPrice: roundToThree(targetPrice),
     tolerance,
     deltaFromTarget: selected.deltaFromTarget,
@@ -294,9 +297,14 @@ function buildAdjustmentLines(input: NewRezPricingInput, selectedLoanAmount: num
   return adjustments.filter(row => Number.isFinite(row.value));
 }
 
-function pickExecution(product: NewRezProduct, llpaAdjustment: number, targetPrice: number, tolerance?: number, rateOverride?: number): SelectedExecution {
+const NEWREZ_LOCK_COLUMN_MAP: Record<45 | 60 | 75 | 90, NewRezEndSeconds> = { 45: 'BE15', 60: 'BE30', 75: 'BE45', 90: 'BE60' };
+
+function pickExecution(product: NewRezProduct, lockPeriodDays: 45 | 60 | 75 | 90, llpaAdjustment: number, targetPrice: number, tolerance?: number, rateOverride?: number): SelectedExecution {
   const sheet = DATA.pricing[product];
-  const executionColumn = sheet.columns.includes(DEFAULT_NEWREZ_END_SECONDS) ? DEFAULT_NEWREZ_END_SECONDS : sheet.columns[0];
+  const executionColumn = NEWREZ_LOCK_COLUMN_MAP[lockPeriodDays];
+  if (!sheet.columns.includes(executionColumn)) {
+    return { noteRate: 0, endSeconds: executionColumn, basePrice: 0, purchasePrice: 0, deltaFromTarget: roundToThree(targetPrice), withinTolerance: false };
+  }
   const executions: SelectedExecution[] = [];
 
   for (const row of sheet.rows) {

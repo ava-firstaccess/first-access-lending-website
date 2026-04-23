@@ -47,6 +47,7 @@ export type TesterInput = {
   vistaProduct?: VistaProduct;
   vistaDocType?: VistaDocType;
   newrezProduct?: NewRezProduct;
+  newrezLockPeriodDays?: 15 | 30 | 45 | 60;
   osbProgram?: OsbProgram;
   osbProduct?: OsbProduct;
   osbLockPeriodDays?: OsbLockPeriod;
@@ -87,6 +88,7 @@ export const defaultInput: TesterInput = {
   vistaProduct: '30yr Fixed',
   vistaDocType: 'Full Doc',
   newrezProduct: '30 Year Fixed',
+  newrezLockPeriodDays: 30,
   osbProgram: 'HELOC',
   osbProduct: '30 Year Maturity',
   osbLockPeriodDays: 45,
