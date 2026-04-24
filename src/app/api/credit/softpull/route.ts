@@ -1,4 +1,6 @@
+import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '@/lib/supabase';
 import {
   APPROVED_TEST_BORROWERS,
   assertApprovedTestBorrower,
@@ -56,6 +58,7 @@ export async function POST(req: NextRequest) {
         preferredResponseFormat: borrower.preferredResponseFormat,
       });
 
+      const runId = randomUUID();
       const result = await submitMeridianLinkProdTest({
         firstName: borrower.firstName,
         lastName: borrower.lastName,
@@ -71,9 +74,41 @@ export async function POST(req: NextRequest) {
         preferredResponseFormat: borrower.preferredResponseFormat,
       });
 
+      const supabase = getSupabaseAdmin();
       const showXmlPreview = process.env.MERIDIANLINK_PROXY_DEBUG === 'true' || process.env.NODE_ENV !== 'production';
+      const runPayload = {
+        run_id: runId,
+        mode: result.mode,
+        provider: result.provider,
+        request_type: result.requestType,
+        endpoint_host: result.debug?.endpointHost || 'unknown',
+        status_code: result.debug?.statusCode ?? null,
+        status: result.status,
+        vendor_order_identifier: result.vendorOrderIdentifier || null,
+        has_vendor_order_identifier: Boolean(result.debug?.hasVendorOrderIdentifier),
+        response_bytes: result.debug?.responseBytes ?? 0,
+        error_category: result.debug?.errorCategory || null,
+        error_message: result.debug?.errorMessage || null,
+        borrower_first_name: result.borrower.firstName,
+        borrower_last_name: result.borrower.lastName,
+        borrower_ssn_last4: result.borrower.ssn.slice(-4),
+        approved_borrower_first_name: MERIDIANLINK_APPROVED_PROD_TEST.firstName,
+        approved_borrower_last_name: MERIDIANLINK_APPROVED_PROD_TEST.lastName,
+        approved_borrower_ssn_last4: MERIDIANLINK_APPROVED_PROD_TEST.ssn.slice(-4),
+        success: result.success,
+      };
+
+      try {
+        const { error: logError } = await supabase.from('meridianlink_runs').insert(runPayload);
+        if (logError) {
+          console.warn('meridianlink_runs insert failed:', logError.message);
+        }
+      } catch (logError) {
+        console.warn('meridianlink_runs insert threw:', logError instanceof Error ? logError.message : logError);
+      }
 
       return NextResponse.json({
+        runId,
         success: result.success,
         provider: result.provider,
         mode: result.mode,

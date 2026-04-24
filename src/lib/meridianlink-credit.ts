@@ -355,5 +355,6 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
     vendorOrderIdentifier: getFirstMatch(responseText, 'VendorOrderIdentifier'),
     status: getFirstMatch(responseText, 'CreditReportRequestActionType') || 'Submit',
     rawResponse: responseText,
+    debug: responseDebug,
   };
 }
