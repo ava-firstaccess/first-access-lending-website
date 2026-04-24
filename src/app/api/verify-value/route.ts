@@ -4,6 +4,11 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 
 const HC_BASE = 'https://api.housecanary.com';
 
+function buildSafeHouseCanaryError(message: string, status?: number) {
+  const suffix = typeof status === 'number' ? ` (${status})` : '';
+  return new Error(`${message}${suffix}`);
+}
+
 function normalizeAddressKey(address: string, zipcode?: string, city?: string, state?: string) {
   const raw = [address || '', zipcode || '', city || '', state || '']
     .join('|')
@@ -63,16 +68,14 @@ async function getPropertyEstimate(address: string, zipcode: string, city?: stri
   if (state) params.set('state', state);
 
   const url = `${HC_BASE}/v3/property/estimated_value?${params.toString()}`;
-  console.log('HouseCanary estimate request:', url.replace(HC_BASE, ''));
 
   const res = await fetch(url, {
     headers: { Authorization: getHCAuth() },
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error('HouseCanary estimate error:', res.status, text);
-    throw new Error(`HouseCanary estimate failed (${res.status}): ${text}`);
+    console.error('HouseCanary estimate error:', { status: res.status });
+    throw buildSafeHouseCanaryError('HouseCanary estimate failed', res.status);
   }
 
   return res.json();
@@ -86,8 +89,8 @@ async function getPropertyValueWithFSD(address: string, zipcode: string) {
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`HouseCanary value failed (${res.status}): ${text}`);
+    console.error('HouseCanary value error:', { status: res.status });
+    throw buildSafeHouseCanaryError('HouseCanary value failed', res.status);
   }
 
   const data = await res.json();
@@ -146,15 +149,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Zipcode or city/state required' }, { status: 400 });
     }
 
-    console.log('verify-value request:', { address, zipcode, city, state, statedValue, desiredLoanAmount });
+    console.log('verify-value request received');
 
     const addressKey = normalizeAddressKey(address, zipcode, city, state);
     const cached = await getCachedAvmResult(supabase, addressKey);
     if (cached) {
-      console.log('verify-value cache hit:', { addressKey, tier: cached.tier });
+      console.log('verify-value cache hit:', { tier: cached.tier });
       return NextResponse.json(cached.response_payload);
     }
-    console.log('verify-value cache miss:', { addressKey });
+    console.log('verify-value cache miss');
 
     const maxLtv = getMaxLtv(creditScore || 720, propertyType || 'Primary');
     const balance = Number(loanBalance) || 0;
@@ -365,9 +368,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(responsePayload);
     }
   } catch (err: any) {
-    console.error('Verify value error:', err);
+    console.error('Verify value error');
     return NextResponse.json(
-      { error: err.message || 'Verification failed', tier: 'error' },
+      { error: 'Verification failed', tier: 'error' },
       { status: 500 }
     );
   }

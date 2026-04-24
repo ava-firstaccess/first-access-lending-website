@@ -362,9 +362,8 @@ async function ghlFetch(path: string, options: RequestInit = {}) {
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`GHL API error ${res.status} on ${path}:`, text);
-    throw new Error(`GHL API error ${res.status}: ${text}`);
+    console.error('GHL API error', { status: res.status, path });
+    throw new Error(`GHL API error ${res.status}`);
   }
   return res.json();
 }
@@ -764,9 +763,9 @@ export async function POST(req: NextRequest) {
       message: 'Application saved to Supabase and GHL',
     });
   } catch (err: any) {
-    console.error('Submit error:', err);
+    console.error('Submit error');
     return NextResponse.json(
-      { error: err.message || 'Submission failed' },
+      { error: 'Submission failed' },
       { status: 500 }
     );
   }

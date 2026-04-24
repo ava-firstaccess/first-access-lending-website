@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!smsResponse.ok) {
-      console.error('GHL webhook failed:', smsResponse.status, await smsResponse.text());
+      console.error('GHL webhook failed:', { status: smsResponse.status });
       return NextResponse.json({ error: 'Failed to send verification code' }, { status: 500 });
     }
 
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (err) {
-    console.error('Send OTP error:', err);
+    console.error('Send OTP error');
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }
