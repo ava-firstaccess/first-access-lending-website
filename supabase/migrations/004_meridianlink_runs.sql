@@ -32,6 +32,7 @@ CREATE INDEX IF NOT EXISTS idx_meridianlink_runs_status ON meridianlink_runs (st
 
 ALTER TABLE meridianlink_runs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Service role full access on meridianlink_runs" ON meridianlink_runs;
 CREATE POLICY "Service role full access on meridianlink_runs"
   ON meridianlink_runs FOR ALL
   USING (TRUE)

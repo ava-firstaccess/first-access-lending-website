@@ -6,7 +6,8 @@ CREATE INDEX IF NOT EXISTS idx_avm_cache_application_id ON avm_cache (applicatio
 
 ALTER TABLE avm_cache ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Service role full access on avm_cache"
+DROP POLICY IF EXISTS "Service role full access on avm_cache" ON avm_cache;
+CREATE POLICY "Service role full access on avm_cache"
   ON avm_cache FOR ALL
   USING (TRUE)
   WITH CHECK (TRUE);
