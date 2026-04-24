@@ -23,18 +23,13 @@
 
 ### MeridianLink Proxy Handoff to VPS
 - Keep the app calling the proxy, not MeridianLink directly.
-- Move `scripts/meridianlink-proxy-server.mjs` to the VPS as the production relay service.
-- Provision the VPS with a stable public IP and get that IP whitelisted by MeridianLink.
-- Set VPS env vars/secrets:
-  - `BIRCHWOOD_CREDIT_USERNAME=apifal`
-  - `BIRCHWOOD_CREDIT_PASSWORD`
-  - `BIRCHWOOD_CREDIT_BASE_URL=https://birchwood.meridianlink.com/inetapi/request_products.aspx`
-  - `BIRCHWOOD_CREDIT_INTERFACE=FirstAccess040926`
-  - `BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER=B0`
-- Expose the proxy on a fixed local port, then point the app at it with `MERIDIANLINK_PROXY_URL`.
-- Verify the approved Bill Testcase prod-test payload succeeds through the VPS before switching production traffic.
-- Add restart/health checks for the proxy service so it survives reboots.
-- Once VPS is stable, remove any Mac-specific proxy notes and leave the Mac relay only as a fallback/test path.
+- The VPS relay is now live and approved Bill prod-test works through it.
+- Replace the temporary `sslip.io` hostname with a real company domain/subdomain.
+- Point DNS for that hostname at the VPS public IP.
+- Issue a real TLS certificate for the hostname and remove the temporary pinned cert.
+- Keep the proxy on HTTPS 443 with the same auth/header contract.
+- Keep MeridianLink IP whitelist tied to the VPS public IP, not Vercel.
+- Leave the Mac relay only as a fallback/test path, not production.
 
 ### Title API
 - ValuTrust staging creds (pending)
