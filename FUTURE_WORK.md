@@ -146,6 +146,17 @@
   - How long between submissions?
   - What fields change most often?
 
+### Data Retention + Analytics Architecture
+- Review and establish a comprehensive data retention and analytics architecture across live app storage, archive storage, and reporting layers
+- Define hot-retention windows by table/workflow (for example AVM reuse, MeridianLink operational reporting, auth/session data, analytics events)
+- Separate operational Supabase tables from durable historical analytics storage
+- Archive operational records to Azure Blob before purge instead of hard-deleting without history preservation
+- Define which fields are needed for long-term analytics vs which should be minimized or masked in archive
+- Establish reload/replay rules for AVM reuse windows and MeridianLink re-reporting windows
+- Document source-of-truth ownership for each dataset: live app DB, Azure Blob archive, Power BI, or another reporting layer
+- Create scheduled archive, purge, and validation jobs with explicit ordering and failure handling
+- Add a documented recovery path for rebuilding reporting datasets from archive if Supabase operational tables are purged
+
 ## Compliance
 
 ### Cookie Warning / Privacy Banner
