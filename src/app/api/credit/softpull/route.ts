@@ -99,7 +99,10 @@ export async function POST(req: NextRequest) {
       };
 
       try {
-        await supabase.from('meridianlink_runs').insert(baseRunPayload);
+        const { error: insertError } = await supabase.from('meridianlink_runs').insert(baseRunPayload);
+        if (insertError) {
+          console.warn('meridianlink_runs attempt insert failed:', insertError.message, insertError.details || '');
+        }
       } catch (logError) {
         console.warn('meridianlink_runs attempt insert threw:', logError instanceof Error ? logError.message : logError);
       }
