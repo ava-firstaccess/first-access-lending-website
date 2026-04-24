@@ -96,7 +96,9 @@ export function getMeridianLinkConfig() {
     process.env.BIRCHWOOD_CREDIT_BASE_URL ||
     'https://birchwood.meridianlink.com/inetapi/request_products.aspx';
   const proxyUrl =
-    process.env.BIRCHWOOD_CREDIT_PROXY_URL || process.env.MERIDIANLINK_PROXY_URL || '';
+    process.env.BIRCHWOOD_CREDIT_PROXY_URL ||
+    process.env.MERIDIANLINK_PROXY_URL ||
+    'https://api.firstaccesslending.com/meridianlink/prod-test';
   const proxyAuthHeader = process.env.MERIDIANLINK_PROXY_AUTH_HEADER || 'X-MeridianLink-Proxy-Auth';
   const proxyAuthToken = process.env.MERIDIANLINK_PROXY_AUTH_TOKEN || '';
   const interfaceId = process.env.BIRCHWOOD_CREDIT_INTERFACE || 'FirstAccess040926';
