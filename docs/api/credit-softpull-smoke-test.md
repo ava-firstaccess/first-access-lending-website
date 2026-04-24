@@ -166,6 +166,9 @@ To force the app through the Mac as the MeridianLink egress point:
 2. Point the app or local shell at the proxy URL
    - `MERIDIANLINK_PROXY_URL=https://api.firstaccesslending.com/meridianlink/prod-test`
 3. Keep the normal approved prod-test payload and allowlist in place
+4. Set the shared proxy secret in both places:
+   - app env: `MERIDIANLINK_PROXY_AUTH_TOKEN`
+   - VPS env or config: same shared value, so the relay can authenticate the app request before forwarding upstream
 
 This proxy path is the one to port to the VPS later, by changing only the proxy host URL.
 
