@@ -12,7 +12,8 @@
     "vista:generate": "python3 scripts/generate-vista-ratesheet-data.py",
     "osb:generate": "python3 scripts/generate-osb-ratesheet-data.py",
     "ratesheets:generate": "node scripts/refresh-ratesheet-data.mjs",
-    "ratesheets:refresh": "node scripts/refresh-ratesheet-pipeline.mjs"
+    "ratesheets:refresh": "node scripts/refresh-ratesheet-pipeline.mjs",
+    "meridianlink:proxy": "node scripts/meridianlink-proxy-server.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.0",

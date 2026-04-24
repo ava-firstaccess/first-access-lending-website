@@ -66,6 +66,8 @@ export function getMeridianLinkConfig() {
   const baseUrl =
     process.env.BIRCHWOOD_CREDIT_BASE_URL ||
     'https://birchwood.meridianlink.com/inetapi/request_products.aspx';
+  const proxyUrl =
+    process.env.BIRCHWOOD_CREDIT_PROXY_URL || process.env.MERIDIANLINK_PROXY_URL || '';
   const interfaceId = process.env.BIRCHWOOD_CREDIT_INTERFACE || 'FirstAccess040926';
   const clientIdentifierHeader = process.env.BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER_HEADER || 'Client-Identifier';
   const clientIdentifier = process.env.BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER || 'B0';
@@ -78,6 +80,7 @@ export function getMeridianLinkConfig() {
 
   return {
     baseUrl,
+    proxyUrl,
     interfaceId,
     clientIdentifierHeader,
     clientIdentifier,
@@ -224,14 +227,20 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
   const xml = buildMeridianLinkSubmitXml(borrower);
 
   const auth = Buffer.from(`${config.username}:${config.password}`).toString('base64');
-  const response = await fetch(config.baseUrl, {
+  const endpointUrl = config.proxyUrl || config.baseUrl;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/xml',
+    'MCL-Interface': config.interfaceId,
+    [config.clientIdentifierHeader]: config.clientIdentifier,
+  };
+
+  if (!config.proxyUrl) {
+    headers.Authorization = `Basic ${auth}`;
+  }
+
+  const response = await fetch(endpointUrl, {
     method: 'POST',
-    headers: {
-      Authorization: `Basic ${auth}`,
-      'Content-Type': 'application/xml',
-      'MCL-Interface': config.interfaceId,
-      [config.clientIdentifierHeader]: config.clientIdentifier,
-    },
+    headers,
     body: xml,
     cache: 'no-store',
   });

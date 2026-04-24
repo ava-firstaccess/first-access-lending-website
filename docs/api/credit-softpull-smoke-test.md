@@ -156,6 +156,19 @@ Important deployment note:
 - deployed/Vercel testing should use env vars instead: `BIRCHWOOD_CREDIT_USERNAME`, `BIRCHWOOD_CREDIT_PASSWORD`, `BIRCHWOOD_CREDIT_BASE_URL`, `BIRCHWOOD_CREDIT_INTERFACE`, `BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER`, `BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER_HEADER`
 - MeridianLink also expects the separate client identifier value, currently defaulted to `B0`
 
+
+## Mac proxy route
+
+To force the app through the Mac as the MeridianLink egress point:
+
+1. Run the proxy server on the Mac
+   - `npm run meridianlink:proxy`
+2. Point the app or local shell at the proxy URL
+   - `MERIDIANLINK_PROXY_URL=http://127.0.0.1:8787/meridianlink/prod-test`
+3. Keep the normal approved prod-test payload and allowlist in place
+
+This proxy path is the one to port to the VPS later, by changing only the proxy host URL.
+
 ### Prod test curl example
 
 ```bash

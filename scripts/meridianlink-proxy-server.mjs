@@ -1,0 +1,97 @@
+#!/usr/bin/env node
+import http from 'http';
+import { execFileSync } from 'child_process';
+
+const PROXY_PORT = Number(process.env.MERIDIANLINK_PROXY_PORT || 8787);
+const PROXY_HOST = process.env.MERIDIANLINK_PROXY_HOST || '0.0.0.0';
+const DEFAULT_BASE_URL = 'https://birchwood.meridianlink.com/inetapi/request_products.aspx';
+const DEFAULT_INTERFACE_ID = 'FirstAccess040926';
+const DEFAULT_CLIENT_IDENTIFIER_HEADER = 'Client-Identifier';
+const DEFAULT_CLIENT_IDENTIFIER = 'B0';
+
+function getSecretFromKeychain(label) {
+  return execFileSync('security', ['find-generic-password', '-a', 'ava', '-s', label, '-w'], {
+    encoding: 'utf8',
+  }).trim();
+}
+
+function readConfig() {
+  const baseUrl = process.env.BIRCHWOOD_CREDIT_BASE_URL || DEFAULT_BASE_URL;
+  const interfaceId = process.env.BIRCHWOOD_CREDIT_INTERFACE || DEFAULT_INTERFACE_ID;
+  const clientIdentifierHeader = process.env.BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER_HEADER || DEFAULT_CLIENT_IDENTIFIER_HEADER;
+  const clientIdentifier = process.env.BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER || DEFAULT_CLIENT_IDENTIFIER;
+  const username =
+    process.env.BIRCHWOOD_CREDIT_USERNAME ||
+    getSecretFromKeychain(process.env.BIRCHWOOD_CREDIT_USERNAME_KEYCHAIN_LABEL || 'birchwood-credit-username');
+  const password =
+    process.env.BIRCHWOOD_CREDIT_PASSWORD ||
+    getSecretFromKeychain(process.env.BIRCHWOOD_CREDIT_PASSWORD_KEYCHAIN_LABEL || 'birchwood-credit-password');
+
+  return { baseUrl, interfaceId, clientIdentifierHeader, clientIdentifier, username, password };
+}
+
+function sendText(res, statusCode, body, headers = {}) {
+  res.writeHead(statusCode, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    ...headers,
+  });
+  res.end(body);
+}
+
+function collectRequestBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+}
+
+const server = http.createServer(async (req, res) => {
+  try {
+    if (req.method === 'GET' && req.url === '/health') {
+      sendText(res, 200, 'ok');
+      return;
+    }
+
+    if (req.method !== 'POST' || req.url !== '/meridianlink/prod-test') {
+      sendText(res, 404, 'not found');
+      return;
+    }
+
+    const xml = await collectRequestBody(req);
+    if (!xml.trim()) {
+      sendText(res, 400, 'missing XML body');
+      return;
+    }
+
+    const config = readConfig();
+    const auth = Buffer.from(`${config.username}:${config.password}`).toString('base64');
+    const upstream = await fetch(config.baseUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/xml',
+        'MCL-Interface': req.headers['mcl-interface']?.toString() || config.interfaceId,
+        [config.clientIdentifierHeader]: req.headers['client-identifier']?.toString() || config.clientIdentifier,
+      },
+      body: xml,
+      cache: 'no-store',
+    });
+
+    const text = await upstream.text();
+    const contentType = upstream.headers.get('content-type') || 'text/xml; charset=utf-8';
+    res.writeHead(upstream.status, {
+      'Content-Type': contentType,
+      'Cache-Control': 'no-store',
+    });
+    res.end(text);
+  } catch (error) {
+    sendText(res, 500, error instanceof Error ? error.stack || error.message : 'Unknown proxy error');
+  }
+});
+
+server.listen(PROXY_PORT, PROXY_HOST, () => {
+  console.log(`MeridianLink proxy listening on http://${PROXY_HOST}:${PROXY_PORT}`);
+  console.log(`POST /meridianlink/prod-test -> ${process.env.BIRCHWOOD_CREDIT_BASE_URL || DEFAULT_BASE_URL}`);
+});
