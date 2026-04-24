@@ -111,12 +111,14 @@ export async function POST(req: NextRequest) {
     // ── Auth check (soft - allow unauthenticated for testing) ──
     const sessionToken = req.cookies.get('session_token')?.value;
     const supabase = getSupabaseAdmin();
+    let applicationId: string | null = null;
     if (sessionToken) {
       const { data: app } = await supabase
         .from('applications')
         .select('id')
         .eq('session_token', sessionToken)
         .single();
+      applicationId = app?.id || null;
       // Log but don't block if app not found
       if (!app) {
         console.warn('verify-value: session_token present but no matching application');
@@ -177,6 +179,7 @@ export async function POST(req: NextRequest) {
         zipcode: zipcode || null,
         city: city || null,
         state: state || null,
+        application_id: applicationId,
         tier: 'no_data',
         hc_estimate: null,
         hc_value: null,
@@ -216,6 +219,7 @@ export async function POST(req: NextRequest) {
         zipcode: zipcode || null,
         city: city || null,
         state: state || null,
+        application_id: applicationId,
         tier: 'estimate',
         hc_estimate: hcEstimate,
         hc_value: null,
@@ -245,6 +249,7 @@ export async function POST(req: NextRequest) {
         zipcode: zipcode || null,
         city: city || null,
         state: state || null,
+        application_id: applicationId,
         tier: 'estimate',
         hc_estimate: hcEstimate,
         hc_value: null,
@@ -275,6 +280,7 @@ export async function POST(req: NextRequest) {
         zipcode: zipcode || null,
         city: city || null,
         state: state || null,
+        application_id: applicationId,
         tier: 'estimate',
         hc_estimate: hcEstimate,
         hc_value: null,
@@ -316,6 +322,7 @@ export async function POST(req: NextRequest) {
         zipcode: zipcode || null,
         city: city || null,
         state: state || null,
+        application_id: applicationId,
         tier: 'verified',
         hc_estimate: hcEstimate,
         hc_value: Math.round(verifiedValue),
@@ -347,6 +354,7 @@ export async function POST(req: NextRequest) {
         zipcode: zipcode || null,
         city: city || null,
         state: state || null,
+        application_id: applicationId,
         tier: 'low_confidence',
         hc_estimate: hcEstimate,
         hc_value: Math.round(verifiedValue),

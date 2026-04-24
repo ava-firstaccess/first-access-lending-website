@@ -75,10 +75,21 @@ export async function POST(req: NextRequest) {
       });
 
       const supabase = getSupabaseAdmin();
+      const sessionToken = req.cookies.get('session_token')?.value;
+      let applicationId: string | null = null;
+      if (sessionToken) {
+        const { data: app } = await supabase
+          .from('applications')
+          .select('id')
+          .eq('session_token', sessionToken)
+          .single();
+        applicationId = app?.id || null;
+      }
       const showXmlPreview = process.env.MERIDIANLINK_PROXY_DEBUG === 'true' || process.env.NODE_ENV !== 'production';
       const runPayload = {
         run_id: runId,
         mode: result.mode,
+        application_id: applicationId,
         provider: result.provider,
         request_type: result.requestType,
         endpoint_host: result.debug?.endpointHost || 'unknown',
@@ -110,6 +121,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         runId,
         success: result.success,
+        application_id: applicationId,
         provider: result.provider,
         mode: result.mode,
         requestType: result.requestType,
@@ -133,6 +145,7 @@ export async function POST(req: NextRequest) {
           lastName: MERIDIANLINK_APPROVED_PROD_TEST.lastName,
           fileNumber: MERIDIANLINK_APPROVED_PROD_TEST.fileNumber,
         },
+        applicationId,
       });
     }
 

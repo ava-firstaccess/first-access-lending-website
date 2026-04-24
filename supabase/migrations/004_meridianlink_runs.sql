@@ -2,6 +2,7 @@
 CREATE TABLE IF NOT EXISTS meridianlink_runs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   run_id UUID NOT NULL UNIQUE,
+  application_id UUID,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   mode TEXT NOT NULL,
   provider TEXT NOT NULL DEFAULT 'meridianlink',
@@ -25,6 +26,7 @@ CREATE TABLE IF NOT EXISTS meridianlink_runs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_meridianlink_runs_created_at ON meridianlink_runs (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_meridianlink_runs_application_id ON meridianlink_runs (application_id);
 CREATE INDEX IF NOT EXISTS idx_meridianlink_runs_mode ON meridianlink_runs (mode);
 CREATE INDEX IF NOT EXISTS idx_meridianlink_runs_status ON meridianlink_runs (status);
 
