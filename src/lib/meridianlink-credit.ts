@@ -72,6 +72,15 @@ function getSecretFromFile(filePath: string) {
   return fs.readFileSync(filePath, 'utf8').trim();
 }
 
+function getSecret(name: string, fallbackLabel: string) {
+  const filePath = process.env[`${name}_FILE`] || '';
+  if (filePath) return getSecretFromFile(filePath);
+  const envValue = process.env[name] || '';
+  if (envValue) return envValue;
+  if (process.platform === 'darwin') return getSecretFromKeychain(fallbackLabel);
+  throw new Error(`Missing ${name}. Set ${name} or ${name}_FILE.`);
+}
+
 function shouldLogMeridianLinkDebug() {
   return process.env.MERIDIANLINK_PROXY_DEBUG === 'true';
 }
@@ -103,16 +112,17 @@ export function getMeridianLinkConfig() {
   const clientIdentifier = process.env.BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER || 'B0';
   const proxyCaCertB64 = process.env.MERIDIANLINK_PROXY_CA_CERT_B64 || '';
   const shouldUseProxy = Boolean(proxyUrl);
-  const username = shouldUseProxy
-    ? ''
-    : process.env.BIRCHWOOD_CREDIT_USERNAME ||
-      getSecretFromKeychain(process.env.BIRCHWOOD_CREDIT_USERNAME_KEYCHAIN_LABEL || 'birchwood-credit-username');
+  const username = getSecret(
+    'BIRCHWOOD_CREDIT_USERNAME',
+    process.env.BIRCHWOOD_CREDIT_USERNAME_KEYCHAIN_LABEL || 'birchwood-credit-username'
+  );
   const passwordFile = process.env.BIRCHWOOD_CREDIT_PASSWORD_FILE || process.env.MERIDIANLINK_PASSWORD_FILE || '';
-  const password = shouldUseProxy
-    ? ''
-    : process.env.BIRCHWOOD_CREDIT_PASSWORD ||
-      (passwordFile ? getSecretFromFile(passwordFile) : '') ||
-      getSecretFromKeychain(process.env.BIRCHWOOD_CREDIT_PASSWORD_KEYCHAIN_LABEL || 'birchwood-credit-password');
+  const password =
+    (passwordFile ? getSecretFromFile(passwordFile) : '') ||
+    getSecret(
+      'BIRCHWOOD_CREDIT_PASSWORD',
+      process.env.BIRCHWOOD_CREDIT_PASSWORD_KEYCHAIN_LABEL || 'birchwood-credit-password'
+    );
 
   return {
     proxyUrl,

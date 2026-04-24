@@ -2,8 +2,8 @@
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
-import { execFileSync } from 'child_process';
 import crypto from 'crypto';
+import { execFileSync } from 'child_process';
 
 const PROXY_PORT = Number(process.env.MERIDIANLINK_PROXY_PORT || 8787);
 const PROXY_HOST = process.env.MERIDIANLINK_PROXY_HOST || '0.0.0.0';
@@ -14,12 +14,6 @@ const DEFAULT_CLIENT_IDENTIFIER = 'B0';
 const DEFAULT_AUTH_HEADER = 'X-MeridianLink-Proxy-Auth';
 const LOCAL_ENV_FILES = ['.env.local', '.env'];
 const localEnvCache = new Map();
-
-function getSecretFromKeychain(label) {
-  return execFileSync('security', ['find-generic-password', '-a', 'ava', '-s', label, '-w'], {
-    encoding: 'utf8',
-  }).trim();
-}
 
 function loadLocalEnv(fileName) {
   if (localEnvCache.has(fileName)) return localEnvCache.get(fileName);
@@ -55,6 +49,23 @@ function getSetting(name, fallback = '') {
   return fallback;
 }
 
+function getSecretFromFile(filePath) {
+  return fs.readFileSync(filePath, 'utf8').trim();
+}
+
+function getSecret(name, fallbackLabel) {
+  const filePath = getSetting(`${name}_FILE`, '');
+  if (filePath) return getSecretFromFile(filePath);
+  const envValue = getSetting(name, '');
+  if (envValue) return envValue;
+  if (process.platform === 'darwin') {
+    return execFileSync('security', ['find-generic-password', '-a', 'ava', '-s', fallbackLabel, '-w'], {
+      encoding: 'utf8',
+    }).trim();
+  }
+  throw new Error(`Missing ${name}. Set ${name} or ${name}_FILE for the VPS relay.`);
+}
+
 function timingSafeMatch(a, b) {
   if (!a || !b) return false;
   const left = Buffer.from(String(a));
@@ -70,12 +81,8 @@ function readConfig() {
   const clientIdentifier = getSetting('BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER', DEFAULT_CLIENT_IDENTIFIER);
   const proxyAuthHeader = getSetting('MERIDIANLINK_PROXY_AUTH_HEADER', DEFAULT_AUTH_HEADER);
   const proxyAuthToken = getSetting('MERIDIANLINK_PROXY_AUTH_TOKEN', '');
-  const username =
-    getSetting('BIRCHWOOD_CREDIT_USERNAME') ||
-    getSecretFromKeychain(getSetting('BIRCHWOOD_CREDIT_USERNAME_KEYCHAIN_LABEL', 'birchwood-credit-username'));
-  const password =
-    getSetting('BIRCHWOOD_CREDIT_PASSWORD') ||
-    getSecretFromKeychain(getSetting('BIRCHWOOD_CREDIT_PASSWORD_KEYCHAIN_LABEL', 'birchwood-credit-password'));
+  const username = getSecret('BIRCHWOOD_CREDIT_USERNAME', 'birchwood-credit-username');
+  const password = getSecret('BIRCHWOOD_CREDIT_PASSWORD', 'birchwood-credit-password');
 
   return { baseUrl, interfaceId, clientIdentifierHeader, clientIdentifier, proxyAuthHeader, proxyAuthToken, username, password };
 }
