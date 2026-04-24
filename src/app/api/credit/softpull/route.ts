@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
         requestType: result.requestType,
         status: result.status,
         vendorOrderIdentifier: result.vendorOrderIdentifier,
+        responseXmlSnippet: result.rawResponse.slice(0, 350),
         borrower: {
           firstName: result.borrower.firstName,
           lastName: result.borrower.lastName,

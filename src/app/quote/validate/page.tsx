@@ -100,6 +100,7 @@ export default function ValidatePage() {
     preferredResponseFormat: 'Html',
   });
   const [prodTestResult, setProdTestResult] = useState<Record<string, any> | null>(null);
+  const [prodTestXmlPreview, setProdTestXmlPreview] = useState<string | null>(null);
 
   // Updated numbers
   const [updatedCashAvailable] = useState<number | null>(null);
@@ -238,6 +239,7 @@ export default function ValidatePage() {
     setLoading(true);
     setCreditError(null);
     setProdTestResult(null);
+    setProdTestXmlPreview(null);
 
     try {
       const requestBody = isMeridianLinkProdTest
@@ -281,6 +283,8 @@ export default function ValidatePage() {
 
       if (isMeridianLinkProdTest) {
         setProdTestResult(payload);
+        setProdTestXmlPreview(String(payload?.responseXmlSnippet || '').trim());
+        goToStep('mortgages');
         return;
       }
 
@@ -608,6 +612,17 @@ export default function ValidatePage() {
         ═══════════════════════════════════════════════ */}
         {currentStep === 'mortgages' && (
           <div className="bg-white rounded-2xl shadow-md p-8">
+            {prodTestResult && (
+              <div className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-4 text-sm text-green-800">
+                <p className="font-semibold">MeridianLink XML pulled successfully.</p>
+                <div className="mt-2 space-y-1 text-xs md:text-sm">
+                  <p><span className="font-medium">Status:</span> {String(prodTestResult.status || 'Submit')}</p>
+                  <p><span className="font-medium">Vendor Order ID:</span> {String(prodTestResult.vendorOrderIdentifier || 'Not returned')}</p>
+                  <p><span className="font-medium">XML Preview:</span></p>
+                  <pre className="mt-2 max-h-40 overflow-auto rounded-lg bg-white/70 p-3 text-[11px] leading-4 text-green-900">{prodTestXmlPreview || 'No XML preview returned.'}</pre>
+                </div>
+              </div>
+            )}
             <div className="text-center mb-8">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
                 <span className="text-3xl">🏦</span>
