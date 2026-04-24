@@ -19,28 +19,30 @@ export function buildSessionErrorResponse(message = 'Session expired. Please ver
   return response;
 }
 
-export async function getAuthenticatedApplication<TSelect extends string>(req: NextRequest, select: TSelect) {
+export async function getAuthenticatedApplication(req: NextRequest, select: string) {
   const sessionToken = req.cookies.get('session_token')?.value;
   if (!sessionToken) {
     return { response: buildSessionErrorResponse('Not authenticated') } as const;
   }
 
   const supabase = getSupabaseAdmin();
-  const { data: app, error } = await supabase
+  const applicationQuery = (supabase as any)
     .from('applications')
     .select(select)
     .eq('session_token', sessionToken)
     .single();
+  const { data: app, error } = await applicationQuery;
 
   if (error || !app) {
     return { response: buildSessionErrorResponse('Session expired. Please verify again.') } as const;
   }
 
-  const sessionExpiresAt = (app as { session_expires_at?: string | null }).session_expires_at || null;
+  const typedApp = app as Record<string, unknown>;
+  const sessionExpiresAt = typeof typedApp.session_expires_at === 'string' ? typedApp.session_expires_at : null;
   if (!sessionExpiresAt || new Date(sessionExpiresAt).getTime() <= Date.now()) {
-    const appId = (app as { id?: string | null }).id || null;
+    const appId = typeof typedApp.id === 'string' ? typedApp.id : null;
     if (appId) {
-      await supabase
+      await (supabase as any)
         .from('applications')
         .update({ session_token: null, session_expires_at: null, updated_at: new Date().toISOString() })
         .eq('id', appId);
@@ -48,5 +50,5 @@ export async function getAuthenticatedApplication<TSelect extends string>(req: N
     return { response: buildSessionErrorResponse('Session expired. Please verify again.') } as const;
   }
 
-  return { supabase, app, sessionToken } as const;
+  return { supabase, app: typedApp, sessionToken } as const;
 }

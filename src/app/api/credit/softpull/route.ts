@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       if ('response' in auth) return auth.response;
 
       const { supabase, app } = auth;
-      const applicationId: string | null = app.id || null;
+      const applicationId = typeof app.id === 'string' ? app.id : null;
 
       const showXmlPreview = process.env.MERIDIANLINK_PROXY_DEBUG === 'true' || process.env.NODE_ENV !== 'production';
       const endpointHost = new URL(

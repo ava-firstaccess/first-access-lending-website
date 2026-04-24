@@ -336,9 +336,10 @@ export async function GET(req: NextRequest) {
     if ('response' in auth) return auth.response;
 
     const { supabase, app, sessionToken } = auth;
+    const phone = typeof app.phone === 'string' ? app.phone : '';
 
     // Search GHL for contact
-    const contact = await findContactByPhone(app.phone);
+    const contact = await findContactByPhone(phone);
     if (!contact) {
       return NextResponse.json({
         success: true,
