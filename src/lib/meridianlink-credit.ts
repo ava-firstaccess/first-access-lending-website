@@ -347,7 +347,7 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
 
   if (response.statusCode < 200 || response.statusCode >= 300) {
     logMeridianLinkDebug('http_error', responseDebug);
-    throw new Error(`MeridianLink submit failed (${response.statusCode}): ${responseText.slice(0, 500)}`);
+    throw new Error(`MeridianLink submit failed (${response.statusCode}).`);
   }
 
   const errorCategory = getFirstMatch(responseText, 'ErrorMessageCategoryCode');

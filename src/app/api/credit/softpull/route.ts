@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       const { supabase, app } = auth;
       const applicationId = typeof app.id === 'string' ? app.id : null;
 
-      const showXmlPreview = process.env.MERIDIANLINK_PROXY_DEBUG === 'true' || process.env.NODE_ENV !== 'production';
+      const showXmlPreview = process.env.MERIDIANLINK_PROXY_DEBUG === 'true' && process.env.NODE_ENV !== 'production';
       const endpointHost = new URL(
         process.env.BIRCHWOOD_CREDIT_PROXY_URL || process.env.MERIDIANLINK_PROXY_URL || 'https://api.firstaccesslending.com/meridianlink/prod-test'
       ).hostname;
@@ -158,21 +158,6 @@ export async function POST(req: NextRequest) {
           vendorOrderIdentifier: result.vendorOrderIdentifier,
           fileNumber: result.fileNumber || null,
           ...(showXmlPreview ? { responseXmlSnippet: result.rawResponse.slice(0, 350) } : {}),
-          borrower: {
-            firstName: result.borrower.firstName,
-            lastName: result.borrower.lastName,
-            middleName: result.borrower.middleName,
-            suffixName: result.borrower.suffixName,
-            address: result.borrower.address,
-            city: result.borrower.city,
-            state: result.borrower.state,
-            zip: result.borrower.zip,
-            preferredResponseFormat: result.borrower.preferredResponseFormat,
-          },
-          approvedProdTestBorrower: {
-            firstName: MERIDIANLINK_APPROVED_PROD_TEST.firstName,
-            lastName: MERIDIANLINK_APPROVED_PROD_TEST.lastName,
-          },
           applicationId,
         });
       } catch (error) {

@@ -168,7 +168,7 @@ const server = http.createServer(async (req, res) => {
     res.end(text);
   } catch (error) {
     logRelay('error', { message: error instanceof Error ? error.message : 'Unknown proxy error' });
-    sendText(res, 500, error instanceof Error ? error.stack || error.message : 'Unknown proxy error');
+    sendText(res, 500, 'internal proxy error');
   }
 });
 
