@@ -59,21 +59,6 @@ export async function POST(req: NextRequest) {
       });
 
       const runId = randomUUID();
-      const result = await submitMeridianLinkProdTest({
-        firstName: borrower.firstName,
-        lastName: borrower.lastName,
-        middleName: borrower.middleName,
-        suffixName: borrower.suffixName,
-        dob: borrower.dob,
-        ssn: borrower.ssn,
-        ssnLast4: borrower.ssnLast4,
-        address: borrower.address,
-        city: borrower.city,
-        state: borrower.state,
-        zip: borrower.zip,
-        preferredResponseFormat: borrower.preferredResponseFormat,
-      });
-
       const supabase = getSupabaseAdmin();
       const sessionToken = req.cookies.get('session_token')?.value;
       let applicationId: string | null = null;
@@ -85,67 +70,137 @@ export async function POST(req: NextRequest) {
           .single();
         applicationId = app?.id || null;
       }
+
       const showXmlPreview = process.env.MERIDIANLINK_PROXY_DEBUG === 'true' || process.env.NODE_ENV !== 'production';
-      const runPayload = {
+      const endpointHost = new URL(
+        process.env.BIRCHWOOD_CREDIT_PROXY_URL || process.env.MERIDIANLINK_PROXY_URL || 'https://api.firstaccesslending.com/meridianlink/prod-test'
+      ).hostname;
+      const baseRunPayload = {
         run_id: runId,
-        mode: result.mode,
+        mode: 'production-test',
         application_id: applicationId,
-        provider: result.provider,
-        request_type: result.requestType,
-        endpoint_host: result.debug?.endpointHost || 'unknown',
-        status_code: result.debug?.statusCode ?? null,
-        status: result.status,
-        vendor_order_identifier: result.vendorOrderIdentifier || null,
-        has_vendor_order_identifier: Boolean(result.debug?.hasVendorOrderIdentifier),
-        response_bytes: result.debug?.responseBytes ?? 0,
-        error_category: result.debug?.errorCategory || null,
-        error_message: result.debug?.errorMessage || null,
-        borrower_first_name: result.borrower.firstName,
-        borrower_last_name: result.borrower.lastName,
-        borrower_file_number: result.fileNumber || null,
+        provider,
+        request_type: 'Submit',
+        endpoint_host: endpointHost,
+        status_code: null,
+        status: 'started',
+        vendor_order_identifier: null,
+        has_vendor_order_identifier: false,
+        response_bytes: 0,
+        error_category: null,
+        error_message: null,
+        borrower_first_name: borrower.firstName,
+        borrower_last_name: borrower.lastName,
+        borrower_file_number: null,
         approved_borrower_first_name: MERIDIANLINK_APPROVED_PROD_TEST.firstName,
         approved_borrower_last_name: MERIDIANLINK_APPROVED_PROD_TEST.lastName,
-        approved_borrower_file_number: result.fileNumber || null,
-        success: result.success,
+        approved_borrower_file_number: null,
+        success: false,
       };
 
       try {
-        const { error: logError } = await supabase.from('meridianlink_runs').insert(runPayload);
-        if (logError) {
-          console.warn('meridianlink_runs insert failed:', logError.message);
-        }
+        await supabase.from('meridianlink_runs').insert(baseRunPayload);
       } catch (logError) {
-        console.warn('meridianlink_runs insert threw:', logError instanceof Error ? logError.message : logError);
+        console.warn('meridianlink_runs attempt insert threw:', logError instanceof Error ? logError.message : logError);
       }
 
-      return NextResponse.json({
-        runId,
-        success: result.success,
-        application_id: applicationId,
-        provider: result.provider,
-        mode: result.mode,
-        requestType: result.requestType,
-        status: result.status,
-        vendorOrderIdentifier: result.vendorOrderIdentifier,
-        fileNumber: result.fileNumber || null,
-        ...(showXmlPreview ? { responseXmlSnippet: result.rawResponse.slice(0, 350) } : {}),
-        borrower: {
-          firstName: result.borrower.firstName,
-          lastName: result.borrower.lastName,
-          middleName: result.borrower.middleName,
-          suffixName: result.borrower.suffixName,
-          address: result.borrower.address,
-          city: result.borrower.city,
-          state: result.borrower.state,
-          zip: result.borrower.zip,
-          preferredResponseFormat: result.borrower.preferredResponseFormat,
-        },
-        approvedProdTestBorrower: {
-          firstName: MERIDIANLINK_APPROVED_PROD_TEST.firstName,
-          lastName: MERIDIANLINK_APPROVED_PROD_TEST.lastName,
-        },
-        applicationId,
-      });
+      try {
+        const result = await submitMeridianLinkProdTest({
+          firstName: borrower.firstName,
+          lastName: borrower.lastName,
+          middleName: borrower.middleName,
+          suffixName: borrower.suffixName,
+          dob: borrower.dob,
+          ssn: borrower.ssn,
+          ssnLast4: borrower.ssnLast4,
+          address: borrower.address,
+          city: borrower.city,
+          state: borrower.state,
+          zip: borrower.zip,
+          preferredResponseFormat: borrower.preferredResponseFormat,
+        });
+
+        const successPayload = {
+          ...baseRunPayload,
+          mode: result.mode,
+          provider: result.provider,
+          request_type: result.requestType,
+          endpoint_host: result.debug?.endpointHost || endpointHost,
+          status_code: result.debug?.statusCode ?? null,
+          status: result.status,
+          vendor_order_identifier: result.vendorOrderIdentifier || null,
+          has_vendor_order_identifier: Boolean(result.debug?.hasVendorOrderIdentifier),
+          response_bytes: result.debug?.responseBytes ?? 0,
+          error_category: result.debug?.errorCategory || null,
+          error_message: result.debug?.errorMessage || null,
+          borrower_file_number: result.fileNumber || null,
+          approved_borrower_file_number: result.fileNumber || null,
+          success: result.success,
+        };
+
+        try {
+          const { error: updateError } = await supabase.from('meridianlink_runs').update(successPayload).eq('run_id', runId);
+          if (updateError) {
+            console.warn('meridianlink_runs success update failed:', updateError.message);
+          }
+        } catch (logError) {
+          console.warn('meridianlink_runs success update threw:', logError instanceof Error ? logError.message : logError);
+        }
+
+        return NextResponse.json({
+          runId,
+          success: result.success,
+          application_id: applicationId,
+          provider: result.provider,
+          mode: result.mode,
+          requestType: result.requestType,
+          status: result.status,
+          vendorOrderIdentifier: result.vendorOrderIdentifier,
+          fileNumber: result.fileNumber || null,
+          ...(showXmlPreview ? { responseXmlSnippet: result.rawResponse.slice(0, 350) } : {}),
+          borrower: {
+            firstName: result.borrower.firstName,
+            lastName: result.borrower.lastName,
+            middleName: result.borrower.middleName,
+            suffixName: result.borrower.suffixName,
+            address: result.borrower.address,
+            city: result.borrower.city,
+            state: result.borrower.state,
+            zip: result.borrower.zip,
+            preferredResponseFormat: result.borrower.preferredResponseFormat,
+          },
+          approvedProdTestBorrower: {
+            firstName: MERIDIANLINK_APPROVED_PROD_TEST.firstName,
+            lastName: MERIDIANLINK_APPROVED_PROD_TEST.lastName,
+          },
+          applicationId,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown MeridianLink error';
+        const failurePayload = {
+          ...baseRunPayload,
+          status: 'failed',
+          error_message: message,
+          success: false,
+        };
+        try {
+          const { error: updateError } = await supabase.from('meridianlink_runs').update(failurePayload).eq('run_id', runId);
+          if (updateError) {
+            console.warn('meridianlink_runs failure update failed:', updateError.message);
+          }
+        } catch (logError) {
+          console.warn('meridianlink_runs failure update threw:', logError instanceof Error ? logError.message : logError);
+        }
+        return NextResponse.json(
+          {
+            success: false,
+            runId,
+            application_id: applicationId,
+            error: message,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     if (requestedMode && requestedMode !== 'sandbox' && requestedMode !== 'test') {

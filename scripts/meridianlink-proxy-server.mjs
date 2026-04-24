@@ -74,6 +74,10 @@ function timingSafeMatch(a, b) {
   return crypto.timingSafeEqual(left, right);
 }
 
+function logRelay(event, details) {
+  console.log(JSON.stringify({ scope: 'meridianlink-proxy', event, ...details }));
+}
+
 function readConfig() {
   const baseUrl = getSetting('BIRCHWOOD_CREDIT_BASE_URL', DEFAULT_BASE_URL);
   const interfaceId = getSetting('BIRCHWOOD_CREDIT_INTERFACE', DEFAULT_INTERFACE_ID);
@@ -124,7 +128,14 @@ const server = http.createServer(async (req, res) => {
 
     const config = readConfig();
     const incomingAuth = req.headers[String(config.proxyAuthHeader).toLowerCase()]?.toString() || '';
+    logRelay('request', {
+      method: req.method,
+      path: req.url,
+      contentLength: req.headers['content-length'] || null,
+      authPresent: Boolean(incomingAuth),
+    });
     if (!timingSafeMatch(incomingAuth, config.proxyAuthToken)) {
+      logRelay('unauthorized', { path: req.url });
       sendText(res, 401, 'unauthorized');
       return;
     }
@@ -143,6 +154,12 @@ const server = http.createServer(async (req, res) => {
     });
 
     const text = await upstream.text();
+    logRelay('upstream', {
+      status: upstream.status,
+      contentType: upstream.headers.get('content-type') || 'text/xml; charset=utf-8',
+      bytes: Buffer.byteLength(text, 'utf8'),
+      host: config.baseUrl,
+    });
     const contentType = upstream.headers.get('content-type') || 'text/xml; charset=utf-8';
     res.writeHead(upstream.status, {
       'Content-Type': contentType,
@@ -150,6 +167,7 @@ const server = http.createServer(async (req, res) => {
     });
     res.end(text);
   } catch (error) {
+    logRelay('error', { message: error instanceof Error ? error.message : 'Unknown proxy error' });
     sendText(res, 500, error instanceof Error ? error.stack || error.message : 'Unknown proxy error');
   }
 });
