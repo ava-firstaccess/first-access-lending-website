@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { mergeSanitizedApplicationFormData } from '@/lib/application-data';
-import { findApplicationBySessionToken } from '@/lib/application-session';
+import { findApplicationBySessionToken, requireTrustedBrowserRequest } from '@/lib/application-session';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 const GHL_API_BASE = 'https://services.leadconnectorhq.com';
@@ -678,18 +678,24 @@ async function markAsDuplicate(oppId: string, newOppId: string, pipelineId: stri
 
 export async function POST(req: NextRequest) {
   try {
-    // ── Auth check ──
-    // TODO: RE-ENABLE BEFORE LAUNCH - temporarily bypassed for testing
+    const trusted = requireTrustedBrowserRequest(req);
+    if (trusted) return trusted;
+
     const sessionToken = req.cookies.get('session_token')?.value;
+    if (!sessionToken) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+
     const supabase = getSupabaseAdmin();
     let app: any = null;
 
-    if (sessionToken) {
-      // Authenticated flow: look up existing application
-      const { app: foundApp } = await findApplicationBySessionToken(supabase, sessionToken, 'id, phone, form_data');
-      if (foundApp) {
-        app = foundApp;
-      }
+    const { app: foundApp } = await findApplicationBySessionToken(supabase, sessionToken, 'id, phone, form_data');
+    if (foundApp) {
+      app = foundApp;
+    }
+
+    if (!app) {
+      return NextResponse.json({ error: 'Session expired. Please verify again.' }, { status: 401 });
     }
 
     // Get submitted form data (merge with any stored data)
@@ -699,33 +705,16 @@ export async function POST(req: NextRequest) {
     // ── 1. Save final data to Supabase (STRIP SSN/DOB for compliance) ──
     const supabaseData = mergeSanitizedApplicationFormData(mergedData);
 
-    if (app) {
-      // Update existing application
-      await supabase
-        .from('applications')
-        .update({
-          form_data: supabaseData,
-          stage: 'submitted',
-          status: 'submitted',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', app.id);
-    } else {
-      // No authenticated session - create a new application record for testing
-      // TODO: RE-ENABLE AUTH BEFORE LAUNCH
-      const phone = submittedData?.['Borrower - Phone'] || 'test-user';
-      const { data: newApp } = await supabase
-        .from('applications')
-        .insert({
-          phone,
-          form_data: supabaseData,
-          stage: 'submitted',
-          status: 'submitted',
-        })
-        .select('id')
-        .single();
-      if (newApp) app = newApp;
-    }
+    // Update existing application
+    await supabase
+      .from('applications')
+      .update({
+        form_data: supabaseData,
+        stage: 'submitted',
+        status: 'submitted',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', app.id);
 
     // ── 2. GHL upsert ──
     const phone = app?.phone || mergedData['Borrower - Phone'] || submittedData?.['Borrower - Phone'] || '';

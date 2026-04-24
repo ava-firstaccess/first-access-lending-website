@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findApplicationBySessionToken } from '@/lib/application-session';
+import { findApplicationBySessionToken, requireTrustedBrowserRequest } from '@/lib/application-session';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 const HC_BASE = 'https://api.housecanary.com';
@@ -109,17 +109,19 @@ async function getPropertyValueWithFSD(address: string, zipcode: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    // ── Auth check (soft - allow unauthenticated for testing) ──
+    const trusted = requireTrustedBrowserRequest(req);
+    if (trusted) return trusted;
+
     const sessionToken = req.cookies.get('session_token')?.value;
+    if (!sessionToken) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+
     const supabase = getSupabaseAdmin();
-    let applicationId: string | null = null;
-    if (sessionToken) {
-      const { app } = await findApplicationBySessionToken(supabase, sessionToken, 'id');
-      applicationId = typeof app?.id === 'string' ? app.id : null;
-      // Log but don't block if app not found
-      if (!app) {
-        console.warn('verify-value: session_token present but no matching application');
-      }
+    const { app } = await findApplicationBySessionToken(supabase, sessionToken, 'id');
+    const applicationId = typeof app?.id === 'string' ? app.id : null;
+    if (!applicationId) {
+      return NextResponse.json({ error: 'Session expired. Please verify again.' }, { status: 401 });
     }
 
     // ── Parse request ──
