@@ -164,7 +164,7 @@ To force the app through the Mac as the MeridianLink egress point:
 1. Run the proxy server on the Mac
    - `npm run meridianlink:proxy`
 2. Point the app or local shell at the proxy URL
-   - `MERIDIANLINK_PROXY_URL=http://127.0.0.1:8787/meridianlink/prod-test`
+   - `MERIDIANLINK_PROXY_URL=https://45-76-228-174.sslip.io/meridianlink/prod-test`
 3. Keep the normal approved prod-test payload and allowlist in place
 
 This proxy path is the one to port to the VPS later, by changing only the proxy host URL.
