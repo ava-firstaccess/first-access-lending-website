@@ -131,7 +131,8 @@ export function Stage1PricingPage({ mode }: { mode: Mode }) {
     async function run() {
       setLoading(true);
       try {
-        const res = await fetch('/api/stage1-pricing', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ engine, input, targetPriceOverride: draft.targetPriceOverride, manualRateOverride: draft.manualRateOverride, tolerance: Number(draft.tolerance || 0.125) }) });
+        const endpoint = mode === 'pricer' ? '/api/pricer-stage1-pricing' : '/api/stage1-pricing';
+        const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ engine, input, targetPriceOverride: draft.targetPriceOverride, manualRateOverride: draft.manualRateOverride, tolerance: Number(draft.tolerance || 0.125) }) });
         const data = await res.json();
         if (!cancelled) setResponse(data);
       } finally {
