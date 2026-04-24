@@ -92,9 +92,6 @@ function logMeridianLinkDebug(event: string, details: Record<string, unknown>) {
 }
 
 export function getMeridianLinkConfig() {
-  const baseUrl =
-    process.env.BIRCHWOOD_CREDIT_BASE_URL ||
-    'https://birchwood.meridianlink.com/inetapi/request_products.aspx';
   const proxyUrl =
     process.env.BIRCHWOOD_CREDIT_PROXY_URL ||
     process.env.MERIDIANLINK_PROXY_URL ||
@@ -118,7 +115,6 @@ export function getMeridianLinkConfig() {
       getSecretFromKeychain(process.env.BIRCHWOOD_CREDIT_PASSWORD_KEYCHAIN_LABEL || 'birchwood-credit-password');
 
   return {
-    baseUrl,
     proxyUrl,
     proxyAuthHeader,
     proxyAuthToken,
@@ -308,7 +304,7 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
   const xml = buildMeridianLinkSubmitXml(borrower);
 
   const auth = Buffer.from(`${config.username}:${config.password}`).toString('base64');
-  const endpointUrl = config.proxyUrl || config.baseUrl;
+  const endpointUrl = config.proxyUrl;
   const headers: Record<string, string> = {
     'Content-Type': 'application/xml',
     'MCL-Interface': config.interfaceId,
