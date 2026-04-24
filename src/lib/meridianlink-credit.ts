@@ -1,4 +1,5 @@
 import { execFileSync } from 'child_process';
+import fs from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
 import { URL } from 'node:url';
@@ -65,6 +66,10 @@ function getSecretFromKeychain(label: string) {
   }).trim();
 }
 
+function getSecretFromFile(filePath: string) {
+  return fs.readFileSync(filePath, 'utf8').trim();
+}
+
 export function getMeridianLinkConfig() {
   const baseUrl =
     process.env.BIRCHWOOD_CREDIT_BASE_URL ||
@@ -77,12 +82,17 @@ export function getMeridianLinkConfig() {
   const clientIdentifierHeader = process.env.BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER_HEADER || 'Client-Identifier';
   const clientIdentifier = process.env.BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER || 'B0';
   const proxyCaCertB64 = process.env.MERIDIANLINK_PROXY_CA_CERT_B64 || '';
-  const username =
-    process.env.BIRCHWOOD_CREDIT_USERNAME ||
-    getSecretFromKeychain(process.env.BIRCHWOOD_CREDIT_USERNAME_KEYCHAIN_LABEL || 'birchwood-credit-username');
-  const password =
-    process.env.BIRCHWOOD_CREDIT_PASSWORD ||
-    getSecretFromKeychain(process.env.BIRCHWOOD_CREDIT_PASSWORD_KEYCHAIN_LABEL || 'birchwood-credit-password');
+  const shouldUseProxy = Boolean(proxyUrl);
+  const username = shouldUseProxy
+    ? ''
+    : process.env.BIRCHWOOD_CREDIT_USERNAME ||
+      getSecretFromKeychain(process.env.BIRCHWOOD_CREDIT_USERNAME_KEYCHAIN_LABEL || 'birchwood-credit-username');
+  const passwordFile = process.env.BIRCHWOOD_CREDIT_PASSWORD_FILE || process.env.MERIDIANLINK_PASSWORD_FILE || '';
+  const password = shouldUseProxy
+    ? ''
+    : process.env.BIRCHWOOD_CREDIT_PASSWORD ||
+      (passwordFile ? getSecretFromFile(passwordFile) : '') ||
+      getSecretFromKeychain(process.env.BIRCHWOOD_CREDIT_PASSWORD_KEYCHAIN_LABEL || 'birchwood-credit-password');
 
   return {
     baseUrl,
