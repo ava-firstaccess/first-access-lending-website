@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase';
+import { getAuthenticatedApplication } from '@/lib/application-session';
 
 const GHL_API_BASE = 'https://services.leadconnectorhq.com';
 const GHL_LOCATION_ID = 'pqK0BqXrQ5smZEkID6fP';
@@ -332,24 +332,10 @@ function extractStage2(contact: any, cfMap: Record<string, any>): Record<string,
 
 export async function GET(req: NextRequest) {
   try {
-    // Authenticate via session cookie
-    const sessionToken = req.cookies.get('session_token')?.value;
-    if (!sessionToken) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const auth = await getAuthenticatedApplication(req, 'id, phone, session_expires_at');
+    if ('response' in auth) return auth.response;
 
-    const supabase = getSupabaseAdmin();
-
-    // Get application to find phone number
-    const { data: app, error } = await supabase
-      .from('applications')
-      .select('phone')
-      .eq('session_token', sessionToken)
-      .single();
-
-    if (error || !app) {
-      return NextResponse.json({ error: 'Application not found' }, { status: 404 });
-    }
+    const { supabase, app, sessionToken } = auth;
 
     // Search GHL for contact
     const contact = await findContactByPhone(app.phone);

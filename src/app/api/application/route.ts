@@ -1,27 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase';
+import { getAuthenticatedApplication } from '@/lib/application-session';
 
 // Get application data (authenticated via session cookie)
 export async function GET(req: NextRequest) {
   try {
-    const sessionToken = req.cookies.get('session_token')?.value;
-    if (!sessionToken) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const auth = await getAuthenticatedApplication(
+      req,
+      'id, phone, form_data, stage, status, created_at, updated_at, session_expires_at'
+    );
+    if ('response' in auth) return auth.response;
 
-    const supabase = getSupabaseAdmin();
-
-    const { data: app, error } = await supabase
-      .from('applications')
-      .select('id, phone, form_data, stage, status, created_at, updated_at')
-      .eq('session_token', sessionToken)
-      .single();
-
-    if (error || !app) {
-      return NextResponse.json({ error: 'Application not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({ application: app });
+    const { session_expires_at: _sessionExpiresAt, ...application } = auth.app as Record<string, unknown>;
+    return NextResponse.json({ application });
 
   } catch (err) {
     console.error('Get application error:', err);
@@ -32,25 +22,11 @@ export async function GET(req: NextRequest) {
 // Save application data (partial updates)
 export async function PATCH(req: NextRequest) {
   try {
-    const sessionToken = req.cookies.get('session_token')?.value;
-    if (!sessionToken) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const auth = await getAuthenticatedApplication(req, 'id, form_data, session_expires_at');
+    if ('response' in auth) return auth.response;
 
     const { formData, stage } = await req.json();
-
-    const supabase = getSupabaseAdmin();
-
-    // Find application by session token
-    const { data: app, error: findError } = await supabase
-      .from('applications')
-      .select('id, form_data')
-      .eq('session_token', sessionToken)
-      .single();
-
-    if (findError || !app) {
-      return NextResponse.json({ error: 'Application not found' }, { status: 404 });
-    }
+    const { supabase, app } = auth;
 
     // Merge form data (partial update)
     const mergedData = { ...(app.form_data || {}), ...(formData || {}) };

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { hashOtpCode, normalizePhone } from '@/lib/otp';
 
 // In-memory rate limiting (per-process; swap for Upstash later)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -15,13 +16,6 @@ function isRateLimited(phone: string): boolean {
   }
   entry.count++;
   return entry.count > RATE_LIMIT_MAX;
-}
-
-function normalizePhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
-  return `+${digits}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -44,6 +38,7 @@ export async function POST(req: NextRequest) {
 
     // Generate 4-digit code
     const code = String(Math.floor(1000 + Math.random() * 9000));
+    const codeHash = hashOtpCode(normalized, code);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 min expiry
 
     const supabase = getSupabaseAdmin();
@@ -60,7 +55,7 @@ export async function POST(req: NextRequest) {
       .from('otp_codes')
       .insert({
         phone: normalized,
-        code,
+        code: codeHash,
         expires_at: expiresAt,
         used: false,
         attempts: 0

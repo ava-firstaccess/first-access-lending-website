@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase';
+import { getAuthenticatedApplication } from '@/lib/application-session';
 import {
   APPROVED_TEST_BORROWERS,
   assertApprovedTestBorrower,
@@ -59,17 +59,11 @@ export async function POST(req: NextRequest) {
       });
 
       const runId = randomUUID();
-      const supabase = getSupabaseAdmin();
-      const sessionToken = req.cookies.get('session_token')?.value;
-      let applicationId: string | null = null;
-      if (sessionToken) {
-        const { data: app } = await supabase
-          .from('applications')
-          .select('id')
-          .eq('session_token', sessionToken)
-          .single();
-        applicationId = app?.id || null;
-      }
+      const auth = await getAuthenticatedApplication(req, 'id, session_expires_at');
+      if ('response' in auth) return auth.response;
+
+      const { supabase, app } = auth;
+      const applicationId: string | null = app.id || null;
 
       const showXmlPreview = process.env.MERIDIANLINK_PROXY_DEBUG === 'true' || process.env.NODE_ENV !== 'production';
       const endpointHost = new URL(

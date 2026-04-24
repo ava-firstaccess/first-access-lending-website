@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { randomUUID } from 'crypto';
+import { getApplicationSessionExpiryIso } from '@/lib/application-session';
+import { normalizePhone, verifyOtpCode } from '@/lib/otp';
 
 const MAX_VERIFY_ATTEMPTS = 5;
-
-function normalizePhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
-  return `+${digits}`;
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,7 +44,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify code
-    if (otpRecord.code !== code.trim()) {
+    if (!verifyOtpCode(normalized, code, otpRecord.code)) {
       // Increment attempts
       await supabase
         .from('otp_codes')
@@ -86,7 +81,11 @@ export async function POST(req: NextRequest) {
       // Update session token
       await supabase
         .from('applications')
-        .update({ session_token: sessionToken, updated_at: new Date().toISOString() })
+        .update({
+          session_token: sessionToken,
+          session_expires_at: getApplicationSessionExpiryIso(),
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', applicationId);
     } else {
       // Create new application
@@ -97,7 +96,8 @@ export async function POST(req: NextRequest) {
           session_token: sessionToken,
           status: 'in_progress',
           form_data: {},
-          stage: 'stage2'
+          stage: 'stage2',
+          session_expires_at: getApplicationSessionExpiryIso()
         })
         .select('id')
         .single();
@@ -120,7 +120,6 @@ export async function POST(req: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60, // 7 days
       path: '/'
     });
 
