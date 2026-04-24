@@ -96,21 +96,28 @@ export function getMeridianLinkConfig() {
     process.env.BIRCHWOOD_CREDIT_PROXY_URL ||
     process.env.MERIDIANLINK_PROXY_URL ||
     'https://api.firstaccesslending.com/meridianlink/prod-test';
+  const proxyAuthHeader = process.env.MERIDIANLINK_PROXY_AUTH_HEADER || 'X-MeridianLink-Proxy-Auth';
+  const proxyAuthToken = process.env.MERIDIANLINK_PROXY_AUTH_TOKEN || '';
   const interfaceId = process.env.BIRCHWOOD_CREDIT_INTERFACE || 'FirstAccess040926';
   const clientIdentifierHeader = process.env.BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER_HEADER || 'Client-Identifier';
   const clientIdentifier = process.env.BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER || 'B0';
   const proxyCaCertB64 = process.env.MERIDIANLINK_PROXY_CA_CERT_B64 || '';
-  const username =
-    process.env.BIRCHWOOD_CREDIT_USERNAME ||
-    getSecretFromKeychain(process.env.BIRCHWOOD_CREDIT_USERNAME_KEYCHAIN_LABEL || 'birchwood-credit-username');
+  const shouldUseProxy = Boolean(proxyUrl);
+  const username = shouldUseProxy
+    ? ''
+    : process.env.BIRCHWOOD_CREDIT_USERNAME ||
+      getSecretFromKeychain(process.env.BIRCHWOOD_CREDIT_USERNAME_KEYCHAIN_LABEL || 'birchwood-credit-username');
   const passwordFile = process.env.BIRCHWOOD_CREDIT_PASSWORD_FILE || process.env.MERIDIANLINK_PASSWORD_FILE || '';
-  const password =
-    process.env.BIRCHWOOD_CREDIT_PASSWORD ||
-    (passwordFile ? getSecretFromFile(passwordFile) : '') ||
-    getSecretFromKeychain(process.env.BIRCHWOOD_CREDIT_PASSWORD_KEYCHAIN_LABEL || 'birchwood-credit-password');
+  const password = shouldUseProxy
+    ? ''
+    : process.env.BIRCHWOOD_CREDIT_PASSWORD ||
+      (passwordFile ? getSecretFromFile(passwordFile) : '') ||
+      getSecretFromKeychain(process.env.BIRCHWOOD_CREDIT_PASSWORD_KEYCHAIN_LABEL || 'birchwood-credit-password');
 
   return {
     proxyUrl,
+    proxyAuthHeader,
+    proxyAuthToken,
     interfaceId,
     clientIdentifierHeader,
     clientIdentifier,
@@ -302,8 +309,16 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
     'Content-Type': 'application/xml',
     'MCL-Interface': config.interfaceId,
     [config.clientIdentifierHeader]: config.clientIdentifier,
-    Authorization: `Basic ${auth}`,
   };
+
+  if (config.proxyUrl) {
+    if (!config.proxyAuthToken) {
+      throw new Error('MERIDIANLINK_PROXY_AUTH_TOKEN is required when MERIDIANLINK_PROXY_URL is set.');
+    }
+    headers[config.proxyAuthHeader] = config.proxyAuthToken;
+  } else {
+    headers.Authorization = `Basic ${auth}`;
+  }
 
   const response = await postXml(endpointUrl, headers, xml, config.proxyCaCertB64 ? Buffer.from(config.proxyCaCertB64, 'base64').toString('utf8') : '');
   const responseText = response.body;
