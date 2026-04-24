@@ -70,6 +70,25 @@ function getSecretFromFile(filePath: string) {
   return fs.readFileSync(filePath, 'utf8').trim();
 }
 
+function shouldLogMeridianLinkDebug() {
+  return process.env.MERIDIANLINK_PROXY_DEBUG === 'true';
+}
+
+function logMeridianLinkDebug(event: string, details: Record<string, unknown>) {
+  if (!shouldLogMeridianLinkDebug()) return;
+  console.info(
+    JSON.stringify(
+      {
+        scope: 'meridianlink-prod-test',
+        event,
+        ...details,
+      },
+      null,
+      0
+    )
+  );
+}
+
 export function getMeridianLinkConfig() {
   const baseUrl =
     process.env.BIRCHWOOD_CREDIT_BASE_URL ||
@@ -299,18 +318,33 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
 
   const response = await postXml(endpointUrl, headers, xml, config.proxyCaCertB64 ? Buffer.from(config.proxyCaCertB64, 'base64').toString('utf8') : '');
   const responseText = response.body;
+  const responseDebug = {
+    endpointHost: new URL(endpointUrl).hostname,
+    statusCode: response.statusCode,
+    responseBytes: Buffer.byteLength(responseText, 'utf8'),
+    hasVendorOrderIdentifier: Boolean(getFirstMatch(responseText, 'VendorOrderIdentifier')),
+    vendorOrderIdentifier: getFirstMatch(responseText, 'VendorOrderIdentifier'),
+    errorCategory: getFirstMatch(responseText, 'ErrorMessageCategoryCode'),
+    errorMessage: getFirstMatch(responseText, 'ErrorMessageText'),
+  };
+
+  logMeridianLinkDebug('response', responseDebug);
 
   if (response.statusCode < 200 || response.statusCode >= 300) {
+    logMeridianLinkDebug('http_error', responseDebug);
     throw new Error(`MeridianLink submit failed (${response.statusCode}): ${responseText.slice(0, 500)}`);
   }
 
   const errorCategory = getFirstMatch(responseText, 'ErrorMessageCategoryCode');
   const errorMessage = getFirstMatch(responseText, 'ErrorMessageText');
   if (errorCategory || errorMessage) {
+    logMeridianLinkDebug('provider_error', responseDebug);
     throw new Error(
       `MeridianLink returned ${errorCategory || 'ProviderError'}${errorMessage ? `: ${errorMessage}` : ''}`
     );
   }
+
+  logMeridianLinkDebug('success', responseDebug);
 
   return {
     success: true as const,
