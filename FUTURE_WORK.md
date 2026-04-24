@@ -21,6 +21,21 @@
 - Soft pull at Stage 2 submission
 - Hard pull only after borrower consent
 
+### MeridianLink Proxy Handoff to VPS
+- Keep the app calling the proxy, not MeridianLink directly.
+- Move `scripts/meridianlink-proxy-server.mjs` to the VPS as the production relay service.
+- Provision the VPS with a stable public IP and get that IP whitelisted by MeridianLink.
+- Set VPS env vars/secrets:
+  - `BIRCHWOOD_CREDIT_USERNAME=apifal`
+  - `BIRCHWOOD_CREDIT_PASSWORD`
+  - `BIRCHWOOD_CREDIT_BASE_URL=https://birchwood.meridianlink.com/inetapi/request_products.aspx`
+  - `BIRCHWOOD_CREDIT_INTERFACE=FirstAccess040926`
+  - `BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER=B0`
+- Expose the proxy on a fixed local port, then point the app at it with `MERIDIANLINK_PROXY_URL`.
+- Verify the approved Bill Testcase prod-test payload succeeds through the VPS before switching production traffic.
+- Add restart/health checks for the proxy service so it survives reboots.
+- Once VPS is stable, remove any Mac-specific proxy notes and leave the Mac relay only as a fallback/test path.
+
 ### Title API
 - ValuTrust staging creds (pending)
 - Title search automation
