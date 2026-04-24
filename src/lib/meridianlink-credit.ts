@@ -1,4 +1,7 @@
 import { execFileSync } from 'child_process';
+import http from 'node:http';
+import https from 'node:https';
+import { URL } from 'node:url';
 
 export const MERIDIANLINK_APPROVED_PROD_TEST = {
   firstName: 'Bill',
@@ -221,8 +224,42 @@ export function buildMeridianLinkSubmitXml(input: MeridianLinkProdTestBorrowerIn
 }
 
 function getFirstMatch(xml: string, tagName: string) {
-  const match = xml.match(new RegExp(`<${tagName}>([\\s\\S]*?)</${tagName}>`, 'i'));
+  const match = xml.match(new RegExp(`<${tagName}>([\s\S]*?)</${tagName}>`, 'i'));
   return match ? match[1].trim() : null;
+}
+
+function postXml(endpointUrl: string, headers: Record<string, string>, body: string) {
+  return new Promise<{ statusCode: number; body: string }>((resolve, reject) => {
+    const url = new URL(endpointUrl);
+    const client = url.protocol === 'https:' ? https : http;
+
+    const request = client.request(
+      {
+        method: 'POST',
+        hostname: url.hostname,
+        port: url.port ? Number(url.port) : url.protocol === 'https:' ? 443 : 80,
+        path: `${url.pathname}${url.search}`,
+        headers,
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+        response.on('end', () => {
+          resolve({
+            statusCode: response.statusCode || 0,
+            body: Buffer.concat(chunks).toString('utf8'),
+          });
+        });
+      }
+    );
+
+    request.setTimeout(120000, () => {
+      request.destroy(new Error('MeridianLink proxy request timed out'));
+    });
+    request.on('error', reject);
+    request.write(body);
+    request.end();
+  });
 }
 
 export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorrowerInput = {}) {
@@ -247,17 +284,11 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
     headers.Authorization = `Basic ${auth}`;
   }
 
-  const response = await fetch(endpointUrl, {
-    method: 'POST',
-    headers,
-    body: xml,
-    cache: 'no-store',
-  });
+  const response = await postXml(endpointUrl, headers, xml);
+  const responseText = response.body;
 
-  const responseText = await response.text();
-
-  if (!response.ok) {
-    throw new Error(`MeridianLink submit failed (${response.status}): ${responseText.slice(0, 500)}`);
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw new Error(`MeridianLink submit failed (${response.statusCode}): ${responseText.slice(0, 500)}`);
   }
 
   const errorCategory = getFirstMatch(responseText, 'ErrorMessageCategoryCode');
