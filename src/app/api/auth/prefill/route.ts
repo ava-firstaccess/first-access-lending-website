@@ -339,8 +339,9 @@ export async function GET(req: NextRequest) {
     const auth = await getAuthenticatedApplication(req, 'id, phone, session_expires_at');
     if ('response' in auth) return auth.response;
 
-    const { supabase, app, sessionToken } = auth;
+    const { supabase, app } = auth;
     const phone = typeof app.phone === 'string' ? app.phone : '';
+    const applicationId = typeof app.id === 'string' ? app.id : null;
 
     // Search GHL for contact
     const contact = await findContactByPhone(phone);
@@ -377,7 +378,7 @@ export async function GET(req: NextRequest) {
         form_data: mergeSanitizedApplicationFormData(stage1Fields, stage2Fields, meta),
         updated_at: new Date().toISOString(),
       })
-      .eq('session_token', sessionToken);
+      .eq('id', applicationId);
 
     return NextResponse.json({
       success: true,

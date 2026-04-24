@@ -1,7 +1,18 @@
+import { createHmac } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 export const APPLICATION_SESSION_TTL_MINUTES = 30;
+
+function getSessionTokenSecret() {
+  return process.env.APPLICATION_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+}
+
+export function hashApplicationSessionToken(sessionToken: string) {
+  const secret = getSessionTokenSecret();
+  if (!secret) throw new Error('APPLICATION_SESSION_SECRET or SUPABASE_SERVICE_ROLE_KEY is required.');
+  return createHmac('sha256', secret).update(sessionToken).digest('hex');
+}
 
 function getRequestHost(req: NextRequest) {
   return (req.headers.get('x-forwarded-host') || req.headers.get('host') || '').split(':')[0].toLowerCase();
@@ -65,6 +76,44 @@ export function buildSessionErrorResponse(message = 'Session expired. Please ver
   return response;
 }
 
+export async function findApplicationBySessionToken(supabase: any, sessionToken: string, select: string) {
+  const sessionTokenHash = hashApplicationSessionToken(sessionToken);
+
+  const hashedLookup = await (supabase as any)
+    .from('applications')
+    .select(select)
+    .eq('session_token_hash', sessionTokenHash)
+    .single();
+
+  if (!hashedLookup.error && hashedLookup.data) {
+    return { app: hashedLookup.data as Record<string, unknown>, lookup: 'hash' as const };
+  }
+
+  const rawLookup = await (supabase as any)
+    .from('applications')
+    .select(select)
+    .eq('session_token', sessionToken)
+    .single();
+
+  if (!rawLookup.error && rawLookup.data) {
+    const typedApp = rawLookup.data as Record<string, unknown>;
+    const appId = typeof typedApp.id === 'string' ? typedApp.id : null;
+    if (appId) {
+      await (supabase as any)
+        .from('applications')
+        .update({
+          session_token_hash: sessionTokenHash,
+          session_token: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', appId);
+    }
+    return { app: typedApp, lookup: 'raw' as const };
+  }
+
+  return { app: null, lookup: null } as const;
+}
+
 export async function getAuthenticatedApplication(req: NextRequest, select: string) {
   const sessionToken = req.cookies.get('session_token')?.value;
   if (!sessionToken) {
@@ -72,14 +121,9 @@ export async function getAuthenticatedApplication(req: NextRequest, select: stri
   }
 
   const supabase = getSupabaseAdmin();
-  const applicationQuery = (supabase as any)
-    .from('applications')
-    .select(select)
-    .eq('session_token', sessionToken)
-    .single();
-  const { data: app, error } = await applicationQuery;
+  const { app } = await findApplicationBySessionToken(supabase, sessionToken, select);
 
-  if (error || !app) {
+  if (!app) {
     return { response: buildSessionErrorResponse('Session expired. Please verify again.') } as const;
   }
 
@@ -90,7 +134,7 @@ export async function getAuthenticatedApplication(req: NextRequest, select: stri
     if (appId) {
       await (supabase as any)
         .from('applications')
-        .update({ session_token: null, session_expires_at: null, updated_at: new Date().toISOString() })
+        .update({ session_token: null, session_token_hash: null, session_expires_at: null, updated_at: new Date().toISOString() })
         .eq('id', appId);
     }
     return { response: buildSessionErrorResponse('Session expired. Please verify again.') } as const;

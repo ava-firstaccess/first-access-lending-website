@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { mergeSanitizedApplicationFormData } from '@/lib/application-data';
+import { findApplicationBySessionToken } from '@/lib/application-session';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 const GHL_API_BASE = 'https://services.leadconnectorhq.com';
@@ -685,14 +686,9 @@ export async function POST(req: NextRequest) {
 
     if (sessionToken) {
       // Authenticated flow: look up existing application
-      const { data, error: appErr } = await supabase
-        .from('applications')
-        .select('id, phone, form_data')
-        .eq('session_token', sessionToken)
-        .single();
-
-      if (!appErr && data) {
-        app = data;
+      const { app: foundApp } = await findApplicationBySessionToken(supabase, sessionToken, 'id, phone, form_data');
+      if (foundApp) {
+        app = foundApp;
       }
     }
 

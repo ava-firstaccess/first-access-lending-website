@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { randomUUID } from 'crypto';
-import { getApplicationSessionExpiryIso } from '@/lib/application-session';
+import { getApplicationSessionExpiryIso, hashApplicationSessionToken } from '@/lib/application-session';
 import { normalizePhone, verifyOtpCode } from '@/lib/otp';
 import { consumeRateLimit, getClientIp } from '@/lib/rate-limit';
 
@@ -96,6 +96,7 @@ export async function POST(req: NextRequest) {
 
     // Create or find the application session
     const sessionToken = randomUUID();
+    const sessionTokenHash = hashApplicationSessionToken(sessionToken);
 
     // Find existing application for this phone, or create new
     const { data: existingApp } = await supabase
@@ -115,7 +116,8 @@ export async function POST(req: NextRequest) {
       await supabase
         .from('applications')
         .update({
-          session_token: sessionToken,
+          session_token: null,
+          session_token_hash: sessionTokenHash,
           session_expires_at: getApplicationSessionExpiryIso(),
           updated_at: new Date().toISOString(),
         })
@@ -126,7 +128,8 @@ export async function POST(req: NextRequest) {
         .from('applications')
         .insert({
           phone: normalized,
-          session_token: sessionToken,
+          session_token: null,
+          session_token_hash: sessionTokenHash,
           status: 'in_progress',
           form_data: {},
           stage: 'stage2',

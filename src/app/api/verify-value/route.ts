@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { findApplicationBySessionToken } from '@/lib/application-session';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 const HC_BASE = 'https://api.housecanary.com';
@@ -113,12 +114,8 @@ export async function POST(req: NextRequest) {
     const supabase = getSupabaseAdmin();
     let applicationId: string | null = null;
     if (sessionToken) {
-      const { data: app } = await supabase
-        .from('applications')
-        .select('id')
-        .eq('session_token', sessionToken)
-        .single();
-      applicationId = app?.id || null;
+      const { app } = await findApplicationBySessionToken(supabase, sessionToken, 'id');
+      applicationId = typeof app?.id === 'string' ? app.id : null;
       // Log but don't block if app not found
       if (!app) {
         console.warn('verify-value: session_token present but no matching application');

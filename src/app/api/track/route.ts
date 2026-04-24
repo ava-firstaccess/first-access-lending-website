@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { mergeSanitizedApplicationFormData, sanitizeApplicationFormData } from '@/lib/application-data';
+import { findApplicationBySessionToken } from '@/lib/application-session';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 /**
@@ -40,11 +41,7 @@ export async function POST(req: NextRequest) {
 
     // Authenticated user (has session from OTP)
     if (sessionToken) {
-      const { data: app } = await supabase
-        .from('applications')
-        .select('id, form_data')
-        .eq('session_token', sessionToken)
-        .single();
+      const { app } = await findApplicationBySessionToken(supabase, sessionToken, 'id, form_data');
 
       if (app) {
         const mergedData = mergeSanitizedApplicationFormData(app.form_data, formData);
