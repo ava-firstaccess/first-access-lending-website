@@ -262,12 +262,7 @@ function getFirstMatch(xml: string, tagName: string) {
 }
 
 function getMeridianLinkFileNumber(xml: string) {
-  return (
-    getFirstMatch(xml, 'sLNm') ||
-    getFirstMatch(xml, 'LoanNumber') ||
-    getFirstMatch(xml, 'FileNumber') ||
-    getFirstMatch(xml, 'LenderCaseNum')
-  );
+  return getFirstMatch(xml, 'sLNm');
 }
 
 function postXml(endpointUrl: string, headers: Record<string, string>, body: string, caCertPem = '') {
