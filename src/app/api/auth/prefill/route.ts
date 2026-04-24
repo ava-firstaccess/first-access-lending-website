@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { mergeSanitizedApplicationFormData } from '@/lib/application-data';
 import { getAuthenticatedApplication, requireTrustedBrowserRequest } from '@/lib/application-session';
 
 const GHL_API_BASE = 'https://services.leadconnectorhq.com';
@@ -373,7 +374,7 @@ export async function GET(req: NextRequest) {
     await supabase
       .from('applications')
       .update({
-        form_data: { ...stage1Fields, ...stage2Fields, ...meta },
+        form_data: mergeSanitizedApplicationFormData(stage1Fields, stage2Fields, meta),
         updated_at: new Date().toISOString(),
       })
       .eq('session_token', sessionToken);

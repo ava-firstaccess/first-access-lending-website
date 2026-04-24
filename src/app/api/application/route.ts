@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { mergeSanitizedApplicationFormData } from '@/lib/application-data';
 import { getAuthenticatedApplication, requireTrustedBrowserRequest } from '@/lib/application-session';
 
 // Get application data (authenticated via session cookie)
@@ -32,7 +33,7 @@ export async function PATCH(req: NextRequest) {
     const { supabase, app } = auth;
 
     // Merge form data (partial update)
-    const mergedData = { ...(app.form_data || {}), ...(formData || {}) };
+    const mergedData = mergeSanitizedApplicationFormData(app.form_data, formData);
 
     const { error: updateError } = await supabase
       .from('applications')

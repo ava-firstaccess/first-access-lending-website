@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { mergeSanitizedApplicationFormData } from '@/lib/application-data';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 const GHL_API_BASE = 'https://services.leadconnectorhq.com';
@@ -700,14 +701,7 @@ export async function POST(req: NextRequest) {
     const mergedData = { ...(app?.form_data || {}), ...(submittedData || {}) };
 
     // ── 1. Save final data to Supabase (STRIP SSN/DOB for compliance) ──
-    const sensitiveFields = [
-      'Borrower - SSN',
-      'Borrower - Date of Birth',
-      'Co-Borrower - SSN',
-      'Co-Borrower - Date of Birth',
-    ];
-    const supabaseData = { ...mergedData };
-    sensitiveFields.forEach(field => delete supabaseData[field]);
+    const supabaseData = mergeSanitizedApplicationFormData(mergedData);
 
     if (app) {
       // Update existing application

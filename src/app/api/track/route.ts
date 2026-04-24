@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { mergeSanitizedApplicationFormData, sanitizeApplicationFormData } from '@/lib/application-data';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 /**
@@ -7,7 +8,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
  * 
  * Two tables:
  * - analytics_events: permanent, one row per step (conversion funnel)
- * - applications: ephemeral (30-day retention), stores full form data
+ * - applications: ephemeral (30-day retention), stores sanitized in-progress form data
  */
 export async function POST(req: NextRequest) {
   try {
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (app) {
-        const mergedData = { ...(app.form_data || {}), ...(formData || {}) };
+        const mergedData = mergeSanitizedApplicationFormData(app.form_data, formData);
 
         await supabase
           .from('applications')
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (existing) {
-      const mergedData = { ...(existing.form_data || {}), ...(formData || {}) };
+      const mergedData = mergeSanitizedApplicationFormData(existing.form_data, formData);
 
       await supabase
         .from('applications')
@@ -95,7 +96,7 @@ export async function POST(req: NextRequest) {
         .insert({
           anonymous_id: anonymousId,
           status: 'in_progress',
-          form_data: formData || {},
+          form_data: sanitizeApplicationFormData(formData),
           stage: currentStep || 'stage1:start',
           referrer: referrer || null,
           user_agent: userAgent || null,
