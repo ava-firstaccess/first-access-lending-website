@@ -91,10 +91,10 @@ export async function POST(req: NextRequest) {
         error_message: result.debug?.errorMessage || null,
         borrower_first_name: result.borrower.firstName,
         borrower_last_name: result.borrower.lastName,
-        borrower_ssn_last4: result.borrower.ssn.slice(-4),
+        borrower_file_number: MERIDIANLINK_APPROVED_PROD_TEST.fileNumber,
         approved_borrower_first_name: MERIDIANLINK_APPROVED_PROD_TEST.firstName,
         approved_borrower_last_name: MERIDIANLINK_APPROVED_PROD_TEST.lastName,
-        approved_borrower_ssn_last4: MERIDIANLINK_APPROVED_PROD_TEST.ssn.slice(-4),
+        approved_borrower_file_number: MERIDIANLINK_APPROVED_PROD_TEST.fileNumber,
         success: result.success,
       };
 
@@ -126,12 +126,12 @@ export async function POST(req: NextRequest) {
           state: result.borrower.state,
           zip: result.borrower.zip,
           preferredResponseFormat: result.borrower.preferredResponseFormat,
-          ssnLast4: result.borrower.ssn.slice(-4),
+          fileNumber: MERIDIANLINK_APPROVED_PROD_TEST.fileNumber,
         },
         approvedProdTestBorrower: {
           firstName: MERIDIANLINK_APPROVED_PROD_TEST.firstName,
           lastName: MERIDIANLINK_APPROVED_PROD_TEST.lastName,
-          ssnLast4: MERIDIANLINK_APPROVED_PROD_TEST.ssn.slice(-4),
+          fileNumber: MERIDIANLINK_APPROVED_PROD_TEST.fileNumber,
         },
       });
     }

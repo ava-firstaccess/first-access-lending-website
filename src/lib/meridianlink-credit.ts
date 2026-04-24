@@ -16,6 +16,7 @@ export const MERIDIANLINK_APPROVED_PROD_TEST = {
   state: 'MO',
   zip: '65488',
   preferredResponseFormat: 'Html',
+  fileNumber: '6402787',
 };
 
 export type MeridianLinkProdTestBorrowerInput = {
@@ -31,6 +32,7 @@ export type MeridianLinkProdTestBorrowerInput = {
   state?: unknown;
   zip?: unknown;
   preferredResponseFormat?: unknown;
+  fileNumber?: unknown;
 };
 
 function sanitizeProdTestBorrower(input: MeridianLinkProdTestBorrowerInput = {}) {
