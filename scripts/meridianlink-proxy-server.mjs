@@ -11,7 +11,6 @@ const DEFAULT_BASE_URL = 'https://birchwood.meridianlink.com/inetapi/request_pro
 const DEFAULT_INTERFACE_ID = 'FirstAccess040926';
 const DEFAULT_CLIENT_IDENTIFIER_HEADER = 'Client-Identifier';
 const DEFAULT_CLIENT_IDENTIFIER = 'B0';
-const DEFAULT_AUTH_HEADER = 'X-MeridianLink-Proxy-Auth';
 const LOCAL_ENV_FILES = ['.env.local', '.env'];
 const localEnvCache = new Map();
 
@@ -68,8 +67,6 @@ function readConfig() {
   const interfaceId = getSetting('BIRCHWOOD_CREDIT_INTERFACE', DEFAULT_INTERFACE_ID);
   const clientIdentifierHeader = getSetting('BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER_HEADER', DEFAULT_CLIENT_IDENTIFIER_HEADER);
   const clientIdentifier = getSetting('BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER', DEFAULT_CLIENT_IDENTIFIER);
-  const proxyAuthHeader = getSetting('MERIDIANLINK_PROXY_AUTH_HEADER', DEFAULT_AUTH_HEADER);
-  const proxyAuthToken = getSetting('MERIDIANLINK_PROXY_AUTH_TOKEN', '');
   const username =
     getSetting('BIRCHWOOD_CREDIT_USERNAME') ||
     getSecretFromKeychain(getSetting('BIRCHWOOD_CREDIT_USERNAME_KEYCHAIN_LABEL', 'birchwood-credit-username'));
@@ -77,7 +74,7 @@ function readConfig() {
     getSetting('BIRCHWOOD_CREDIT_PASSWORD') ||
     getSecretFromKeychain(getSetting('BIRCHWOOD_CREDIT_PASSWORD_KEYCHAIN_LABEL', 'birchwood-credit-password'));
 
-  return { baseUrl, interfaceId, clientIdentifierHeader, clientIdentifier, proxyAuthHeader, proxyAuthToken, username, password };
+  return { baseUrl, interfaceId, clientIdentifierHeader, clientIdentifier, username, password };
 }
 
 function sendText(res, statusCode, body, headers = {}) {
@@ -116,8 +113,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     const config = readConfig();
-    const incomingAuth = req.headers[String(config.proxyAuthHeader).toLowerCase()]?.toString() || '';
-    if (!timingSafeMatch(incomingAuth, config.proxyAuthToken)) {
+    const incomingAuth = req.headers.authorization?.toString() || '';
+    const expectedAuth = `Basic ${Buffer.from(`${config.username}:${config.password}`).toString('base64')}`;
+    if (!timingSafeMatch(incomingAuth, expectedAuth)) {
       sendText(res, 401, 'unauthorized');
       return;
     }
