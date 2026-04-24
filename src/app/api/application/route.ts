@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedApplication } from '@/lib/application-session';
+import { getAuthenticatedApplication, requireTrustedBrowserRequest } from '@/lib/application-session';
 
 // Get application data (authenticated via session cookie)
 export async function GET(req: NextRequest) {
@@ -22,6 +22,9 @@ export async function GET(req: NextRequest) {
 // Save application data (partial updates)
 export async function PATCH(req: NextRequest) {
   try {
+    const trusted = requireTrustedBrowserRequest(req);
+    if (trusted) return trusted;
+
     const auth = await getAuthenticatedApplication(req, 'id, form_data, session_expires_at');
     if ('response' in auth) return auth.response;
 

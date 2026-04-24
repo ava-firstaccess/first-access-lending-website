@@ -3,6 +3,52 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 
 export const APPLICATION_SESSION_TTL_MINUTES = 30;
 
+function getRequestHost(req: NextRequest) {
+  return (req.headers.get('x-forwarded-host') || req.headers.get('host') || '').split(':')[0].toLowerCase();
+}
+
+function isAllowedOriginHost(originHost: string, requestHost: string) {
+  if (!originHost || !requestHost) return false;
+  if (originHost === requestHost) return true;
+
+  const allowedOrigins = [
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    'https://first-access-lending-website.vercel.app',
+    'https://pricer.firstaccesslending.com',
+  ].filter(Boolean);
+
+  return allowedOrigins.some((origin) => {
+    try {
+      return new URL(origin as string).host.toLowerCase() === originHost;
+    } catch {
+      return false;
+    }
+  });
+}
+
+export function requireTrustedBrowserRequest(req: NextRequest) {
+  const fetchSite = (req.headers.get('sec-fetch-site') || '').toLowerCase();
+  if (fetchSite === 'cross-site') {
+    return NextResponse.json({ error: 'Cross-site requests are not allowed.' }, { status: 403 });
+  }
+
+  const origin = req.headers.get('origin');
+  if (!origin) return null;
+
+  try {
+    const originHost = new URL(origin).host.toLowerCase();
+    const requestHost = getRequestHost(req);
+    if (!isAllowedOriginHost(originHost, requestHost)) {
+      return NextResponse.json({ error: 'Untrusted origin.' }, { status: 403 });
+    }
+  } catch {
+    return NextResponse.json({ error: 'Invalid origin.' }, { status: 403 });
+  }
+
+  return null;
+}
+
 export function getApplicationSessionExpiryIso(now = Date.now()) {
   return new Date(now + APPLICATION_SESSION_TTL_MINUTES * 60 * 1000).toISOString();
 }

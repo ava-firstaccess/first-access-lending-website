@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedApplication } from '@/lib/application-session';
+import { getAuthenticatedApplication, requireTrustedBrowserRequest } from '@/lib/application-session';
 
 const GHL_API_BASE = 'https://services.leadconnectorhq.com';
 const GHL_LOCATION_ID = 'pqK0BqXrQ5smZEkID6fP';
@@ -332,6 +332,9 @@ function extractStage2(contact: any, cfMap: Record<string, any>): Record<string,
 
 export async function GET(req: NextRequest) {
   try {
+    const trusted = requireTrustedBrowserRequest(req);
+    if (trusted) return trusted;
+
     const auth = await getAuthenticatedApplication(req, 'id, phone, session_expires_at');
     if ('response' in auth) return auth.response;
 

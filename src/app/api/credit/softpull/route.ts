@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedApplication } from '@/lib/application-session';
+import { getAuthenticatedApplication, requireTrustedBrowserRequest } from '@/lib/application-session';
 import {
   APPROVED_TEST_BORROWERS,
   assertApprovedTestBorrower,
@@ -16,6 +16,9 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
+    const trusted = requireTrustedBrowserRequest(req);
+    if (trusted) return trusted;
+
     const body = await req.json();
     const requestedMode = String(body?.mode || '').toLowerCase();
     const borrower = body?.borrower || {};
