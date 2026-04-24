@@ -16,10 +16,10 @@ CREATE TABLE IF NOT EXISTS meridianlink_runs (
   error_message TEXT,
   borrower_first_name TEXT,
   borrower_last_name TEXT,
-  borrower_ssn_last4 TEXT,
+  borrower_file_number TEXT,
   approved_borrower_first_name TEXT,
   approved_borrower_last_name TEXT,
-  approved_borrower_ssn_last4 TEXT,
+  approved_borrower_file_number TEXT,
   success BOOLEAN DEFAULT FALSE,
   notes TEXT
 );
