@@ -19,6 +19,9 @@ export async function POST(req: NextRequest) {
     const trusted = requireTrustedBrowserRequest(req);
     if (trusted) return trusted;
 
+    const auth = await getAuthenticatedApplication(req, 'id, session_expires_at');
+    if ('response' in auth) return auth.response;
+
     const body = await req.json();
     const requestedMode = String(body?.mode || '').toLowerCase();
     const borrower = body?.borrower || {};
@@ -62,9 +65,6 @@ export async function POST(req: NextRequest) {
       });
 
       const runId = randomUUID();
-      const auth = await getAuthenticatedApplication(req, 'id, session_expires_at');
-      if ('response' in auth) return auth.response;
-
       const { supabase, app } = auth;
       const applicationId = typeof app.id === 'string' ? app.id : null;
 
@@ -272,22 +272,13 @@ export async function GET() {
         ssnLast4: getSsnLast4({ ssnLast4: item.ssnLast4 }),
       },
     })),
-    approvedProdTestBorrower: {
-      firstName: MERIDIANLINK_APPROVED_PROD_TEST.firstName,
-      lastName: MERIDIANLINK_APPROVED_PROD_TEST.lastName,
-      middleName: MERIDIANLINK_APPROVED_PROD_TEST.middleName,
-      suffixName: MERIDIANLINK_APPROVED_PROD_TEST.suffixName,
-      dob: MERIDIANLINK_APPROVED_PROD_TEST.dob,
-      ssnLast4: MERIDIANLINK_APPROVED_PROD_TEST.ssn.slice(-4),
-      address: MERIDIANLINK_APPROVED_PROD_TEST.address,
-      city: MERIDIANLINK_APPROVED_PROD_TEST.city,
-      state: MERIDIANLINK_APPROVED_PROD_TEST.state,
-      zip: MERIDIANLINK_APPROVED_PROD_TEST.zip,
-      preferredResponseFormat: MERIDIANLINK_APPROVED_PROD_TEST.preferredResponseFormat,
-      routeMode: 'production-test',
+    productionTestAccess: {
       provider: 'meridianlink',
+      routeMode: 'production-test',
+      restricted: true,
+      note: 'Production-test access is locked to an internal approved vendor test file and is not documented publicly here.',
     },
     message:
-      'Use POST /api/credit/softpull with sandbox/test mode for mock responses, or mode=production-test with the approved MeridianLink prod test borrower only.',
+      'Use POST /api/credit/softpull with sandbox/test mode for mock responses. Production-test access is restricted to an internal approved MeridianLink vendor test file.',
   });
 }
