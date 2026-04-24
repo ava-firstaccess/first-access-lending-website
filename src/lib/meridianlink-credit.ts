@@ -257,12 +257,12 @@ export function buildMeridianLinkSubmitXml(input: MeridianLinkProdTestBorrowerIn
 }
 
 function getFirstMatch(xml: string, tagName: string) {
-  const match = xml.match(new RegExp(`<${tagName}>([\s\S]*?)</${tagName}>`, 'i'));
+  const match = xml.match(new RegExp(`<${tagName}>([\\s\\S]*?)</${tagName}>`, 'i'));
   return match ? match[1].trim() : null;
 }
 
 function getMeridianLinkFileNumber(xml: string) {
-  return getFirstMatch(xml, 'sLNm');
+  return getFirstMatch(xml, 'VendorOrderIdentifier');
 }
 
 function postXml(endpointUrl: string, headers: Record<string, string>, body: string, caCertPem = '') {
