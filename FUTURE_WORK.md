@@ -36,9 +36,12 @@
 - Title search automation
 
 ### Auth & Session
+- Migrate OTP/auth throttling from Supabase-backed rate limiting to Redis (prefer Upstash Redis) if auth traffic, abuse volume, latency, or DB write load grows enough that the current RPC/database approach becomes noisy or expensive.
 - Supabase + Upstash + Twilio OTP flow
 - Server-side session storage (replace localStorage)
 - Save/resume application across devices
+- Add a hard password wall to `/pricer` before any pricer UI or API data is exposed
+- When `/pricer` moves to `getaccess.firstaccesslending.com` (name pending), update all host/domain-specific security rules and routing to include the new hostname. At minimum, review middleware host gating, authenticated-origin allowlists, any pricer-only allowed path lists, env/docs that mention `pricer.firstaccesslending.com`, and any share links or canonical URLs.
 - Put `/pricer` behind authenticated user login
 - Require 2FA for `/pricer` access
 - Remove public exposure of investor names from `/pricer` and its API responses

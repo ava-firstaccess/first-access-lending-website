@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { buildSiteAccessToken, isSiteAccessConfigured, SITE_ACCESS_COOKIE } from '@/lib/site-access';
 
 const PRICER_HOST = 'pricer.firstaccesslending.com';
 const PRICER_ALLOWED_PREFIXES = [
@@ -10,40 +11,82 @@ const PRICER_ALLOWED_PREFIXES = [
   '/robots.txt',
   '/sitemap.xml',
 ];
+const SITE_GATE_ALLOWED_PREFIXES = [
+  '/preview-access',
+  '/api/site-access-auth',
+  '/_next',
+  '/favicon.ico',
+  '/robots.txt',
+  '/sitemap.xml',
+];
 
-function isPricerHost(host: string) {
-  return host.split(':')[0].toLowerCase() === PRICER_HOST;
+function normalizeHost(host: string) {
+  return host.split(':')[0].toLowerCase();
 }
 
-function isAllowedOnPricerHost(pathname: string) {
-  return PRICER_ALLOWED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+function isPricerHost(host: string) {
+  return normalizeHost(host) === PRICER_HOST;
+}
+
+function isVercelProjectHost(host: string) {
+  const normalized = normalizeHost(host);
+  return normalized.endsWith('.vercel.app');
+}
+
+function isAllowedPath(pathname: string, prefixes: string[]) {
+  return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+function hasValidSiteAccessCookie(request: NextRequest) {
+  if (!isSiteAccessConfigured()) return false;
+  const cookieValue = request.cookies.get(SITE_ACCESS_COOKIE)?.value || '';
+  try {
+    return cookieValue === buildSiteAccessToken();
+  } catch {
+    return false;
+  }
 }
 
 export function middleware(request: NextRequest) {
   const host = request.headers.get('host') || '';
-  if (!isPricerHost(host)) {
-    return NextResponse.next();
-  }
-
   const { pathname } = request.nextUrl;
 
-  if (pathname === '/') {
+  if (isPricerHost(host)) {
+    if (pathname === '/') {
+      const url = request.nextUrl.clone();
+      url.pathname = '/pricer';
+      return NextResponse.redirect(url);
+    }
+
+    if (isAllowedPath(pathname, PRICER_ALLOWED_PREFIXES)) {
+      return NextResponse.next();
+    }
+
+    if (pathname.startsWith('/api/')) {
+      return new NextResponse('Not Found', { status: 404 });
+    }
+
     const url = request.nextUrl.clone();
     url.pathname = '/pricer';
     return NextResponse.redirect(url);
   }
 
-  if (isAllowedOnPricerHost(pathname)) {
-    return NextResponse.next();
+  if (isVercelProjectHost(host)) {
+    if (isAllowedPath(pathname, SITE_GATE_ALLOWED_PREFIXES)) {
+      return NextResponse.next();
+    }
+
+    if (!hasValidSiteAccessCookie(request)) {
+      if (pathname.startsWith('/api/')) {
+        return new NextResponse('Not Found', { status: 404 });
+      }
+      const url = request.nextUrl.clone();
+      url.pathname = '/preview-access';
+      return NextResponse.redirect(url);
+    }
   }
 
-  if (pathname.startsWith('/api/')) {
-    return new NextResponse('Not Found', { status: 404 });
-  }
-
-  const url = request.nextUrl.clone();
-  url.pathname = '/pricer';
-  return NextResponse.redirect(url);
+  return NextResponse.next();
 }
 
 export const config = {
