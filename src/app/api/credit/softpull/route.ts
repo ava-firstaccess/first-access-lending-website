@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedApplication, requireTrustedBrowserRequest } from '@/lib/application-session';
+import { consumeRateLimit, getClientIp } from '@/lib/rate-limit';
 import {
   APPROVED_TEST_BORROWERS,
   assertApprovedTestBorrower,
@@ -14,6 +15,10 @@ import {
   submitMeridianLinkProdTest,
 } from '@/lib/meridianlink-credit';
 
+const SOFTPULL_IP_LIMIT = 10;
+const SOFTPULL_SESSION_LIMIT = 5;
+const SOFTPULL_WINDOW_SECONDS = 10 * 60;
+
 export async function POST(req: NextRequest) {
   try {
     const trusted = requireTrustedBrowserRequest(req);
@@ -21,6 +26,39 @@ export async function POST(req: NextRequest) {
 
     const auth = await getAuthenticatedApplication(req, 'id, session_expires_at');
     if ('response' in auth) return auth.response;
+
+    const applicationId = typeof auth.app.id === 'string' ? auth.app.id : null;
+    const clientIp = getClientIp(req);
+    const [ipRate, sessionRate] = await Promise.all([
+      consumeRateLimit({
+        scope: 'softpull:ip',
+        key: clientIp,
+        limit: SOFTPULL_IP_LIMIT,
+        windowSeconds: SOFTPULL_WINDOW_SECONDS,
+      }),
+      consumeRateLimit({
+        scope: 'softpull:session',
+        key: applicationId || clientIp,
+        limit: SOFTPULL_SESSION_LIMIT,
+        windowSeconds: SOFTPULL_WINDOW_SECONDS,
+      }),
+    ]);
+
+    if (!ipRate.allowed || !sessionRate.allowed) {
+      const retryAfterSeconds = Math.max(ipRate.retryAfterSeconds, sessionRate.retryAfterSeconds);
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Too many soft credit pull attempts. Please wait and try again.',
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(retryAfterSeconds),
+          },
+        }
+      );
+    }
 
     const body = await req.json();
     const requestedMode = String(body?.mode || '').toLowerCase();

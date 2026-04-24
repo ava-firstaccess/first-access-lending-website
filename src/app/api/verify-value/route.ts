@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { findApplicationBySessionToken, requireTrustedBrowserRequest } from '@/lib/application-session';
+import { consumeRateLimit, getClientIp } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/supabase';
+
+const VERIFY_VALUE_IP_LIMIT = 20;
+const VERIFY_VALUE_SESSION_LIMIT = 10;
+const VERIFY_VALUE_WINDOW_SECONDS = 10 * 60;
 
 const HC_BASE = 'https://api.housecanary.com';
 
@@ -125,6 +130,35 @@ export async function POST(req: NextRequest) {
     const applicationId = typeof app?.id === 'string' ? app.id : null;
     if (!applicationId) {
       return NextResponse.json({ error: 'Session expired. Please verify again.' }, { status: 401 });
+    }
+
+    const clientIp = getClientIp(req);
+    const [ipRate, sessionRate] = await Promise.all([
+      consumeRateLimit({
+        scope: 'verify-value:ip',
+        key: clientIp,
+        limit: VERIFY_VALUE_IP_LIMIT,
+        windowSeconds: VERIFY_VALUE_WINDOW_SECONDS,
+      }),
+      consumeRateLimit({
+        scope: 'verify-value:session',
+        key: applicationId,
+        limit: VERIFY_VALUE_SESSION_LIMIT,
+        windowSeconds: VERIFY_VALUE_WINDOW_SECONDS,
+      }),
+    ]);
+
+    if (!ipRate.allowed || !sessionRate.allowed) {
+      const retryAfterSeconds = Math.max(ipRate.retryAfterSeconds, sessionRate.retryAfterSeconds);
+      return NextResponse.json(
+        { error: 'Too many property verification attempts. Please wait and try again.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(retryAfterSeconds),
+          },
+        }
+      );
     }
 
     // ── Parse request ──

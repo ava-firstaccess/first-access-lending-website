@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { mergeSanitizedApplicationFormData } from '@/lib/application-data';
 import { findApplicationBySessionToken, requireTrustedBrowserRequest } from '@/lib/application-session';
+import { consumeRateLimit, getClientIp } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/supabase';
+
+const SUBMIT_IP_LIMIT = 6;
+const SUBMIT_SESSION_LIMIT = 3;
+const SUBMIT_WINDOW_SECONDS = 15 * 60;
 
 const GHL_API_BASE = 'https://services.leadconnectorhq.com';
 const GHL_LOCATION_ID = 'pqK0BqXrQ5smZEkID6fP';
@@ -695,6 +700,36 @@ export async function POST(req: NextRequest) {
 
     if (!app) {
       return NextResponse.json({ error: 'Session expired. Please verify again.' }, { status: 401 });
+    }
+
+    const applicationId = typeof app.id === 'string' ? app.id : null;
+    const clientIp = getClientIp(req);
+    const [ipRate, sessionRate] = await Promise.all([
+      consumeRateLimit({
+        scope: 'submit:ip',
+        key: clientIp,
+        limit: SUBMIT_IP_LIMIT,
+        windowSeconds: SUBMIT_WINDOW_SECONDS,
+      }),
+      consumeRateLimit({
+        scope: 'submit:session',
+        key: applicationId || clientIp,
+        limit: SUBMIT_SESSION_LIMIT,
+        windowSeconds: SUBMIT_WINDOW_SECONDS,
+      }),
+    ]);
+
+    if (!ipRate.allowed || !sessionRate.allowed) {
+      const retryAfterSeconds = Math.max(ipRate.retryAfterSeconds, sessionRate.retryAfterSeconds);
+      return NextResponse.json(
+        { error: 'Too many submission attempts. Please wait and try again.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(retryAfterSeconds),
+          },
+        }
+      );
     }
 
     // Get submitted form data (merge with any stored data)
