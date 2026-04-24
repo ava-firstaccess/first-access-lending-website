@@ -1,22 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { hashOtpCode, normalizePhone } from '@/lib/otp';
+import { consumeRateLimit, getClientIp } from '@/lib/rate-limit';
 
-// In-memory rate limiting (per-process; swap for Upstash later)
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT_MAX = 3;
-const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
-
-function isRateLimited(phone: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(phone);
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(phone, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return false;
-  }
-  entry.count++;
-  return entry.count > RATE_LIMIT_MAX;
-}
+const SEND_OTP_PHONE_LIMIT = 3;
+const SEND_OTP_IP_LIMIT = 10;
+const SEND_OTP_WINDOW_SECONDS = 5 * 60;
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,11 +17,32 @@ export async function POST(req: NextRequest) {
 
     const normalized = normalizePhone(phone);
 
-    // Rate limit
-    if (isRateLimited(normalized)) {
+    const clientIp = getClientIp(req);
+    const [phoneRate, ipRate] = await Promise.all([
+      consumeRateLimit({
+        scope: 'send-otp:phone',
+        key: normalized,
+        limit: SEND_OTP_PHONE_LIMIT,
+        windowSeconds: SEND_OTP_WINDOW_SECONDS,
+      }),
+      consumeRateLimit({
+        scope: 'send-otp:ip',
+        key: clientIp,
+        limit: SEND_OTP_IP_LIMIT,
+        windowSeconds: SEND_OTP_WINDOW_SECONDS,
+      }),
+    ]);
+
+    if (!phoneRate.allowed || !ipRate.allowed) {
+      const retryAfterSeconds = Math.max(phoneRate.retryAfterSeconds, ipRate.retryAfterSeconds);
       return NextResponse.json(
-        { error: 'Too many attempts. Please wait 5 minutes.' },
-        { status: 429 }
+        { error: 'Too many attempts. Please wait before requesting another code.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(retryAfterSeconds),
+          },
+        }
       );
     }
 

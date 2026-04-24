@@ -3,8 +3,12 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { randomUUID } from 'crypto';
 import { getApplicationSessionExpiryIso } from '@/lib/application-session';
 import { normalizePhone, verifyOtpCode } from '@/lib/otp';
+import { consumeRateLimit, getClientIp } from '@/lib/rate-limit';
 
 const MAX_VERIFY_ATTEMPTS = 5;
+const VERIFY_OTP_PHONE_LIMIT = 10;
+const VERIFY_OTP_IP_LIMIT = 25;
+const VERIFY_OTP_WINDOW_SECONDS = 10 * 60;
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,6 +19,35 @@ export async function POST(req: NextRequest) {
     }
 
     const normalized = normalizePhone(phone);
+    const clientIp = getClientIp(req);
+    const [phoneRate, ipRate] = await Promise.all([
+      consumeRateLimit({
+        scope: 'verify-otp:phone',
+        key: normalized,
+        limit: VERIFY_OTP_PHONE_LIMIT,
+        windowSeconds: VERIFY_OTP_WINDOW_SECONDS,
+      }),
+      consumeRateLimit({
+        scope: 'verify-otp:ip',
+        key: clientIp,
+        limit: VERIFY_OTP_IP_LIMIT,
+        windowSeconds: VERIFY_OTP_WINDOW_SECONDS,
+      }),
+    ]);
+
+    if (!phoneRate.allowed || !ipRate.allowed) {
+      const retryAfterSeconds = Math.max(phoneRate.retryAfterSeconds, ipRate.retryAfterSeconds);
+      return NextResponse.json(
+        { error: 'Too many verification attempts. Please request a new code shortly.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(retryAfterSeconds),
+          },
+        }
+      );
+    }
+
     const supabase = getSupabaseAdmin();
 
     // Find the most recent unused code for this phone
