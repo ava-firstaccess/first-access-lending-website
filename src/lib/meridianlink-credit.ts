@@ -261,6 +261,15 @@ function getFirstMatch(xml: string, tagName: string) {
   return match ? match[1].trim() : null;
 }
 
+function getMeridianLinkFileNumber(xml: string) {
+  return (
+    getFirstMatch(xml, 'sLNm') ||
+    getFirstMatch(xml, 'LoanNumber') ||
+    getFirstMatch(xml, 'FileNumber') ||
+    getFirstMatch(xml, 'LenderCaseNum')
+  );
+}
+
 function postXml(endpointUrl: string, headers: Record<string, string>, body: string, caCertPem = '') {
   return new Promise<{ statusCode: number; body: string }>((resolve, reject) => {
     const url = new URL(endpointUrl);
@@ -326,6 +335,7 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
     responseBytes: Buffer.byteLength(responseText, 'utf8'),
     hasVendorOrderIdentifier: Boolean(getFirstMatch(responseText, 'VendorOrderIdentifier')),
     vendorOrderIdentifier: getFirstMatch(responseText, 'VendorOrderIdentifier'),
+    fileNumber: getMeridianLinkFileNumber(responseText),
     errorCategory: getFirstMatch(responseText, 'ErrorMessageCategoryCode'),
     errorMessage: getFirstMatch(responseText, 'ErrorMessageText'),
   };
@@ -355,6 +365,7 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
     requestType: 'Submit',
     borrower,
     vendorOrderIdentifier: getFirstMatch(responseText, 'VendorOrderIdentifier'),
+    fileNumber: responseDebug.fileNumber,
     status: getFirstMatch(responseText, 'CreditReportRequestActionType') || 'Submit',
     rawResponse: responseText,
     debug: responseDebug,
