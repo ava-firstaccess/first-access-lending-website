@@ -76,6 +76,7 @@ export function getMeridianLinkConfig() {
   const interfaceId = process.env.BIRCHWOOD_CREDIT_INTERFACE || 'FirstAccess040926';
   const clientIdentifierHeader = process.env.BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER_HEADER || 'Client-Identifier';
   const clientIdentifier = process.env.BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER || 'B0';
+  const proxyCaCertB64 = process.env.MERIDIANLINK_PROXY_CA_CERT_B64 || '';
   const username =
     process.env.BIRCHWOOD_CREDIT_USERNAME ||
     getSecretFromKeychain(process.env.BIRCHWOOD_CREDIT_USERNAME_KEYCHAIN_LABEL || 'birchwood-credit-username');
@@ -91,6 +92,7 @@ export function getMeridianLinkConfig() {
     interfaceId,
     clientIdentifierHeader,
     clientIdentifier,
+    proxyCaCertB64,
     username,
     password,
   };
@@ -228,7 +230,7 @@ function getFirstMatch(xml: string, tagName: string) {
   return match ? match[1].trim() : null;
 }
 
-function postXml(endpointUrl: string, headers: Record<string, string>, body: string) {
+function postXml(endpointUrl: string, headers: Record<string, string>, body: string, caCertPem = '') {
   return new Promise<{ statusCode: number; body: string }>((resolve, reject) => {
     const url = new URL(endpointUrl);
     const client = url.protocol === 'https:' ? https : http;
@@ -240,6 +242,7 @@ function postXml(endpointUrl: string, headers: Record<string, string>, body: str
         port: url.port ? Number(url.port) : url.protocol === 'https:' ? 443 : 80,
         path: `${url.pathname}${url.search}`,
         headers,
+        ...(caCertPem ? { ca: caCertPem, servername: url.hostname } : {}),
       },
       (response) => {
         const chunks: Buffer[] = [];
@@ -284,7 +287,7 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
     headers.Authorization = `Basic ${auth}`;
   }
 
-  const response = await postXml(endpointUrl, headers, xml);
+  const response = await postXml(endpointUrl, headers, xml, config.proxyCaCertB64 ? Buffer.from(config.proxyCaCertB64, 'base64').toString('utf8') : '');
   const responseText = response.body;
 
   if (response.statusCode < 200 || response.statusCode >= 300) {
