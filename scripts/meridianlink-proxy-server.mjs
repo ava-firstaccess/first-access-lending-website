@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import http from 'http';
+import fs from 'fs';
+import path from 'path';
 import { execFileSync } from 'child_process';
+import crypto from 'crypto';
 
 const PROXY_PORT = Number(process.env.MERIDIANLINK_PROXY_PORT || 8787);
 const PROXY_HOST = process.env.MERIDIANLINK_PROXY_HOST || '0.0.0.0';
@@ -8,6 +11,9 @@ const DEFAULT_BASE_URL = 'https://birchwood.meridianlink.com/inetapi/request_pro
 const DEFAULT_INTERFACE_ID = 'FirstAccess040926';
 const DEFAULT_CLIENT_IDENTIFIER_HEADER = 'Client-Identifier';
 const DEFAULT_CLIENT_IDENTIFIER = 'B0';
+const DEFAULT_AUTH_HEADER = 'X-MeridianLink-Proxy-Auth';
+const LOCAL_ENV_FILES = ['.env.local', '.env'];
+const localEnvCache = new Map();
 
 function getSecretFromKeychain(label) {
   return execFileSync('security', ['find-generic-password', '-a', 'ava', '-s', label, '-w'], {
@@ -15,19 +21,63 @@ function getSecretFromKeychain(label) {
   }).trim();
 }
 
-function readConfig() {
-  const baseUrl = process.env.BIRCHWOOD_CREDIT_BASE_URL || DEFAULT_BASE_URL;
-  const interfaceId = process.env.BIRCHWOOD_CREDIT_INTERFACE || DEFAULT_INTERFACE_ID;
-  const clientIdentifierHeader = process.env.BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER_HEADER || DEFAULT_CLIENT_IDENTIFIER_HEADER;
-  const clientIdentifier = process.env.BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER || DEFAULT_CLIENT_IDENTIFIER;
-  const username =
-    process.env.BIRCHWOOD_CREDIT_USERNAME ||
-    getSecretFromKeychain(process.env.BIRCHWOOD_CREDIT_USERNAME_KEYCHAIN_LABEL || 'birchwood-credit-username');
-  const password =
-    process.env.BIRCHWOOD_CREDIT_PASSWORD ||
-    getSecretFromKeychain(process.env.BIRCHWOOD_CREDIT_PASSWORD_KEYCHAIN_LABEL || 'birchwood-credit-password');
+function loadLocalEnv(fileName) {
+  if (localEnvCache.has(fileName)) return localEnvCache.get(fileName);
 
-  return { baseUrl, interfaceId, clientIdentifierHeader, clientIdentifier, username, password };
+  const filePath = path.join(process.cwd(), fileName);
+  const values = {};
+  if (fs.existsSync(filePath)) {
+    const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#')) continue;
+      const eq = line.indexOf('=');
+      if (eq === -1) continue;
+      const key = line.slice(0, eq).trim();
+      let value = line.slice(eq + 1).trim();
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      values[key] = value;
+    }
+  }
+
+  localEnvCache.set(fileName, values);
+  return values;
+}
+
+function getSetting(name, fallback = '') {
+  if (process.env[name]) return process.env[name];
+  for (const fileName of LOCAL_ENV_FILES) {
+    const values = loadLocalEnv(fileName);
+    if (values[name]) return values[name];
+  }
+  return fallback;
+}
+
+function timingSafeMatch(a, b) {
+  if (!a || !b) return false;
+  const left = Buffer.from(String(a));
+  const right = Buffer.from(String(b));
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
+
+function readConfig() {
+  const baseUrl = getSetting('BIRCHWOOD_CREDIT_BASE_URL', DEFAULT_BASE_URL);
+  const interfaceId = getSetting('BIRCHWOOD_CREDIT_INTERFACE', DEFAULT_INTERFACE_ID);
+  const clientIdentifierHeader = getSetting('BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER_HEADER', DEFAULT_CLIENT_IDENTIFIER_HEADER);
+  const clientIdentifier = getSetting('BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER', DEFAULT_CLIENT_IDENTIFIER);
+  const proxyAuthHeader = getSetting('MERIDIANLINK_PROXY_AUTH_HEADER', DEFAULT_AUTH_HEADER);
+  const proxyAuthToken = getSetting('MERIDIANLINK_PROXY_AUTH_TOKEN', '');
+  const username =
+    getSetting('BIRCHWOOD_CREDIT_USERNAME') ||
+    getSecretFromKeychain(getSetting('BIRCHWOOD_CREDIT_USERNAME_KEYCHAIN_LABEL', 'birchwood-credit-username'));
+  const password =
+    getSetting('BIRCHWOOD_CREDIT_PASSWORD') ||
+    getSecretFromKeychain(getSetting('BIRCHWOOD_CREDIT_PASSWORD_KEYCHAIN_LABEL', 'birchwood-credit-password'));
+
+  return { baseUrl, interfaceId, clientIdentifierHeader, clientIdentifier, proxyAuthHeader, proxyAuthToken, username, password };
 }
 
 function sendText(res, statusCode, body, headers = {}) {
@@ -66,6 +116,12 @@ const server = http.createServer(async (req, res) => {
     }
 
     const config = readConfig();
+    const incomingAuth = req.headers[String(config.proxyAuthHeader).toLowerCase()]?.toString() || '';
+    if (!timingSafeMatch(incomingAuth, config.proxyAuthToken)) {
+      sendText(res, 401, 'unauthorized');
+      return;
+    }
+
     const auth = Buffer.from(`${config.username}:${config.password}`).toString('base64');
     const upstream = await fetch(config.baseUrl, {
       method: 'POST',

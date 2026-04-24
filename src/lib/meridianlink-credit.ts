@@ -68,6 +68,8 @@ export function getMeridianLinkConfig() {
     'https://birchwood.meridianlink.com/inetapi/request_products.aspx';
   const proxyUrl =
     process.env.BIRCHWOOD_CREDIT_PROXY_URL || process.env.MERIDIANLINK_PROXY_URL || '';
+  const proxyAuthHeader = process.env.MERIDIANLINK_PROXY_AUTH_HEADER || 'X-MeridianLink-Proxy-Auth';
+  const proxyAuthToken = process.env.MERIDIANLINK_PROXY_AUTH_TOKEN || '';
   const interfaceId = process.env.BIRCHWOOD_CREDIT_INTERFACE || 'FirstAccess040926';
   const clientIdentifierHeader = process.env.BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER_HEADER || 'Client-Identifier';
   const clientIdentifier = process.env.BIRCHWOOD_CREDIT_CLIENT_IDENTIFIER || 'B0';
@@ -81,6 +83,8 @@ export function getMeridianLinkConfig() {
   return {
     baseUrl,
     proxyUrl,
+    proxyAuthHeader,
+    proxyAuthToken,
     interfaceId,
     clientIdentifierHeader,
     clientIdentifier,
@@ -234,7 +238,12 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
     [config.clientIdentifierHeader]: config.clientIdentifier,
   };
 
-  if (!config.proxyUrl) {
+  if (config.proxyUrl) {
+    if (!config.proxyAuthToken) {
+      throw new Error('MERIDIANLINK_PROXY_AUTH_TOKEN is required when MERIDIANLINK_PROXY_URL is set.');
+    }
+    headers[config.proxyAuthHeader] = config.proxyAuthToken;
+  } else {
     headers.Authorization = `Basic ${auth}`;
   }
 
