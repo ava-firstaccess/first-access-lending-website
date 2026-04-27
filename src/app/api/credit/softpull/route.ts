@@ -131,10 +131,10 @@ export async function POST(req: NextRequest) {
       try {
         const { error: insertError } = await supabase.from('meridianlink_runs').insert(baseRunPayload);
         if (insertError) {
-          console.warn('meridianlink_runs attempt insert failed:', insertError.message, insertError.details || '');
+          console.warn('meridianlink_runs attempt insert failed');
         }
       } catch (logError) {
-        console.warn('meridianlink_runs attempt insert threw:', logError instanceof Error ? logError.message : logError);
+        console.warn('meridianlink_runs attempt insert threw');
       }
 
       try {
@@ -173,10 +173,10 @@ export async function POST(req: NextRequest) {
         try {
           const { error: updateError } = await supabase.from('meridianlink_runs').update(successPayload).eq('run_id', runId);
           if (updateError) {
-            console.warn('meridianlink_runs success update failed:', updateError.message);
+            console.warn('meridianlink_runs success update failed');
           }
         } catch (logError) {
-          console.warn('meridianlink_runs success update threw:', logError instanceof Error ? logError.message : logError);
+          console.warn('meridianlink_runs success update threw');
         }
 
         return NextResponse.json({
@@ -202,10 +202,10 @@ export async function POST(req: NextRequest) {
         try {
           const { error: updateError } = await supabase.from('meridianlink_runs').update(failurePayload).eq('run_id', runId);
           if (updateError) {
-            console.warn('meridianlink_runs failure update failed:', updateError.message);
+            console.warn('meridianlink_runs failure update failed');
           }
         } catch (logError) {
-          console.warn('meridianlink_runs failure update threw:', logError instanceof Error ? logError.message : logError);
+          console.warn('meridianlink_runs failure update threw');
         }
         return NextResponse.json(
           {

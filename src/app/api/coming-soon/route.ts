@@ -207,7 +207,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (!oppRes.ok) {
-        console.error('GHL opportunity create failed:', oppRes.status, await oppRes.text());
+        console.error('GHL opportunity create failed:', oppRes.status);
       }
     }
 
@@ -236,7 +236,7 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (err) {
-    console.error('Coming soon error:', err);
+    console.error('Coming soon error');
     return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
   }
 }
