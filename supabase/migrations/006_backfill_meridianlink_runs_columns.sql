@@ -12,12 +12,7 @@ ALTER TABLE IF EXISTS meridianlink_runs
   ADD COLUMN IF NOT EXISTS has_vendor_order_identifier BOOLEAN DEFAULT FALSE,
   ADD COLUMN IF NOT EXISTS response_bytes INTEGER DEFAULT 0,
   ADD COLUMN IF NOT EXISTS error_category TEXT,
-  ADD COLUMN IF NOT EXISTS error_message TEXT,
-  ADD COLUMN IF NOT EXISTS borrower_first_name TEXT,
-  ADD COLUMN IF NOT EXISTS borrower_last_name TEXT,
   ADD COLUMN IF NOT EXISTS borrower_file_number TEXT,
-  ADD COLUMN IF NOT EXISTS approved_borrower_first_name TEXT,
-  ADD COLUMN IF NOT EXISTS approved_borrower_last_name TEXT,
   ADD COLUMN IF NOT EXISTS approved_borrower_file_number TEXT,
   ADD COLUMN IF NOT EXISTS success BOOLEAN DEFAULT FALSE,
   ADD COLUMN IF NOT EXISTS notes TEXT;

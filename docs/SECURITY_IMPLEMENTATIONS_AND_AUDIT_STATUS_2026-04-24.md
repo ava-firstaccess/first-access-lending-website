@@ -489,22 +489,20 @@ The security review progressed in this order:
 6. rate limiting and abuse resistance
 7. operational retention for AVM and MeridianLink tables
 
-## Next unresolved step
+## Next resolved step
 
-The next single step to review was:
-- whether `meridianlink_runs` still stores more borrower-identifying detail than necessary for an operational log / reporting table
+This next step was decided on and implemented:
+- borrower name fields are not needed in `meridianlink_runs`
+- borrower names were removed from hot storage
+- raw `error_message` was also removed from hot storage
 
-That means reviewing and deciding whether these fields should remain, be reduced, be masked, or move only to archive:
-- `borrower_first_name`
-- `borrower_last_name`
-- `approved_borrower_first_name`
-- `approved_borrower_last_name`
+Live-table decision:
+- keep operational identifiers like `application_id`, `borrower_file_number`, `approved_borrower_file_number`, status, timing, and coarse error category
+- do not keep borrower first/last names in the live operational log table
+- do not keep raw MeridianLink error text in the live operational log table
 
-Potential follow-up questions in that step:
-- are names needed at all for live debugging?
-- is application ID + file number enough?
-- should names be removed from hot storage but optionally retained in controlled archive?
-- should error messages in `meridianlink_runs.error_message` also be normalized further?
+Follow-up kept for future work:
+- if testing still needs richer failure diagnostics or borrower-name correlation, build a separate controlled debug/archive path instead of restoring those fields to `meridianlink_runs`
 
 ---
 
@@ -519,8 +517,9 @@ Potential follow-up questions in that step:
 - several routes outside the audited path may still log full error objects
 - not every route has been normalized to a hardened logging standard yet
 
-## 6.3 `meridianlink_runs` likely still needs minimization review
-- names in the live operational log table are likely the next place to tighten
+## 6.3 `meridianlink_runs` hot-storage minimization was tightened
+- borrower first/last name fields and raw `error_message` were removed from the live operational table design
+- if richer testing diagnostics are still needed, they should live in a separate controlled debug/archive path rather than hot storage
 
 ## 6.4 Archive plan is documented, not yet implemented
 - long-term retention strategy is now designed, but not yet operationalized
@@ -538,7 +537,7 @@ Potential follow-up questions in that step:
 3. Keep `docs/AVM_MERIDIANLINK_ARCHIVE_RETENTION_PLAN.md` as source of truth for retention redesign
 
 ## Next security review step
-4. Review `meridianlink_runs` minimization and reduce borrower-identifying detail if not operationally necessary
+4. Apply the `011_minimize_meridianlink_runs_hot_storage.sql` migration in live Supabase so the hot-storage schema matches the new design
 
 ## After that
 5. Normalize remaining route error/log behavior across the rest of the API surface

@@ -152,6 +152,7 @@
 - Separate operational Supabase tables from durable historical analytics storage
 - Archive operational records to Azure Blob before purge instead of hard-deleting without history preservation
 - Define which fields are needed for long-term analytics vs which should be minimized or masked in archive
+- If MeridianLink testing still needs richer failure diagnostics or borrower-name correlation, keep that out of `meridianlink_runs` hot storage and design a separate controlled debug/archive path instead of restoring raw `error_message` or borrower name columns to the live operational table
 - Establish reload/replay rules for AVM reuse windows and MeridianLink re-reporting windows
 - Document source-of-truth ownership for each dataset: live app DB, Azure Blob archive, Power BI, or another reporting layer
 - Create scheduled archive, purge, and validation jobs with explicit ordering and failure handling

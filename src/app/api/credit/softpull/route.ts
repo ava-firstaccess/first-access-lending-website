@@ -123,12 +123,7 @@ export async function POST(req: NextRequest) {
         has_vendor_order_identifier: false,
         response_bytes: 0,
         error_category: null,
-        error_message: null,
-        borrower_first_name: borrower.firstName,
-        borrower_last_name: borrower.lastName,
         borrower_file_number: null,
-        approved_borrower_first_name: MERIDIANLINK_APPROVED_PROD_TEST.firstName,
-        approved_borrower_last_name: MERIDIANLINK_APPROVED_PROD_TEST.lastName,
         approved_borrower_file_number: null,
         success: false,
       };
@@ -170,7 +165,6 @@ export async function POST(req: NextRequest) {
           has_vendor_order_identifier: Boolean(result.debug?.hasVendorOrderIdentifier),
           response_bytes: result.debug?.responseBytes ?? 0,
           error_category: result.debug?.errorCategory || null,
-          error_message: result.debug?.errorMessage || null,
           borrower_file_number: result.fileNumber || null,
           approved_borrower_file_number: result.fileNumber || null,
           success: result.success,
@@ -203,7 +197,7 @@ export async function POST(req: NextRequest) {
         const failurePayload = {
           ...baseRunPayload,
           status: 'failed',
-          error_message: message,
+          error_category: 'request_failed',
           success: false,
         };
         try {

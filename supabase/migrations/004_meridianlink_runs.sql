@@ -14,12 +14,7 @@ CREATE TABLE IF NOT EXISTS meridianlink_runs (
   has_vendor_order_identifier BOOLEAN DEFAULT FALSE,
   response_bytes INTEGER DEFAULT 0,
   error_category TEXT,
-  error_message TEXT,
-  borrower_first_name TEXT,
-  borrower_last_name TEXT,
   borrower_file_number TEXT,
-  approved_borrower_first_name TEXT,
-  approved_borrower_last_name TEXT,
   approved_borrower_file_number TEXT,
   success BOOLEAN DEFAULT FALSE,
   notes TEXT
