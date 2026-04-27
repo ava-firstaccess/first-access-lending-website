@@ -15,7 +15,7 @@ export const MERIDIANLINK_APPROVED_PROD_TEST = {
   city: 'Anthill',
   state: 'MO',
   zip: '65488',
-  preferredResponseFormat: 'Html',
+  preferredResponseFormat: 'Xml',
   fileNumber: '6402787',
 };
 
@@ -60,6 +60,25 @@ function xmlEscape(value: string) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+function maskSsnLikeValue(value: string) {
+  const digits = value.replace(/\D/g, '');
+  if (digits.length < 4) return '***-**-****';
+  return `***-**-${digits.slice(-4)}`;
+}
+
+export function scrubMeridianLinkXml(xml: string) {
+  return xml
+    .replace(
+      /(<TaxpayerIdentifierValue>)([\s\S]*?)(<\/TaxpayerIdentifierValue>)/gi,
+      (_, open, value, close) => `${open}${maskSsnLikeValue(String(value))}${close}`
+    )
+    .replace(
+      /(<SocialSecurityNumber>([\s\S]*?)<\/SocialSecurityNumber>)/gi,
+      (match) => match.replace(/>([\s\S]*?)</, (_, value) => `>${maskSsnLikeValue(String(value))}<`)
+    )
+    .replace(/\b\d{3}-\d{2}-\d{4}\b/g, (value) => maskSsnLikeValue(value));
 }
 
 function getSecretFromKeychain(label: string) {

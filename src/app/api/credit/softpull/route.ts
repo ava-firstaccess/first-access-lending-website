@@ -12,6 +12,7 @@ import {
 import {
   MERIDIANLINK_APPROVED_PROD_TEST,
   assertApprovedProdTestBorrower,
+  scrubMeridianLinkXml,
   submitMeridianLinkProdTest,
 } from '@/lib/meridianlink-credit';
 
@@ -179,6 +180,8 @@ export async function POST(req: NextRequest) {
           console.warn('meridianlink_runs success update threw');
         }
 
+        const scrubbedResponseXml = scrubMeridianLinkXml(result.rawResponse);
+
         return NextResponse.json({
           runId,
           success: result.success,
@@ -189,7 +192,14 @@ export async function POST(req: NextRequest) {
           status: result.status,
           vendorOrderIdentifier: result.vendorOrderIdentifier,
           fileNumber: result.fileNumber || null,
-          ...(showXmlPreview ? { responseXmlSnippet: result.rawResponse.slice(0, 350) } : {}),
+          borrower: {
+            firstName: borrower.firstName,
+            lastName: borrower.lastName,
+            middleName: borrower.middleName || null,
+            suffixName: borrower.suffixName || null,
+          },
+          responseXml: scrubbedResponseXml,
+          ...(showXmlPreview ? { responseXmlSnippet: scrubbedResponseXml.slice(0, 350) } : {}),
           applicationId,
         });
       } catch (error) {
@@ -289,6 +299,21 @@ export async function GET() {
         ssnLast4: getSsnLast4({ ssnLast4: item.ssnLast4 }),
       },
     })),
+    approvedProdTestBorrower: {
+      firstName: MERIDIANLINK_APPROVED_PROD_TEST.firstName,
+      lastName: MERIDIANLINK_APPROVED_PROD_TEST.lastName,
+      middleName: MERIDIANLINK_APPROVED_PROD_TEST.middleName,
+      suffixName: MERIDIANLINK_APPROVED_PROD_TEST.suffixName,
+      dob: MERIDIANLINK_APPROVED_PROD_TEST.dob,
+      ssnLast4: MERIDIANLINK_APPROVED_PROD_TEST.ssn.slice(-4),
+      address: MERIDIANLINK_APPROVED_PROD_TEST.address,
+      city: MERIDIANLINK_APPROVED_PROD_TEST.city,
+      state: MERIDIANLINK_APPROVED_PROD_TEST.state,
+      zip: MERIDIANLINK_APPROVED_PROD_TEST.zip,
+      preferredResponseFormat: MERIDIANLINK_APPROVED_PROD_TEST.preferredResponseFormat,
+      routeMode: 'production-test',
+      provider: 'meridianlink',
+    },
     productionTestAccess: {
       provider: 'meridianlink',
       routeMode: 'production-test',

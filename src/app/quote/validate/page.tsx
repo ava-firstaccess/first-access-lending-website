@@ -6,6 +6,13 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { SSNField } from '@/components/quote/FormField';
+import {
+  getRepresentativeMeridianLinkScore,
+  isMortgageLiability,
+  parseMeridianLinkResponseXml,
+  type MeridianLinkLiabilitySummary,
+  type MeridianLinkParsedReport,
+} from '@/lib/meridianlink-report';
 
 type ValidationStep = 'credit' | 'mortgages' | 'updated-quote';
 
@@ -45,6 +52,36 @@ interface CreditApiMetadata {
     preferredResponseFormat?: string;
     routeMode?: string;
     provider?: string;
+  };
+}
+
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+});
+
+function formatCurrency(value: number | null | undefined) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+  return currencyFormatter.format(value);
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function mapLiabilityToMortgage(liability: MeridianLinkLiabilitySummary): Mortgage {
+  return {
+    id: liability.id,
+    lender: liability.creditorName || 'Unknown Creditor',
+    balance: liability.unpaidBalance || 0,
+    monthlyPayment: liability.monthlyPayment || 0,
+    accountType: liability.loanType || liability.accountType || 'Mortgage',
+    openDate: liability.openedDate || '',
+    matchedPropertyIndex: null,
   };
 }
 
@@ -97,10 +134,11 @@ export default function ValidatePage() {
     city: '',
     state: '',
     zip: '',
-    preferredResponseFormat: 'Html',
+    preferredResponseFormat: 'Xml',
   });
   const [prodTestResult, setProdTestResult] = useState<Record<string, any> | null>(null);
   const [prodTestXmlPreview, setProdTestXmlPreview] = useState<string | null>(null);
+  const [parsedProdTestReport, setParsedProdTestReport] = useState<MeridianLinkParsedReport | null>(null);
 
   // Updated numbers
   const [updatedCashAvailable] = useState<number | null>(null);
@@ -240,6 +278,7 @@ export default function ValidatePage() {
     setCreditError(null);
     setProdTestResult(null);
     setProdTestXmlPreview(null);
+    setParsedProdTestReport(null);
 
     try {
       const requestBody = isMeridianLinkProdTest
@@ -247,6 +286,7 @@ export default function ValidatePage() {
             mode: 'production-test',
             borrower: {
               ...prodTestBorrower,
+              preferredResponseFormat: 'Xml',
             },
           }
         : {
@@ -282,8 +322,20 @@ export default function ValidatePage() {
       }
 
       if (isMeridianLinkProdTest) {
+        const responseXml = String(payload?.responseXml || '').trim();
+        if (!responseXml) {
+          throw new Error('MeridianLink test returned no XML payload.');
+        }
+
+        const parsedReport = parseMeridianLinkResponseXml(responseXml);
+        const representativeScore = getRepresentativeMeridianLinkScore(parsedReport.scores);
+        const mortgageLiabilities = parsedReport.liabilities.filter(isMortgageLiability);
+
         setProdTestResult(payload);
-        setProdTestXmlPreview(String(payload?.responseXmlSnippet || '').trim());
+        setProdTestXmlPreview(responseXml.slice(0, 350));
+        setParsedProdTestReport(parsedReport);
+        setCreditScore(representativeScore);
+        setMortgages(mortgageLiabilities.map(mapLiabilityToMortgage));
         goToStep('mortgages');
         return;
       }
@@ -431,13 +483,13 @@ export default function ValidatePage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Response Format</label>
                         <select
-                          value={prodTestBorrower.preferredResponseFormat}
-                          onChange={(e) => setProdTestBorrower(prev => ({ ...prev, preferredResponseFormat: e.target.value }))}
-                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:outline-none"
+                          value="Xml"
+                          disabled
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-gray-50 text-gray-500"
                         >
-                          <option value="Html">Html</option>
                           <option value="Xml">Xml</option>
                         </select>
+                        <p className="mt-1 text-xs text-gray-500">This UI pass is locked to scrubbed XML so we can parse and present the credit data cleanly.</p>
                       </div>
                     </div>
                   </div>
@@ -618,6 +670,7 @@ export default function ValidatePage() {
                 <div className="mt-2 space-y-1 text-xs md:text-sm">
                   <p><span className="font-medium">Status:</span> {String(prodTestResult.status || 'Submit')}</p>
                   <p><span className="font-medium">Vendor Order ID:</span> {String(prodTestResult.vendorOrderIdentifier || 'Not returned')}</p>
+                  <p><span className="font-medium">Borrower:</span> {String(prodTestResult.borrower?.firstName || '')} {String(prodTestResult.borrower?.lastName || '')}</p>
                   <p><span className="font-medium">XML Preview:</span></p>
                   <pre className="mt-2 max-h-40 overflow-auto rounded-lg bg-white/70 p-3 text-[11px] leading-4 text-green-900">{prodTestXmlPreview || 'No XML preview returned.'}</pre>
                 </div>
@@ -628,19 +681,135 @@ export default function ValidatePage() {
                 <span className="text-3xl">🏦</span>
               </div>
               <div className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700 mb-4">
-                Review reported mortgages
+                {isMeridianLinkProdTest ? 'Review parsed credit data' : 'Review reported mortgages'}
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Match Your Mortgages</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                {isMeridianLinkProdTest ? 'Credit Report Review' : 'Match Your Mortgages'}
+              </h2>
               <p className="text-gray-600">
-                We found {mortgages.length} mortgage{mortgages.length !== 1 ? 's' : ''} on your credit report.
-                Match each one to the right property so the updated quote is accurate.
+                {isMeridianLinkProdTest
+                  ? `We parsed ${parsedProdTestReport?.liabilities.length || 0} liabilities and ${parsedProdTestReport?.scores.length || 0} score entries from the scrubbed MeridianLink XML.`
+                  : `We found ${mortgages.length} mortgage${mortgages.length !== 1 ? 's' : ''} on your credit report. Match each one to the right property so the updated quote is accurate.`}
               </p>
               {creditScore && (
                 <div className="inline-flex items-center gap-2 mt-3 bg-green-50 px-4 py-2 rounded-full">
-                  <span className="text-sm text-green-700 font-medium">Credit Score: {creditScore}</span>
+                  <span className="text-sm text-green-700 font-medium">Representative Credit Score: {creditScore}</span>
                 </div>
               )}
             </div>
+
+            {isMeridianLinkProdTest && parsedProdTestReport && (
+              <div className="mb-8 space-y-8">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Borrowers</p>
+                    <p className="mt-2 text-2xl font-bold text-gray-900">{parsedProdTestReport.borrowers.length}</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Score Entries</p>
+                    <p className="mt-2 text-2xl font-bold text-gray-900">{parsedProdTestReport.scores.length}</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Liabilities</p>
+                    <p className="mt-2 text-2xl font-bold text-gray-900">{parsedProdTestReport.liabilities.length}</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Mortgage Liens</p>
+                    <p className="mt-2 text-2xl font-bold text-gray-900">{mortgages.length}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Borrowers found in the XML</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {parsedProdTestReport.borrowers.map((borrower) => (
+                      <div key={borrower.id} className="rounded-xl border border-gray-200 p-4">
+                        <p className="font-semibold text-gray-900">{borrower.fullName}</p>
+                        <p className="mt-1 text-sm text-gray-500">
+                          {borrower.firstName} {borrower.middleName} {borrower.lastName} {borrower.suffixName}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Credit scores</h3>
+                  <div className="space-y-3">
+                    {parsedProdTestReport.scores.map((score) => (
+                      <div key={score.id} className="rounded-xl border border-gray-200 p-4">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <p className="font-semibold text-gray-900">{score.bureau}</p>
+                            <p className="text-sm text-gray-500">{score.modelName || 'Unknown score model'}</p>
+                            <p className="text-xs text-gray-400 mt-1">Reported {formatDate(score.scoreDate)}</p>
+                          </div>
+                          <div className="text-left md:text-right">
+                            <p className="text-2xl font-bold text-gray-900">{score.score ?? '—'}</p>
+                            <p className="text-sm text-gray-500">Percentile: {score.percentile ?? '—'}</p>
+                          </div>
+                        </div>
+                        {score.factors.length > 0 && (
+                          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-gray-600">
+                            {score.factors.slice(0, 5).map((factor, index) => (
+                              <li key={`${score.id}-${index}`}>{factor}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Liabilities from the XML</h3>
+                  <div className="space-y-3">
+                    {parsedProdTestReport.liabilities.map((liability) => (
+                      <div key={liability.id} className="rounded-xl border border-gray-200 p-4">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <p className="font-semibold text-gray-900">{liability.creditorName}</p>
+                            <p className="text-sm text-gray-500">
+                              {liability.bureau} • {liability.loanType || liability.accountType || 'Liability'}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              Account {liability.accountIdentifier || '—'} • Status {liability.status || '—'} • Rating {liability.currentRating || '—'}
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm md:text-right">
+                            <div>
+                              <p className="text-gray-500">Balance</p>
+                              <p className="font-semibold text-gray-900">{formatCurrency(liability.unpaidBalance)}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500">Payment</p>
+                              <p className="font-semibold text-gray-900">{formatCurrency(liability.monthlyPayment)}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500">Term</p>
+                              <p className="font-semibold text-gray-900">{liability.termMonths ?? '—'} {liability.termMonths ? 'mo' : ''}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500">Opened</p>
+                              <p className="font-semibold text-gray-900">{formatDate(liability.openedDate)}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-3 text-xs text-gray-500">
+                          <div>Ownership: <span className="font-medium text-gray-700">{liability.ownershipType || '—'}</span></div>
+                          <div>Reported: <span className="font-medium text-gray-700">{formatDate(liability.reportedDate)}</span></div>
+                          <div>High Balance: <span className="font-medium text-gray-700">{formatCurrency(liability.highBalance)}</span></div>
+                          <div>Past Due: <span className="font-medium text-gray-700">{formatCurrency(liability.pastDueAmount)}</span></div>
+                        </div>
+                        {liability.termsDescription && (
+                          <p className="mt-3 text-sm text-gray-600">{liability.termsDescription}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-4 mb-8">
               {mortgages.map((mortgage) => (
@@ -648,11 +817,11 @@ export default function ValidatePage() {
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <h4 className="font-semibold text-gray-900">{mortgage.lender}</h4>
-                      <p className="text-sm text-gray-500">{mortgage.accountType} - Opened {new Date(mortgage.openDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</p>
+                      <p className="text-sm text-gray-500">{mortgage.accountType} • Opened {formatDate(mortgage.openDate)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-gray-900">${mortgage.balance.toLocaleString()}</p>
-                      <p className="text-sm text-gray-500">${mortgage.monthlyPayment}/mo</p>
+                      <p className="font-bold text-gray-900">{formatCurrency(mortgage.balance)}</p>
+                      <p className="text-sm text-gray-500">{formatCurrency(mortgage.monthlyPayment)}/mo</p>
                     </div>
                   </div>
 
