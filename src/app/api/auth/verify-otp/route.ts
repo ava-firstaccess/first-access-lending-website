@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (createError || !newApp) {
-        console.error('Application create error:', createError);
+        console.error('Application create error');
         return NextResponse.json({ error: 'Failed to create application' }, { status: 500 });
       }
       applicationId = newApp.id;
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
     return response;
 
   } catch (err) {
-    console.error('Verify OTP error:', err);
+    console.error('Verify OTP error');
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

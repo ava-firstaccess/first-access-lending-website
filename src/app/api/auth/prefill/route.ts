@@ -29,8 +29,7 @@ async function ghlFetch(path: string, options: RequestInit = {}) {
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`GHL API error ${res.status}:`, text);
+    console.error(`GHL API error ${res.status}`);
     return null;
   }
   return res.json();

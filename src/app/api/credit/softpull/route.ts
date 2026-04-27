@@ -193,7 +193,6 @@ export async function POST(req: NextRequest) {
           applicationId,
         });
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown MeridianLink error';
         const failurePayload = {
           ...baseRunPayload,
           status: 'failed',
@@ -213,7 +212,7 @@ export async function POST(req: NextRequest) {
             success: false,
             runId,
             application_id: applicationId,
-            error: message,
+            error: 'Credit pull failed',
           },
           { status: 400 }
         );
@@ -261,11 +260,12 @@ export async function POST(req: NextRequest) {
       })),
     });
   } catch (error) {
+    console.error('Softpull route error');
     return NextResponse.json(
       {
         success: false,
         mode: getCreditPullMode(),
-        error: error instanceof Error ? error.message : 'Unknown credit API error',
+        error: 'Credit pull failed',
       },
       { status: 400 }
     );
