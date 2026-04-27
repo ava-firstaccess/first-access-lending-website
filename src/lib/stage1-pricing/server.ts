@@ -237,6 +237,46 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
     else { const deephavenLockPeriodDays = (actualLockPeriodDays === 45 ? 15 : 30) as 15 | 30; const deephavenInput = { ...input, deephavenProduct, deephavenDocType, deephavenLockPeriodDays }; const eligibility = evaluateDeephavenStage1Eligibility(deephavenInput, selectedLoanAmount); const baseQuote = calculateDeephavenStage1Quote(deephavenInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); const maxPrice = solveDeephavenStage1TargetRate(deephavenInput, { targetPrice: 999, tolerance, selectedLoanAmount }).purchasePrice; results.push(chooseBestXSummary(eligibility, toQuote('Deephaven', baseQuote), standardRequestedRates, rateOverride => toQuote('Deephaven', calculateDeephavenStage1Quote(deephavenInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })), maxPrice)); }
   }
 
-  results.sort((a, b) => (a.eligibility.eligible === b.eligibility.eligible ? 0 : a.eligibility.eligible ? -1 : 1) || (effectiveManualRateOverride !== undefined && a.eligibility.eligible && b.eligibility.eligible ? b.buyPrice - a.buyPrice || b.quote.purchasePrice - a.quote.purchasePrice : 0) || (a.windowMatched === b.windowMatched ? 0 : a.windowMatched ? -1 : 1) || (a.windowMatched && b.windowMatched ? a.quote.rate - b.quote.rate || Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget) || ((a.deltaFromTarget > 0) === (b.deltaFromTarget > 0) ? 0 : a.deltaFromTarget > 0 ? 1 : -1) || b.buyPrice - a.buyPrice : 0) || (a.eligibility.eligible && b.eligibility.eligible && !a.windowMatched && !b.windowMatched ? distanceToBestExWindow(a.quote.purchasePrice, roundToThree(getBestXSelectionTarget(effectiveTargetPrice, a.maxPrice, hasTargetPriceOverride) - BEST_EX_WINDOW_FLOOR), roundToThree(getBestXSelectionTarget(effectiveTargetPrice, a.maxPrice, hasTargetPriceOverride) + BEST_EX_WINDOW_CEILING)) - distanceToBestExWindow(b.quote.purchasePrice, roundToThree(getBestXSelectionTarget(effectiveTargetPrice, b.maxPrice, hasTargetPriceOverride) - BEST_EX_WINDOW_FLOOR), roundToThree(getBestXSelectionTarget(effectiveTargetPrice, b.maxPrice, hasTargetPriceOverride) + BEST_EX_WINDOW_CEILING)) || Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget) || a.quote.rate - b.quote.rate || b.buyPrice - a.buyPrice : 0) || a.investor.localeCompare(b.investor));
+  results.sort((a, b) => {
+    const eligibilityOrder = (a.eligibility.eligible === b.eligibility.eligible ? 0 : a.eligibility.eligible ? -1 : 1);
+    if (eligibilityOrder !== 0) return eligibilityOrder;
+
+    if (effectiveManualRateOverride !== undefined && a.eligibility.eligible && b.eligibility.eligible) {
+      return b.buyPrice - a.buyPrice || b.quote.purchasePrice - a.quote.purchasePrice || a.investor.localeCompare(b.investor);
+    }
+
+    const windowOrder = (a.windowMatched === b.windowMatched ? 0 : a.windowMatched ? -1 : 1);
+    if (windowOrder !== 0) return windowOrder;
+
+    if (a.windowMatched && b.windowMatched) {
+      return Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget)
+        || ((a.deltaFromTarget > 0) === (b.deltaFromTarget > 0) ? 0 : a.deltaFromTarget > 0 ? 1 : -1)
+        || a.quote.rate - b.quote.rate
+        || a.discountPoints - b.discountPoints
+        || a.investor.localeCompare(b.investor);
+    }
+
+    if (a.eligibility.eligible && b.eligibility.eligible) {
+      const aDistance = distanceToBestExWindow(
+        a.quote.purchasePrice,
+        roundToThree(getBestXSelectionTarget(effectiveTargetPrice, a.maxPrice, hasTargetPriceOverride) - BEST_EX_WINDOW_FLOOR),
+        roundToThree(getBestXSelectionTarget(effectiveTargetPrice, a.maxPrice, hasTargetPriceOverride) + BEST_EX_WINDOW_CEILING)
+      );
+      const bDistance = distanceToBestExWindow(
+        b.quote.purchasePrice,
+        roundToThree(getBestXSelectionTarget(effectiveTargetPrice, b.maxPrice, hasTargetPriceOverride) - BEST_EX_WINDOW_FLOOR),
+        roundToThree(getBestXSelectionTarget(effectiveTargetPrice, b.maxPrice, hasTargetPriceOverride) + BEST_EX_WINDOW_CEILING)
+      );
+
+      return aDistance - bDistance
+        || Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget)
+        || ((a.deltaFromTarget > 0) === (b.deltaFromTarget > 0) ? 0 : a.deltaFromTarget > 0 ? 1 : -1)
+        || a.quote.rate - b.quote.rate
+        || a.discountPoints - b.discountPoints
+        || a.investor.localeCompare(b.investor);
+    }
+
+    return a.investor.localeCompare(b.investor);
+  });
   return { defaultBackendTargetPrice, effectiveTargetPrice, activeResult, results };
 }
