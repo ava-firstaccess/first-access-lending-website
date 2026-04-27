@@ -13,6 +13,7 @@ const DEFAULT_CLIENT_IDENTIFIER_HEADER = 'Client-Identifier';
 const DEFAULT_CLIENT_IDENTIFIER = 'B0';
 const DEFAULT_AUTH_HEADER = 'X-MeridianLink-Proxy-Auth';
 const DEFAULT_CAPTURE_DIR = path.join(process.cwd(), 'tmp', 'meridianlink-captures');
+const DEFAULT_CAPTURE_TTL_MINUTES = 120;
 const LOCAL_ENV_FILES = ['.env.local', '.env'];
 const localEnvCache = new Map();
 
@@ -98,9 +99,30 @@ function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
+function cleanupExpiredCaptures(captureDir) {
+  const ttlMinutes = Number(getSetting('MERIDIANLINK_CAPTURE_TTL_MINUTES', String(DEFAULT_CAPTURE_TTL_MINUTES)));
+  const ttlMs = Math.max(1, ttlMinutes) * 60 * 1000;
+  const cutoff = Date.now() - ttlMs;
+
+  for (const entry of fs.readdirSync(captureDir, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    const filePath = path.join(captureDir, entry.name);
+    const stat = fs.statSync(filePath);
+    if (stat.mtimeMs < cutoff) {
+      fs.unlinkSync(filePath);
+    }
+  }
+}
+
+function writePrivateFile(filePath, contents) {
+  fs.writeFileSync(filePath, contents, { encoding: 'utf8', mode: 0o600 });
+}
+
 function captureMeridianLinkExchange(kind, requestXml, responseXml) {
   const captureDir = getSetting('MERIDIANLINK_CAPTURE_DIR', DEFAULT_CAPTURE_DIR);
+  const ttlMinutes = Number(getSetting('MERIDIANLINK_CAPTURE_TTL_MINUTES', String(DEFAULT_CAPTURE_TTL_MINUTES)));
   ensureDir(captureDir);
+  cleanupExpiredCaptures(captureDir);
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const firstName = sanitizeFileLabel(extractFirst(requestXml, 'FirstName'));
   const lastName = sanitizeFileLabel(extractFirst(requestXml, 'LastName'));
@@ -109,9 +131,15 @@ function captureMeridianLinkExchange(kind, requestXml, responseXml) {
   const baseName = `${timestamp}_${kind}_${action}_${lastName}_${firstName}_${vendorOrderIdentifier}`;
   const requestPath = path.join(captureDir, `${baseName}_request.xml`);
   const responsePath = path.join(captureDir, `${baseName}_response.xml`);
-  fs.writeFileSync(requestPath, requestXml, 'utf8');
-  fs.writeFileSync(responsePath, responseXml, 'utf8');
-  logRelay('capture_saved', { kind, requestPath, responsePath, vendorOrderIdentifier: vendorOrderIdentifier === 'none' ? null : vendorOrderIdentifier });
+  writePrivateFile(requestPath, requestXml);
+  writePrivateFile(responsePath, responseXml);
+  logRelay('capture_saved', {
+    kind,
+    requestPath,
+    responsePath,
+    vendorOrderIdentifier: vendorOrderIdentifier === 'none' ? null : vendorOrderIdentifier,
+    ttlMinutes,
+  });
 }
 
 function readConfig() {
