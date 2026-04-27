@@ -284,16 +284,34 @@ export function buildMeridianLinkSubmitXml(input: MeridianLinkProdTestBorrowerIn
 }
 
 function getFirstMatch(xml: string, tagName: string) {
-  const match = xml.match(new RegExp(`<${tagName}>([\\s\\S]*?)</${tagName}>`, 'i'));
+  const escapedTagName = tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = xml.match(
+    new RegExp(
+      `<(?:[A-Za-z0-9_-]+:)?${escapedTagName}(?:\\s[^>]*)?>([\\s\\S]*?)</(?:[A-Za-z0-9_-]+:)?${escapedTagName}>`,
+      'i'
+    )
+  );
   return match ? match[1].trim() : null;
 }
 
+function getFirstNumericMatch(xml: string, tagNames: string[]) {
+  for (const tagName of tagNames) {
+    const value = getFirstMatch(xml, tagName);
+    if (value) {
+      const digits = value.match(/\d+/)?.[0] || '';
+      if (digits) return digits;
+    }
+  }
+  return null;
+}
+
 function getMeridianLinkFileNumber(xml: string) {
-  return getFirstMatch(xml, 'VendorOrderIdentifier');
+  return getFirstNumericMatch(xml, ['VendorOrderIdentifier', 'FileNumber', 'OrderNumber']);
 }
 
 function countTagMatches(xml: string, tagName: string) {
-  const matches = xml.match(new RegExp(`<${tagName}(?:\s|>)`, 'gi'));
+  const escapedTagName = tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const matches = xml.match(new RegExp(`<(?:[A-Za-z0-9_-]+:)?${escapedTagName}(?:\\s|>)`, 'gi'));
   return matches ? matches.length : 0;
 }
 
