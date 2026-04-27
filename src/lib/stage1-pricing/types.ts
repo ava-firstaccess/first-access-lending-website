@@ -2,6 +2,7 @@ export type PricingViewEngine = 'BestX' | 'Button' | 'Arc Home' | 'Vista' | 'OSB
 
 export type VistaProduct = '30yr Fixed' | '20yr Fixed' | '15yr Fixed' | '10yr Fixed';
 export type SharedDocType = 'Full Doc' | 'Bank Statement' | '1099' | 'Asset Depletion' | 'P&L Only' | 'WVOE';
+export type BestExDocType = SharedDocType | '12 Month Bank Statement' | '24 Month Bank Statement';
 export type VistaDocType = SharedDocType;
 export type NewRezProduct = '30 Year Fixed' | '20 Year Fixed' | '15 Year Fixed';
 export type OsbProgram = 'HELOC' | '2nd Liens';
@@ -66,7 +67,7 @@ export type TesterInput = {
   bestExDrawPeriodYears?: BestExDrawPeriodYears;
   bestExTermYears?: BestExTermYears;
   bestExLockPeriodDays?: BestExLockPeriodDays;
-  bestExDocType?: SharedDocType;
+  bestExDocType?: BestExDocType;
 };
 
 export type Stage1PricingEngine = 'Button' | 'Arc Home' | 'Vista' | 'OSB' | 'NewRez' | 'Verus' | 'Deephaven';

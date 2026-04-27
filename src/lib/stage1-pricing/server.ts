@@ -5,7 +5,7 @@ import { calculateDeephavenStage1Quote, evaluateDeephavenStage1Eligibility, solv
 import { calculateOsbStage1Quote, evaluateOsbStage1Eligibility, solveOsbStage1TargetRate } from '@/lib/rates/osb';
 import { calculateVerusStage1Quote, evaluateVerusStage1Eligibility, solveVerusStage1TargetRate } from '@/lib/rates/verus';
 import { calculateVistaStage1Quote, evaluateVistaStage1Eligibility, solveVistaStage1TargetRate } from '@/lib/rates/vista';
-import type { BestExTermYears, ButtonDocType, DeephavenDocType, InvestorPriceLadderRow, InvestorSummary, OsbLockPeriod, PricingViewEngine, SharedDocType, Stage1Eligibility, Stage1ExecutionQuote, Stage1PricingEngineResult, Stage1PricingRequest, Stage1PricingResponse, TesterInput, VerusDrawPeriodYears, VerusLockPeriodDays, VistaDocType } from './types';
+import type { BestExDocType, BestExTermYears, ButtonDocType, DeephavenDocType, InvestorPriceLadderRow, InvestorSummary, OsbLockPeriod, PricingViewEngine, SharedDocType, Stage1Eligibility, Stage1ExecutionQuote, Stage1PricingEngineResult, Stage1PricingRequest, Stage1PricingResponse, TesterInput, VerusDrawPeriodYears, VerusLockPeriodDays, VistaDocType } from './types';
 
 const BEST_EX_WINDOW_FLOOR = 0.375;
 const BEST_EX_WINDOW_CEILING = 0.125;
@@ -74,32 +74,34 @@ function buildTargetPriceLadder(getQuoteForTargetPrice: (targetPrice: number) =>
   return rows;
 }
 
-function mapBestExDocTypeToButton(docType: SharedDocType, product: 'HELOC' | 'CES'): ButtonDocType | null {
+function mapBestExDocTypeToButton(docType: BestExDocType, product: 'HELOC' | 'CES'): ButtonDocType | null {
   if (docType === 'Full Doc') return 'Full Doc';
   if (product === 'HELOC') return null;
-  if (docType === 'Bank Statement') return '24 Month Bank Statement';
+  if (docType === '12 Month Bank Statement') return '12 Month Bank Statement';
+  if (docType === '24 Month Bank Statement' || docType === 'Bank Statement') return '24 Month Bank Statement';
   if (docType === 'Asset Depletion') return 'Asset Depletion';
   return null;
 }
 
-function mapBestExDocTypeToVista(docType: SharedDocType): VistaDocType {
+function mapBestExDocTypeToVista(docType: BestExDocType): VistaDocType {
+  if (docType === '12 Month Bank Statement' || docType === '24 Month Bank Statement') return 'Bank Statement';
   return docType;
 }
 
-function mapBestExDocTypeToVerus(docType: SharedDocType, product: 'CES' | 'HELOC'): 'Standard' | 'Alt Doc' | null {
+function mapBestExDocTypeToVerus(docType: BestExDocType, product: 'CES' | 'HELOC'): 'Standard' | 'Alt Doc' | null {
   if (docType === 'Full Doc') return 'Standard';
-  if (docType === 'Bank Statement') return 'Alt Doc';
+  if (docType === '12 Month Bank Statement' || docType === '24 Month Bank Statement' || docType === 'Bank Statement') return 'Alt Doc';
   if (product === 'CES' && (docType === '1099' || docType === 'P&L Only' || docType === 'WVOE')) return 'Alt Doc';
   return null;
 }
 
-function mapBestExDocTypeToOsb(docType: SharedDocType): SharedDocType | null {
+function mapBestExDocTypeToOsb(docType: BestExDocType): SharedDocType | null {
   return docType === 'Full Doc' ? 'Full Doc' : null;
 }
 
-function mapBestExDocTypeToDeephaven(docType: SharedDocType): DeephavenDocType | null {
+function mapBestExDocTypeToDeephaven(docType: BestExDocType): DeephavenDocType | null {
   if (docType === 'Full Doc') return 'Full Doc';
-  if (docType === 'Bank Statement') return 'Bank Statement';
+  if (docType === '12 Month Bank Statement' || docType === '24 Month Bank Statement' || docType === 'Bank Statement') return 'Bank Statement';
   if (docType === 'P&L Only') return 'P&L Only';
   return null;
 }
