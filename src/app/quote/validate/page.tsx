@@ -139,6 +139,7 @@ export default function ValidatePage() {
   const [prodTestResult, setProdTestResult] = useState<Record<string, any> | null>(null);
   const [prodTestXmlPreview, setProdTestXmlPreview] = useState<string | null>(null);
   const [parsedProdTestReport, setParsedProdTestReport] = useState<MeridianLinkParsedReport | null>(null);
+  const [prodTestStatusMessage, setProdTestStatusMessage] = useState<string | null>(null);
 
   // Updated numbers
   const [updatedCashAvailable] = useState<number | null>(null);
@@ -279,6 +280,7 @@ export default function ValidatePage() {
     setProdTestResult(null);
     setProdTestXmlPreview(null);
     setParsedProdTestReport(null);
+    setProdTestStatusMessage(null);
 
     try {
       const requestBody = isMeridianLinkProdTest
@@ -334,6 +336,7 @@ export default function ValidatePage() {
         setProdTestResult(payload);
         setProdTestXmlPreview(responseXml.slice(0, 350));
         setParsedProdTestReport(parsedReport);
+        setProdTestStatusMessage(String(payload?.reportStatusMessage || '').trim() || null);
         setCreditScore(representativeScore);
         setMortgages(mortgageLiabilities.map(mapLiabilityToMortgage));
         goToStep('mortgages');
@@ -665,14 +668,22 @@ export default function ValidatePage() {
         {currentStep === 'mortgages' && (
           <div className="bg-white rounded-2xl shadow-md p-8">
             {prodTestResult && (
-              <div className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-4 text-sm text-green-800">
-                <p className="font-semibold">MeridianLink XML pulled successfully.</p>
+              <div className={`mb-6 rounded-xl px-4 py-4 text-sm ${prodTestResult.reportReady === false ? 'border border-amber-200 bg-amber-50 text-amber-900' : 'border border-green-200 bg-green-50 text-green-800'}`}>
+                <p className="font-semibold">
+                  {prodTestResult.reportReady === false
+                    ? 'MeridianLink accepted the submission, but no populated report data was returned yet.'
+                    : 'MeridianLink XML pulled successfully.'}
+                </p>
                 <div className="mt-2 space-y-1 text-xs md:text-sm">
                   <p><span className="font-medium">Status:</span> {String(prodTestResult.status || 'Submit')}</p>
                   <p><span className="font-medium">Vendor Order ID:</span> {String(prodTestResult.vendorOrderIdentifier || 'Not returned')}</p>
                   <p><span className="font-medium">Borrower:</span> {String(prodTestResult.borrower?.firstName || '')} {String(prodTestResult.borrower?.lastName || '')}</p>
+                  {prodTestStatusMessage && <p><span className="font-medium">Report Status:</span> {prodTestStatusMessage}</p>}
+                  {prodTestResult.responseSummary && (
+                    <p><span className="font-medium">Detected Data:</span> files {Number(prodTestResult.responseSummary.creditFileCount || 0)}, scores {Number(prodTestResult.responseSummary.creditScoreCount || 0)}, liabilities {Number(prodTestResult.responseSummary.creditLiabilityCount || 0)}</p>
+                  )}
                   <p><span className="font-medium">XML Preview:</span></p>
-                  <pre className="mt-2 max-h-40 overflow-auto rounded-lg bg-white/70 p-3 text-[11px] leading-4 text-green-900">{prodTestXmlPreview || 'No XML preview returned.'}</pre>
+                  <pre className="mt-2 max-h-40 overflow-auto rounded-lg bg-white/70 p-3 text-[11px] leading-4 text-current">{prodTestXmlPreview || 'No XML preview returned.'}</pre>
                 </div>
               </div>
             )}

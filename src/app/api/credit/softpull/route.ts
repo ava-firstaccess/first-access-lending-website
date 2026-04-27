@@ -154,10 +154,11 @@ export async function POST(req: NextRequest) {
           vendor_order_identifier: result.vendorOrderIdentifier || null,
           has_vendor_order_identifier: Boolean(result.debug?.hasVendorOrderIdentifier),
           response_bytes: result.debug?.responseBytes ?? 0,
-          error_category: result.debug?.errorCategory || null,
+          error_category: result.reportReady ? (result.debug?.errorCategory || null) : 'no_credit_data_returned',
           borrower_file_number: result.fileNumber || null,
           approved_borrower_file_number: result.fileNumber || null,
           success: result.success,
+          notes: result.reportStatusMessage || null,
         };
 
         try {
@@ -186,6 +187,14 @@ export async function POST(req: NextRequest) {
             lastName: borrower.lastName,
             middleName: borrower.middleName || null,
             suffixName: borrower.suffixName || null,
+          },
+          reportReady: result.reportReady,
+          reportStatusMessage: result.reportStatusMessage,
+          responseSummary: {
+            creditFileCount: result.debug?.creditFileCount ?? 0,
+            creditScoreCount: result.debug?.creditScoreCount ?? 0,
+            creditLiabilityCount: result.debug?.creditLiabilityCount ?? 0,
+            hasVendorOrderIdentifier: Boolean(result.debug?.hasVendorOrderIdentifier),
           },
           responseXml: scrubbedResponseXml,
           ...(showXmlPreview ? { responseXmlSnippet: scrubbedResponseXml.slice(0, 350) } : {}),

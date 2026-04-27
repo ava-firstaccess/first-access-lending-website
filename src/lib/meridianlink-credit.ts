@@ -292,6 +292,11 @@ function getMeridianLinkFileNumber(xml: string) {
   return getFirstMatch(xml, 'VendorOrderIdentifier');
 }
 
+function countTagMatches(xml: string, tagName: string) {
+  const matches = xml.match(new RegExp(`<${tagName}(?:\s|>)`, 'gi'));
+  return matches ? matches.length : 0;
+}
+
 function postXml(endpointUrl: string, headers: Record<string, string>, body: string, caCertPem = '') {
   return new Promise<{ statusCode: number; body: string }>((resolve, reject) => {
     const url = new URL(endpointUrl);
@@ -351,6 +356,9 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
 
   const response = await postXml(endpointUrl, headers, xml, config.proxyCaCertB64 ? Buffer.from(config.proxyCaCertB64, 'base64').toString('utf8') : '');
   const responseText = response.body;
+  const creditFileCount = countTagMatches(responseText, 'CREDIT_FILE');
+  const creditScoreCount = countTagMatches(responseText, 'CREDIT_SCORE');
+  const creditLiabilityCount = countTagMatches(responseText, 'CREDIT_LIABILITY');
   const responseDebug = {
     endpointHost: new URL(endpointUrl).hostname,
     statusCode: response.statusCode,
@@ -360,6 +368,10 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
     fileNumber: getMeridianLinkFileNumber(responseText),
     errorCategory: getFirstMatch(responseText, 'ErrorMessageCategoryCode'),
     errorMessage: getFirstMatch(responseText, 'ErrorMessageText'),
+    creditFileCount,
+    creditScoreCount,
+    creditLiabilityCount,
+    hasReportData: creditFileCount > 0 || creditScoreCount > 0 || creditLiabilityCount > 0,
   };
 
   logMeridianLinkDebug('response', responseDebug);
@@ -376,18 +388,24 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
     throw new Error('MeridianLink provider error.');
   }
 
-  logMeridianLinkDebug('success', responseDebug);
+  logMeridianLinkDebug(responseDebug.hasReportData ? 'success' : 'saved_without_report_data', responseDebug);
 
   return {
-    success: true as const,
+    success: responseDebug.hasReportData as boolean,
     provider: 'meridianlink',
     mode: 'production-test' as const,
     requestType: 'Submit',
     borrower,
     vendorOrderIdentifier: getFirstMatch(responseText, 'VendorOrderIdentifier'),
     fileNumber: responseDebug.fileNumber,
-    status: getFirstMatch(responseText, 'CreditReportRequestActionType') || 'Submit',
+    status: responseDebug.hasReportData
+      ? getFirstMatch(responseText, 'CreditReportRequestActionType') || 'Submit'
+      : 'saved_not_completed',
     rawResponse: responseText,
     debug: responseDebug,
+    reportReady: responseDebug.hasReportData,
+    reportStatusMessage: responseDebug.hasReportData
+      ? 'Credit report data returned.'
+      : 'MeridianLink saved the order but did not return populated credit report data.',
   };
 }
