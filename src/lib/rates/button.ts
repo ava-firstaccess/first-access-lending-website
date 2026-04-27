@@ -2,9 +2,10 @@ import ratesheet from './button-ratesheet.json';
 import type { Stage1AdjustmentLine } from './shared';
 
 export type ButtonProduct = 'HELOC' | 'CES';
-export type ButtonDocType = 'Full Doc' | 'Bank Statement' | 'Asset Depletion';
+export type ButtonDocType = 'Full Doc' | '12 Month Bank Statement' | '24 Month Bank Statement' | 'Asset Depletion';
 
-const BUTTON_BANK_STATEMENT_MONTHS = 12;
+const BUTTON_12_MONTH_BANK_STATEMENT = 12;
+const BUTTON_24_MONTH_BANK_STATEMENT = 24;
 
 export interface ButtonPricingInput {
   product: ButtonProduct;
@@ -166,8 +167,12 @@ export function buildButtonStage1PricingInput(stage1: ButtonStage1Input): Button
     unitCount: Number(stage1.numberOfUnits || 1),
     cashOut: Boolean(stage1.cashOut),
     docType,
-    selfEmployed: docType === 'Bank Statement' || docType === 'Asset Depletion',
-    bankStatementMonths: docType === 'Bank Statement' ? BUTTON_BANK_STATEMENT_MONTHS : null,
+    selfEmployed: docType === '12 Month Bank Statement' || docType === '24 Month Bank Statement' || docType === 'Asset Depletion',
+    bankStatementMonths: docType === '12 Month Bank Statement'
+      ? BUTTON_12_MONTH_BANK_STATEMENT
+      : docType === '24 Month Bank Statement'
+        ? BUTTON_24_MONTH_BANK_STATEMENT
+        : null,
   };
 }
 
@@ -176,7 +181,7 @@ export function getButtonStage1Assumptions(): ButtonPricingAssumptions {
     dti: 'Not collected in stage 1 yet. Defaulting outside LLPA logic for version 1.',
     docType: 'Uses the selected Button doc type. HELOC is full doc only, CES can use alt doc.',
     selfEmployed: 'Derived from doc type for Button alt-doc scenarios.',
-    bankStatementMonths: 'Bank Statement currently maps to 12-month bank statement pricing. Asset Depletion uses the shared alt-doc grid without the extra bank statement hit.',
+    bankStatementMonths: '12 Month Bank Statement applies the extra bank statement hit. 24 Month Bank Statement uses the shared alt-doc grid without that extra hit. Asset Depletion also uses the shared alt-doc grid without the bank statement hit.',
   };
 }
 
@@ -532,11 +537,11 @@ function getAltDocAdjustment(
   input: ButtonPricingInput,
   cltvIndex: number
 ): Stage1AdjustmentLine | null {
-  if (input.docType !== 'Bank Statement') return null;
+  if (input.docType !== '12 Month Bank Statement' && input.docType !== '24 Month Bank Statement') return null;
 
-  const extraHit = input.bankStatementMonths === BUTTON_BANK_STATEMENT_MONTHS ? -0.5 : 0;
+  const extraHit = input.bankStatementMonths === BUTTON_12_MONTH_BANK_STATEMENT ? -0.5 : 0;
   return {
-    label: `${input.bankStatementMonths ?? BUTTON_BANK_STATEMENT_MONTHS} Month Bank Statement`,
+    label: `${input.bankStatementMonths ?? BUTTON_24_MONTH_BANK_STATEMENT} Month Bank Statement`,
     value: extraHit,
   };
 }

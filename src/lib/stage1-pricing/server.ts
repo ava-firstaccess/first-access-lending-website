@@ -77,7 +77,7 @@ function buildTargetPriceLadder(getQuoteForTargetPrice: (targetPrice: number) =>
 function mapBestExDocTypeToButton(docType: SharedDocType, product: 'HELOC' | 'CES'): ButtonDocType | null {
   if (docType === 'Full Doc') return 'Full Doc';
   if (product === 'HELOC') return null;
-  if (docType === 'Bank Statement') return 'Bank Statement';
+  if (docType === 'Bank Statement') return '24 Month Bank Statement';
   if (docType === 'Asset Depletion') return 'Asset Depletion';
   return null;
 }
