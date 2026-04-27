@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedApplication, requireTrustedBrowserRequest } from '@/lib/application-session';
 import { consumeRateLimit, getClientIp } from '@/lib/rate-limit';
+import { getSupabaseAdmin } from '@/lib/supabase';
 import {
   APPROVED_TEST_BORROWERS,
   assertApprovedTestBorrower,
@@ -25,11 +26,23 @@ export async function POST(req: NextRequest) {
     const trusted = requireTrustedBrowserRequest(req);
     if (trusted) return trusted;
 
-    const auth = await getAuthenticatedApplication(req, 'id, session_expires_at');
-    if ('response' in auth) return auth.response;
-
-    const applicationId = typeof auth.app.id === 'string' ? auth.app.id : null;
+    const body = await req.json();
+    const requestedMode = String(body?.mode || '').toLowerCase();
+    const borrower = body?.borrower || {};
+    const coborrower = body?.coborrower || null;
+    const provider = (process.env.CREDIT_API_PROVIDER || 'mock').toLowerCase();
     const clientIp = getClientIp(req);
+
+    let applicationId: string | null = null;
+    let supabase = getSupabaseAdmin();
+
+    if (requestedMode !== 'production-test') {
+      const auth = await getAuthenticatedApplication(req, 'id, session_expires_at');
+      if ('response' in auth) return auth.response;
+      applicationId = typeof auth.app.id === 'string' ? auth.app.id : null;
+      supabase = auth.supabase;
+    }
+
     const [ipRate, sessionRate] = await Promise.all([
       consumeRateLimit({
         scope: 'softpull:ip',
@@ -38,7 +51,7 @@ export async function POST(req: NextRequest) {
         windowSeconds: SOFTPULL_WINDOW_SECONDS,
       }),
       consumeRateLimit({
-        scope: 'softpull:session',
+        scope: requestedMode === 'production-test' ? 'softpull:prodtest' : 'softpull:session',
         key: applicationId || clientIp,
         limit: SOFTPULL_SESSION_LIMIT,
         windowSeconds: SOFTPULL_WINDOW_SECONDS,
@@ -60,12 +73,6 @@ export async function POST(req: NextRequest) {
         }
       );
     }
-
-    const body = await req.json();
-    const requestedMode = String(body?.mode || '').toLowerCase();
-    const borrower = body?.borrower || {};
-    const coborrower = body?.coborrower || null;
-    const provider = (process.env.CREDIT_API_PROVIDER || 'mock').toLowerCase();
 
     if (!borrower?.firstName || !borrower?.lastName) {
       return NextResponse.json(
@@ -104,8 +111,6 @@ export async function POST(req: NextRequest) {
       });
 
       const runId = randomUUID();
-      const { supabase, app } = auth;
-      const applicationId = typeof app.id === 'string' ? app.id : null;
 
       const showXmlPreview = process.env.MERIDIANLINK_PROXY_DEBUG === 'true' && process.env.NODE_ENV !== 'production';
       const endpointHost = new URL(
