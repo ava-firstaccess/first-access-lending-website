@@ -118,7 +118,7 @@ function writePrivateFile(filePath, contents) {
   fs.writeFileSync(filePath, contents, { encoding: 'utf8', mode: 0o600 });
 }
 
-function captureMeridianLinkExchange(kind, requestXml, responseXml) {
+function captureMeridianLinkExchange(kind, requestXml, responseXml, traceId = '') {
   const captureDir = getSetting('MERIDIANLINK_CAPTURE_DIR', DEFAULT_CAPTURE_DIR);
   const ttlMinutes = Number(getSetting('MERIDIANLINK_CAPTURE_TTL_MINUTES', String(DEFAULT_CAPTURE_TTL_MINUTES)));
   ensureDir(captureDir);
@@ -128,7 +128,8 @@ function captureMeridianLinkExchange(kind, requestXml, responseXml) {
   const lastName = sanitizeFileLabel(extractFirst(requestXml, 'LastName'));
   const action = sanitizeFileLabel(extractFirst(requestXml, 'CreditReportRequestActionType') || 'unknown');
   const vendorOrderIdentifier = sanitizeFileLabel(extractFirst(responseXml, 'VendorOrderIdentifier') || extractFirst(requestXml, 'VendorOrderIdentifier') || 'none');
-  const baseName = `${timestamp}_${kind}_${action}_${lastName}_${firstName}_${vendorOrderIdentifier}`;
+  const traceLabel = sanitizeFileLabel(traceId || 'no-trace');
+  const baseName = `${timestamp}_${kind}_${action}_${lastName}_${firstName}_${vendorOrderIdentifier}_${traceLabel}`;
   const requestPath = path.join(captureDir, `${baseName}_request.xml`);
   const responsePath = path.join(captureDir, `${baseName}_response.xml`);
   writePrivateFile(requestPath, requestXml);
@@ -138,6 +139,7 @@ function captureMeridianLinkExchange(kind, requestXml, responseXml) {
     requestPath,
     responsePath,
     vendorOrderIdentifier: vendorOrderIdentifier === 'none' ? null : vendorOrderIdentifier,
+    traceId: traceId || null,
     ttlMinutes,
   });
 }
@@ -218,15 +220,17 @@ const server = http.createServer(async (req, res) => {
     });
 
     const text = await upstream.text();
+    const traceId = req.headers['x-meridianlink-trace-id']?.toString() || '';
     const requestAction = extractFirst(xml, 'CreditReportRequestActionType') || 'unknown';
     const captureKind = /^submit$/i.test(requestAction) ? 'create' : /^statusquery$/i.test(requestAction) ? 'retrieve' : 'other';
-    captureMeridianLinkExchange(captureKind, xml, text);
+    captureMeridianLinkExchange(captureKind, xml, text, traceId);
     logRelay('upstream', {
       status: upstream.status,
       contentType: upstream.headers.get('content-type') || 'text/xml; charset=utf-8',
       bytes: Buffer.byteLength(text, 'utf8'),
       host: config.baseUrl,
       requestAction,
+      traceId: traceId || null,
     });
     const contentType = upstream.headers.get('content-type') || 'text/xml; charset=utf-8';
     res.writeHead(upstream.status, {

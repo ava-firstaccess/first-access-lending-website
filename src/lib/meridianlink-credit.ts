@@ -472,7 +472,10 @@ function postXml(endpointUrl: string, headers: Record<string, string>, body: str
   });
 }
 
-export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorrowerInput = {}) {
+export async function submitMeridianLinkProdTest(
+  input: MeridianLinkProdTestBorrowerInput = {},
+  options: { traceId?: string } = {}
+) {
   const config = getMeridianLinkConfig();
   const borrower = sanitizeProdTestBorrower(input);
   const xml = buildMeridianLinkSubmitXml(borrower);
@@ -490,6 +493,9 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
       throw new Error('MERIDIANLINK_PROXY_AUTH_TOKEN is required when MERIDIANLINK_PROXY_URL is set.');
     }
     headers[config.proxyAuthHeader] = config.proxyAuthToken;
+    if (options.traceId) {
+      headers['X-MeridianLink-Trace-Id'] = options.traceId;
+    }
   } else {
     headers.Authorization = `Basic ${auth}`;
   }
@@ -499,6 +505,7 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
   const initialResponseText = response.body;
   const initialResponseDebug = getMeridianLinkResponseDebug(initialResponseText, response.statusCode, endpointUrl);
   let responseText = initialResponseText;
+  logMeridianLinkDebug('trace', { traceId: options.traceId || null });
   let responseDebug = initialResponseDebug;
   const initialVendorOrderIdentifier = initialResponseDebug.vendorOrderIdentifier;
   const initialFileNumber = initialResponseDebug.fileNumber;

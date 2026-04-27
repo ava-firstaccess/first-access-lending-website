@@ -148,20 +148,23 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const result = await submitMeridianLinkProdTest({
-          firstName: borrower.firstName,
-          lastName: borrower.lastName,
-          middleName: borrower.middleName,
-          suffixName: borrower.suffixName,
-          dob: borrower.dob,
-          ssn: borrower.ssn,
-          ssnLast4: borrower.ssnLast4,
-          address: borrower.address,
-          city: borrower.city,
-          state: borrower.state,
-          zip: borrower.zip,
-          preferredResponseFormat: borrower.preferredResponseFormat,
-        });
+        const result = await submitMeridianLinkProdTest(
+          {
+            firstName: borrower.firstName,
+            lastName: borrower.lastName,
+            middleName: borrower.middleName,
+            suffixName: borrower.suffixName,
+            dob: borrower.dob,
+            ssn: borrower.ssn,
+            ssnLast4: borrower.ssnLast4,
+            address: borrower.address,
+            city: borrower.city,
+            state: borrower.state,
+            zip: borrower.zip,
+            preferredResponseFormat: borrower.preferredResponseFormat,
+          },
+          { traceId: runId }
+        );
 
         const scrubbedInitialSubmitXml = scrubMeridianLinkXml(result.initialSubmitRawResponse || '');
         const scrubbedResponseXml = scrubMeridianLinkXml(result.rawResponse);
@@ -186,7 +189,7 @@ export async function POST(req: NextRequest) {
             initialSubmitResponseXml: scrubbedInitialSubmitXml,
             finalResponseXml: scrubbedResponseXml,
             initialSubmitDebug: result.initialSubmitDebug,
-            finalDebug: result.debug,
+            finalDebug: { traceId: runId, ...(result.debug || {}) },
           }),
         };
 
@@ -233,6 +236,7 @@ export async function POST(req: NextRequest) {
                     initialSubmitResponseXmlSnippet: scrubbedInitialSubmitXml.slice(0, 350),
                   }
                 : {}),
+              traceId: runId,
               applicationId,
             },
             { status: 202 }
@@ -271,6 +275,7 @@ export async function POST(req: NextRequest) {
                 initialSubmitResponseXmlSnippet: scrubbedInitialSubmitXml.slice(0, 350),
               }
             : {}),
+          traceId: runId,
           applicationId,
         });
       } catch (error) {
