@@ -429,13 +429,13 @@ export default function ValidatePage() {
                   <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-4 text-sm text-blue-800">
                     <p className="font-semibold">Temporary MeridianLink production test mode</p>
                     <p className="mt-1">
-                      This page is temporarily acting as a test harness for the approved Bill Testcase file. The
-                      borrower fields below are sent directly to the MeridianLink production-test route.
+                      This page is acting as a MeridianLink XML test harness. The borrower fields below are sent
+                      directly to the production-test route so you can try different test files.
                     </p>
                   </div>
 
                   <div>
-                    <h3 className="font-semibold text-gray-800 mb-3">Approved test borrower details</h3>
+                    <h3 className="font-semibold text-gray-800 mb-3">Test borrower details</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>

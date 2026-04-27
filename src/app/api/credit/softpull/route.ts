@@ -12,7 +12,6 @@ import {
 } from '@/lib/credit';
 import {
   MERIDIANLINK_APPROVED_PROD_TEST,
-  assertApprovedProdTestBorrower,
   scrubMeridianLinkXml,
   submitMeridianLinkProdTest,
 } from '@/lib/meridianlink-credit';
@@ -94,21 +93,6 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-
-      assertApprovedProdTestBorrower({
-        firstName: borrower.firstName,
-        lastName: borrower.lastName,
-        middleName: borrower.middleName,
-        suffixName: borrower.suffixName,
-        dob: borrower.dob,
-        ssn: borrower.ssn,
-        ssnLast4: borrower.ssnLast4,
-        address: borrower.address,
-        city: borrower.city,
-        state: borrower.state,
-        zip: borrower.zip,
-        preferredResponseFormat: borrower.preferredResponseFormat,
-      });
 
       const runId = randomUUID();
 
@@ -322,10 +306,10 @@ export async function GET() {
     productionTestAccess: {
       provider: 'meridianlink',
       routeMode: 'production-test',
-      restricted: true,
-      note: 'Production-test access is locked to an internal approved vendor test file and is not documented publicly here.',
+      restricted: false,
+      note: 'Production-test mode is available as a MeridianLink XML test harness and accepts test borrower values entered in the UI.',
     },
     message:
-      'Use POST /api/credit/softpull with sandbox/test mode for mock responses. Production-test access is restricted to an internal approved MeridianLink vendor test file.',
+      'Use POST /api/credit/softpull with sandbox/test mode for mock responses. Production-test mode can be used as a MeridianLink XML test harness when CREDIT_API_PROVIDER=meridianlink.',
   });
 }
