@@ -12,6 +12,7 @@ const DEFAULT_INTERFACE_ID = 'FirstAccess040926';
 const DEFAULT_CLIENT_IDENTIFIER_HEADER = 'Client-Identifier';
 const DEFAULT_CLIENT_IDENTIFIER = 'B0';
 const DEFAULT_AUTH_HEADER = 'X-MeridianLink-Proxy-Auth';
+const DEFAULT_CAPTURE_DIR = path.join(process.cwd(), 'tmp', 'meridianlink-captures');
 const LOCAL_ENV_FILES = ['.env.local', '.env'];
 const localEnvCache = new Map();
 
@@ -76,6 +77,41 @@ function timingSafeMatch(a, b) {
 
 function logRelay(event, details) {
   console.log(JSON.stringify({ scope: 'meridianlink-proxy', event, ...details }));
+}
+
+function sanitizeFileLabel(value) {
+  return String(value || 'unknown')
+    .replace(/[^a-z0-9._-]+/gi, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 120) || 'unknown';
+}
+
+function extractFirst(xml, tagName) {
+  const escapedTagName = tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = String(xml || '').match(
+    new RegExp(`<(?:[A-Za-z0-9_-]+:)?${escapedTagName}(?:\\s[^>]*)?>([\\s\\S]*?)</(?:[A-Za-z0-9_-]+:)?${escapedTagName}>`, 'i')
+  );
+  return match ? match[1].trim() : '';
+}
+
+function ensureDir(dirPath) {
+  fs.mkdirSync(dirPath, { recursive: true });
+}
+
+function captureMeridianLinkExchange(kind, requestXml, responseXml) {
+  const captureDir = getSetting('MERIDIANLINK_CAPTURE_DIR', DEFAULT_CAPTURE_DIR);
+  ensureDir(captureDir);
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const firstName = sanitizeFileLabel(extractFirst(requestXml, 'FirstName'));
+  const lastName = sanitizeFileLabel(extractFirst(requestXml, 'LastName'));
+  const action = sanitizeFileLabel(extractFirst(requestXml, 'CreditReportRequestActionType') || 'unknown');
+  const vendorOrderIdentifier = sanitizeFileLabel(extractFirst(responseXml, 'VendorOrderIdentifier') || extractFirst(requestXml, 'VendorOrderIdentifier') || 'none');
+  const baseName = `${timestamp}_${kind}_${action}_${lastName}_${firstName}_${vendorOrderIdentifier}`;
+  const requestPath = path.join(captureDir, `${baseName}_request.xml`);
+  const responsePath = path.join(captureDir, `${baseName}_response.xml`);
+  fs.writeFileSync(requestPath, requestXml, 'utf8');
+  fs.writeFileSync(responsePath, responseXml, 'utf8');
+  logRelay('capture_saved', { kind, requestPath, responsePath, vendorOrderIdentifier: vendorOrderIdentifier === 'none' ? null : vendorOrderIdentifier });
 }
 
 function readConfig() {
@@ -154,11 +190,15 @@ const server = http.createServer(async (req, res) => {
     });
 
     const text = await upstream.text();
+    const requestAction = extractFirst(xml, 'CreditReportRequestActionType') || 'unknown';
+    const captureKind = /^submit$/i.test(requestAction) ? 'create' : /^statusquery$/i.test(requestAction) ? 'retrieve' : 'other';
+    captureMeridianLinkExchange(captureKind, xml, text);
     logRelay('upstream', {
       status: upstream.status,
       contentType: upstream.headers.get('content-type') || 'text/xml; charset=utf-8',
       bytes: Buffer.byteLength(text, 'utf8'),
       host: config.baseUrl,
+      requestAction,
     });
     const contentType = upstream.headers.get('content-type') || 'text/xml; charset=utf-8';
     res.writeHead(upstream.status, {
