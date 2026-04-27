@@ -480,6 +480,8 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
   const response = await postXml(endpointUrl, headers, xml, caCertPem);
   let responseText = response.body;
   let responseDebug = getMeridianLinkResponseDebug(responseText, response.statusCode, endpointUrl);
+  const initialVendorOrderIdentifier = responseDebug.vendorOrderIdentifier;
+  const initialFileNumber = responseDebug.fileNumber;
 
   logMeridianLinkDebug('response', responseDebug);
 
@@ -493,7 +495,7 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
     throw new Error('MeridianLink provider error.');
   }
 
-  const vendorOrderIdentifier = responseDebug.vendorOrderIdentifier;
+  const vendorOrderIdentifier = initialVendorOrderIdentifier || responseDebug.vendorOrderIdentifier;
   const pollAttempts = Number(process.env.MERIDIANLINK_STATUSQUERY_MAX_ATTEMPTS || 5);
   const pollDelayMs = Number(process.env.MERIDIANLINK_STATUSQUERY_DELAY_MS || 2000);
 
@@ -545,8 +547,8 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
     mode: 'production-test' as const,
     requestType: 'Submit',
     borrower,
-    vendorOrderIdentifier: responseDebug.vendorOrderIdentifier,
-    fileNumber: responseDebug.fileNumber,
+    vendorOrderIdentifier: initialVendorOrderIdentifier || responseDebug.vendorOrderIdentifier,
+    fileNumber: initialFileNumber || responseDebug.fileNumber,
     status: responseDebug.hasReportData
       ? String(responseDebug.statusCodeText || responseDebug.statusDescription || 'completed').toLowerCase()
       : String(responseDebug.statusCodeText || responseDebug.statusDescription || 'saved_not_completed').toLowerCase(),
