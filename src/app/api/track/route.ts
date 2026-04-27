@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (createError) {
-        console.error('Track create error:', createError);
+        console.error('Track create error');
         return NextResponse.json({ error: 'Failed to create tracking record' }, { status: 500 });
       }
 
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
     }
 
   } catch (err: any) {
-    console.error('Track error:', err);
-    return NextResponse.json({ error: err.message || 'Tracking failed' }, { status: 500 });
+    console.error('Track error');
+    return NextResponse.json({ error: 'Tracking failed' }, { status: 500 });
   }
 }

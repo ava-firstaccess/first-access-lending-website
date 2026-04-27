@@ -30,6 +30,7 @@
 - Keep the proxy on HTTPS 443 with the same auth/header contract.
 - Keep MeridianLink IP whitelist tied to the VPS public IP, not Vercel.
 - Leave the Mac relay only as a fallback/test path, not production.
+- Next security/implementation work: review the current MeridianLink XML debug/preview path and redesign the XML processing flow so operational parsing/debugging needs are handled without re-exposing raw upstream XML in hot browser/API responses.
 
 ### Title API
 - ValuTrust staging creds (pending)

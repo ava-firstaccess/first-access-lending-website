@@ -36,19 +36,10 @@ export async function POST(request: Request) {
     });
     
     if (!resendResponse.ok) {
-      const error = await resendResponse.text();
-      console.error('Resend API error:', {
-        status: resendResponse.status,
-        statusText: resendResponse.statusText,
-        body: error,
-        hasApiKey: !!process.env.RESEND_API_KEY,
-        apiKeyPrefix: process.env.RESEND_API_KEY?.substring(0, 8)
-      });
+      console.error('Resend API error:', resendResponse.status);
       return NextResponse.json(
         { 
-          error: 'Failed to send email via Resend',
-          details: error,
-          status: resendResponse.status
+          error: 'Failed to send email via Resend'
         },
         { status: 500 }
       );
@@ -72,7 +63,7 @@ export async function POST(request: Request) {
         }).toString(),
       });
     } catch (shapeError) {
-      console.error('Shape CRM error (non-blocking):', shapeError);
+      console.error('Shape CRM error (non-blocking)');
       // Don't fail the request if Shape API fails
     }
     
@@ -82,7 +73,7 @@ export async function POST(request: Request) {
     });
     
   } catch (error) {
-    console.error('Email send error:', error);
+    console.error('Email send error');
     return NextResponse.json(
       { error: 'Failed to send email' },
       { status: 500 }

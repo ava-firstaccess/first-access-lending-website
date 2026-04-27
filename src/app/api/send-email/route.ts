@@ -22,14 +22,14 @@ export async function POST(request: Request) {
     });
 
     if (stderr && !stderr.includes('message_id')) {
-      console.error('Email script stderr:', stderr);
+      console.error('Email script stderr');
     }
 
     return NextResponse.json({ success: true, output: stdout });
   } catch (error: any) {
-    console.error('Email sending error:', error);
+    console.error('Email sending error');
     return NextResponse.json(
-      { error: 'Failed to send email', details: error.message || String(error) },
+      { error: 'Failed to send email' },
       { status: 500 }
     );
   }
