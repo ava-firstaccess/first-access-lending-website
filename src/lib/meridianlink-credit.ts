@@ -478,10 +478,12 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
 
   const caCertPem = config.proxyCaCertB64 ? Buffer.from(config.proxyCaCertB64, 'base64').toString('utf8') : '';
   const response = await postXml(endpointUrl, headers, xml, caCertPem);
-  let responseText = response.body;
-  let responseDebug = getMeridianLinkResponseDebug(responseText, response.statusCode, endpointUrl);
-  const initialVendorOrderIdentifier = responseDebug.vendorOrderIdentifier;
-  const initialFileNumber = responseDebug.fileNumber;
+  const initialResponseText = response.body;
+  const initialResponseDebug = getMeridianLinkResponseDebug(initialResponseText, response.statusCode, endpointUrl);
+  let responseText = initialResponseText;
+  let responseDebug = initialResponseDebug;
+  const initialVendorOrderIdentifier = initialResponseDebug.vendorOrderIdentifier;
+  const initialFileNumber = initialResponseDebug.fileNumber;
 
   logMeridianLinkDebug('response', responseDebug);
 
@@ -553,7 +555,9 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
       ? String(responseDebug.statusCodeText || responseDebug.statusDescription || 'completed').toLowerCase()
       : String(responseDebug.statusCodeText || responseDebug.statusDescription || 'saved_not_completed').toLowerCase(),
     rawResponse: responseText,
+    initialSubmitRawResponse: initialResponseText,
     debug: responseDebug,
+    initialSubmitDebug: initialResponseDebug,
     reportReady: responseDebug.hasReportData,
     reportStatusMessage: responseDebug.hasReportData
       ? 'Credit report data returned.'

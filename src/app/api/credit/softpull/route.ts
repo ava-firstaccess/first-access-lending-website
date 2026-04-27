@@ -199,7 +199,13 @@ export async function POST(req: NextRequest) {
                 creditLiabilityCount: result.debug?.creditLiabilityCount ?? 0,
                 hasVendorOrderIdentifier: Boolean(result.debug?.hasVendorOrderIdentifier),
               },
-              ...(showXmlPreview ? { responseXmlSnippet: scrubbedResponseXml.slice(0, 350) } : {}),
+              initialSubmitResponseXml: scrubMeridianLinkXml(result.initialSubmitRawResponse || ''),
+              ...(showXmlPreview
+                ? {
+                    responseXmlSnippet: scrubbedResponseXml.slice(0, 350),
+                    initialSubmitResponseXmlSnippet: scrubMeridianLinkXml(result.initialSubmitRawResponse || '').slice(0, 350),
+                  }
+                : {}),
               applicationId,
             },
             { status: 202 }
@@ -230,8 +236,14 @@ export async function POST(req: NextRequest) {
             creditLiabilityCount: result.debug?.creditLiabilityCount ?? 0,
             hasVendorOrderIdentifier: Boolean(result.debug?.hasVendorOrderIdentifier),
           },
+          initialSubmitResponseXml: scrubMeridianLinkXml(result.initialSubmitRawResponse || ''),
           responseXml: scrubbedResponseXml,
-          ...(showXmlPreview ? { responseXmlSnippet: scrubbedResponseXml.slice(0, 350) } : {}),
+          ...(showXmlPreview
+            ? {
+                responseXmlSnippet: scrubbedResponseXml.slice(0, 350),
+                initialSubmitResponseXmlSnippet: scrubMeridianLinkXml(result.initialSubmitRawResponse || '').slice(0, 350),
+              }
+            : {}),
           applicationId,
         });
       } catch (error) {
