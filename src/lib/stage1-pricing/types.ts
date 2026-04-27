@@ -77,7 +77,7 @@ export type Stage1ExecutionQuote = { engine: Stage1PricingEngine; program: strin
 export type Stage1TargetExecutionQuote = Stage1ExecutionQuote & { targetPrice: number; tolerance: number; deltaFromTarget: number; withinTolerance: boolean; withinToleranceAllowOverage: boolean };
 export type Stage1PricingEngineResult = { eligibility: Stage1Eligibility; quote: Stage1ExecutionQuote; targetQuote: Stage1TargetExecutionQuote; maxPrice: number };
 
-export type InvestorPriceLadderRow = { purchasePrice: number; rate: number; noteRate: number; pointsLabel: 'Discount' | 'Rebate'; pointsValue: number; highlighted: boolean; };
+export type InvestorPriceLadderRow = { displayPrice: number; purchasePrice: number; rate: number; noteRate: number; pointsLabel: 'Discount' | 'Rebate'; pointsValue: number; highlighted: boolean; };
 export type InvestorSummary = { investor: string; eligibility: Stage1Eligibility; quote: Stage1ExecutionQuote; discountPoints: number; buyPrice: number; windowMatched: boolean; deltaFromTarget: number; targetPrice: number; maxPrice: number; priceLadder: InvestorPriceLadderRow[] };
 
 export type Stage1PricingRequest = { engine: PricingViewEngine; input: TesterInput; targetPriceOverride?: string; manualRateOverride?: string; tolerance?: number };
