@@ -23,7 +23,7 @@ export async function consumeRateLimit(params: {
   });
 
   if (error) {
-    console.error('Rate limit RPC error:', error);
+    console.error('Rate limit RPC error');
     throw new Error('Rate limit check failed');
   }
 

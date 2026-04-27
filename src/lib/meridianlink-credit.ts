@@ -354,9 +354,7 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
   const errorMessage = getFirstMatch(responseText, 'ErrorMessageText');
   if (errorCategory || errorMessage) {
     logMeridianLinkDebug('provider_error', responseDebug);
-    throw new Error(
-      `MeridianLink returned ${errorCategory || 'ProviderError'}${errorMessage ? `: ${errorMessage}` : ''}`
-    );
+    throw new Error('MeridianLink provider error.');
   }
 
   logMeridianLinkDebug('success', responseDebug);
