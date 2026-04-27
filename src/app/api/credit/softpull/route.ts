@@ -172,6 +172,40 @@ export async function POST(req: NextRequest) {
 
         const scrubbedResponseXml = scrubMeridianLinkXml(result.rawResponse);
 
+        if (!result.reportReady) {
+          return NextResponse.json(
+            {
+              success: false,
+              runId,
+              application_id: applicationId,
+              provider: result.provider,
+              mode: result.mode,
+              requestType: result.requestType,
+              status: result.status,
+              vendorOrderIdentifier: result.vendorOrderIdentifier,
+              fileNumber: result.fileNumber || null,
+              error: result.reportStatusMessage || 'Credit report data was not ready yet.',
+              borrower: {
+                firstName: borrower.firstName,
+                lastName: borrower.lastName,
+                middleName: borrower.middleName || null,
+                suffixName: borrower.suffixName || null,
+              },
+              reportReady: false,
+              reportStatusMessage: result.reportStatusMessage,
+              responseSummary: {
+                creditFileCount: result.debug?.creditFileCount ?? 0,
+                creditScoreCount: result.debug?.creditScoreCount ?? 0,
+                creditLiabilityCount: result.debug?.creditLiabilityCount ?? 0,
+                hasVendorOrderIdentifier: Boolean(result.debug?.hasVendorOrderIdentifier),
+              },
+              ...(showXmlPreview ? { responseXmlSnippet: scrubbedResponseXml.slice(0, 350) } : {}),
+              applicationId,
+            },
+            { status: 202 }
+          );
+        }
+
         return NextResponse.json({
           runId,
           success: result.success,

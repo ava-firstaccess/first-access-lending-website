@@ -297,6 +297,128 @@ function countTagMatches(xml: string, tagName: string) {
   return matches ? matches.length : 0;
 }
 
+function buildMeridianLinkStatusQueryXml(
+  input: MeridianLinkProdTestBorrowerInput = {},
+  vendorOrderIdentifier: string
+) {
+  const t = sanitizeProdTestBorrower(input);
+
+  return `<?xml version="1.0" encoding="utf-8"?>
+<MESSAGE MessageType="Request" xmlns="http://www.mismo.org/residential/2009/schemas" xmlns:p2="http://www.w3.org/1999/xlink" xmlns:p3="inetapi/MISMO3_4_MCL_Extension.xsd">
+  <ABOUT_VERSIONS>
+    <ABOUT_VERSION>
+      <DataVersionIdentifier>201703</DataVersionIdentifier>
+    </ABOUT_VERSION>
+  </ABOUT_VERSIONS>
+  <DEAL_SETS>
+    <DEAL_SET>
+      <DEALS>
+        <DEAL>
+          <PARTIES>
+            <PARTY p2:label="Party1">
+              <INDIVIDUAL>
+                <NAME>
+                  <FirstName>${xmlEscape(t.firstName)}</FirstName>
+                  <LastName>${xmlEscape(t.lastName)}</LastName>
+                  <MiddleName>${xmlEscape(t.middleName)}</MiddleName>
+                  <SuffixName>${xmlEscape(t.suffixName)}</SuffixName>
+                </NAME>
+              </INDIVIDUAL>
+              <ROLES>
+                <ROLE>
+                  <ROLE_DETAIL>
+                    <PartyRoleType>Borrower</PartyRoleType>
+                  </ROLE_DETAIL>
+                </ROLE>
+              </ROLES>
+              <TAXPAYER_IDENTIFIERS>
+                <TAXPAYER_IDENTIFIER>
+                  <TaxpayerIdentifierType>SocialSecurityNumber</TaxpayerIdentifierType>
+                  <TaxpayerIdentifierValue>${t.ssn}</TaxpayerIdentifierValue>
+                </TAXPAYER_IDENTIFIER>
+              </TAXPAYER_IDENTIFIERS>
+            </PARTY>
+          </PARTIES>
+          <RELATIONSHIPS>
+            <RELATIONSHIP p2:arcrole="urn:fdc:Meridianlink.com:2017:mortgage/PARTY_IsVerifiedBy_SERVICE" p2:from="Party1" p2:to="Service1" />
+          </RELATIONSHIPS>
+          <SERVICES>
+            <SERVICE p2:label="Service1">
+              <CREDIT>
+                <CREDIT_REQUEST>
+                  <CREDIT_REQUEST_DATAS>
+                    <CREDIT_REQUEST_DATA>
+                      <CREDIT_REPOSITORY_INCLUDED>
+                        <CreditRepositoryIncludedEquifaxIndicator>true</CreditRepositoryIncludedEquifaxIndicator>
+                        <CreditRepositoryIncludedExperianIndicator>true</CreditRepositoryIncludedExperianIndicator>
+                        <CreditRepositoryIncludedTransUnionIndicator>true</CreditRepositoryIncludedTransUnionIndicator>
+                      </CREDIT_REPOSITORY_INCLUDED>
+                      <CREDIT_REQUEST_DATA_DETAIL>
+                        <CreditReportRequestActionType>StatusQuery</CreditReportRequestActionType>
+                      </CREDIT_REQUEST_DATA_DETAIL>
+                    </CREDIT_REQUEST_DATA>
+                  </CREDIT_REQUEST_DATAS>
+                </CREDIT_REQUEST>
+              </CREDIT>
+              <SERVICE_PRODUCT>
+                <SERVICE_PRODUCT_REQUEST>
+                  <SERVICE_PRODUCT_DETAIL>
+                    <ServiceProductDescription>CreditOrder</ServiceProductDescription>
+                    <EXTENSION>
+                      <OTHER>
+                        <p3:SERVICE_PREFERRED_RESPONSE_FORMATS>
+                          <p3:SERVICE_PREFERRED_RESPONSE_FORMAT>
+                            <p3:SERVICE_PREFERRED_RESPONSE_FORMAT_DETAIL>
+                              <p3:PreferredResponseFormatType>Xml</p3:PreferredResponseFormatType>
+                            </p3:SERVICE_PREFERRED_RESPONSE_FORMAT_DETAIL>
+                          </p3:SERVICE_PREFERRED_RESPONSE_FORMAT>
+                        </p3:SERVICE_PREFERRED_RESPONSE_FORMATS>
+                      </OTHER>
+                    </EXTENSION>
+                  </SERVICE_PRODUCT_DETAIL>
+                </SERVICE_PRODUCT_REQUEST>
+              </SERVICE_PRODUCT>
+              <SERVICE_PRODUCT_FULFILLMENT>
+                <SERVICE_PRODUCT_FULFILLMENT_DETAIL>
+                  <VendorOrderIdentifier>${xmlEscape(vendorOrderIdentifier)}</VendorOrderIdentifier>
+                </SERVICE_PRODUCT_FULFILLMENT_DETAIL>
+              </SERVICE_PRODUCT_FULFILLMENT>
+            </SERVICE>
+          </SERVICES>
+        </DEAL>
+      </DEALS>
+    </DEAL_SET>
+  </DEAL_SETS>
+</MESSAGE>`;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getMeridianLinkResponseDebug(responseText: string, statusCode: number, endpointUrl: string) {
+  const creditFileCount = countTagMatches(responseText, 'CREDIT_FILE');
+  const creditScoreCount = countTagMatches(responseText, 'CREDIT_SCORE');
+  const creditLiabilityCount = countTagMatches(responseText, 'CREDIT_LIABILITY');
+
+  return {
+    endpointHost: new URL(endpointUrl).hostname,
+    statusCode,
+    responseBytes: Buffer.byteLength(responseText, 'utf8'),
+    hasVendorOrderIdentifier: Boolean(getFirstMatch(responseText, 'VendorOrderIdentifier')),
+    vendorOrderIdentifier: getFirstMatch(responseText, 'VendorOrderIdentifier'),
+    fileNumber: getMeridianLinkFileNumber(responseText),
+    errorCategory: getFirstMatch(responseText, 'ErrorMessageCategoryCode'),
+    errorMessage: getFirstMatch(responseText, 'ErrorMessageText'),
+    statusCodeText: getFirstMatch(responseText, 'StatusCode'),
+    statusDescription: getFirstMatch(responseText, 'StatusDescription'),
+    creditFileCount,
+    creditScoreCount,
+    creditLiabilityCount,
+    hasReportData: creditFileCount > 0 || creditScoreCount > 0 || creditLiabilityCount > 0,
+  };
+}
+
 function postXml(endpointUrl: string, headers: Record<string, string>, body: string, caCertPem = '') {
   return new Promise<{ statusCode: number; body: string }>((resolve, reject) => {
     const url = new URL(endpointUrl);
@@ -354,25 +476,10 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
     headers.Authorization = `Basic ${auth}`;
   }
 
-  const response = await postXml(endpointUrl, headers, xml, config.proxyCaCertB64 ? Buffer.from(config.proxyCaCertB64, 'base64').toString('utf8') : '');
-  const responseText = response.body;
-  const creditFileCount = countTagMatches(responseText, 'CREDIT_FILE');
-  const creditScoreCount = countTagMatches(responseText, 'CREDIT_SCORE');
-  const creditLiabilityCount = countTagMatches(responseText, 'CREDIT_LIABILITY');
-  const responseDebug = {
-    endpointHost: new URL(endpointUrl).hostname,
-    statusCode: response.statusCode,
-    responseBytes: Buffer.byteLength(responseText, 'utf8'),
-    hasVendorOrderIdentifier: Boolean(getFirstMatch(responseText, 'VendorOrderIdentifier')),
-    vendorOrderIdentifier: getFirstMatch(responseText, 'VendorOrderIdentifier'),
-    fileNumber: getMeridianLinkFileNumber(responseText),
-    errorCategory: getFirstMatch(responseText, 'ErrorMessageCategoryCode'),
-    errorMessage: getFirstMatch(responseText, 'ErrorMessageText'),
-    creditFileCount,
-    creditScoreCount,
-    creditLiabilityCount,
-    hasReportData: creditFileCount > 0 || creditScoreCount > 0 || creditLiabilityCount > 0,
-  };
+  const caCertPem = config.proxyCaCertB64 ? Buffer.from(config.proxyCaCertB64, 'base64').toString('utf8') : '';
+  const response = await postXml(endpointUrl, headers, xml, caCertPem);
+  let responseText = response.body;
+  let responseDebug = getMeridianLinkResponseDebug(responseText, response.statusCode, endpointUrl);
 
   logMeridianLinkDebug('response', responseDebug);
 
@@ -381,11 +488,53 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
     throw new Error(`MeridianLink submit failed (${response.statusCode}).`);
   }
 
-  const errorCategory = getFirstMatch(responseText, 'ErrorMessageCategoryCode');
-  const errorMessage = getFirstMatch(responseText, 'ErrorMessageText');
-  if (errorCategory || errorMessage) {
+  if (responseDebug.errorCategory || responseDebug.errorMessage) {
     logMeridianLinkDebug('provider_error', responseDebug);
     throw new Error('MeridianLink provider error.');
+  }
+
+  const vendorOrderIdentifier = responseDebug.vendorOrderIdentifier;
+  const pollAttempts = Number(process.env.MERIDIANLINK_STATUSQUERY_MAX_ATTEMPTS || 5);
+  const pollDelayMs = Number(process.env.MERIDIANLINK_STATUSQUERY_DELAY_MS || 2000);
+
+  if (!responseDebug.hasReportData && vendorOrderIdentifier) {
+    for (let attempt = 1; attempt <= pollAttempts; attempt += 1) {
+      await sleep(pollDelayMs);
+      const statusXml = buildMeridianLinkStatusQueryXml(borrower, vendorOrderIdentifier);
+      const statusResponse = await postXml(endpointUrl, headers, statusXml, caCertPem);
+      const statusText = statusResponse.body;
+      const statusDebug = getMeridianLinkResponseDebug(statusText, statusResponse.statusCode, endpointUrl);
+
+      logMeridianLinkDebug('status_query_response', {
+        attempt,
+        polledVendorOrderIdentifier: vendorOrderIdentifier,
+        ...statusDebug,
+      });
+
+      responseText = statusText;
+      responseDebug = statusDebug;
+
+      if (statusResponse.statusCode < 200 || statusResponse.statusCode >= 300) {
+        break;
+      }
+
+      if (statusDebug.errorCategory || statusDebug.errorMessage) {
+        break;
+      }
+
+      if (statusDebug.hasReportData) {
+        break;
+      }
+
+      const statusCodeText = String(statusDebug.statusCodeText || '').toLowerCase();
+      const statusDescription = String(statusDebug.statusDescription || '').toLowerCase();
+      const isTerminal = ['completed', 'canceled', 'cancelled', 'error'].includes(statusCodeText)
+        || ['ready', 'completed', 'error', 'canceled', 'cancelled'].includes(statusDescription);
+
+      if (isTerminal) {
+        break;
+      }
+    }
   }
 
   logMeridianLinkDebug(responseDebug.hasReportData ? 'success' : 'saved_without_report_data', responseDebug);
@@ -396,16 +545,18 @@ export async function submitMeridianLinkProdTest(input: MeridianLinkProdTestBorr
     mode: 'production-test' as const,
     requestType: 'Submit',
     borrower,
-    vendorOrderIdentifier: getFirstMatch(responseText, 'VendorOrderIdentifier'),
+    vendorOrderIdentifier: responseDebug.vendorOrderIdentifier,
     fileNumber: responseDebug.fileNumber,
     status: responseDebug.hasReportData
-      ? getFirstMatch(responseText, 'CreditReportRequestActionType') || 'Submit'
-      : 'saved_not_completed',
+      ? String(responseDebug.statusCodeText || responseDebug.statusDescription || 'completed').toLowerCase()
+      : String(responseDebug.statusCodeText || responseDebug.statusDescription || 'saved_not_completed').toLowerCase(),
     rawResponse: responseText,
     debug: responseDebug,
     reportReady: responseDebug.hasReportData,
     reportStatusMessage: responseDebug.hasReportData
       ? 'Credit report data returned.'
-      : 'MeridianLink saved the order but did not return populated credit report data.',
+      : vendorOrderIdentifier
+        ? `MeridianLink created order ${vendorOrderIdentifier}, but no populated credit report data was returned before polling ended.`
+        : 'MeridianLink did not return a VendorOrderIdentifier, so the order could not be polled for completion.',
   };
 }
