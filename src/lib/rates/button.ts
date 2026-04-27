@@ -4,6 +4,8 @@ import type { Stage1AdjustmentLine } from './shared';
 export type ButtonProduct = 'HELOC' | 'CES';
 export type ButtonDocType = 'Full Doc' | 'Bank Statement' | 'Asset Depletion';
 
+const BUTTON_BANK_STATEMENT_MONTHS = 12;
+
 export interface ButtonPricingInput {
   product: ButtonProduct;
   propertyState: string;
@@ -147,6 +149,8 @@ export function buildButtonStage1PricingInput(stage1: ButtonStage1Input): Button
   const resultingLoanAmount = Math.max(0, loanBalance + desiredLoanAmount);
   const resultingCltv = propertyValue > 0 ? resultingLoanAmount / propertyValue : 0;
 
+  const docType = stage1.buttonDocType ?? 'Full Doc';
+
   return {
     product: normalizeProduct(stage1.buttonProduct ?? stage1.product),
     propertyState: String(stage1.propertyState || '').toUpperCase(),
@@ -161,18 +165,18 @@ export function buildButtonStage1PricingInput(stage1: ButtonStage1Input): Button
     structureType: normalizeStructureType(stage1.structureType),
     unitCount: Number(stage1.numberOfUnits || 1),
     cashOut: Boolean(stage1.cashOut),
-    docType: stage1.buttonDocType ?? 'Full Doc',
-    selfEmployed: false,
-    bankStatementMonths: null,
+    docType,
+    selfEmployed: docType === 'Bank Statement' || docType === 'Asset Depletion',
+    bankStatementMonths: docType === 'Bank Statement' ? BUTTON_BANK_STATEMENT_MONTHS : null,
   };
 }
 
 export function getButtonStage1Assumptions(): ButtonPricingAssumptions {
   return {
     dti: 'Not collected in stage 1 yet. Defaulting outside LLPA logic for version 1.',
-    docType: 'Defaulting to Full Doc for version 1.',
-    selfEmployed: 'Defaulting to false for version 1.',
-    bankStatementMonths: 'Not collected in stage 1 yet. Not used in version 1.',
+    docType: 'Uses the selected Button doc type. HELOC is full doc only, CES can use alt doc.',
+    selfEmployed: 'Derived from doc type for Button alt-doc scenarios.',
+    bankStatementMonths: 'Bank Statement currently maps to 12-month bank statement pricing. Asset Depletion uses the shared alt-doc grid without the extra bank statement hit.',
   };
 }
 
@@ -259,12 +263,8 @@ export function evaluateButtonEligibility(input: ButtonPricingInput, selectedLoa
     reasons.push('Button DTI adjustments are only workbook-backed through 60.00%.');
   }
 
-  if (input.product === 'CES' && input.docType !== 'Full Doc') {
-    reasons.push(`Button ${input.docType} pricing is not available for CES in the current workbook.`);
-  }
-
-  if (input.product === 'HELOC' && input.docType === 'Asset Depletion') {
-    reasons.push('Button Asset Depletion pricing is not available for HELOC in the current workbook.');
+  if (input.product === 'HELOC' && input.docType !== 'Full Doc') {
+    reasons.push(`Button ${input.docType} pricing is not available for HELOC.`);
   }
 
   return {
@@ -435,10 +435,15 @@ function pickNoteRateAtOrBelowTarget(
 }
 
 function basePriceFor(row: RateRow, product: ButtonProduct, docKey: 'fullDoc' | 'altDoc'): number {
-  if (product === 'HELOC') {
-    return row.prices[docKey].HELOC;
+  if (docKey === 'altDoc') {
+    const altDocPrice = row.prices.altDoc.CES ?? row.prices.altDoc.HELOC;
+    return altDocPrice ?? 0;
   }
-  return row.prices[docKey].CES ?? 0;
+
+  if (product === 'HELOC') {
+    return row.prices.fullDoc.HELOC;
+  }
+  return row.prices.fullDoc.CES ?? 0;
 }
 
 function calculateMonthlyPayment(
@@ -487,6 +492,10 @@ function buildAdjustmentLines(
       value: cltvAdj,
     });
   }
+  const altDocAdjustment = getAltDocAdjustment(input, cltvIndex);
+  if (altDocAdjustment) {
+    adjustments.push(altDocAdjustment);
+  }
   const lockExtensionCount = (lockPeriodDays - BUTTON_LOCK_BASELINE_DAYS) / 15;
   if (Number.isFinite(lockExtensionCount) && Math.abs(lockExtensionCount - Math.round(lockExtensionCount)) < 1e-9) {
     adjustments.push({ label: `Lock Period: ${lockPeriodDays} Day`, value: roundToThree(lockExtensionCount * BUTTON_LOCK_EXTENSION_PER_15_DAYS) });
@@ -517,6 +526,19 @@ function buildAdjustmentLines(
   }
 
   return adjustments.filter(row => row.value !== 0);
+}
+
+function getAltDocAdjustment(
+  input: ButtonPricingInput,
+  cltvIndex: number
+): Stage1AdjustmentLine | null {
+  if (input.docType !== 'Bank Statement') return null;
+
+  const extraHit = input.bankStatementMonths === BUTTON_BANK_STATEMENT_MONTHS ? -0.5 : 0;
+  return {
+    label: `${input.bankStatementMonths ?? BUTTON_BANK_STATEMENT_MONTHS} Month Bank Statement`,
+    value: extraHit,
+  };
 }
 
 function getDtiAdjustment(
