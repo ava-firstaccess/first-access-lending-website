@@ -1,14 +1,15 @@
 # Website Security Implementations and Audit Status
 
 **Project:** `first-access-lending-website`  
-**Date:** 2026-04-24  
-**Purpose:** Comprehensive handoff of website security controls currently in place, including both pre-existing protections and the hardening completed during the step-by-step audit on 2026-04-24.
+**Original audit date:** 2026-04-24  
+**Updated through:** 2026-04-27  
+**Purpose:** Comprehensive handoff of website security controls currently in place, including both the original 2026-04-24 hardening pass and the follow-up production/security cleanup completed through 2026-04-27.
 
 ---
 
 # Executive summary
 
-The website now has a substantially stronger security baseline than it started with earlier in the day.
+The website now has a materially stronger security baseline than it had before the 2026-04-24 review, and the follow-up hardening through 2026-04-27 closed several of the remaining obvious gaps.
 
 The most important controls now in place are:
 - preview-site gating on Vercel-hosted environments
@@ -22,11 +23,18 @@ The most important controls now in place are:
 - sanitized persistence of application form data in Supabase
 - removal of unauthenticated testing bypasses from paid/sensitive routes
 - rate limiting on OTP, AVM, soft credit, and submission flows
-- reduced raw provider error leakage in HouseCanary, MeridianLink relay, SMS webhook, and GHL submission paths
+- reduced raw provider error leakage in HouseCanary, MeridianLink relay, SMS webhook, GHL, Resend, and supporting helper layers
+- reduced raw exception/error-object logging across hardened API surfaces
+- hot-storage minimization for `meridianlink_runs`, including removal of borrower names and raw provider error text
 - operational retention planning for AVM and MeridianLink logs, with follow-up architecture documented for archive-before-purge
 
-The audit was being handled one single step at a time. The next unresolved step after this work is:
-- whether `meridianlink_runs` is still storing more borrower-identifying detail than necessary for operational logging and reporting
+Important production status as of 2026-04-27:
+- `supabase/migrations/009_session_token_hash.sql` has been applied in live Supabase
+- `supabase/migrations/011_minimize_meridianlink_runs_hot_storage.sql` has been applied in live Supabase
+- `supabase/migrations/010_operational_table_retention.sql` is still intentionally not the final retention policy and should not be treated as production truth
+
+The main remaining substantive security/workflow item after this update is:
+- MeridianLink XML-processing / debug-path redesign, so the next XML workstream can support operational parsing and testing without re-expanding raw upstream exposure in browser/API responses
 
 ---
 
@@ -314,6 +322,80 @@ The audit was intentionally done one step at a time. Each step was reviewed, pat
 **What it added:**
 - formal follow-up item to review and establish a comprehensive data retention and analytics architecture across live DB, archive, and reporting layers
 
+## 2.10 Follow-up hardening completed on 2026-04-27
+
+The next work resumed after the original 2026-04-24 checkpoint and focused on three areas:
+- minimizing MeridianLink hot storage
+- reducing remaining route/helper error leakage
+- documenting the next MeridianLink XML workstream explicitly instead of losing it in ad hoc notes
+
+### 2.10.1 MeridianLink hot-storage minimization
+
+**Commit:** `883e58c`  
+**Message:** `Minimize MeridianLink hot storage`
+
+**Primary files changed:**
+- `src/app/api/credit/softpull/route.ts`
+- `supabase/migrations/004_meridianlink_runs.sql`
+- `supabase/migrations/006_backfill_meridianlink_runs_columns.sql`
+- `supabase/migrations/011_minimize_meridianlink_runs_hot_storage.sql`
+- `FUTURE_WORK.md`
+- `docs/SECURITY_IMPLEMENTATIONS_AND_AUDIT_STATUS_2026-04-24.md`
+
+**What was fixed:**
+- stopped writing borrower first/last names into `meridianlink_runs`
+- stopped writing raw `error_message` into `meridianlink_runs`
+- kept only operationally necessary fields in hot storage, such as application linkage, status, vendor identifiers, file numbers, timing, response size, and coarse error category
+- added live migration `011_minimize_meridianlink_runs_hot_storage.sql`
+
+**Production status:**
+- `011_minimize_meridianlink_runs_hot_storage.sql` was applied in live Supabase on 2026-04-27
+
+### 2.10.2 Route-level error/logging cleanup completed after the original audit
+
+**Commits:**
+- `dd8eff1` — `Reduce API error detail in auth and credit routes`
+- `22c49d8` — `Reduce remaining noisy API logs`
+- `1c33c27` — `Normalize remaining API error responses`
+
+**Primary route files changed:**
+- `src/app/api/auth/prefill/route.ts`
+- `src/app/api/auth/verify-otp/route.ts`
+- `src/app/api/credit/softpull/route.ts`
+- `src/app/api/coming-soon/route.ts`
+- `src/app/api/track/route.ts`
+- `src/app/api/send-calculator-email/route.ts`
+- `src/app/api/send-email/route.ts`
+
+**What was fixed:**
+- removed raw GHL response-body logging in `auth/prefill` and `coming-soon`
+- removed broad caught-error object logging in `verify-otp`, `coming-soon`, `track`, and email routes
+- stopped returning raw caught exception text back to the browser in `credit/softpull`, `track`, and email routes
+- removed exposed provider response details and diagnostic metadata from browser responses in the Resend/email path
+- reduced remaining MeridianLink operational warning logs to generic status-only messages
+
+### 2.10.3 Helper/provider-layer hardening
+
+**Commit:** `f4cfc8b`  
+**Message:** `Harden provider helper error handling`
+
+**Primary files changed:**
+- `src/lib/meridianlink-credit.ts`
+- `src/lib/rate-limit.ts`
+
+**What was fixed:**
+- stopped throwing MeridianLink provider category/message text back up the stack from helper code
+- replaced that with a generic `MeridianLink provider error.` exception
+- stopped logging the full Supabase rate-limit RPC error object in `rate-limit.ts`
+
+### 2.10.4 MeridianLink XML processing explicitly earmarked
+
+**File updated:**
+- `FUTURE_WORK.md`
+
+**What was added:**
+- explicit follow-up to redesign MeridianLink XML processing/debug flow so future operational parsing or test needs do not re-expose raw upstream XML in normal browser/API responses
+
 ---
 
 # 3. Detailed security controls currently in place today
@@ -417,27 +499,33 @@ All current throttling uses the shared `consume_auth_rate_limit(...)` infrastruc
 ### MeridianLink
 - app-side raw upstream body exposure reduced
 - relay 500s no longer expose stack traces
-- XML response preview constrained to explicit debug condition outside production
+- helper-layer provider exception text is now normalized instead of bubbling provider category/message detail back up the stack
+- XML response preview remains constrained to explicit debug condition outside production and is now an intentional follow-up item for redesign, not an ignored loose end
 
 ### HouseCanary
 - no raw upstream response body in thrown errors
 - browser gets generic failure message on server error
 
-### GHL SMS webhook
-- no raw failed webhook response body logging
+### GHL
+- no raw failed webhook response body logging in the hardened send/submit paths
+- prefill and coming-soon no longer log raw GHL response bodies
+- GHL submission path no longer bubbles raw upstream body back through browser 500 response
 
-### GHL submission path
-- no raw upstream body bubbling back through browser 500 response
+### Resend / email-related paths
+- browser responses no longer return raw provider details or exception text on failure
+- server logging no longer emits raw provider-body diagnostics in the hardened routes
 
 ## 3.8 Logging controls
 
 ### Improved
 - fewer full request payload logs on paid/sensitive flows
 - fewer raw provider-body logs
+- fewer raw DB/provider exception objects written to logs
+- several route surfaces now use generic browser-facing error responses instead of reflecting caught exception text
 
-### Still mixed
-- some server logs still include direct `console.error(err)` style patterns in non-hardened routes
-- not every route has been normalized to status-only / generic logging yet
+### Current posture
+- the main obvious high-risk route/helper logging issues identified during the 2026-04-27 pass were cleaned up
+- future sweeps may still find style inconsistencies, but the largest raw-error and raw-upstream-body exposures in the audited surfaces were reduced
 
 ## 3.9 Operational retention posture
 
@@ -454,13 +542,13 @@ All current throttling uses the shared `consume_auth_rate_limit(...)` infrastruc
 
 # 4. Production dependencies and follow-up actions
 
-## 4.1 SQL that still matters in live Supabase
+## 4.1 SQL status in live Supabase
 
-### Required for hashed session tokens
-Run:
+### Applied in production
 - `supabase/migrations/009_session_token_hash.sql`
+- `supabase/migrations/011_minimize_meridianlink_runs_hot_storage.sql`
 
-### Do not apply 010 blindly
+### Still intentionally not final policy
 - `supabase/migrations/010_operational_table_retention.sql` is not the final business-correct retention design
 - use the revised archive + purge plan in:
   - `docs/AVM_MERIDIANLINK_ARCHIVE_RETENTION_PLAN.md`
@@ -477,9 +565,9 @@ Still needed:
 
 ---
 
-# 5. Where the one-step-at-a-time audit stopped
+# 5. Current audit progression and where work stands now
 
-The security review progressed in this order:
+The security review and follow-up hardening progressed in this order:
 
 1. provider result handling and logging
 2. Supabase persistence and minimization
@@ -488,13 +576,16 @@ The security review progressed in this order:
 5. sensitive server logs and third-party error handling
 6. rate limiting and abuse resistance
 7. operational retention for AVM and MeridianLink tables
+8. MeridianLink hot-storage minimization
+9. route-level error/log normalization across auth, credit, tracking, and email paths
+10. helper/provider-layer exception/log normalization
 
-## Next resolved step
+## MeridianLink hot-storage decision now implemented
 
-This next step was decided on and implemented:
+This step is no longer pending, it is done:
 - borrower name fields are not needed in `meridianlink_runs`
 - borrower names were removed from hot storage
-- raw `error_message` was also removed from hot storage
+- raw `error_message` was removed from hot storage
 
 Live-table decision:
 - keep operational identifiers like `application_id`, `borrower_file_number`, `approved_borrower_file_number`, status, timing, and coarse error category
@@ -503,6 +594,7 @@ Live-table decision:
 
 Follow-up kept for future work:
 - if testing still needs richer failure diagnostics or borrower-name correlation, build a separate controlled debug/archive path instead of restoring those fields to `meridianlink_runs`
+- the next XML-processing workstream should handle parsing/debug needs without restoring broad raw XML exposure in browser/API responses
 
 ---
 
@@ -513,9 +605,9 @@ Follow-up kept for future work:
 - that is acceptable as a simple preview gate, but it is not a strong auth design
 - if this gate becomes long-lived or higher-risk, it should be signed like the pricer cookie
 
-## 6.2 Some error handlers still use broad console logging
-- several routes outside the audited path may still log full error objects
-- not every route has been normalized to a hardened logging standard yet
+## 6.2 XML debug/preview path still needs a deliberate redesign
+- the MeridianLink XML-preview behavior is now explicitly earmarked for the next workstream
+- it is already constrained compared with the original state, but it still deserves a purpose-built design instead of lingering as a debug accommodation
 
 ## 6.3 `meridianlink_runs` hot-storage minimization was tightened
 - borrower first/last name fields and raw `error_message` were removed from the live operational table design
@@ -532,22 +624,23 @@ Follow-up kept for future work:
 # 7. Recommended next actions
 
 ## Immediate
-1. Apply `009_session_token_hash.sql` in live Supabase
+1. Keep `docs/AVM_MERIDIANLINK_ARCHIVE_RETENTION_PLAN.md` as source of truth for retention redesign
 2. Do not deploy the current 30-day `010_operational_table_retention.sql` as final policy without revising it to archive-before-purge
-3. Keep `docs/AVM_MERIDIANLINK_ARCHIVE_RETENTION_PLAN.md` as source of truth for retention redesign
+3. If production verification matters for a specific hardening push, sanity-check that Vercel actually deployed the latest commit because auto-deploy missed a trigger during the 2026-04-27 session
 
-## Next security review step
-4. Apply the `011_minimize_meridianlink_runs_hot_storage.sql` migration in live Supabase so the hot-storage schema matches the new design
+## Next substantive workstream
+4. Redesign MeridianLink XML processing/debug flow so XML parsing and operational testing can continue without normal browser/API responses carrying raw upstream XML or broadly reusable debug exposure
 
 ## After that
-5. Normalize remaining route error/log behavior across the rest of the API surface
-6. Build archive script and Azure Blob export path
-7. Revisit preview-site gate token design if that preview wall remains in place long term
+5. Build archive script and Azure Blob export path
+6. Revisit preview-site gate token design if that preview wall remains in place long term
+7. Optionally do a documentation/consistency sweep so future security work starts from the current hardened baseline instead of the older 2026-04-24 checkpoint text
 
 ---
 
 # 8. Reference commits from this audit sequence
 
+## 2026-04-24 sequence
 - `f983e3c` — `Reduce provider result exposure`
 - `435a649` — `Minimize persisted application data`
 - `3c9955b` — `Hash session tokens at rest`
@@ -557,6 +650,13 @@ Follow-up kept for future work:
 - `c2424cb` — `Add retention cleanup for operational tables`
 - `43cd3c1` — `Add archive and retention handoff plan`
 - `c27c943` — `Add data retention architecture follow-up`
+
+## 2026-04-27 follow-up sequence
+- `883e58c` — `Minimize MeridianLink hot storage`
+- `dd8eff1` — `Reduce API error detail in auth and credit routes`
+- `22c49d8` — `Reduce remaining noisy API logs`
+- `f4cfc8b` — `Harden provider helper error handling`
+- `1c33c27` — `Normalize remaining API error responses`
 
 ---
 
