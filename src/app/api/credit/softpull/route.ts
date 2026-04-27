@@ -16,6 +16,26 @@ import {
   submitMeridianLinkProdTest,
 } from '@/lib/meridianlink-credit';
 
+function buildMeridianLinkRunNotes(input: {
+  message?: string | null;
+  initialSubmitResponseXml?: string | null;
+  finalResponseXml?: string | null;
+  initialSubmitDebug?: unknown;
+  finalDebug?: unknown;
+}) {
+  return JSON.stringify(
+    {
+      message: input.message || null,
+      initialSubmitResponseXml: input.initialSubmitResponseXml || null,
+      finalResponseXml: input.finalResponseXml || null,
+      initialSubmitDebug: input.initialSubmitDebug || null,
+      finalDebug: input.finalDebug || null,
+    },
+    null,
+    2
+  );
+}
+
 const SOFTPULL_IP_LIMIT = 10;
 const SOFTPULL_SESSION_LIMIT = 5;
 const SOFTPULL_WINDOW_SECONDS = 10 * 60;
@@ -143,6 +163,9 @@ export async function POST(req: NextRequest) {
           preferredResponseFormat: borrower.preferredResponseFormat,
         });
 
+        const scrubbedInitialSubmitXml = scrubMeridianLinkXml(result.initialSubmitRawResponse || '');
+        const scrubbedResponseXml = scrubMeridianLinkXml(result.rawResponse);
+
         const successPayload = {
           ...baseRunPayload,
           mode: result.mode,
@@ -158,7 +181,13 @@ export async function POST(req: NextRequest) {
           borrower_file_number: result.fileNumber || null,
           approved_borrower_file_number: result.fileNumber || null,
           success: result.success,
-          notes: result.reportStatusMessage || null,
+          notes: buildMeridianLinkRunNotes({
+            message: result.reportStatusMessage || null,
+            initialSubmitResponseXml: scrubbedInitialSubmitXml,
+            finalResponseXml: scrubbedResponseXml,
+            initialSubmitDebug: result.initialSubmitDebug,
+            finalDebug: result.debug,
+          }),
         };
 
         try {
@@ -169,8 +198,6 @@ export async function POST(req: NextRequest) {
         } catch (logError) {
           console.warn('meridianlink_runs success update threw');
         }
-
-        const scrubbedResponseXml = scrubMeridianLinkXml(result.rawResponse);
 
         if (!result.reportReady) {
           return NextResponse.json(
@@ -199,11 +226,11 @@ export async function POST(req: NextRequest) {
                 creditLiabilityCount: result.debug?.creditLiabilityCount ?? 0,
                 hasVendorOrderIdentifier: Boolean(result.debug?.hasVendorOrderIdentifier),
               },
-              initialSubmitResponseXml: scrubMeridianLinkXml(result.initialSubmitRawResponse || ''),
+              initialSubmitResponseXml: scrubbedInitialSubmitXml,
               ...(showXmlPreview
                 ? {
                     responseXmlSnippet: scrubbedResponseXml.slice(0, 350),
-                    initialSubmitResponseXmlSnippet: scrubMeridianLinkXml(result.initialSubmitRawResponse || '').slice(0, 350),
+                    initialSubmitResponseXmlSnippet: scrubbedInitialSubmitXml.slice(0, 350),
                   }
                 : {}),
               applicationId,
@@ -236,12 +263,12 @@ export async function POST(req: NextRequest) {
             creditLiabilityCount: result.debug?.creditLiabilityCount ?? 0,
             hasVendorOrderIdentifier: Boolean(result.debug?.hasVendorOrderIdentifier),
           },
-          initialSubmitResponseXml: scrubMeridianLinkXml(result.initialSubmitRawResponse || ''),
+          initialSubmitResponseXml: scrubbedInitialSubmitXml,
           responseXml: scrubbedResponseXml,
           ...(showXmlPreview
             ? {
                 responseXmlSnippet: scrubbedResponseXml.slice(0, 350),
-                initialSubmitResponseXmlSnippet: scrubMeridianLinkXml(result.initialSubmitRawResponse || '').slice(0, 350),
+                initialSubmitResponseXmlSnippet: scrubbedInitialSubmitXml.slice(0, 350),
               }
             : {}),
           applicationId,
