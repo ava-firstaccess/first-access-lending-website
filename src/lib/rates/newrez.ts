@@ -95,6 +95,21 @@ const DEFAULT_NEWREZ_END_SECONDS: NewRezEndSeconds = 'BE45';
  */
 const NEWREZ_MAX_UNIT_COUNT = 1;
 
+export function getNewRezRateBounds(product: NewRezProduct, lockPeriodDays: 15 | 30 | 45 | 60): { minRate: number; maxRate: number } | null {
+  const sheet = DATA.pricing[product];
+  const executionColumn = NEWREZ_LOCK_COLUMN_MAP[normalizeNewRezLockPeriodDays(lockPeriodDays)];
+  if (!sheet.columns.includes(executionColumn)) return null;
+
+  const rates = sheet.rows
+    .map(row => ({ noteRate: normalizeDisplayedNoteRate(row.noteRate), basePrice: row.prices[executionColumn] }))
+    .filter(row => row.basePrice !== null)
+    .map(row => row.noteRate)
+    .sort((a, b) => a - b);
+
+  if (rates.length === 0) return null;
+  return { minRate: rates[0], maxRate: rates[rates.length - 1] };
+}
+
 export function buildNewRezStage1PricingInput(stage1: ButtonStage1Input & { newrezProduct?: NewRezProduct; newrezLockPeriodDays?: 15 | 30 | 45 | 60 }): NewRezPricingInput {
   const propertyValue = Number(stage1.propertyValue || 0);
   const loanBalance = Number(stage1.loanBalance || 0);
