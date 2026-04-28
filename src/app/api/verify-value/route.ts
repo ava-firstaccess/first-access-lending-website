@@ -123,7 +123,8 @@ export async function POST(req: NextRequest) {
 
     // TODO(launch): remove this explicit sessionToken/applicationId fallback after direct step testing is no longer needed.
     const body = await req.json();
-    const sessionToken = sessionTokenFromCookie || String(body.sessionToken || '').trim();
+    const explicitSessionToken = String(body.sessionToken || '').trim();
+    const sessionToken = explicitSessionToken || sessionTokenFromCookie;
     const requestedApplicationId = String(body.applicationId || '').trim();
     if (!sessionToken) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });

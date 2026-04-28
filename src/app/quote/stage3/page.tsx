@@ -95,6 +95,7 @@ export default function Stage3Page() {
   const [loanAmount, setLoanAmount] = useState<number>(0);
   const [showDisagree, setShowDisagree] = useState(false);
   const [optIn, setOptIn] = useState(false);
+  const [testSession, setTestSession] = useState<{ applicationId: string; sessionToken: string } | null>(null);
   const skipOtp = process.env.NEXT_PUBLIC_SKIP_OTP === 'true';
 
   useEffect(() => {
@@ -132,11 +133,20 @@ export default function Stage3Page() {
           merged = { ...stage1Parsed, ...stage2Parsed };
 
           if (skipOtp) {
-            await fetch('/api/auth/test-session', {
+            const bootstrapRes = await fetch('/api/auth/test-session', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ formData: merged, stage: 'stage2' }),
             });
+            if (bootstrapRes.ok) {
+              const bootstrapPayload = await bootstrapRes.json();
+              if (bootstrapPayload?.applicationId && bootstrapPayload?.sessionToken) {
+                setTestSession({
+                  applicationId: String(bootstrapPayload.applicationId),
+                  sessionToken: String(bootstrapPayload.sessionToken),
+                });
+              }
+            }
           }
         } catch {
           router.push('/quote/start');
@@ -254,8 +264,8 @@ export default function Stage3Page() {
           creditScore,
           propertyType,
           desiredLoanAmount,
-          applicationId: new URLSearchParams(window.location.search).get('applicationId'),
-          sessionToken: new URLSearchParams(window.location.search).get('sessionToken'),
+          applicationId: testSession?.applicationId || new URLSearchParams(window.location.search).get('applicationId'),
+          sessionToken: testSession?.sessionToken || new URLSearchParams(window.location.search).get('sessionToken'),
         }),
       });
 

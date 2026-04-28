@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to create test session.' }, { status: 500 });
     }
 
-    const response = NextResponse.json({ success: true, applicationId: app.id });
+    const response = NextResponse.json({ success: true, applicationId: app.id, sessionToken });
     response.cookies.set('session_token', sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
