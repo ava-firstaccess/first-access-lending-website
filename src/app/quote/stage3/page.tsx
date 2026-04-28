@@ -793,15 +793,23 @@ export default function Stage3Page() {
           </div>
 
           <div className="lg:col-span-1">
-            <QuoteBuilder
-              maxAvailable={newMax || oldMax || desiredLoanAmount}
-              desiredLoanAmount={loanAmount || desiredLoanAmount}
-              rateRange={{ min: updatedRate, max: updatedRate }}
-              monthlyPayment={monthlyPayment}
-              progress={sidebarProgress}
-              stage="stage2"
-              showMaxAvailable={false}
-            />
+            {status === 'loading' ? (
+              <div className="bg-white rounded-2xl shadow-xl p-6 sticky top-6 text-center">
+                <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600 mb-4"></div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Building your updated quote</h3>
+                <p className="text-sm text-gray-500">We&apos;re validating the property value and recalculating your numbers now.</p>
+              </div>
+            ) : (
+              <QuoteBuilder
+                maxAvailable={newMax || oldMax || desiredLoanAmount}
+                desiredLoanAmount={loanAmount || desiredLoanAmount}
+                rateRange={{ min: updatedRate, max: updatedRate }}
+                monthlyPayment={monthlyPayment}
+                progress={sidebarProgress}
+                stage="stage2"
+                showMaxAvailable={false}
+              />
+            )}
           </div>
         </div>
       </div>
