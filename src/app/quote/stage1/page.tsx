@@ -271,6 +271,15 @@ export default function Stage1() {
   }, [data]);
 
   const updateData = useCallback(<K extends keyof Stage1Data>(field: K, value: Stage1Data[K]) => {
+    if (field === 'creditScore') {
+      setQuoteLoading(true);
+      setQuote(prev => ({
+        ...prev,
+        rateRange: { min: 0, max: 0 },
+        monthlyPayment: 0,
+        monthlyPaymentRange: { min: 0, max: 0 },
+      }));
+    }
     setData(prev => ({ ...prev, [field]: value }));
   }, []);
 
