@@ -1,18 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { mergeSanitizedApplicationFormData } from '@/lib/application-data';
-import { getAuthenticatedApplication, requireTrustedBrowserRequest } from '@/lib/application-session';
+import { getApplicationBySessionToken, getAuthenticatedApplication, requireTrustedBrowserRequest } from '@/lib/application-session';
 
 // Get application data (authenticated via session cookie)
 export async function GET(req: NextRequest) {
   try {
-    const auth = await getAuthenticatedApplication(
-      req,
-      'id, phone, form_data, stage, status, created_at, updated_at, session_expires_at'
-    );
+    const trusted = requireTrustedBrowserRequest(req);
+    if (trusted) return trusted;
+
+    const params = req.nextUrl.searchParams;
+    const querySessionToken = params.get('sessionToken') || '';
+    const queryApplicationId = params.get('applicationId') || '';
+    const auth = querySessionToken
+      ? await getApplicationBySessionToken(
+          querySessionToken,
+          'id, phone, form_data, stage, status, created_at, updated_at, session_expires_at'
+        )
+      : await getAuthenticatedApplication(
+          req,
+          'id, phone, form_data, stage, status, created_at, updated_at, session_expires_at'
+        );
     if ('response' in auth) return auth.response;
 
+    if (queryApplicationId && auth.app.id !== queryApplicationId) {
+      return NextResponse.json({ error: 'Application/session mismatch.' }, { status: 401 });
+    }
+
     const { session_expires_at: _sessionExpiresAt, ...application } = auth.app as Record<string, unknown>;
-    return NextResponse.json({ application });
+    const response = NextResponse.json({ application });
+
+    if (querySessionToken && !req.cookies.get('session_token')?.value) {
+      // TODO(launch): remove this query-token cookie bootstrap after direct step testing is no longer needed.
+      response.cookies.set('session_token', querySessionToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      });
+    }
+
+    return response;
 
   } catch (err) {
     console.error('Get application error:', err);

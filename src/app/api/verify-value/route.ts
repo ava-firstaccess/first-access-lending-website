@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findApplicationBySessionToken, requireTrustedBrowserRequest } from '@/lib/application-session';
+import { getApplicationBySessionToken, requireTrustedBrowserRequest } from '@/lib/application-session';
 import { consumeRateLimit, getClientIp } from '@/lib/rate-limit';
-import { getSupabaseAdmin } from '@/lib/supabase';
 
 const VERIFY_VALUE_IP_LIMIT = 20;
 const VERIFY_VALUE_SESSION_LIMIT = 10;
@@ -120,17 +119,27 @@ export async function POST(req: NextRequest) {
     const trusted = requireTrustedBrowserRequest(req);
     if (trusted) return trusted;
 
-    const sessionToken = req.cookies.get('session_token')?.value;
+    const sessionTokenFromCookie = req.cookies.get('session_token')?.value || '';
+
+    // TODO(launch): remove this explicit sessionToken/applicationId fallback after direct step testing is no longer needed.
+    const body = await req.json();
+    const sessionToken = sessionTokenFromCookie || String(body.sessionToken || '').trim();
+    const requestedApplicationId = String(body.applicationId || '').trim();
     if (!sessionToken) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const supabase = getSupabaseAdmin();
-    const { app } = await findApplicationBySessionToken(supabase, sessionToken, 'id');
+    const auth = await getApplicationBySessionToken(sessionToken, 'id');
+    if ('response' in auth) return auth.response;
+    const { supabase, app } = auth;
     const applicationId = typeof app?.id === 'string' ? app.id : null;
     if (!applicationId) {
       return NextResponse.json({ error: 'Session expired. Please verify again.' }, { status: 401 });
     }
+    if (requestedApplicationId && requestedApplicationId !== applicationId) {
+      return NextResponse.json({ error: 'Application/session mismatch.' }, { status: 401 });
+    }
+
 
     const clientIp = getClientIp(req);
     const [ipRate, sessionRate] = await Promise.all([
@@ -162,7 +171,6 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Parse request ──
-    const body = await req.json();
     const {
       address,
       zipcode,

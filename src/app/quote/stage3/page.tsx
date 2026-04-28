@@ -96,32 +96,56 @@ export default function Stage3Page() {
   const [optIn, setOptIn] = useState(false);
 
   useEffect(() => {
-    const stage1Raw = localStorage.getItem('stage1-data');
-    const stage2Raw = localStorage.getItem('stage2-progress');
+    const hydrate = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const applicationId = params.get('applicationId');
+      const sessionToken = params.get('sessionToken');
+      const stage1Raw = localStorage.getItem('stage1-data');
+      const stage2Raw = localStorage.getItem('stage2-progress');
 
-    if (!stage1Raw && !stage2Raw) {
-      router.push('/quote/start');
-      return;
-    }
+      let merged: Stage3Data | null = null;
 
-    try {
-      const stage1Parsed = stage1Raw ? JSON.parse(stage1Raw) : {};
-      const stage2Parsed = stage2Raw ? JSON.parse(stage2Raw) : {};
-      const merged = { ...stage1Parsed, ...stage2Parsed };
+      if (applicationId && sessionToken) {
+        const qs = new URLSearchParams({ applicationId, sessionToken });
+        const res = await fetch(`/api/application?${qs.toString()}`);
+        if (res.ok) {
+          const payload = await res.json();
+          merged = payload?.application?.form_data || null;
+          if (merged) {
+            localStorage.setItem('stage1-data', JSON.stringify(merged));
+            localStorage.setItem('stage2-progress', JSON.stringify(merged));
+          }
+        }
+      }
+
+      if (!merged) {
+        if (!stage1Raw && !stage2Raw) {
+          router.push('/quote/start');
+          return;
+        }
+
+        try {
+          const stage1Parsed = stage1Raw ? JSON.parse(stage1Raw) : {};
+          const stage2Parsed = stage2Raw ? JSON.parse(stage2Raw) : {};
+          merged = { ...stage1Parsed, ...stage2Parsed };
+        } catch {
+          router.push('/quote/start');
+          return;
+        }
+      }
+
       const hydrateTimer = window.setTimeout(() => {
-        setStage1(merged);
-        setLoanAmount(Number(merged.desiredLoanAmount) || 0);
+        setStage1(merged || {});
+        setLoanAmount(Number(merged?.desiredLoanAmount) || 0);
         setLoaded(true);
       }, 0);
 
       return () => {
         window.clearTimeout(hydrateTimer);
       };
-    } catch {
-      router.push('/quote/start');
-      return;
-    }
+    };
 
+    void hydrate();
   }, [router]);
 
   const propertyValue = Number(stage1.propertyValue) || 0;
@@ -220,6 +244,8 @@ export default function Stage3Page() {
           creditScore,
           propertyType,
           desiredLoanAmount,
+          applicationId: new URLSearchParams(window.location.search).get('applicationId'),
+          sessionToken: new URLSearchParams(window.location.search).get('sessionToken'),
         }),
       });
 

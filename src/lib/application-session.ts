@@ -114,12 +114,7 @@ export async function findApplicationBySessionToken(supabase: any, sessionToken:
   return { app: null, lookup: null } as const;
 }
 
-export async function getAuthenticatedApplication(req: NextRequest, select: string) {
-  const sessionToken = req.cookies.get('session_token')?.value;
-  if (!sessionToken) {
-    return { response: buildSessionErrorResponse('Not authenticated') } as const;
-  }
-
+export async function getApplicationBySessionToken(sessionToken: string, select: string) {
   const supabase = getSupabaseAdmin();
   const { app } = await findApplicationBySessionToken(supabase, sessionToken, select);
 
@@ -141,4 +136,13 @@ export async function getAuthenticatedApplication(req: NextRequest, select: stri
   }
 
   return { supabase, app: typedApp, sessionToken } as const;
+}
+
+export async function getAuthenticatedApplication(req: NextRequest, select: string) {
+  const sessionToken = req.cookies.get('session_token')?.value;
+  if (!sessionToken) {
+    return { response: buildSessionErrorResponse('Not authenticated') } as const;
+  }
+
+  return getApplicationBySessionToken(sessionToken, select);
 }
