@@ -1817,6 +1817,7 @@ function Stage2Content() {
               monthlyPayment={monthlyPayment}
               progress={progress}
               stage="stage2"
+              showMaxAvailable={false}
             />
           </div>
         </div>

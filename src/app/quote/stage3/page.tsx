@@ -800,6 +800,7 @@ export default function Stage3Page() {
               monthlyPayment={monthlyPayment}
               progress={sidebarProgress}
               stage="stage2"
+              showMaxAvailable={false}
             />
           </div>
         </div>

@@ -554,7 +554,8 @@ export default function ValidatePage() {
     const action = liabilityActions[liability.id];
     return action?.resolution === 'payoff' ? sum + (liability.unpaidBalance || 0) : sum;
   }, 0);
-  const maxPayoff = Math.max(0, displayedMaxAvailable - payoffTotal);
+  const maxPayoff = displayedMaxAvailable - payoffTotal;
+  const cashBackAmount = effectiveSelectedLoanAmount - payoffTotal;
   const sidebarProgress = currentStep === 'credit' ? 68 : currentStep === 'score-adjustment' ? 76 : currentStep === 'mortgages' ? 84 : 92;
 
   useEffect(() => {
@@ -740,6 +741,7 @@ export default function ValidatePage() {
       verifiedCreditScore: creditScore,
       payoffTotal,
       maxPayoff,
+      cashBackAmount,
       'Credit Report - Open Mortgages': openMortgageLiabilities.map((liability) => ({
         id: liability.id,
         creditorName: liability.creditorName,
@@ -1362,11 +1364,11 @@ export default function ValidatePage() {
                       return (
                         <div key={liability.id} className={`border-2 rounded-xl p-5 transition-colors ${cardClasses}`}>
                           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                            <div>
-                              <h4 className="font-semibold text-gray-900">{liability.creditorName}</h4>
-                              <p className="text-sm text-gray-500">{liability.loanType || liability.accountType || 'Mortgage'}</p>
+                            <div className="min-w-0 lg:max-w-[180px]">
+                              <h4 className="font-semibold text-gray-900 truncate">{liability.creditorName}</h4>
+                              <p className="text-sm text-gray-500 truncate">{liability.loanType || liability.accountType || 'Mortgage'}</p>
                             </div>
-                            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 text-sm">
+                            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 text-sm lg:flex-1">
                               <div>
                                 <p className="text-gray-500">Balance</p>
                                 <p className="font-semibold text-gray-900">{formatCurrency(liability.unpaidBalance)}</p>
@@ -1393,7 +1395,7 @@ export default function ValidatePage() {
                                     step="0.01"
                                     value={action.manualRate !== '' ? action.manualRate : (interestRate !== null ? interestRate.toFixed(2) : '')}
                                     onChange={(e) => updateLiabilityAction(liability.id, { manualRate: e.target.value })}
-                                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 font-semibold text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                    className="w-full min-w-[92px] rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 font-semibold text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                                     placeholder="Enter"
                                   />
                                   <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500">%</span>
@@ -1428,11 +1430,11 @@ export default function ValidatePage() {
                       return (
                         <div key={liability.id} className={`rounded-xl border p-5 transition-colors ${cardClasses}`}>
                           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                            <div>
-                              <h4 className="font-semibold text-gray-900">{liability.creditorName}</h4>
-                              <p className="text-sm text-gray-500">{liability.loanType || liability.accountType || 'Consumer account'}</p>
+                            <div className="min-w-0 lg:max-w-[180px]">
+                              <h4 className="font-semibold text-gray-900 truncate">{liability.creditorName}</h4>
+                              <p className="text-sm text-gray-500 truncate">{liability.loanType || liability.accountType || 'Consumer account'}</p>
                             </div>
-                            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 text-sm">
+                            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 text-sm lg:flex-1">
                               <div>
                                 <p className="text-gray-500">Balance</p>
                                 <p className="font-semibold text-gray-900">{formatCurrency(liability.unpaidBalance)}</p>
@@ -1459,7 +1461,7 @@ export default function ValidatePage() {
                                     step="0.01"
                                     value={action.manualRate !== '' ? action.manualRate : (interestRate !== null ? interestRate.toFixed(2) : '')}
                                     onChange={(e) => updateLiabilityAction(liability.id, { manualRate: e.target.value })}
-                                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 font-semibold text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                    className="w-full min-w-[92px] rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 font-semibold text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                                     placeholder="Enter"
                                   />
                                   <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500">%</span>
@@ -1601,25 +1603,33 @@ export default function ValidatePage() {
           </div>
 
           <div className="lg:col-span-1">
-            <QuoteBuilder
-              maxAvailable={displayedMaxAvailable || previousQuote.maxAvailable || originalCashAvailable}
-              desiredLoanAmount={effectiveSelectedLoanAmount}
-              rateRange={{ min: scoreAdjustedQuote.rate, max: scoreAdjustedQuote.rate }}
-              monthlyPayment={updatedPayment || scoreAdjustedQuote.monthlyPayment}
-              progress={sidebarProgress}
-              stage="stage2"
-            />
+            <div className="sticky top-6 space-y-4">
+              <QuoteBuilder
+                maxAvailable={displayedMaxAvailable || previousQuote.maxAvailable || originalCashAvailable}
+                desiredLoanAmount={effectiveSelectedLoanAmount}
+                rateRange={{ min: scoreAdjustedQuote.rate, max: scoreAdjustedQuote.rate }}
+                monthlyPayment={updatedPayment || scoreAdjustedQuote.monthlyPayment}
+                progress={sidebarProgress}
+                stage="stage2"
+                sticky={false}
+                showMaxAvailable={false}
+              />
 
-            <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Payoff Total</span>
-                <span className="font-semibold text-gray-900">{formatCurrency(payoffTotal)}</span>
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Payoff Total</span>
+                  <span className="font-semibold text-gray-900">{formatCurrency(payoffTotal)}</span>
+                </div>
+                <div className="mt-3 flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Max Payoff</span>
+                  <span className={`font-semibold ${maxPayoff < 0 ? 'text-red-600' : 'text-gray-900'}`}>{formatCurrency(maxPayoff)}</span>
+                </div>
+                <div className="mt-3 flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Cash Back Amount</span>
+                  <span className={`font-semibold ${cashBackAmount < 0 ? 'text-red-600' : 'text-gray-900'}`}>{formatCurrency(cashBackAmount)}</span>
+                </div>
+                <p className="mt-3 text-xs text-gray-500">Closing costs come out next. For now this updates live as payoff accounts are selected.</p>
               </div>
-              <div className="mt-3 flex items-center justify-between text-sm">
-                <span className="text-gray-500">Max Payoff</span>
-                <span className="font-semibold text-gray-900">{formatCurrency(maxPayoff)}</span>
-              </div>
-              <p className="mt-3 text-xs text-gray-500">Closing costs come out next. For now this updates live as payoff accounts are selected.</p>
             </div>
           </div>
         </div>

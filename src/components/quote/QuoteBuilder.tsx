@@ -9,6 +9,8 @@ interface QuoteBuilderProps {
   monthlyPaymentRange?: { min: number; max: number };
   progress: number;
   stage: 'stage1' | 'stage2';
+  sticky?: boolean;
+  showMaxAvailable?: boolean;
 }
 
 export default function QuoteBuilder({
@@ -18,7 +20,9 @@ export default function QuoteBuilder({
   monthlyPayment,
   monthlyPaymentRange,
   progress,
-  stage
+  stage,
+  sticky = true,
+  showMaxAvailable = true,
 }: QuoteBuilderProps) {
   
   const formatCurrency = (amount: number) => {
@@ -34,7 +38,7 @@ export default function QuoteBuilder({
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-6 sticky top-6">
+    <div className={`bg-white rounded-2xl shadow-xl p-6 ${sticky ? 'sticky top-6' : ''}`}>
       
       {/* Header */}
       <div className="mb-6 pb-4 border-b border-gray-200">
@@ -48,15 +52,17 @@ export default function QuoteBuilder({
       <div className="space-y-6">
         
         {/* Max Available */}
-        <div>
-          <label className="text-sm text-gray-600 block mb-1">Max Available</label>
-          <div className={`text-3xl font-bold ${maxAvailable ? 'text-gray-900' : 'text-gray-300'}`}>
-            {maxAvailable ? formatCurrency(maxAvailable) : '$—'}
+        {showMaxAvailable && (
+          <div>
+            <label className="text-sm text-gray-600 block mb-1">Max Available</label>
+            <div className={`text-3xl font-bold ${maxAvailable ? 'text-gray-900' : 'text-gray-300'}`}>
+              {maxAvailable ? formatCurrency(maxAvailable) : '$—'}
+            </div>
+            {stage === 'stage1' && maxAvailable && (
+              <p className="text-xs text-gray-500 mt-1">Updates as you answer</p>
+            )}
           </div>
-          {stage === 'stage1' && maxAvailable && (
-            <p className="text-xs text-gray-500 mt-1">Updates as you answer</p>
-          )}
-        </div>
+        )}
 
         {/* Desired Loan Amount */}
         {stage === 'stage2' && (
