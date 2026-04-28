@@ -98,6 +98,30 @@ export default function Stage3Page() {
   const [testSession, setTestSession] = useState<{ applicationId: string; sessionToken: string } | null>(null);
   const skipOtp = process.env.NEXT_PUBLIC_SKIP_OTP === 'true';
 
+  async function bootstrapTestSession(formData: Stage3Data) {
+    const bootstrapRes = await fetch('/api/auth/test-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ formData, stage: 'stage2' }),
+    });
+
+    if (!bootstrapRes.ok) {
+      throw new Error('Failed to create test session.');
+    }
+
+    const bootstrapPayload = await bootstrapRes.json();
+    if (!bootstrapPayload?.applicationId || !bootstrapPayload?.sessionToken) {
+      throw new Error('Test session bootstrap returned incomplete credentials.');
+    }
+
+    const next = {
+      applicationId: String(bootstrapPayload.applicationId),
+      sessionToken: String(bootstrapPayload.sessionToken),
+    };
+    setTestSession(next);
+    return next;
+  }
+
   useEffect(() => {
     const hydrate = async () => {
       const params = new URLSearchParams(window.location.search);
@@ -132,21 +156,8 @@ export default function Stage3Page() {
           const stage2Parsed = stage2Raw ? JSON.parse(stage2Raw) : {};
           merged = { ...stage1Parsed, ...stage2Parsed };
 
-          if (skipOtp) {
-            const bootstrapRes = await fetch('/api/auth/test-session', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ formData: merged, stage: 'stage2' }),
-            });
-            if (bootstrapRes.ok) {
-              const bootstrapPayload = await bootstrapRes.json();
-              if (bootstrapPayload?.applicationId && bootstrapPayload?.sessionToken) {
-                setTestSession({
-                  applicationId: String(bootstrapPayload.applicationId),
-                  sessionToken: String(bootstrapPayload.sessionToken),
-                });
-              }
-            }
+          if (skipOtp && merged) {
+            await bootstrapTestSession(merged);
           }
         } catch {
           router.push('/quote/start');
@@ -251,6 +262,12 @@ export default function Stage3Page() {
         console.warn('No zipcode available - HC API requires it');
       }
 
+      const queryParams = new URLSearchParams(window.location.search);
+      let authContext = testSession;
+      if (!authContext && skipOtp && !queryParams.get('sessionToken')) {
+        authContext = await bootstrapTestSession(stage1);
+      }
+
       const res = await fetch('/api/verify-value', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -264,8 +281,8 @@ export default function Stage3Page() {
           creditScore,
           propertyType,
           desiredLoanAmount,
-          applicationId: testSession?.applicationId || new URLSearchParams(window.location.search).get('applicationId'),
-          sessionToken: testSession?.sessionToken || new URLSearchParams(window.location.search).get('sessionToken'),
+          applicationId: authContext?.applicationId || queryParams.get('applicationId'),
+          sessionToken: authContext?.sessionToken || queryParams.get('sessionToken'),
         }),
       });
 
