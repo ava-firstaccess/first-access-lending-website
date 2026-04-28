@@ -437,6 +437,14 @@ function getMeridianLinkResponseDebug(responseText: string, statusCode: number, 
   };
 }
 
+function isTerminalMeridianLinkStatus(statusCodeText: unknown, statusDescription: unknown) {
+  const code = String(statusCodeText || '').trim().toLowerCase();
+  const description = String(statusDescription || '').trim().toLowerCase();
+
+  return ['completed', 'canceled', 'cancelled', 'error'].includes(code)
+    || ['ready', 'completed', 'error', 'canceled', 'cancelled'].includes(description);
+}
+
 function postXml(endpointUrl: string, headers: Record<string, string>, body: string, caCertPem = '') {
   return new Promise<{ statusCode: number; body: string }>((resolve, reject) => {
     const url = new URL(endpointUrl);
@@ -525,8 +533,9 @@ export async function submitMeridianLinkProdTest(
   const vendorOrderIdentifier = initialVendorOrderIdentifier || responseDebug.vendorOrderIdentifier;
   const pollAttempts = Number(process.env.MERIDIANLINK_STATUSQUERY_MAX_ATTEMPTS || 5);
   const pollDelayMs = Number(process.env.MERIDIANLINK_STATUSQUERY_DELAY_MS || 2000);
+  const initialStatusIsTerminal = isTerminalMeridianLinkStatus(responseDebug.statusCodeText, responseDebug.statusDescription);
 
-  if (!responseDebug.hasReportData && vendorOrderIdentifier) {
+  if (!responseDebug.hasReportData && vendorOrderIdentifier && !initialStatusIsTerminal) {
     for (let attempt = 1; attempt <= pollAttempts; attempt += 1) {
       await sleep(pollDelayMs);
       const statusXml = buildMeridianLinkStatusQueryXml(borrower, vendorOrderIdentifier);
@@ -555,12 +564,7 @@ export async function submitMeridianLinkProdTest(
         break;
       }
 
-      const statusCodeText = String(statusDebug.statusCodeText || '').toLowerCase();
-      const statusDescription = String(statusDebug.statusDescription || '').toLowerCase();
-      const isTerminal = ['completed', 'canceled', 'cancelled', 'error'].includes(statusCodeText)
-        || ['ready', 'completed', 'error', 'canceled', 'cancelled'].includes(statusDescription);
-
-      if (isTerminal) {
+      if (isTerminalMeridianLinkStatus(statusDebug.statusCodeText, statusDebug.statusDescription)) {
         break;
       }
     }
