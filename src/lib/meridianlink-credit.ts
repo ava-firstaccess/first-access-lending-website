@@ -35,6 +35,11 @@ export type MeridianLinkProdTestBorrowerInput = {
   fileNumber?: unknown;
 };
 
+export type MeridianLinkRetrieveByFileInput = MeridianLinkProdTestBorrowerInput & {
+  fileNumber?: unknown;
+  vendorOrderIdentifier?: unknown;
+};
+
 function sanitizeProdTestBorrower(input: MeridianLinkProdTestBorrowerInput = {}) {
   return {
     firstName: String(input.firstName || MERIDIANLINK_APPROVED_PROD_TEST.firstName).trim(),
@@ -480,16 +485,11 @@ function postXml(endpointUrl: string, headers: Record<string, string>, body: str
   });
 }
 
-export async function submitMeridianLinkProdTest(
-  input: MeridianLinkProdTestBorrowerInput = {},
+function buildMeridianLinkRequestHeaders(
+  config: ReturnType<typeof getMeridianLinkConfig>,
   options: { traceId?: string } = {}
 ) {
-  const config = getMeridianLinkConfig();
-  const borrower = sanitizeProdTestBorrower(input);
-  const xml = buildMeridianLinkSubmitXml(borrower);
-
   const auth = Buffer.from(`${config.username}:${config.password}`).toString('base64');
-  const endpointUrl = config.proxyUrl;
   const headers: Record<string, string> = {
     'Content-Type': 'application/xml',
     'MCL-Interface': config.interfaceId,
@@ -507,6 +507,20 @@ export async function submitMeridianLinkProdTest(
   } else {
     headers.Authorization = `Basic ${auth}`;
   }
+
+  return headers;
+}
+
+export async function submitMeridianLinkProdTest(
+  input: MeridianLinkProdTestBorrowerInput = {},
+  options: { traceId?: string } = {}
+) {
+  const config = getMeridianLinkConfig();
+  const borrower = sanitizeProdTestBorrower(input);
+  const xml = buildMeridianLinkSubmitXml(borrower);
+
+  const endpointUrl = config.proxyUrl;
+  const headers = buildMeridianLinkRequestHeaders(config, options);
 
   const caCertPem = config.proxyCaCertB64 ? Buffer.from(config.proxyCaCertB64, 'base64').toString('utf8') : '';
   const response = await postXml(endpointUrl, headers, xml, caCertPem);
@@ -593,5 +607,58 @@ export async function submitMeridianLinkProdTest(
       : vendorOrderIdentifier
         ? `MeridianLink created order ${vendorOrderIdentifier}, but no populated credit report data was returned before polling ended.`
         : 'MeridianLink did not return a VendorOrderIdentifier, so the order could not be polled for completion.',
+  };
+}
+
+export async function retrieveMeridianLinkByFileNumber(
+  input: MeridianLinkRetrieveByFileInput = {},
+  options: { traceId?: string } = {}
+) {
+  const config = getMeridianLinkConfig();
+  const borrower = sanitizeProdTestBorrower(input);
+  const requestedFileNumber = String(input.fileNumber || input.vendorOrderIdentifier || '').trim();
+  if (!requestedFileNumber) {
+    throw new Error('A MeridianLink file number is required.');
+  }
+
+  const endpointUrl = config.proxyUrl;
+  const headers = buildMeridianLinkRequestHeaders(config, options);
+  const caCertPem = config.proxyCaCertB64 ? Buffer.from(config.proxyCaCertB64, 'base64').toString('utf8') : '';
+  const statusXml = buildMeridianLinkStatusQueryXml(borrower, requestedFileNumber);
+  const response = await postXml(endpointUrl, headers, statusXml, caCertPem);
+  const responseText = response.body;
+  const responseDebug = getMeridianLinkResponseDebug(responseText, response.statusCode, endpointUrl);
+
+  logMeridianLinkDebug('retrieve_by_file_response', {
+    traceId: options.traceId || null,
+    requestedFileNumber,
+    ...responseDebug,
+  });
+
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw new Error(`MeridianLink retrieve failed (${response.statusCode}).`);
+  }
+
+  if (responseDebug.errorCategory || responseDebug.errorMessage) {
+    throw new Error(responseDebug.errorMessage || 'MeridianLink provider error.');
+  }
+
+  return {
+    success: responseDebug.hasReportData as boolean,
+    provider: 'meridianlink',
+    mode: 'production-retrieve' as const,
+    requestType: 'StatusQuery',
+    borrower,
+    vendorOrderIdentifier: responseDebug.vendorOrderIdentifier || requestedFileNumber,
+    fileNumber: responseDebug.fileNumber || requestedFileNumber,
+    status: String(responseDebug.statusCodeText || responseDebug.statusDescription || 'retrieved').toLowerCase(),
+    rawResponse: responseText,
+    initialSubmitRawResponse: '',
+    debug: responseDebug,
+    initialSubmitDebug: null,
+    reportReady: responseDebug.hasReportData,
+    reportStatusMessage: responseDebug.hasReportData
+      ? 'Credit report data returned.'
+      : `MeridianLink returned no populated credit report data for file ${requestedFileNumber}.`,
   };
 }

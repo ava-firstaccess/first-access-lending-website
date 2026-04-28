@@ -12,6 +12,7 @@ import {
 } from '@/lib/credit';
 import {
   MERIDIANLINK_APPROVED_PROD_TEST,
+  retrieveMeridianLinkByFileNumber,
   scrubMeridianLinkXml,
   submitMeridianLinkProdTest,
 } from '@/lib/meridianlink-credit';
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (requestedMode === 'production-test') {
+    if (requestedMode === 'production-test' || requestedMode === 'production-retrieve') {
       if (provider !== 'meridianlink') {
         return NextResponse.json(
           {
@@ -122,10 +123,10 @@ export async function POST(req: NextRequest) {
       ).hostname;
       const baseRunPayload = {
         run_id: runId,
-        mode: 'production-test',
+        mode: requestedMode,
         application_id: applicationId,
         provider,
-        request_type: 'Submit',
+        request_type: requestedMode === 'production-retrieve' ? 'StatusQuery' : 'Submit',
         endpoint_host: endpointHost,
         status_code: null,
         status: 'started',
@@ -148,23 +149,43 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const result = await submitMeridianLinkProdTest(
-          {
-            firstName: borrower.firstName,
-            lastName: borrower.lastName,
-            middleName: borrower.middleName,
-            suffixName: borrower.suffixName,
-            dob: borrower.dob,
-            ssn: borrower.ssn,
-            ssnLast4: borrower.ssnLast4,
-            address: borrower.address,
-            city: borrower.city,
-            state: borrower.state,
-            zip: borrower.zip,
-            preferredResponseFormat: borrower.preferredResponseFormat,
-          },
-          { traceId: runId }
-        );
+        const result = requestedMode === 'production-retrieve'
+          ? await retrieveMeridianLinkByFileNumber(
+              {
+                firstName: borrower.firstName,
+                lastName: borrower.lastName,
+                middleName: borrower.middleName,
+                suffixName: borrower.suffixName,
+                dob: borrower.dob,
+                ssn: borrower.ssn,
+                ssnLast4: borrower.ssnLast4,
+                address: borrower.address,
+                city: borrower.city,
+                state: borrower.state,
+                zip: borrower.zip,
+                preferredResponseFormat: borrower.preferredResponseFormat,
+                fileNumber: body?.fileNumber || borrower.fileNumber,
+                vendorOrderIdentifier: body?.vendorOrderIdentifier,
+              },
+              { traceId: runId }
+            )
+          : await submitMeridianLinkProdTest(
+              {
+                firstName: borrower.firstName,
+                lastName: borrower.lastName,
+                middleName: borrower.middleName,
+                suffixName: borrower.suffixName,
+                dob: borrower.dob,
+                ssn: borrower.ssn,
+                ssnLast4: borrower.ssnLast4,
+                address: borrower.address,
+                city: borrower.city,
+                state: borrower.state,
+                zip: borrower.zip,
+                preferredResponseFormat: borrower.preferredResponseFormat,
+              },
+              { traceId: runId }
+            );
 
         const scrubbedInitialSubmitXml = scrubMeridianLinkXml(result.initialSubmitRawResponse || '');
         const scrubbedResponseXml = scrubMeridianLinkXml(result.rawResponse);
@@ -389,10 +410,12 @@ export async function GET() {
       preferredResponseFormat: MERIDIANLINK_APPROVED_PROD_TEST.preferredResponseFormat,
       routeMode: 'production-test',
       provider: 'meridianlink',
+      fileNumber: MERIDIANLINK_APPROVED_PROD_TEST.fileNumber,
     },
     productionTestAccess: {
       provider: 'meridianlink',
       routeMode: 'production-test',
+      retrieveMode: 'production-retrieve',
       restricted: false,
       note: 'Production-test mode is available as a MeridianLink XML test harness and accepts test borrower values entered in the UI.',
     },
