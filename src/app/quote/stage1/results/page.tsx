@@ -395,10 +395,10 @@ export default function ResultsPage() {
 
   const displayedHelocQuote = helocLiveQuote
     ? { ...helocLiveQuote, maxAvailable: floorDisplayedMaxAvailable(helocLiveQuote.maxAvailable) }
-    : { ...helocQuote, maxAvailable: floorDisplayedMaxAvailable(helocQuote.maxAvailable) };
+    : { ...helocQuote, maxAvailable: floorDisplayedMaxAvailable(helocQuote.maxAvailable), rate: 0, monthlyPayment: 0 };
   const displayedCesQuote = cesLiveQuote
     ? { ...cesLiveQuote, maxAvailable: floorDisplayedMaxAvailable(cesLiveQuote.maxAvailable) }
-    : { ...cesQuote, maxAvailable: floorDisplayedMaxAvailable(cesQuote.maxAvailable) };
+    : { ...cesQuote, maxAvailable: floorDisplayedMaxAvailable(cesQuote.maxAvailable), rate: 0, monthlyPayment: 0 };
 
   // Initialize loan amounts to max when quotes change
   useEffect(() => {

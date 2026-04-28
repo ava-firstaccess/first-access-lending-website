@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import QuestionCard from '@/components/quote/QuestionCard';
 import QuoteBuilder from '@/components/quote/QuoteBuilder';
 import AddressAutocomplete from '@/components/quote/AddressAutocomplete';
@@ -111,6 +111,7 @@ function getQuestionFlow(data: Stage1Data): string[] {
 
 export default function Stage1() {
   const router = useRouter();
+  const pathname = usePathname();
   const [step, setStep] = useState(0);
   const [data, setData] = useState<Stage1Data>({});
   const [animating, setAnimating] = useState(false);
@@ -122,6 +123,23 @@ export default function Stage1() {
     monthlyPaymentRange: { min: 0, max: 0 }
   });
   const [quoteLoading, setQuoteLoading] = useState(false);
+
+  // Visiting /quote/start should begin a fresh quote, not reuse prior local quote state.
+  useEffect(() => {
+    if (pathname === '/quote/start') {
+      localStorage.removeItem('stage1-data');
+      localStorage.removeItem('stage2-progress');
+      setData({});
+      setStep(0);
+      setQuote({
+        maxAvailable: 0,
+        rateRange: { min: 0, max: 0 },
+        monthlyPayment: 0,
+        monthlyPaymentRange: { min: 0, max: 0 }
+      });
+      setQuoteLoading(false);
+    }
+  }, [pathname]);
 
   // Load prefill data from localStorage (set by verify page after OTP)
   useEffect(() => {
