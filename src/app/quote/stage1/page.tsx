@@ -123,6 +123,7 @@ export default function Stage1() {
     monthlyPaymentRange: { min: 0, max: 0 }
   });
   const [quoteLoading, setQuoteLoading] = useState(false);
+  const [submittingResults, setSubmittingResults] = useState(false);
 
   // Visiting /quote/start should begin a fresh quote, not reuse prior local quote state.
   useEffect(() => {
@@ -161,7 +162,7 @@ export default function Stage1() {
   const currentQuestion = flow[step];
   const totalSteps = flow.length;
   const progress = ((step + 1) / (totalSteps + 1)) * 100; // +1 for results
-  const showPendingQuoteSpinner = quoteLoading || (currentQuestion === 'creditScore' && data.creditScore !== undefined);
+  const showPendingQuoteSpinner = submittingResults || quoteLoading || (currentQuestion === 'creditScore' && data.creditScore !== undefined);
 
   // Calculate quote whenever data changes
   useEffect(() => {
@@ -310,6 +311,14 @@ export default function Stage1() {
     trackStep(completedStep, step, nextFlow.length, data);
 
     if (step + 1 >= nextFlow.length) {
+      setSubmittingResults(true);
+      setQuoteLoading(true);
+      setQuote(prev => ({
+        ...prev,
+        rateRange: { min: 0, max: 0 },
+        monthlyPayment: 0,
+        monthlyPaymentRange: { min: 0, max: 0 },
+      }));
       // Store Stage 1 data in localStorage (clean URLs, no size limits)
       const stage1Clean = Object.fromEntries(
         Object.entries(data).filter(([k]) => !k.startsWith('_'))
