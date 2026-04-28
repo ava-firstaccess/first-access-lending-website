@@ -205,18 +205,18 @@ export default function Stage3Page() {
   const previousRate = getRateForScenario(desiredLoanAmount);
   const updatedRate = useMemo(() => {
     const validatedValue = result?.hcValue || propertyValue;
-    const effectiveMax = result?.newMaxLoan || desiredLoanAmount;
+    const selectedLoanAmount = loanAmount || desiredLoanAmount;
     const baseRate = product === 'HELOC' ? 7.25 : 8.0;
     const creditAdj = creditScore >= 720 ? 0 : creditScore >= 680 ? 0.25 : creditScore >= 640 ? 0.5 : 1.0;
     const propertyAdj: Record<string, number> = { Primary: 0, Investment: 0.5, '2nd Home': 0.25 };
     let ltvAdj = 0;
-    if (effectiveMax > 0) {
-      const combinedLtv = (loanBalance + effectiveMax) / Math.max(validatedValue, 1);
+    if (selectedLoanAmount > 0) {
+      const combinedLtv = (loanBalance + selectedLoanAmount) / Math.max(validatedValue, 1);
       if (combinedLtv > 0.85) ltvAdj = 0.5;
       else if (combinedLtv > 0.80) ltvAdj = 0.25;
     }
     return baseRate + creditAdj + (propertyAdj[propertyType] || 0) + ltvAdj;
-  }, [result, propertyValue, desiredLoanAmount, product, creditScore, propertyType, loanBalance]);
+  }, [result, propertyValue, desiredLoanAmount, loanAmount, product, creditScore, propertyType, loanBalance]);
 
   const originalMonthlyPayment = useMemo(() => {
     if (desiredLoanAmount <= 0) return 0;
