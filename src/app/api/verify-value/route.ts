@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getApplicationBySessionToken, requireTrustedBrowserRequest } from '@/lib/application-session';
 import { consumeRateLimit, getClientIp } from '@/lib/rate-limit';
@@ -8,7 +9,32 @@ const VERIFY_VALUE_WINDOW_SECONDS = 10 * 60;
 
 const HC_BASE = 'https://api.housecanary.com';
 
+type ClearCapitalClearAvmResult = {
+  confidenceScore?: string;
+  confidenceScoreAlt?: string;
+  estimatedError?: number;
+  forecastStdDev?: number;
+  highValue?: number;
+  lowValue?: number;
+  marketValue?: number;
+  runDate?: string;
+};
+
+type ClearCapitalOrderResponse = {
+  id?: string;
+  effectiveDate?: string;
+  trackingIds?: string[] | number[];
+  clearAvm?: {
+    result?: ClearCapitalClearAvmResult;
+  };
+};
+
 function buildSafeHouseCanaryError(message: string, status?: number) {
+  const suffix = typeof status === 'number' ? ` (${status})` : '';
+  return new Error(`${message}${suffix}`);
+}
+
+function buildSafeClearCapitalError(message: string, status?: number) {
   const suffix = typeof status === 'number' ? ` (${status})` : '';
   return new Error(`${message}${suffix}`);
 }
@@ -45,6 +71,30 @@ async function saveCachedAvmResult(supabase: any, payload: any) {
   }
 }
 
+function getClearCapitalPaaConfig() {
+  const apiKey = process.env.CLEARCAPITAL_PAA_API_KEY;
+  const baseUrl = process.env.CLEARCAPITAL_PAA_BASE_URL || 'https://api.clearcapital.com/property-analytics-api';
+  if (!apiKey) return null;
+  return { apiKey, baseUrl };
+}
+
+async function insertClearCapitalRun(supabase: any, payload: any) {
+  try {
+    const { error } = await supabase.from('clearcapital_runs').insert(payload);
+    if (error) console.warn('clearcapital_runs insert failed');
+  } catch {
+    console.warn('clearcapital_runs insert threw');
+  }
+}
+
+async function updateClearCapitalRun(supabase: any, runId: string, payload: any) {
+  try {
+    const { error } = await supabase.from('clearcapital_runs').update(payload).eq('run_id', runId);
+    if (error) console.warn('clearcapital_runs update failed');
+  } catch {
+    console.warn('clearcapital_runs update threw');
+  }
+}
 
 function getHCAuth(): string {
   const key = process.env.HOUSECANARY_API_KEY;
@@ -98,7 +148,6 @@ async function getPropertyValueWithFSD(address: string, zipcode: string) {
   }
 
   const data = await res.json();
-  // v2 returns an array
   const result = Array.isArray(data) ? data[0] : data;
   const valueData = result?.['property/value']?.result?.value;
 
@@ -111,6 +160,57 @@ async function getPropertyValueWithFSD(address: string, zipcode: string) {
     price_lwr: valueData.price_lwr,
     price_upr: valueData.price_upr,
     fsd: valueData.fsd,
+  };
+}
+
+async function getClearCapitalClearAvm(address: string, zipcode: string, city: string, state: string, trackingId: string) {
+  const config = getClearCapitalPaaConfig();
+  if (!config) return null;
+
+  const url = `${config.baseUrl}/orders`;
+  const payload = {
+    address,
+    city,
+    state,
+    zip: zipcode,
+    signResponse: true,
+    trackingIds: [trackingId],
+    clearAvm: {
+      include: true,
+      request: {
+        maxFSD: 0.3,
+        exactEffectiveDate: false,
+      },
+    },
+  };
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'Content-Type': 'application/json',
+      'x-api-key': config.apiKey,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw buildSafeClearCapitalError('Clear Capital Property Analytics failed', res.status);
+  }
+
+  const data = (await res.json()) as ClearCapitalOrderResponse;
+  const result = data?.clearAvm?.result;
+
+  if (!result?.marketValue) {
+    throw new Error('No Clear Capital market value returned');
+  }
+
+  return {
+    response: data,
+    result,
+    statusCode: res.status,
+    responseBytes: JSON.stringify(data).length,
+    endpointHost: new URL(config.baseUrl).hostname,
   };
 }
 
@@ -141,7 +241,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Application/session mismatch.' }, { status: 401 });
     }
 
-
     const clientIp = getClientIp(req);
     const [ipRate, sessionRate] = await Promise.all([
       consumeRateLimit({
@@ -171,7 +270,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Parse request ──
     const {
       address,
       zipcode,
@@ -206,9 +304,6 @@ export async function POST(req: NextRequest) {
     const balance = Number(loanBalance) || 0;
     const desired = Number(desiredLoanAmount) || 0;
 
-    // ══════════════════════════════════════
-    // Step 1: Property Estimate ($0.05)
-    // ══════════════════════════════════════
     const estimateData = await getPropertyEstimate(address, zipcode, city, state);
     const hcEstimate = estimateData?.estimate;
 
@@ -238,9 +333,6 @@ export async function POST(req: NextRequest) {
 
     const newMaxLoan = Math.max(0, (hcEstimate * maxLtv) - balance);
 
-    // ══════════════════════════════════════
-    // Step 2: Decide whether to stop, keep HC, or cascade
-    // ══════════════════════════════════════
     const hcRatio = desired > 0 ? newMaxLoan / desired : 0;
     const useHouseCanaryEstimateOnly = hcRatio >= 0.8;
     const shouldCascadeToClearCapital = hcRatio >= 0.25 && hcRatio < 0.8 && newMaxLoan >= 25000;
@@ -306,7 +398,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(responsePayload);
     }
 
-    // Borderline miss: continue to next paid valuation layer
     if (!shouldCascadeToClearCapital) {
       const responsePayload = {
         tier: 'estimate',
@@ -337,19 +428,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(responsePayload);
     }
 
-    // ══════════════════════════════════════
-    // Step 3: Full AVM for FSD ($0.30)
-    // ══════════════════════════════════════
     const fsdData = await getPropertyValueWithFSD(address, zipcode);
-
-    // Use the more accurate v2 value now that we're paying for it
     const verifiedValue = fsdData.price_mean;
     const verifiedMaxLoan = Math.max(0, (verifiedValue * maxLtv) - balance);
 
     if (fsdData.fsd < 0.20) {
-      // ══════════════════════════════════════
-      // High confidence - accept value
-      // ══════════════════════════════════════
       const responsePayload = {
         tier: 'verified',
         hcValue: Math.round(verifiedValue),
@@ -369,38 +452,6 @@ export async function POST(req: NextRequest) {
         state: state || null,
         application_id: applicationId,
         tier: 'verified',
-        hc_estimate: hcEstimate,
-        hc_value: Math.round(verifiedValue),
-        fsd: fsdData.fsd,
-        new_max_loan: Math.round(verifiedMaxLoan),
-        max_ltv: maxLtv,
-        response_payload: responsePayload,
-      });
-      return NextResponse.json(responsePayload);
-    } else {
-      // ══════════════════════════════════════
-      // Low confidence - needs Clear Capital
-      // ══════════════════════════════════════
-      const responsePayload = {
-        tier: 'low_confidence',
-        hcValue: Math.round(verifiedValue),
-        statedValue: Number(statedValue),
-        fsd: fsdData.fsd,
-        price_lwr: Math.round(fsdData.price_lwr),
-        price_upr: Math.round(fsdData.price_upr),
-        newMaxLoan: Math.round(verifiedMaxLoan),
-        maxLtv,
-        desiredLoanAmount: desired,
-        needsClearCapital: true,
-      };
-      await saveCachedAvmResult(supabase, {
-        address_key: addressKey,
-        address,
-        zipcode: zipcode || null,
-        city: city || null,
-        state: state || null,
-        application_id: applicationId,
-        tier: 'low_confidence',
         hc_estimate: hcEstimate,
         hc_value: Math.round(verifiedValue),
         fsd: fsdData.fsd,
@@ -410,6 +461,133 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json(responsePayload);
     }
+
+    const clearCapitalRunId = randomUUID();
+    const clearCapitalTrackingId = applicationId || clearCapitalRunId;
+    const clearCapitalConfig = getClearCapitalPaaConfig();
+
+    if (clearCapitalConfig) {
+      const baseRunPayload = {
+        run_id: clearCapitalRunId,
+        application_id: applicationId,
+        endpoint_host: new URL(clearCapitalConfig.baseUrl).hostname,
+        status_code: null,
+        status: 'started',
+        tracking_ids: clearCapitalTrackingId,
+        response_bytes: 0,
+        error_category: null,
+        success: false,
+        confidence_score: null,
+        confidence_score_alt: null,
+        estimated_error: null,
+        forecast_std_dev: null,
+        market_value: null,
+        high_value: null,
+        low_value: null,
+        effective_date: null,
+        vendor_run_date: null,
+        notes: `Triggered after HouseCanary low confidence FSD=${fsdData.fsd}`,
+      };
+      await insertClearCapitalRun(supabase, baseRunPayload);
+
+      try {
+        const clearCapital = await getClearCapitalClearAvm(address, zipcode, city || '', state || '', clearCapitalTrackingId);
+        const ccResult = clearCapital?.result;
+        const clearCapitalValue = Math.round(ccResult?.marketValue || 0);
+        const clearCapitalMaxLoan = Math.max(0, clearCapitalValue * maxLtv - balance);
+
+        await updateClearCapitalRun(supabase, clearCapitalRunId, {
+          ...baseRunPayload,
+          status_code: clearCapital?.statusCode,
+          status: 'completed',
+          response_bytes: clearCapital?.responseBytes,
+          success: true,
+          confidence_score: ccResult?.confidenceScore || null,
+          confidence_score_alt: ccResult?.confidenceScoreAlt || null,
+          estimated_error: ccResult?.estimatedError ?? null,
+          forecast_std_dev: ccResult?.forecastStdDev ?? null,
+          market_value: clearCapitalValue,
+          high_value: Math.round(ccResult?.highValue || 0),
+          low_value: Math.round(ccResult?.lowValue || 0),
+          effective_date: clearCapital?.response?.effectiveDate || null,
+          vendor_run_date: ccResult?.runDate || null,
+          notes: `ClearAVM success after HouseCanary low confidence FSD=${fsdData.fsd}`,
+        });
+
+        const responsePayload = {
+          tier: 'verified',
+          hcValue: clearCapitalValue,
+          statedValue: Number(statedValue),
+          price_lwr: Math.round(ccResult?.lowValue || 0),
+          price_upr: Math.round(ccResult?.highValue || 0),
+          newMaxLoan: Math.round(clearCapitalMaxLoan),
+          maxLtv,
+          desiredLoanAmount: desired,
+          valuationProvider: 'clearcapital',
+          cascadeDecision: 'use_clearcapital',
+          clearCapitalConfidenceScore: ccResult?.confidenceScore,
+          clearCapitalConfidenceScoreAlt: ccResult?.confidenceScoreAlt,
+          clearCapitalEstimatedError: ccResult?.estimatedError,
+          clearCapitalForecastStdDev: ccResult?.forecastStdDev,
+          clearCapitalRunDate: ccResult?.runDate,
+          clearCapitalEffectiveDate: clearCapital?.response?.effectiveDate,
+          houseCanaryFsd: fsdData.fsd,
+        };
+        await saveCachedAvmResult(supabase, {
+          address_key: addressKey,
+          address,
+          zipcode: zipcode || null,
+          city: city || null,
+          state: state || null,
+          application_id: applicationId,
+          tier: 'verified',
+          hc_estimate: hcEstimate,
+          hc_value: Math.round(verifiedValue),
+          fsd: fsdData.fsd,
+          new_max_loan: Math.round(clearCapitalMaxLoan),
+          max_ltv: maxLtv,
+          response_payload: responsePayload,
+        });
+        return NextResponse.json(responsePayload);
+      } catch (clearCapitalError: any) {
+        await updateClearCapitalRun(supabase, clearCapitalRunId, {
+          ...baseRunPayload,
+          status: 'failed',
+          error_category: 'request_failed',
+          notes: clearCapitalError instanceof Error ? clearCapitalError.message : 'Clear Capital request failed',
+          success: false,
+        });
+      }
+    }
+
+    const responsePayload = {
+      tier: 'low_confidence',
+      hcValue: Math.round(verifiedValue),
+      statedValue: Number(statedValue),
+      fsd: fsdData.fsd,
+      price_lwr: Math.round(fsdData.price_lwr),
+      price_upr: Math.round(fsdData.price_upr),
+      newMaxLoan: Math.round(verifiedMaxLoan),
+      maxLtv,
+      desiredLoanAmount: desired,
+      needsClearCapital: true,
+    };
+    await saveCachedAvmResult(supabase, {
+      address_key: addressKey,
+      address,
+      zipcode: zipcode || null,
+      city: city || null,
+      state: state || null,
+      application_id: applicationId,
+      tier: 'low_confidence',
+      hc_estimate: hcEstimate,
+      hc_value: Math.round(verifiedValue),
+      fsd: fsdData.fsd,
+      new_max_loan: Math.round(verifiedMaxLoan),
+      max_ltv: maxLtv,
+      response_payload: responsePayload,
+    });
+    return NextResponse.json(responsePayload);
   } catch (err: any) {
     console.error('Verify value error');
     return NextResponse.json(
