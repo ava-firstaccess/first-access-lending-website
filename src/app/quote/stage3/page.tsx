@@ -163,6 +163,19 @@ export default function Stage3Page() {
     return baseRate + creditAdj + (propertyAdj[propertyType] || 0) + ltvAdj;
   }, [result, propertyValue, desiredLoanAmount, product, creditScore, propertyType, loanBalance]);
 
+  const originalMonthlyPayment = useMemo(() => {
+    if (desiredLoanAmount <= 0) return 0;
+    const monthlyRate = previousRate / 100 / 12;
+
+    if (product === 'HELOC') {
+      return Math.round(desiredLoanAmount * monthlyRate);
+    }
+
+    const cesTerm = Number(stage1.cesTerm) || 20;
+    const n = cesTerm * 12;
+    return Math.round(desiredLoanAmount * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
+  }, [desiredLoanAmount, previousRate, product, stage1.cesTerm]);
+
   // Calculate monthly payment for chosen amount
   const monthlyPayment = useMemo(() => {
     if (loanAmount <= 0) return 0;
@@ -531,6 +544,19 @@ export default function Stage3Page() {
                   <div className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Updated Rate</div>
                   <div className={`text-xl font-bold ${updatedRate <= previousRate ? 'text-green-700' : 'text-amber-700'}`}>
                     {updatedRate.toFixed(2)}%
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="bg-gray-100 rounded-xl p-4 text-center border border-gray-200">
+                  <div className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Previous Payment</div>
+                  <div className="text-xl font-bold text-gray-400 line-through">${originalMonthlyPayment.toLocaleString()}</div>
+                </div>
+                <div className={`rounded-xl p-4 text-center border-2 ${monthlyPayment <= originalMonthlyPayment ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300'}`}>
+                  <div className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Updated Payment</div>
+                  <div className={`text-xl font-bold ${monthlyPayment <= originalMonthlyPayment ? 'text-green-700' : 'text-amber-700'}`}>
+                    ${monthlyPayment.toLocaleString()}
                   </div>
                 </div>
               </div>

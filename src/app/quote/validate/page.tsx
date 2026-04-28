@@ -3,9 +3,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { SSNField } from '@/components/quote/FormField';
+import QuoteBuilder from '@/components/quote/QuoteBuilder';
 import {
   getRepresentativeMeridianLinkScore,
   isMortgageLiability,
@@ -14,7 +15,9 @@ import {
   type MeridianLinkParsedReport,
 } from '@/lib/meridianlink-report';
 
-type ValidationStep = 'credit' | 'mortgages' | 'updated-quote';
+type ValidationStep = 'credit' | 'score-adjustment' | 'mortgages' | 'updated-quote';
+
+const MIN_LOAN_AMOUNT = 50000;
 
 // Mock data types (will be replaced with API responses)
 interface AVMResult {
@@ -69,6 +72,12 @@ interface LiabilityActionState {
   excludeReason: '' | 'Already paid off' | 'Someone else pays this' | "I don't recognize this account" | 'Other';
   excludeExplanation: string;
   manualRate: string;
+}
+
+interface QuoteCalc {
+  maxAvailable: number;
+  rate: number;
+  monthlyPayment: number;
 }
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
@@ -181,6 +190,109 @@ function getDisplayedInterestRate(
   return null;
 }
 
+function floorDisplayedMaxAvailable(amount: number) {
+  return amount > 0 ? Math.max(MIN_LOAN_AMOUNT, Math.round(amount)) : 0;
+}
+
+function clampLoanAmount(value: number, maxAvailable: number) {
+  if (maxAvailable <= 0) return 0;
+  const displayedMax = floorDisplayedMaxAvailable(maxAvailable);
+  return Math.max(Math.min(MIN_LOAN_AMOUNT, displayedMax), Math.min(value, displayedMax));
+}
+
+function calcQuote(
+  product: string,
+  propertyValue: number,
+  loanBalance: number,
+  creditScore: number,
+  propertyType: string,
+  drawTerm: number,
+  cesTerm: number = 20,
+): QuoteCalc {
+  let maxLtv = 0.80;
+  if (creditScore >= 720) {
+    maxLtv = propertyType === 'Primary' ? 0.90 : propertyType === '2nd Home' ? 0.85 : 0.80;
+  } else if (creditScore >= 680) {
+    maxLtv = propertyType === 'Primary' ? 0.85 : propertyType === '2nd Home' ? 0.80 : 0.75;
+  } else if (creditScore >= 640) {
+    maxLtv = propertyType === 'Primary' ? 0.80 : propertyType === '2nd Home' ? 0.75 : 0.70;
+  } else {
+    maxLtv = propertyType === 'Primary' ? 0.70 : propertyType === '2nd Home' ? 0.65 : 0.60;
+  }
+
+  const maxLoan = propertyValue * maxLtv;
+  const maxAvailable = Math.max(0, maxLoan - loanBalance);
+
+  let baseRate = 7.50;
+  if (product === 'HELOC') {
+    baseRate = 7.25;
+    if (drawTerm === 3) baseRate -= 0.50;
+    else if (drawTerm === 5) baseRate -= 0.25;
+  } else if (product === 'CES') {
+    baseRate = 8.00;
+    if (cesTerm === 30) baseRate += 0.25;
+  }
+
+  let creditAdj = 0;
+  if (creditScore >= 720) creditAdj = 0;
+  else if (creditScore >= 680) creditAdj = 0.25;
+  else if (creditScore >= 640) creditAdj = 0.50;
+  else creditAdj = 1.00;
+
+  const propertyAdj: Record<string, number> = { Primary: 0, Investment: 0.50, '2nd Home': 0.25 };
+  const rate = baseRate + creditAdj + (propertyAdj[propertyType] || 0);
+
+  return {
+    maxAvailable,
+    rate,
+    monthlyPayment: calculatePayment(maxAvailable, rate, product, cesTerm),
+  };
+}
+
+function calculatePayment(amount: number, rate: number, product: string, cesTerm: number) {
+  if (amount <= 0 || rate <= 0) return 0;
+  const monthlyRate = rate / 100 / 12;
+  if (product === 'CES') {
+    const n = cesTerm * 12;
+    return Math.round(amount * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
+  }
+  return Math.round(amount * monthlyRate);
+}
+
+function LoanAmountSlider({ value, max, min, onChange }: {
+  value: number;
+  max: number;
+  min: number;
+  onChange: (v: number) => void;
+}) {
+  const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-gray-500 font-medium">Your Loan Amount</span>
+        <span className="text-lg font-bold text-gray-900">${value.toLocaleString()}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={1000}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+        style={{
+          background: `linear-gradient(to right, #3b82f6 ${pct}%, #e5e7eb ${pct}%)`
+        }}
+      />
+      <div className="flex justify-between text-[10px] text-gray-400">
+        <span>${min.toLocaleString()}</span>
+        <span>${max.toLocaleString()} max</span>
+      </div>
+    </div>
+  );
+}
+
 interface ProdTestBorrowerForm {
   firstName: string;
   lastName: string;
@@ -249,10 +361,9 @@ export default function ValidatePage() {
   const [pendingCreditScore, setPendingCreditScore] = useState<number | null>(null);
   const [pendingMortgages, setPendingMortgages] = useState<Mortgage[]>([]);
   const [liabilityActions, setLiabilityActions] = useState<Record<string, LiabilityActionState>>({});
+  const [selectedLoanAmount, setSelectedLoanAmount] = useState<number>(0);
 
   // Updated numbers
-  const [updatedCashAvailable] = useState<number | null>(null);
-  const [updatedRate] = useState<number | null>(null);
   const [originalCashAvailable, setOriginalCashAvailable] = useState<number>(0);
 
   // Properties from form
@@ -344,6 +455,7 @@ export default function ValidatePage() {
         }
         setProperties(props);
         setOriginalCashAvailable(Number(hydratedData.desiredLoanAmount) || Number(hydratedData.maxAvailable) || 0);
+        setSelectedLoanAmount(Number(hydratedData.desiredLoanAmount) || Number(hydratedData.maxAvailable) || 0);
       }
 
       const statedValue = Number((hydratedData || stage1Data || {}).propertyValue || 0);
@@ -383,7 +495,7 @@ export default function ValidatePage() {
     {
       label: 'Soft Credit Check',
       icon: '📊',
-      state: (currentStep === 'credit' || currentStep === 'mortgages') ? 'current' as const : 'done' as const,
+      state: (currentStep === 'credit' || currentStep === 'score-adjustment' || currentStep === 'mortgages') ? 'current' as const : 'done' as const,
     },
     {
       label: 'Update Quote',
@@ -412,6 +524,46 @@ export default function ValidatePage() {
   const openConsumerLiabilities = openLiabilities
     .filter((liability) => !isMortgageLiability(liability))
     .sort((a, b) => (b.unpaidBalance || 0) - (a.unpaidBalance || 0));
+  const product = String(formData.product || 'HELOC');
+  const propertyType = String(formData.propertyType || 'Primary');
+  const drawTerm = Number(formData.drawTerm) || 3;
+  const cesTerm = Number(formData.cesTerm) || 20;
+  const loanBalance = Number(formData.loanBalance || 0);
+  const statedCreditScore = Number(formData.creditScore) || 680;
+  const verifiedPropertyValue = Number(avmResult?.estimatedValue || formData.verifiedPropertyValue || formData.propertyValue || 0);
+  const previousQuote = useMemo(
+    () => calcQuote(product, verifiedPropertyValue, loanBalance, statedCreditScore, propertyType, drawTerm, cesTerm),
+    [product, verifiedPropertyValue, loanBalance, statedCreditScore, propertyType, drawTerm, cesTerm],
+  );
+  const scoreAdjustedQuote = useMemo(
+    () => calcQuote(product, verifiedPropertyValue, loanBalance, creditScore || statedCreditScore, propertyType, drawTerm, cesTerm),
+    [product, verifiedPropertyValue, loanBalance, creditScore, statedCreditScore, propertyType, drawTerm, cesTerm],
+  );
+  const displayedMaxAvailable = floorDisplayedMaxAvailable(scoreAdjustedQuote.maxAvailable || previousQuote.maxAvailable);
+  const effectiveSelectedLoanAmount = selectedLoanAmount > 0
+    ? clampLoanAmount(selectedLoanAmount, displayedMaxAvailable)
+    : clampLoanAmount(originalCashAvailable || previousQuote.maxAvailable || displayedMaxAvailable, displayedMaxAvailable);
+  const previousPayment = calculatePayment(
+    Number(formData.desiredLoanAmount || originalCashAvailable || 0),
+    previousQuote.rate,
+    product,
+    cesTerm,
+  );
+  const updatedPayment = calculatePayment(effectiveSelectedLoanAmount, scoreAdjustedQuote.rate, product, cesTerm);
+  const payoffTotal = openLiabilities.reduce((sum, liability) => {
+    const action = liabilityActions[liability.id];
+    return action?.resolution === 'payoff' ? sum + (liability.unpaidBalance || 0) : sum;
+  }, 0);
+  const maxPayoff = Math.max(0, displayedMaxAvailable - payoffTotal);
+  const sidebarProgress = currentStep === 'credit' ? 68 : currentStep === 'score-adjustment' ? 76 : currentStep === 'mortgages' ? 84 : 92;
+
+  useEffect(() => {
+    if (!displayedMaxAvailable) return;
+    setSelectedLoanAmount((prev) => {
+      const baseline = prev || originalCashAvailable || displayedMaxAvailable;
+      return clampLoanAmount(baseline, displayedMaxAvailable);
+    });
+  }, [displayedMaxAvailable, originalCashAvailable]);
 
   const persistEstimatedCreditCardRate = async (rateValue: number) => {
     const nextFormData = {
@@ -581,6 +733,13 @@ export default function ValidatePage() {
   const handleContinueToFinalizeDetails = async () => {
     const nextFormData = {
       ...formData,
+      desiredLoanAmount: effectiveSelectedLoanAmount,
+      verifiedMaxAvailable: displayedMaxAvailable,
+      verifiedRate: scoreAdjustedQuote.rate,
+      verifiedMonthlyPayment: updatedPayment,
+      verifiedCreditScore: creditScore,
+      payoffTotal,
+      maxPayoff,
       'Credit Report - Open Mortgages': openMortgageLiabilities.map((liability) => ({
         id: liability.id,
         creditorName: liability.creditorName,
@@ -609,7 +768,6 @@ export default function ValidatePage() {
 
   const renderLiabilityActions = (liability: MeridianLinkLiabilitySummary, interestRate: number | null) => {
     const action = getLiabilityAction(liability.id);
-    const canEnterManualRate = interestRate === null;
 
     return (
       <div className="mt-4 space-y-4">
@@ -670,31 +828,13 @@ export default function ValidatePage() {
           </div>
         )}
 
-        {canEnterManualRate && (
-          <div className="max-w-xs">
-            <label className="mb-1 block text-sm font-medium text-gray-700">Enter interest rate</label>
-            <div className="relative">
-              <input
-                type="number"
-                min="0"
-                max="99"
-                step="0.01"
-                value={action.manualRate}
-                onChange={(e) => updateLiabilityAction(liability.id, { manualRate: e.target.value })}
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 pr-12 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                placeholder="Enter rate"
-              />
-              <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-gray-500">%</span>
-            </div>
-          </div>
-        )}
       </div>
     );
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50 py-8">
-      <div className="container mx-auto px-4 max-w-3xl">
+      <div className="container mx-auto px-4 max-w-7xl">
 
         {/* Header */}
         <div className="mb-8">
@@ -730,6 +870,9 @@ export default function ValidatePage() {
             ))}
           </div>
         </div>
+
+        <div className="grid gap-8 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-8">
 
         {/* ═══════════════════════════════════════════════
             STEP 2: CREDIT PULL (DOB + SSN)
@@ -1075,7 +1218,7 @@ export default function ValidatePage() {
                     setProdTestStatusMessage(pendingProdTestStatusMessage);
                     setCreditScore(pendingCreditScore);
                     setMortgages(pendingMortgages);
-                    goToStep('mortgages');
+                    goToStep('score-adjustment');
                   }}
                   className={`rounded-xl px-4 py-3 text-sm font-semibold text-white ${hasEstimatedCreditCardRate && creditPullCompleted ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'}`}
                 >
@@ -1083,6 +1226,76 @@ export default function ValidatePage() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {currentStep === 'score-adjustment' && (
+          <div className="bg-white rounded-2xl shadow-md p-8">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mb-4">
+                <span className="text-3xl">💰</span>
+              </div>
+              <div className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 mb-4">
+                Updated quote based on your actual score
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Review Your Updated Quote</h2>
+              <p className="text-gray-600">Before the credit report review, here&apos;s the quote adjusted to your actual credit score. You can reselect the loan amount now.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-gray-100 rounded-xl p-4 text-center border border-gray-200">
+                <div className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Previous Max Loan Amount</div>
+                <div className="text-xl font-bold text-gray-400 line-through">{formatCurrency(previousQuote.maxAvailable)}</div>
+              </div>
+              <div className="bg-emerald-50 rounded-xl p-4 text-center border-2 border-emerald-300">
+                <div className="text-xs uppercase tracking-wider text-emerald-600 font-semibold mb-1">Updated Max Loan Amount</div>
+                <div className="text-xl font-bold text-emerald-700">{formatCurrency(displayedMaxAvailable)}</div>
+              </div>
+              <div className="bg-blue-50 rounded-xl p-4 text-center border border-blue-200">
+                <div className="text-xs uppercase tracking-wider text-blue-500 font-semibold mb-1">Representative Score</div>
+                <div className="text-xl font-bold text-blue-900">{creditScore || statedCreditScore}</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="bg-gray-100 rounded-xl p-4 text-center border border-gray-200">
+                <div className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Previous Rate</div>
+                <div className="text-xl font-bold text-gray-400 line-through">{previousQuote.rate.toFixed(2)}%</div>
+              </div>
+              <div className={`rounded-xl p-4 text-center border-2 ${scoreAdjustedQuote.rate <= previousQuote.rate ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300'}`}>
+                <div className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Updated Rate</div>
+                <div className={`text-xl font-bold ${scoreAdjustedQuote.rate <= previousQuote.rate ? 'text-green-700' : 'text-amber-700'}`}>{scoreAdjustedQuote.rate.toFixed(2)}%</div>
+              </div>
+              <div className="bg-gray-100 rounded-xl p-4 text-center border border-gray-200">
+                <div className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Previous Payment</div>
+                <div className="text-xl font-bold text-gray-400 line-through">{formatCurrency(previousPayment)}</div>
+              </div>
+              <div className={`rounded-xl p-4 text-center border-2 ${updatedPayment <= previousPayment ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300'}`}>
+                <div className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Updated Payment</div>
+                <div className={`text-xl font-bold ${updatedPayment <= previousPayment ? 'text-green-700' : 'text-amber-700'}`}>{formatCurrency(updatedPayment)}</div>
+              </div>
+            </div>
+
+            {displayedMaxAvailable > 0 && (
+              <div className="bg-gray-50 rounded-xl p-5 mb-6 border border-gray-200">
+                <LoanAmountSlider
+                  value={effectiveSelectedLoanAmount}
+                  max={displayedMaxAvailable}
+                  min={Math.min(MIN_LOAN_AMOUNT, displayedMaxAvailable)}
+                  onChange={setSelectedLoanAmount}
+                />
+                <div className="mt-3 text-center text-sm text-gray-600">
+                  {product} estimated payment updates live as the loan amount changes.
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => goToStep('mortgages')}
+              className="w-full py-4 px-6 rounded-xl font-semibold text-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg transition-all"
+            >
+              Continue to Credit Report Review →
+            </button>
           </div>
         )}
 
@@ -1171,8 +1384,20 @@ export default function ValidatePage() {
                                 <p className="font-semibold text-gray-900">{formatDate(liability.openedDate)}</p>
                               </div>
                               <div>
-                                <p className="text-gray-500">Interest Rate</p>
-                                <p className="font-semibold text-gray-900">{formatInterestRate(interestRate)}</p>
+                                <p className="text-gray-500">Rate</p>
+                                <div className="relative mt-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="99"
+                                    step="0.01"
+                                    value={action.manualRate !== '' ? action.manualRate : (interestRate !== null ? interestRate.toFixed(2) : '')}
+                                    onChange={(e) => updateLiabilityAction(liability.id, { manualRate: e.target.value })}
+                                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 font-semibold text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                    placeholder="Enter"
+                                  />
+                                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500">%</span>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1225,8 +1450,20 @@ export default function ValidatePage() {
                                 <p className="font-semibold text-gray-900">{formatDate(liability.openedDate)}</p>
                               </div>
                               <div>
-                                <p className="text-gray-500">Interest Rate</p>
-                                <p className="font-semibold text-gray-900">{formatInterestRate(interestRate)}</p>
+                                <p className="text-gray-500">Rate</p>
+                                <div className="relative mt-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="99"
+                                    step="0.01"
+                                    value={action.manualRate !== '' ? action.manualRate : (interestRate !== null ? interestRate.toFixed(2) : '')}
+                                    onChange={(e) => updateLiabilityAction(liability.id, { manualRate: e.target.value })}
+                                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 font-semibold text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                    placeholder="Enter"
+                                  />
+                                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500">%</span>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1273,17 +1510,17 @@ export default function ValidatePage() {
             <div className="grid grid-cols-2 gap-4 mb-8">
               <div className="bg-gray-50 rounded-xl p-5">
                 <p className="text-sm text-gray-500 mb-1 text-center">Original Estimate</p>
-                <p className="text-3xl font-bold text-gray-400 text-center line-through">${originalCashAvailable.toLocaleString()}</p>
+                <p className="text-3xl font-bold text-gray-400 text-center line-through">{formatCurrency(originalCashAvailable)}</p>
               </div>
               <div className="bg-emerald-50 rounded-xl p-5 border-2 border-emerald-200">
                 <p className="text-sm text-emerald-600 mb-1 text-center">Verified Amount</p>
-                <p className="text-3xl font-bold text-emerald-700 text-center">${(updatedCashAvailable || originalCashAvailable).toLocaleString()}</p>
+                <p className="text-3xl font-bold text-emerald-700 text-center">{formatCurrency(effectiveSelectedLoanAmount)}</p>
               </div>
             </div>
 
             <div className="bg-blue-50 rounded-xl p-5 mb-8 text-center">
-              <p className="text-sm text-blue-600 mb-1">Estimated Rate</p>
-              <p className="text-4xl font-bold text-blue-700">{(updatedRate || 7.99).toFixed(2)}%</p>
+              <p className="text-sm text-blue-600 mb-1">Updated Rate</p>
+              <p className="text-4xl font-bold text-blue-700">{scoreAdjustedQuote.rate.toFixed(2)}%</p>
               <p className="text-xs text-blue-500 mt-1">Based on {creditScore || 'your'} credit score</p>
             </div>
 
@@ -1302,7 +1539,15 @@ export default function ValidatePage() {
               </div>
               <div className="flex justify-between px-5 py-3">
                 <span className="text-gray-600">1st Lien Balance</span>
-                <span className="font-medium text-gray-900">${Number(formData.loanBalance || 0).toLocaleString()}</span>
+                <span className="font-medium text-gray-900">{formatCurrency(Number(formData.loanBalance || 0))}</span>
+              </div>
+              <div className="flex justify-between px-5 py-3">
+                <span className="text-gray-600">Payoff Total</span>
+                <span className="font-medium text-gray-900">{formatCurrency(payoffTotal)}</span>
+              </div>
+              <div className="flex justify-between px-5 py-3">
+                <span className="text-gray-600">Max Payoff</span>
+                <span className="font-medium text-gray-900">{formatCurrency(maxPayoff)}</span>
               </div>
             </div>
 
@@ -1313,7 +1558,7 @@ export default function ValidatePage() {
               </div>
               <div className="px-5 py-2 bg-blue-50 text-sm font-semibold text-blue-700">Loan Costs</div>
               {[
-                { desc: 'Origination Fee (1%)', amount: Math.round((updatedCashAvailable || originalCashAvailable) * 0.01) },
+                { desc: 'Origination Fee (1%)', amount: Math.round(effectiveSelectedLoanAmount * 0.01) },
                 { desc: 'Appraisal Fee', amount: 500 },
                 { desc: 'Credit Report', amount: 75 },
                 { desc: 'Flood Certification', amount: 15 },
@@ -1321,7 +1566,7 @@ export default function ValidatePage() {
                 { desc: 'Title Insurance (Lender)', amount: 350 },
                 { desc: 'Settlement/Closing Fee', amount: 495 },
                 { desc: 'Recording Fees', amount: 150 },
-                { desc: 'Prepaid Interest (15 days)', amount: Math.round(((updatedCashAvailable || originalCashAvailable) * 0.0799 / 365) * 15) },
+                { desc: 'Prepaid Interest (15 days)', amount: Math.round(((effectiveSelectedLoanAmount * scoreAdjustedQuote.rate / 100) / 365) * 15) },
                 { desc: 'Homeowners Insurance (2 mo)', amount: 300 },
               ].map((item, i) => (
                 <div key={i} className="flex justify-between px-5 py-2.5 text-sm border-t border-gray-100">
@@ -1332,9 +1577,9 @@ export default function ValidatePage() {
               <div className="flex justify-between px-5 py-4 bg-gray-900 text-white font-bold text-lg">
                 <span>Estimated Total</span>
                 <span>${(
-                  Math.round((updatedCashAvailable || originalCashAvailable) * 0.01) +
+                  Math.round(effectiveSelectedLoanAmount * 0.01) +
                   500 + 75 + 15 + 250 + 350 + 495 + 150 +
-                  Math.round(((updatedCashAvailable || originalCashAvailable) * 0.0799 / 365) * 15) +
+                  Math.round(((effectiveSelectedLoanAmount * scoreAdjustedQuote.rate / 100) / 365) * 15) +
                   300
                 ).toLocaleString()}</span>
               </div>
@@ -1352,6 +1597,32 @@ export default function ValidatePage() {
             </button>
           </div>
         )}
+
+          </div>
+
+          <div className="lg:col-span-1">
+            <QuoteBuilder
+              maxAvailable={displayedMaxAvailable || previousQuote.maxAvailable || originalCashAvailable}
+              desiredLoanAmount={effectiveSelectedLoanAmount}
+              rateRange={{ min: scoreAdjustedQuote.rate, max: scoreAdjustedQuote.rate }}
+              monthlyPayment={updatedPayment || scoreAdjustedQuote.monthlyPayment}
+              progress={sidebarProgress}
+              stage="stage2"
+            />
+
+            <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Payoff Total</span>
+                <span className="font-semibold text-gray-900">{formatCurrency(payoffTotal)}</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-gray-500">Max Payoff</span>
+                <span className="font-semibold text-gray-900">{formatCurrency(maxPayoff)}</span>
+              </div>
+              <p className="mt-3 text-xs text-gray-500">Closing costs come out next. For now this updates live as payoff accounts are selected.</p>
+            </div>
+          </div>
+        </div>
 
         {/* Trust footer */}
         <div className="mt-8 text-center">
