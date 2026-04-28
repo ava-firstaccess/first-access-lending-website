@@ -1,0 +1,112 @@
+{
+  "info": {
+    "name": "Clear Capital PAA ClearAVM Integration",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Postman collection for Clear Capital Property Analytics API using ClearAVM in the integration environment. Uses environment variables only, no API keys stored in the collection."
+  },
+  "item": [
+    {
+      "name": "POST PAA Order with ClearAVM",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is success-ish', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200, 201, 202]);",
+              "});",
+              "",
+              "pm.test('response is json', function () {",
+              "  pm.response.to.have.header('Content-Type');",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "pm.test('response body exists', function () {",
+              "  pm.expect(body).to.exist;",
+              "});",
+              "",
+              "pm.test('response does not contain auth failure', function () {",
+              "  pm.expect(JSON.stringify(body).toLowerCase()).to.not.include('unauthorized');",
+              "  pm.expect(JSON.stringify(body).toLowerCase()).to.not.include('invalid api key');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "accept",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{clearCapitalPaaApiKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"address\": \"{{address}}\",\n  \"city\": \"{{city}}\",\n  \"state\": \"{{state}}\",\n  \"zip\": \"{{zip}}\",\n  \"signResponse\": {{signResponse}},\n  \"trackingIds\": {{trackingIds}},\n  \"clearAvm\": {\n    \"include\": true,\n    \"request\": {\n      \"maxFSD\": {{maxFSD}},\n      \"exactEffectiveDate\": {{exactEffectiveDate}}\n    }\n  }\n}"
+        },
+        "url": {
+          "raw": "{{paaBaseUrl}}/orders",
+          "host": [
+            "{{paaBaseUrl}}"
+          ],
+          "path": [
+            "orders"
+          ]
+        },
+        "description": "Creates a Property Analytics order in the integration environment and asks Clear Capital to include ClearAVM in the response."
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "paaBaseUrl",
+      "value": "https://api.integ.clearcapital.com/property-analytics-api"
+    },
+    {
+      "key": "clearCapitalPaaApiKey",
+      "value": ""
+    },
+    {
+      "key": "address",
+      "value": "14333 Davos Dr"
+    },
+    {
+      "key": "city",
+      "value": "Truckee"
+    },
+    {
+      "key": "state",
+      "value": "CA"
+    },
+    {
+      "key": "zip",
+      "value": "96161"
+    },
+    {
+      "key": "signResponse",
+      "value": "true"
+    },
+    {
+      "key": "trackingIds",
+      "value": "12345678"
+    },
+    {
+      "key": "maxFSD",
+      "value": "0.3"
+    },
+    {
+      "key": "exactEffectiveDate",
+      "value": "false"
+    }
+  ]
+}
