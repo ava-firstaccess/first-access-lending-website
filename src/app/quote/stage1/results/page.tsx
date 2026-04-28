@@ -764,7 +764,14 @@ export default function ResultsPage() {
               </svg>
               Call 1-888-885-7789
             </a>
-            <button onClick={() => router.push('/quote/start')} className="text-gray-500 hover:text-gray-700 text-sm font-medium">
+            <button
+              onClick={() => {
+                localStorage.removeItem('stage1-data');
+                localStorage.removeItem('stage2-progress');
+                router.push('/quote/start');
+              }}
+              className="text-gray-500 hover:text-gray-700 text-sm font-medium"
+            >
               Start Over
             </button>
           </div>

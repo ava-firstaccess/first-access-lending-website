@@ -39,8 +39,26 @@ function buildSafeClearCapitalError(message: string, status?: number) {
   return new Error(`${message}${suffix}`);
 }
 
-function normalizeAddressKey(address: string, zipcode?: string, city?: string, state?: string) {
-  const raw = [address || '', zipcode || '', city || '', state || '']
+function normalizeAddressKey(
+  address: string,
+  zipcode?: string,
+  city?: string,
+  state?: string,
+  loanBalance?: number,
+  creditScore?: number,
+  propertyType?: string,
+  desiredLoanAmount?: number,
+) {
+  const raw = [
+    address || '',
+    zipcode || '',
+    city || '',
+    state || '',
+    String(Math.round(Number(loanBalance) || 0)),
+    String(Math.round(Number(creditScore) || 0)),
+    propertyType || '',
+    String(Math.round(Number(desiredLoanAmount) || 0)),
+  ]
     .join('|')
     .toLowerCase()
     .replace(/[^a-z0-9|]/g, ' ')
@@ -292,7 +310,16 @@ export async function POST(req: NextRequest) {
 
     console.log('verify-value request received');
 
-    const addressKey = normalizeAddressKey(address, zipcode, city, state);
+    const addressKey = normalizeAddressKey(
+      address,
+      zipcode,
+      city,
+      state,
+      Number(loanBalance) || 0,
+      Number(creditScore) || 720,
+      String(propertyType || 'Primary'),
+      Number(desiredLoanAmount) || 0,
+    );
     const cached = await getCachedAvmResult(supabase, addressKey);
     if (cached) {
       console.log('verify-value cache hit:', { tier: cached.tier });

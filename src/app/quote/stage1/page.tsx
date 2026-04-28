@@ -279,6 +279,7 @@ export default function Stage1() {
         Object.entries(data).filter(([k]) => !k.startsWith('_'))
       );
       localStorage.setItem('stage1-data', JSON.stringify(stage1Clean));
+      localStorage.removeItem('stage2-progress');
       router.push('/quote/results');
     } else {
       setStep(prev => prev + 1);

@@ -154,7 +154,10 @@ export default function Stage3Page() {
         try {
           const stage1Parsed = stage1Raw ? JSON.parse(stage1Raw) : {};
           const stage2Parsed = stage2Raw ? JSON.parse(stage2Raw) : {};
-          merged = { ...stage1Parsed, ...stage2Parsed };
+          merged = {
+            ...stage2Parsed,
+            ...stage1Parsed,
+          };
 
           if (skipOtp && merged) {
             await bootstrapTestSession(merged);
