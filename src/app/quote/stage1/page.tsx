@@ -143,6 +143,7 @@ export default function Stage1() {
   const currentQuestion = flow[step];
   const totalSteps = flow.length;
   const progress = ((step + 1) / (totalSteps + 1)) * 100; // +1 for results
+  const showPendingQuoteSpinner = quoteLoading || (currentQuestion === 'creditScore' && data.creditScore !== undefined);
 
   // Calculate quote whenever data changes
   useEffect(() => {
@@ -733,7 +734,7 @@ export default function Stage1() {
               monthlyPaymentRange={quote.monthlyPaymentRange}
               progress={progress}
               stage="stage1"
-              loading={quoteLoading}
+              loading={showPendingQuoteSpinner}
             />
           </div>
         </div>
@@ -748,7 +749,7 @@ export default function Stage1() {
             monthlyPaymentRange={quote.monthlyPaymentRange}
             progress={progress}
             stage="stage1"
-            loading={quoteLoading}
+            loading={showPendingQuoteSpinner}
           />
         </div>
 
