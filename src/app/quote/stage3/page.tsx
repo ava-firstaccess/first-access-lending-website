@@ -223,7 +223,10 @@ export default function Stage3Page() {
         }),
       });
 
-      const data: VerifyResult = await res.json();
+      const data: VerifyResult & { error?: string } = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'Unable to verify property value.');
+      }
       setResult(data);
 
       // Update loan amount to new max if it's lower
@@ -669,7 +672,7 @@ export default function Stage3Page() {
             <div className="text-center py-8">
               <div className="text-4xl mb-4">⚠️</div>
               <h2 className="text-xl font-semibold text-gray-900 mb-2">Unable to Verify Automatically</h2>
-              <p className="text-gray-500 mb-6">We couldn&apos;t retrieve automated valuation data for this property, but that&apos;s okay!</p>
+              <p className="text-gray-500 mb-6">{result?.error || "We couldn&apos;t retrieve automated valuation data for this property, but that&apos;s okay!"}</p>
               
               <button
                 onClick={() => setStatus('pre')}
