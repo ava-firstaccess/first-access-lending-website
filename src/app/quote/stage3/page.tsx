@@ -95,6 +95,7 @@ export default function Stage3Page() {
   const [loanAmount, setLoanAmount] = useState<number>(0);
   const [showDisagree, setShowDisagree] = useState(false);
   const [optIn, setOptIn] = useState(false);
+  const skipOtp = process.env.NEXT_PUBLIC_SKIP_OTP === 'true';
 
   useEffect(() => {
     const hydrate = async () => {
@@ -129,6 +130,14 @@ export default function Stage3Page() {
           const stage1Parsed = stage1Raw ? JSON.parse(stage1Raw) : {};
           const stage2Parsed = stage2Raw ? JSON.parse(stage2Raw) : {};
           merged = { ...stage1Parsed, ...stage2Parsed };
+
+          if (skipOtp) {
+            await fetch('/api/auth/test-session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ formData: merged, stage: 'stage2' }),
+            });
+          }
         } catch {
           router.push('/quote/start');
           return;
@@ -147,7 +156,7 @@ export default function Stage3Page() {
     };
 
     void hydrate();
-  }, [router]);
+  }, [router, skipOtp]);
 
   const propertyValue = Number(stage1.propertyValue) || 0;
   const loanBalance = Number(stage1.loanBalance) || 0;
