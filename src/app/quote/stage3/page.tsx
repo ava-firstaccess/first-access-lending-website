@@ -3,6 +3,7 @@
 
 import { useRouter } from 'next/navigation';
 import React, { useState, useEffect, useMemo } from 'react';
+import QuoteBuilder from '@/components/quote/QuoteBuilder';
 
 type VerifyResult = {
   tier: 'estimate' | 'verified' | 'low_confidence' | 'no_data' | 'error';
@@ -307,10 +308,58 @@ export default function Stage3Page() {
   const valueIncreased = valueDiff > 0;
   const newMax = result?.newMaxLoan || 0;
   const oldMax = Number(stage1.verifiedMaxAvailable || stage1.maxAvailable || desiredLoanAmount || 0);
+  const isAdjustmentFailState = status === 'done' && !!result && (result.tier === 'estimate' || !!result.needsHuman) && !valueIncreased;
+  const showHumanHelpCard = isAdjustmentFailState || status === 'error';
+  const sidebarProgress = status === 'done' || status === 'error' ? 55 : status === 'loading' ? 45 : 35;
+
+  const renderHumanHelpCard = (suffix: string) => (
+    <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+      <h3 className="text-xl font-bold text-gray-900 mb-2">Don&apos;t give up!</h3>
+      <p className="text-sm text-gray-600 mb-3 leading-relaxed">
+        <strong className="text-green-700">89% of our 2nd liens don&apos;t require an appraisal.</strong> AI can only do so much,
+        but our team has additional tools to maximize your value and find the right solution.
+      </p>
+      <p className="text-sm text-gray-600 mb-5 leading-relaxed">
+        Let our human team take a closer look.
+      </p>
+
+      <div className="flex items-start gap-3 text-left mb-5 bg-white rounded-lg p-4">
+        <input
+          type="checkbox"
+          id={`marketing-opt-in-${suffix}`}
+          checked={optIn}
+          onChange={(e) => setOptIn(e.target.checked)}
+          className="mt-1 flex-shrink-0 h-4 w-4 text-blue-600 rounded"
+        />
+        <label htmlFor={`marketing-opt-in-${suffix}`} className="text-[11px] text-gray-500 leading-relaxed cursor-pointer">
+          By submitting the inquiry, I expressly consent to receive communications via automatic telephone dialing system or by artificial/pre-recorded message, email, or by text message from First Access Lending or their agents at the telephone number above (even if my number is currently listed on any state, federal, local, or corporate Do Not Call list) including my wireless number if provided, for the purpose of receiving information on mortgage products and services. Message frequency varies. Carrier message and data rates may apply. Reply HELP to a text message for help. Reply STOP to a text message to opt out. I understand that my consent is not required as a condition of purchasing any goods or services and that I may revoke my consent at any time by email to info@firstaccesslending.com or calling 1-855-605-8811. I also acknowledge that I have read and agree to the Privacy Policy and Terms and Condition. For help or additional info contact info@firstaccesslending.com.
+        </label>
+      </div>
+
+      <a
+        href={optIn ? 'https://calendly.com/firstaccesslending/getaccess' : '#'}
+        onClick={(e) => {
+          if (!optIn) {
+            e.preventDefault();
+            alert('Please check the opt-in box to continue');
+          }
+        }}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white transition-all ${
+          optIn
+            ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-xl cursor-pointer'
+            : 'bg-gray-300 cursor-not-allowed'
+        }`}
+      >
+        📞 Schedule a Call with the Team
+      </a>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50 py-8">
-      <div className="container mx-auto px-4 max-w-3xl">
+      <div className="container mx-auto px-4 max-w-7xl">
 
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Confirm Your Property Value</h1>
@@ -345,7 +394,9 @@ export default function Stage3Page() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12">
+        <div className="grid gap-8 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12">
 
           {/* ══════════════════════════════════════ */}
           {/* PRE-VALIDATION STATE */}
@@ -559,36 +610,40 @@ export default function Stage3Page() {
                 </div>
               )}
 
-              {/* Rate comparison */}
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <div className="bg-gray-100 rounded-xl p-4 text-center border border-gray-200">
-                  <div className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Previous Rate</div>
-                  <div className="text-xl font-bold text-gray-400 line-through">{previousRate.toFixed(2)}%</div>
-                </div>
-                <div className={`rounded-xl p-4 text-center border-2 ${
-                  updatedRate <= previousRate
-                    ? 'bg-green-50 border-green-300'
-                    : 'bg-amber-50 border-amber-300'
-                }`}>
-                  <div className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Updated Rate</div>
-                  <div className={`text-xl font-bold ${updatedRate <= previousRate ? 'text-green-700' : 'text-amber-700'}`}>
-                    {updatedRate.toFixed(2)}%
+              {!isAdjustmentFailState && (
+                <>
+                  {/* Rate comparison */}
+                  <div className="grid grid-cols-2 gap-3 mb-6">
+                    <div className="bg-gray-100 rounded-xl p-4 text-center border border-gray-200">
+                      <div className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Previous Rate</div>
+                      <div className="text-xl font-bold text-gray-400 line-through">{previousRate.toFixed(2)}%</div>
+                    </div>
+                    <div className={`rounded-xl p-4 text-center border-2 ${
+                      updatedRate <= previousRate
+                        ? 'bg-green-50 border-green-300'
+                        : 'bg-amber-50 border-amber-300'
+                    }`}>
+                      <div className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Updated Rate</div>
+                      <div className={`text-xl font-bold ${updatedRate <= previousRate ? 'text-green-700' : 'text-amber-700'}`}>
+                        {updatedRate.toFixed(2)}%
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <div className="bg-gray-100 rounded-xl p-4 text-center border border-gray-200">
-                  <div className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Previous Payment</div>
-                  <div className="text-xl font-bold text-gray-400 line-through">${originalMonthlyPayment.toLocaleString()}</div>
-                </div>
-                <div className={`rounded-xl p-4 text-center border-2 ${monthlyPayment <= originalMonthlyPayment ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300'}`}>
-                  <div className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Updated Payment</div>
-                  <div className={`text-xl font-bold ${monthlyPayment <= originalMonthlyPayment ? 'text-green-700' : 'text-amber-700'}`}>
-                    ${monthlyPayment.toLocaleString()}
+                  <div className="grid grid-cols-2 gap-3 mb-6">
+                    <div className="bg-gray-100 rounded-xl p-4 text-center border border-gray-200">
+                      <div className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Previous Payment</div>
+                      <div className="text-xl font-bold text-gray-400 line-through">${originalMonthlyPayment.toLocaleString()}</div>
+                    </div>
+                    <div className={`rounded-xl p-4 text-center border-2 ${monthlyPayment <= originalMonthlyPayment ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300'}`}>
+                      <div className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Updated Payment</div>
+                      <div className={`text-xl font-bold ${monthlyPayment <= originalMonthlyPayment ? 'text-green-700' : 'text-amber-700'}`}>
+                        ${monthlyPayment.toLocaleString()}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                </>
+              )}
 
               {/* Loan amount slider (for verified/estimate tiers) */}
               {newMax > 0 && (result.tier === 'verified' || result.tier === 'estimate' || result.tier === 'low_confidence') && (
@@ -633,61 +688,22 @@ export default function Stage3Page() {
               )}
 
               {/* ══════════════════════════════════════ */}
-              {/* "I DON'T AGREE" / EXIT RAMP */}
+              {/* HUMAN HELP / EXIT RAMP */}
               {/* ══════════════════════════════════════ */}
-              <div className="border-t border-gray-100 pt-4 mt-4">
-                <button
-                  onClick={() => setShowDisagree(!showDisagree)}
-                  className="w-full text-center text-sm text-gray-500 hover:text-gray-700 underline py-2"
-                >
-                  {showDisagree ? 'Hide options' : "I don't agree with this value"}
-                </button>
+              {showHumanHelpCard ? (
+                renderHumanHelpCard('value-help')
+              ) : (
+                <div className="border-t border-gray-100 pt-4 mt-4">
+                  <button
+                    onClick={() => setShowDisagree(!showDisagree)}
+                    className="w-full text-center text-sm text-gray-500 hover:text-gray-700 underline py-2"
+                  >
+                    {showDisagree ? 'Hide options' : "I don't agree with this value"}
+                  </button>
 
-                {showDisagree && (
-                  <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">AI can only do so much!</h3>
-                    <p className="text-sm text-gray-600 mb-3 leading-relaxed">
-                      Remember, <strong className="text-green-700">89% of our 2nd liens close without an appraisal</strong>.
-                      Our expert loan officers have additional tools and access to maximize your home&apos;s value and find the right solution.
-                    </p>
-                    <p className="text-sm text-gray-600 mb-5 leading-relaxed">
-                      Our human team can problem solve — let us take a closer look.
-                    </p>
-
-                    <div className="flex items-start gap-3 text-left mb-5 bg-white rounded-lg p-4">
-                      <input
-                        type="checkbox"
-                        id="marketing-opt-in"
-                        checked={optIn}
-                        onChange={(e) => setOptIn(e.target.checked)}
-                        className="mt-1 flex-shrink-0 h-4 w-4 text-blue-600 rounded"
-                      />
-                      <label htmlFor="marketing-opt-in" className="text-[11px] text-gray-500 leading-relaxed cursor-pointer">
-                        By submitting the inquiry, I expressly consent to receive communications via automatic telephone dialing system or by artificial/pre-recorded message, email, or by text message from First Access Lending or their agents at the telephone number above (even if my number is currently listed on any state, federal, local, or corporate Do Not Call list) including my wireless number if provided, for the purpose of receiving information on mortgage products and services. Message frequency varies. Carrier message and data rates may apply. Reply HELP to a text message for help. Reply STOP to a text message to opt out. I understand that my consent is not required as a condition of purchasing any goods or services and that I may revoke my consent at any time by email to info@firstaccesslending.com or calling 1-855-605-8811. I also acknowledge that I have read and agree to the Privacy Policy and Terms and Condition. For help or additional info contact info@firstaccesslending.com.
-                      </label>
-                    </div>
-
-                    <a
-                      href={optIn ? 'https://calendly.com/firstaccesslending/getaccess' : '#'}
-                      onClick={(e) => {
-                        if (!optIn) {
-                          e.preventDefault();
-                          alert('Please check the opt-in box to continue');
-                        }
-                      }}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white transition-all ${
-                        optIn
-                          ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-xl cursor-pointer'
-                          : 'bg-gray-300 cursor-not-allowed'
-                      }`}
-                    >
-                      📞 Schedule a Call with the Team
-                    </a>
-                  </div>
-                )}
-              </div>
+                  {showDisagree && renderHumanHelpCard('disagree')}
+                </div>
+              )}
             </>
           )}
 
@@ -707,48 +723,7 @@ export default function Stage3Page() {
                 Try Again
               </button>
 
-              <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
-                <h3 className="text-xl font-bold text-gray-900 mb-2">AI can only do so much!</h3>
-                <p className="text-sm text-gray-600 mb-3 leading-relaxed">
-                  Remember, <strong className="text-green-700">89% of our 2nd liens close without an appraisal</strong>.
-                  Our expert loan officers have additional tools and access to maximize your home&apos;s value and find the right solution.
-                </p>
-                <p className="text-sm text-gray-600 mb-5 leading-relaxed">
-                  Our human team can problem solve — let us take a closer look.
-                </p>
-
-                <div className="flex items-start gap-3 text-left mb-5 bg-white rounded-lg p-4">
-                  <input
-                    type="checkbox"
-                    id="marketing-opt-in-error"
-                    checked={optIn}
-                    onChange={(e) => setOptIn(e.target.checked)}
-                    className="mt-1 flex-shrink-0 h-4 w-4 text-blue-600 rounded"
-                  />
-                  <label htmlFor="marketing-opt-in-error" className="text-[11px] text-gray-500 leading-relaxed cursor-pointer">
-                    By submitting the inquiry, I expressly consent to receive communications via automatic telephone dialing system or by artificial/pre-recorded message, email, or by text message from First Access Lending or their agents at the telephone number above (even if my number is currently listed on any state, federal, local, or corporate Do Not Call list) including my wireless number if provided, for the purpose of receiving information on mortgage products and services. Message frequency varies. Carrier message and data rates may apply. Reply HELP to a text message for help. Reply STOP to a text message to opt out. I understand that my consent is not required as a condition of purchasing any goods or services and that I may revoke my consent at any time by email to info@firstaccesslending.com or calling 1-855-605-8811. I also acknowledge that I have read and agree to the Privacy Policy and Terms and Condition. For help or additional info contact info@firstaccesslending.com.
-                  </label>
-                </div>
-
-                <a
-                  href={optIn ? 'https://calendly.com/firstaccesslending/getaccess' : '#'}
-                  onClick={(e) => {
-                    if (!optIn) {
-                      e.preventDefault();
-                      alert('Please check the opt-in box to continue');
-                    }
-                  }}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white transition-all ${
-                    optIn
-                      ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-xl cursor-pointer'
-                      : 'bg-gray-300 cursor-not-allowed'
-                  }`}
-                >
-                  📞 Schedule a Call with the Team
-                </a>
-              </div>
+              {renderHumanHelpCard('error')}
             </div>
           )}
 
@@ -778,6 +753,19 @@ export default function Stage3Page() {
             may differ. Final loan terms depend on verified credit, income, and property value.
             Not a commitment to lend. NMLS #1988098. Equal Housing Lender.
           </p>
+            </div>
+          </div>
+
+          <div className="lg:col-span-1">
+            <QuoteBuilder
+              maxAvailable={newMax || oldMax || desiredLoanAmount}
+              desiredLoanAmount={loanAmount || desiredLoanAmount}
+              rateRange={{ min: updatedRate, max: updatedRate }}
+              monthlyPayment={monthlyPayment}
+              progress={sidebarProgress}
+              stage="stage2"
+            />
+          </div>
         </div>
       </div>
     </div>
