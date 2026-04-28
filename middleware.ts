@@ -16,6 +16,8 @@ const SITE_GATE_ALLOWED_PREFIXES = [
   '/calculator',
   '/calc-preview-9d4f2a8e',
   '/api/site-access-auth',
+  '/api/current-rate',
+  '/api/credit-card-average-rate',
   '/_next',
   '/favicon.ico',
   '/robots.txt',
