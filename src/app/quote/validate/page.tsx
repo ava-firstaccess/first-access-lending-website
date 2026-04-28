@@ -14,7 +14,7 @@ import {
   type MeridianLinkParsedReport,
 } from '@/lib/meridianlink-report';
 
-type ValidationStep = 'credit' | 'mortgages' | 'updated-quote';
+type ValidationStep = 'credit' | 'summary' | 'mortgages' | 'updated-quote';
 
 // Mock data types (will be replaced with API responses)
 interface AVMResult {
@@ -55,6 +55,15 @@ interface CreditApiMetadata {
   };
 }
 
+interface CreditCardAverageRatePayload {
+  rate: number | null;
+  averageLabel?: string | null;
+  cached?: boolean;
+  cacheDate?: string | null;
+  observedDate?: string | null;
+  error?: string | null;
+}
+
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -83,6 +92,11 @@ function mapLiabilityToMortgage(liability: MeridianLinkLiabilitySummary): Mortga
     openDate: liability.openedDate || '',
     matchedPropertyIndex: null,
   };
+}
+
+function isCreditCardLiability(liability: MeridianLinkLiabilitySummary) {
+  const haystack = `${liability.accountType} ${liability.loanType} ${liability.termsDescription} ${liability.creditorName}`.toLowerCase();
+  return /credit card|revolving|visa|mastercard|amex|american express|discover/.test(haystack);
 }
 
 interface ProdTestBorrowerForm {
@@ -140,6 +154,8 @@ export default function ValidatePage() {
   const [prodTestXmlPreview, setProdTestXmlPreview] = useState<string | null>(null);
   const [parsedProdTestReport, setParsedProdTestReport] = useState<MeridianLinkParsedReport | null>(null);
   const [prodTestStatusMessage, setProdTestStatusMessage] = useState<string | null>(null);
+  const [creditCardAverageRate, setCreditCardAverageRate] = useState<CreditCardAverageRatePayload | null>(null);
+  const [creditCardRateEstimate, setCreditCardRateEstimate] = useState('');
 
   // Updated numbers
   const [updatedCashAvailable] = useState<number | null>(null);
@@ -152,25 +168,38 @@ export default function ValidatePage() {
   useEffect(() => {
     const loadCreditMetadata = async () => {
       try {
-        const res = await fetch('/api/credit/softpull');
-        if (!res.ok) return;
-        const payload = await res.json();
-        setApiMetadata(payload);
-        if (payload?.approvedProdTestBorrower) {
-          setProdTestBorrower((prev) => ({
-            firstName: payload.approvedProdTestBorrower.firstName || prev.firstName,
-            lastName: payload.approvedProdTestBorrower.lastName || prev.lastName,
-            middleName: payload.approvedProdTestBorrower.middleName || prev.middleName,
-            suffixName: payload.approvedProdTestBorrower.suffixName || prev.suffixName,
-            dob: payload.approvedProdTestBorrower.dob || prev.dob,
-            ssn: prev.ssn,
-            address: payload.approvedProdTestBorrower.address || prev.address,
-            city: payload.approvedProdTestBorrower.city || prev.city,
-            state: payload.approvedProdTestBorrower.state || prev.state,
-            zip: payload.approvedProdTestBorrower.zip || prev.zip,
-            preferredResponseFormat:
-              payload.approvedProdTestBorrower.preferredResponseFormat || prev.preferredResponseFormat,
-          }));
+        const [creditRes, averageRateRes] = await Promise.all([
+          fetch('/api/credit/softpull'),
+          fetch('/api/credit-card-average-rate'),
+        ]);
+
+        if (creditRes.ok) {
+          const payload = await creditRes.json();
+          setApiMetadata(payload);
+          if (payload?.approvedProdTestBorrower) {
+            setProdTestBorrower((prev) => ({
+              firstName: payload.approvedProdTestBorrower.firstName || prev.firstName,
+              lastName: payload.approvedProdTestBorrower.lastName || prev.lastName,
+              middleName: payload.approvedProdTestBorrower.middleName || prev.middleName,
+              suffixName: payload.approvedProdTestBorrower.suffixName || prev.suffixName,
+              dob: payload.approvedProdTestBorrower.dob || prev.dob,
+              ssn: prev.ssn,
+              address: payload.approvedProdTestBorrower.address || prev.address,
+              city: payload.approvedProdTestBorrower.city || prev.city,
+              state: payload.approvedProdTestBorrower.state || prev.state,
+              zip: payload.approvedProdTestBorrower.zip || prev.zip,
+              preferredResponseFormat:
+                payload.approvedProdTestBorrower.preferredResponseFormat || prev.preferredResponseFormat,
+            }));
+          }
+        }
+
+        if (averageRateRes.ok) {
+          const averagePayload: CreditCardAverageRatePayload = await averageRateRes.json();
+          setCreditCardAverageRate(averagePayload);
+          if (averagePayload?.rate !== null && averagePayload?.rate !== undefined) {
+            setCreditCardRateEstimate(String(averagePayload.rate.toFixed(2)));
+          }
         }
       } catch (err) {
         console.error('Failed to load credit metadata', err);
@@ -248,7 +277,7 @@ export default function ValidatePage() {
     {
       label: 'Soft Credit Check',
       icon: '📊',
-      state: (currentStep === 'credit' || currentStep === 'mortgages') ? 'current' as const : 'done' as const,
+      state: (currentStep === 'credit' || currentStep === 'summary' || currentStep === 'mortgages') ? 'current' as const : 'done' as const,
     },
     {
       label: 'Update Quote',
@@ -268,6 +297,10 @@ export default function ValidatePage() {
       prodTestBorrower.state &&
       prodTestBorrower.zip
   );
+  const creditCardLiabilities = parsedProdTestReport?.liabilities.filter(isCreditCardLiability) || [];
+  const totalLiabilityBalance = (parsedProdTestReport?.liabilities || []).reduce((sum, liability) => sum + (liability.unpaidBalance || 0), 0);
+  const totalCreditCardBalance = creditCardLiabilities.reduce((sum, liability) => sum + (liability.unpaidBalance || 0), 0);
+  const totalMortgageBalance = mortgages.reduce((sum, mortgage) => sum + (mortgage.balance || 0), 0);
 
   const goToStep = (step: ValidationStep) => {
     setCurrentStep(step);
@@ -339,7 +372,7 @@ export default function ValidatePage() {
         setProdTestStatusMessage(String(payload?.reportStatusMessage || '').trim() || null);
         setCreditScore(representativeScore);
         setMortgages(mortgageLiabilities.map(mapLiabilityToMortgage));
-        goToStep('mortgages');
+        goToStep('summary');
         return;
       }
 
@@ -357,7 +390,7 @@ export default function ValidatePage() {
             }))
           : []
       );
-      goToStep('mortgages');
+      goToStep('summary');
     } catch (error) {
       setCreditError(error instanceof Error ? error.message : 'Soft credit check failed.');
     } finally {
@@ -659,6 +692,114 @@ export default function ValidatePage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════
+            STEP 2.5: CREDIT SUMMARY
+        ═══════════════════════════════════════════════ */}
+        {currentStep === 'summary' && (
+          <div className="bg-white rounded-2xl shadow-md p-8">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 rounded-full mb-4">
+                <span className="text-3xl">🧾</span>
+              </div>
+              <div className="inline-flex items-center rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 mb-4">
+                Credit summary before quote update
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Quick Credit Summary</h2>
+              <p className="text-gray-600">
+                We pulled the report successfully. Before we estimate revolving debt costs, please confirm an average credit card rate.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Representative Score</p>
+                <p className="mt-2 text-2xl font-bold text-gray-900">{creditScore ?? '—'}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Mortgage Liens</p>
+                <p className="mt-2 text-2xl font-bold text-gray-900">{mortgages.length}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Credit Cards</p>
+                <p className="mt-2 text-2xl font-bold text-gray-900">{creditCardLiabilities.length}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Total Reported Debt</p>
+                <p className="mt-2 text-2xl font-bold text-gray-900">{formatCurrency(totalLiabilityBalance)}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+              <div className="rounded-xl border border-gray-200 p-5">
+                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Mortgage balances found</p>
+                <p className="mt-2 text-3xl font-bold text-gray-900">{formatCurrency(totalMortgageBalance)}</p>
+                <p className="mt-2 text-sm text-gray-500">These are the liens we will ask the borrower to match to the right property next.</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 p-5">
+                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Credit card balances found</p>
+                <p className="mt-2 text-3xl font-bold text-gray-900">{formatCurrency(totalCreditCardBalance)}</p>
+                <p className="mt-2 text-sm text-gray-500">Credit cards usually report balances, but not the actual interest rate needed for a payment estimate.</p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 mb-8">
+              <h3 className="text-lg font-semibold text-amber-900 mb-3">Estimated average credit card rate</h3>
+              <p className="text-sm text-amber-900 leading-6 mb-4">
+                Credit cards don&apos;t report their interest rate. In order for us to provide an interest estimation for your cards,
+                please indicate your estimated average credit card rate. The current FRED average is{' '}
+                <span className="font-semibold">{creditCardAverageRate?.averageLabel || '21.52%'}</span>, and that&apos;s often a safe number to use.
+              </p>
+              <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Estimated average credit card rate</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max="99"
+                      step="0.01"
+                      value={creditCardRateEstimate}
+                      onChange={(e) => setCreditCardRateEstimate(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 pr-12 text-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                    <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-gray-500">%</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (creditCardAverageRate?.rate !== null && creditCardAverageRate?.rate !== undefined) {
+                      setCreditCardRateEstimate(String(creditCardAverageRate.rate.toFixed(2)));
+                    }
+                  }}
+                  className="rounded-xl border border-amber-300 bg-white px-4 py-3 text-sm font-semibold text-amber-900 hover:bg-amber-100"
+                >
+                  Use FRED average
+                </button>
+              </div>
+              <p className="mt-3 text-xs text-amber-800">
+                Source: FRED TERMCBCCINTNS{creditCardAverageRate?.observedDate ? `, observed ${creditCardAverageRate.observedDate}` : ''}
+                {creditCardAverageRate?.cached !== undefined ? `, ${creditCardAverageRate.cached ? 'served from daily cache' : 'fetched fresh today'}` : ''}.
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                const nextFormData = {
+                  ...formData,
+                  estimatedCreditCardAverageRate: creditCardRateEstimate ? Number(creditCardRateEstimate) : null,
+                };
+                setFormData(nextFormData);
+                localStorage.setItem('stage2-progress', JSON.stringify(nextFormData));
+                goToStep('mortgages');
+              }}
+              className="w-full py-4 px-6 rounded-xl font-semibold text-lg transition-all bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg"
+            >
+              Continue to Mortgage Review →
+            </button>
           </div>
         )}
 
