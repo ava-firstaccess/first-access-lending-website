@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const auth = await getApplicationBySessionToken(sessionToken, 'id');
+    const auth = await getApplicationBySessionToken(sessionToken, 'id, session_expires_at');
     if ('response' in auth) return auth.response;
     const { supabase, app } = auth;
     const applicationId = typeof app?.id === 'string' ? app.id : null;
