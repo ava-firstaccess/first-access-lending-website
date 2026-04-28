@@ -13,6 +13,7 @@ const PRICER_ALLOWED_PREFIXES = [
 ];
 const SITE_GATE_ALLOWED_PREFIXES = [
   '/preview-access',
+  '/calculator',
   '/api/site-access-auth',
   '/_next',
   '/favicon.ico',
