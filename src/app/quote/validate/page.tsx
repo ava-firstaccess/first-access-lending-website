@@ -14,7 +14,7 @@ import {
   type MeridianLinkParsedReport,
 } from '@/lib/meridianlink-report';
 
-type ValidationStep = 'credit' | 'summary' | 'mortgages' | 'updated-quote';
+type ValidationStep = 'credit' | 'mortgages' | 'updated-quote';
 
 // Mock data types (will be replaced with API responses)
 interface AVMResult {
@@ -157,6 +157,7 @@ export default function ValidatePage() {
   const [prodTestStatusMessage, setProdTestStatusMessage] = useState<string | null>(null);
   const [creditCardAverageRate, setCreditCardAverageRate] = useState<CreditCardAverageRatePayload | null>(null);
   const [creditCardRateEstimate, setCreditCardRateEstimate] = useState('');
+  const [showCreditCardRatePrompt, setShowCreditCardRatePrompt] = useState(false);
 
   // Updated numbers
   const [updatedCashAvailable] = useState<number | null>(null);
@@ -294,7 +295,7 @@ export default function ValidatePage() {
     {
       label: 'Soft Credit Check',
       icon: '📊',
-      state: (currentStep === 'credit' || currentStep === 'mortgages' || currentStep === 'summary') ? 'current' as const : 'done' as const,
+      state: (currentStep === 'credit' || currentStep === 'mortgages') ? 'current' as const : 'done' as const,
     },
     {
       label: 'Update Quote',
@@ -315,10 +316,6 @@ export default function ValidatePage() {
       prodTestBorrower.state &&
       prodTestBorrower.zip
   );
-  const creditCardLiabilities = parsedProdTestReport?.liabilities.filter(isCreditCardLiability) || [];
-  const totalLiabilityBalance = (parsedProdTestReport?.liabilities || []).reduce((sum, liability) => sum + (liability.unpaidBalance || 0), 0);
-  const totalCreditCardBalance = creditCardLiabilities.reduce((sum, liability) => sum + (liability.unpaidBalance || 0), 0);
-  const totalMortgageBalance = mortgages.reduce((sum, mortgage) => sum + (mortgage.balance || 0), 0);
   const parsedEstimatedCreditCardRate = Number(creditCardRateEstimate);
   const hasEstimatedCreditCardRate = creditCardRateEstimate.trim().length > 0 && Number.isFinite(parsedEstimatedCreditCardRate);
 
@@ -353,7 +350,8 @@ export default function ValidatePage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleCreditPull = async () => {
+  const executeCreditPull = async () => {
+    setShowCreditCardRatePrompt(false);
     setLoading(true);
     setCreditError(null);
     setProdTestResult(null);
@@ -418,7 +416,7 @@ export default function ValidatePage() {
         setProdTestStatusMessage(String(payload?.reportStatusMessage || '').trim() || null);
         setCreditScore(representativeScore);
         setMortgages(mortgageLiabilities.map(mapLiabilityToMortgage));
-        goToStep(hasEstimatedCreditCardRate ? 'mortgages' : 'summary');
+        goToStep('mortgages');
         return;
       }
 
@@ -436,12 +434,22 @@ export default function ValidatePage() {
             }))
           : []
       );
-      goToStep(hasEstimatedCreditCardRate ? 'mortgages' : 'summary');
+      goToStep('mortgages');
     } catch (error) {
       setCreditError(error instanceof Error ? error.message : 'Soft credit check failed.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCreditPull = async () => {
+    if (!hasEstimatedCreditCardRate) {
+      setShowCreditCardRatePrompt(true);
+      return;
+    }
+
+    await persistEstimatedCreditCardRate(parsedEstimatedCreditCardRate);
+    await executeCreditPull();
   };
 
   const handleMortgageMatch = (mortgageId: string, propertyIndex: number | null) => {
@@ -741,121 +749,16 @@ export default function ValidatePage() {
           </div>
         )}
 
-        {/* ═══════════════════════════════════════════════
-            STEP 2.5: CREDIT SUMMARY
-        ═══════════════════════════════════════════════ */}
-        {currentStep === 'summary' && (
-          <div className="bg-white rounded-2xl shadow-md p-8">
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 rounded-full mb-4">
-                <span className="text-3xl">🧾</span>
-              </div>
-              <div className="inline-flex items-center rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 mb-4">
-                Credit summary before quote update
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Quick Credit Summary</h2>
-              <p className="text-gray-600">
-                We pulled the report successfully. Before we estimate revolving debt costs, please confirm an average credit card rate.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Representative Score</p>
-                <p className="mt-2 text-2xl font-bold text-gray-900">{creditScore ?? '—'}</p>
-              </div>
-              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Mortgage Liens</p>
-                <p className="mt-2 text-2xl font-bold text-gray-900">{mortgages.length}</p>
-              </div>
-              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Credit Cards</p>
-                <p className="mt-2 text-2xl font-bold text-gray-900">{creditCardLiabilities.length}</p>
-              </div>
-              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Total Reported Debt</p>
-                <p className="mt-2 text-2xl font-bold text-gray-900">{formatCurrency(totalLiabilityBalance)}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-              <div className="rounded-xl border border-gray-200 p-5">
-                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Mortgage balances found</p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">{formatCurrency(totalMortgageBalance)}</p>
-                <p className="mt-2 text-sm text-gray-500">These are the liens we will ask the borrower to match to the right property next.</p>
-              </div>
-              <div className="rounded-xl border border-gray-200 p-5">
-                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Credit card balances found</p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">{formatCurrency(totalCreditCardBalance)}</p>
-                <p className="mt-2 text-sm text-gray-500">Credit cards usually report balances, but not the actual interest rate needed for a payment estimate.</p>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 mb-8">
-              <h3 className="text-lg font-semibold text-amber-900 mb-3">Estimated average credit card rate</h3>
-              <p className="text-sm text-amber-900 leading-6 mb-4">
-                Credit cards don&apos;t report their interest rate. In order for us to provide an interest estimation for your cards,
-                please indicate your estimated average credit card rate. The current FRED average is{' '}
-                <span className="font-semibold">{creditCardAverageRate?.averageLabel || '21.52%'}</span>, and that&apos;s often a safe number to use.
-              </p>
-              <div className="flex flex-col gap-3 md:flex-row md:items-end">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Estimated average credit card rate</label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="0"
-                      max="99"
-                      step="0.01"
-                      value={creditCardRateEstimate}
-                      onChange={(e) => setCreditCardRateEstimate(e.target.value)}
-                      className="w-full rounded-xl border border-gray-300 px-4 py-3 pr-12 text-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    />
-                    <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-gray-500">%</span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (creditCardAverageRate?.rate !== null && creditCardAverageRate?.rate !== undefined) {
-                      setCreditCardRateEstimate(String(creditCardAverageRate.rate.toFixed(2)));
-                    }
-                  }}
-                  className="rounded-xl border border-amber-300 bg-white px-4 py-3 text-sm font-semibold text-amber-900 hover:bg-amber-100"
-                >
-                  Use FRED average
-                </button>
-              </div>
-              <p className="mt-3 text-xs text-amber-800">
-                Source: FRED TERMCBCCINTNS{creditCardAverageRate?.observedDate ? `, observed ${creditCardAverageRate.observedDate}` : ''}
-                {creditCardAverageRate?.cached !== undefined ? `, ${creditCardAverageRate.cached ? 'served from daily cache' : 'fetched fresh today'}` : ''}.
-              </p>
-            </div>
-
-            <button
-              onClick={async () => {
-                if (hasEstimatedCreditCardRate) {
-                  await persistEstimatedCreditCardRate(parsedEstimatedCreditCardRate);
-                }
-                goToStep('mortgages');
-              }}
-              className="w-full py-4 px-6 rounded-xl font-semibold text-lg transition-all bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg"
-            >
-              Continue to Mortgage Review →
-            </button>
-          </div>
-        )}
-
-        {loading && (
+        {showCreditCardRatePrompt && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4">
             <div className="w-full max-w-2xl rounded-3xl bg-white p-8 shadow-2xl">
               <div className="flex items-start gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-2xl">⏳</div>
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-2xl">💳</div>
                 <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-gray-900">While we load your credit report...</h3>
+                  <h3 className="text-2xl font-bold text-gray-900">One quick question before we continue</h3>
                   <p className="mt-2 text-gray-600">
-                    Credit cards don&apos;t report their interest rate. To help us estimate those payments more accurately,
-                    please enter your estimated average credit card rate now.
+                    Credit cards don&apos;t report their interest rate. To estimate those payments more accurately,
+                    please choose your estimated average credit card rate before we run credit.
                   </p>
                 </div>
               </div>
@@ -897,18 +800,48 @@ export default function ValidatePage() {
                 </div>
 
                 <p className="mt-3 text-xs text-amber-800">
-                  We&apos;ll save this to the application automatically.
+                  We&apos;ll save this to the application before starting the credit pull.
                   {creditCardAverageRate?.observedDate ? ` FRED observed date: ${creditCardAverageRate.observedDate}.` : ''}
                   {creditCardAverageRate?.cached !== undefined ? ` ${creditCardAverageRate.cached ? 'Served from daily cache.' : 'Fetched fresh today.'}` : ''}
                 </p>
               </div>
 
-              <div className="mt-6 flex items-center gap-3 text-sm text-gray-500">
-                <svg className="h-5 w-5 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none">
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCreditCardRatePrompt(false)}
+                  className="rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={!hasEstimatedCreditCardRate}
+                  onClick={async () => {
+                    await persistEstimatedCreditCardRate(parsedEstimatedCreditCardRate);
+                    await executeCreditPull();
+                  }}
+                  className={`rounded-xl px-4 py-3 text-sm font-semibold text-white ${hasEstimatedCreditCardRate ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'}`}
+                >
+                  Save and continue
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {loading && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4">
+            <div className="w-full max-w-lg rounded-3xl bg-white p-8 shadow-2xl">
+              <div className="flex items-center gap-4">
+                <svg className="h-8 w-8 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                <span>{isMeridianLinkProdTest ? 'Submitting MeridianLink test and waiting for the report...' : 'Pulling credit report...'}</span>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Loading credit report</h3>
+                  <p className="mt-1 text-sm text-gray-600">{isMeridianLinkProdTest ? 'Submitting MeridianLink test and waiting for the report...' : 'Pulling credit report...'}</p>
+                </div>
               </div>
             </div>
           </div>
