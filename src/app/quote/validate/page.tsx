@@ -4,7 +4,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { SSNField } from '@/components/quote/FormField';
 import {
   getRepresentativeMeridianLinkScore,
@@ -117,6 +117,7 @@ type QuoteFormData = Record<string, any>;
 
 export default function ValidatePage() {
   const router = useRouter();
+  const pathname = usePathname();
   const [currentStep, setCurrentStep] = useState<ValidationStep>('credit');
   const [loading, setLoading] = useState(false);
 
@@ -303,7 +304,8 @@ export default function ValidatePage() {
     { label: 'Finalize Details', icon: '📝', state: 'upcoming' as const },
   ];
   const hasCoBorrower = formData['Borrower - Has Co-Borrower'] === 'Yes';
-  const isMeridianLinkProdTest = (apiMetadata?.provider || '').toLowerCase() === 'meridianlink';
+  const isDedicatedSoftCreditPage = pathname === '/quote/soft-credit';
+  const isMeridianLinkProdTest = isDedicatedSoftCreditPage || (apiMetadata?.provider || '').toLowerCase() === 'meridianlink';
   const prodTestRequiredReady = Boolean(
     prodTestBorrower.firstName &&
       prodTestBorrower.lastName &&
