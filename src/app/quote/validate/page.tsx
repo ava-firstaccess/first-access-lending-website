@@ -64,6 +64,13 @@ interface CreditCardAverageRatePayload {
   error?: string | null;
 }
 
+interface LiabilityActionState {
+  resolution: 'payoff' | 'exclude' | null;
+  excludeReason: '' | 'Already paid off' | 'Someone else pays this' | "I don't recognize this account" | 'Other';
+  excludeExplanation: string;
+  manualRate: string;
+}
+
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -79,7 +86,7 @@ function formatDate(value: string | null | undefined) {
   if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
 }
 
 function mapLiabilityToMortgage(liability: MeridianLinkLiabilitySummary): Mortgage {
@@ -111,7 +118,7 @@ function isOpenLiability(liability: MeridianLinkLiabilitySummary) {
 
 function isCreditCardLiability(liability: MeridianLinkLiabilitySummary) {
   const haystack = `${liability.accountType} ${liability.loanType} ${liability.termsDescription} ${liability.creditorName}`.toLowerCase();
-  return /credit card|revolving|visa|mastercard|amex|american express|discover/.test(haystack);
+  return /credit\s*card|creditcard|revolving|visa|master\s*card|mastercard|amex|american\s*express|discover/.test(haystack);
 }
 
 function isInstallmentOrAutoLiability(liability: MeridianLinkLiabilitySummary) {
@@ -154,7 +161,21 @@ function formatInterestRate(value: number | null | undefined) {
   return `${value.toFixed(2)}%`;
 }
 
-function getDisplayedInterestRate(liability: MeridianLinkLiabilitySummary, creditCardRate: number | null) {
+function parseAverageRateValue(payload: CreditCardAverageRatePayload | null) {
+  if (!payload) return null;
+  if (typeof payload.rate === 'number' && Number.isFinite(payload.rate)) return payload.rate;
+  const raw = String(payload.averageLabel || '').replace(/[^0-9.]/g, '');
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getDisplayedInterestRate(
+  liability: MeridianLinkLiabilitySummary,
+  creditCardRate: number | null,
+  manualRate: string | null | undefined,
+) {
+  const parsedManualRate = Number((manualRate || '').trim());
+  if ((manualRate || '').trim() && Number.isFinite(parsedManualRate)) return parsedManualRate;
   if (isCreditCardLiability(liability)) return creditCardRate;
   if (isInstallmentOrAutoLiability(liability)) return calculateInstallmentInterestRate(liability);
   return null;
@@ -227,7 +248,7 @@ export default function ValidatePage() {
   const [pendingProdTestStatusMessage, setPendingProdTestStatusMessage] = useState<string | null>(null);
   const [pendingCreditScore, setPendingCreditScore] = useState<number | null>(null);
   const [pendingMortgages, setPendingMortgages] = useState<Mortgage[]>([]);
-  const [paidOffLiabilityIds, setPaidOffLiabilityIds] = useState<string[]>([]);
+  const [liabilityActions, setLiabilityActions] = useState<Record<string, LiabilityActionState>>({});
 
   // Updated numbers
   const [updatedCashAvailable] = useState<number | null>(null);
@@ -385,6 +406,7 @@ export default function ValidatePage() {
   );
   const parsedEstimatedCreditCardRate = Number(creditCardRateEstimate);
   const hasEstimatedCreditCardRate = creditCardRateEstimate.trim().length > 0 && Number.isFinite(parsedEstimatedCreditCardRate);
+  const defaultAverageRate = parseAverageRateValue(creditCardAverageRate);
   const openLiabilities = parsedProdTestReport?.liabilities.filter(isOpenLiability) || [];
   const openMortgageLiabilities = openLiabilities.filter(isMortgageLiability);
   const openConsumerLiabilities = openLiabilities
@@ -432,7 +454,7 @@ export default function ValidatePage() {
     setPendingProdTestStatusMessage(null);
     setPendingCreditScore(null);
     setPendingMortgages([]);
-    setPaidOffLiabilityIds([]);
+    setLiabilityActions({});
 
     try {
       const requestBody = isMeridianLinkProdTest
@@ -528,6 +550,34 @@ export default function ValidatePage() {
     ));
   };
 
+  const getLiabilityAction = (liabilityId: string): LiabilityActionState => (
+    liabilityActions[liabilityId] || {
+      resolution: null,
+      excludeReason: '',
+      excludeExplanation: '',
+      manualRate: '',
+    }
+  );
+
+  const updateLiabilityAction = (liabilityId: string, updates: Partial<LiabilityActionState>) => {
+    setLiabilityActions((prev) => {
+      const current = prev[liabilityId] || {
+        resolution: null,
+        excludeReason: '',
+        excludeExplanation: '',
+        manualRate: '',
+      };
+
+      return {
+        ...prev,
+        [liabilityId]: {
+          ...current,
+          ...updates,
+        },
+      };
+    });
+  };
+
   const handleContinueToFinalizeDetails = async () => {
     const nextFormData = {
       ...formData,
@@ -543,7 +593,7 @@ export default function ValidatePage() {
         status: liability.status,
         currentRating: liability.currentRating,
       })),
-      'Credit Report - Paid Off Liability IDs': paidOffLiabilityIds,
+      'Credit Report - Liability Actions': liabilityActions,
     };
 
     setFormData(nextFormData);
@@ -557,12 +607,89 @@ export default function ValidatePage() {
     router.push('/quote/finalize-details');
   };
 
-  const togglePaidOffLiability = (liabilityId: string) => {
-    setPaidOffLiabilityIds((prev) => (
-      prev.includes(liabilityId)
-        ? prev.filter((id) => id !== liabilityId)
-        : [...prev, liabilityId]
-    ));
+  const renderLiabilityActions = (liability: MeridianLinkLiabilitySummary, interestRate: number | null) => {
+    const action = getLiabilityAction(liability.id);
+    const canEnterManualRate = interestRate === null;
+
+    return (
+      <div className="mt-4 space-y-4">
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => updateLiabilityAction(liability.id, {
+              resolution: action.resolution === 'payoff' ? null : 'payoff',
+              excludeReason: '',
+              excludeExplanation: '',
+            })}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${action.resolution === 'payoff' ? 'bg-emerald-100 text-emerald-700 ring-2 ring-emerald-300' : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}
+          >
+            Payoff
+          </button>
+          <button
+            type="button"
+            onClick={() => updateLiabilityAction(liability.id, {
+              resolution: action.resolution === 'exclude' ? null : 'exclude',
+            })}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${action.resolution === 'exclude' ? 'bg-blue-100 text-blue-700 ring-2 ring-blue-300' : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}
+          >
+            Exclude
+          </button>
+        </div>
+
+        {action.resolution === 'exclude' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-xl border border-blue-200 bg-blue-50 p-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Why exclude this account?</label>
+              <select
+                value={action.excludeReason}
+                onChange={(e) => updateLiabilityAction(liability.id, {
+                  excludeReason: e.target.value as LiabilityActionState['excludeReason'],
+                  excludeExplanation: e.target.value === 'Other' ? action.excludeExplanation : '',
+                })}
+                className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="">Select a reason</option>
+                <option value="Already paid off">Already paid off</option>
+                <option value="Someone else pays this">Someone else pays this</option>
+                <option value="I don't recognize this account">I don&apos;t recognize this account</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            {action.excludeReason === 'Other' && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Explain</label>
+                <input
+                  type="text"
+                  value={action.excludeExplanation}
+                  onChange={(e) => updateLiabilityAction(liability.id, { excludeExplanation: e.target.value })}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  placeholder="Tell us why this should be excluded"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {canEnterManualRate && (
+          <div className="max-w-xs">
+            <label className="mb-1 block text-sm font-medium text-gray-700">Enter interest rate</label>
+            <div className="relative">
+              <input
+                type="number"
+                min="0"
+                max="99"
+                step="0.01"
+                value={action.manualRate}
+                onChange={(e) => updateLiabilityAction(liability.id, { manualRate: e.target.value })}
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 pr-12 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                placeholder="Enter rate"
+              />
+              <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-gray-500">%</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -862,17 +989,17 @@ export default function ValidatePage() {
               <div className="flex items-start gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-2xl">💳</div>
                 <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-gray-900">One quick question before we continue</h3>
+                  <h3 className="text-2xl font-bold text-gray-900">While we wait for that to load</h3>
                   <p className="mt-2 text-gray-600">
-                    Credit cards don&apos;t report their interest rate. To estimate those payments more accurately,
-                    please choose your estimated average credit card rate before we run credit.
+                    Credit cards don&apos;t report their interest rate. To estimate interest payments more accurately,
+                    please choose your estimated average credit card rate.
                   </p>
                 </div>
               </div>
 
               <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
                 <p className="text-sm leading-6 text-amber-900">
-                  The current FRED average is <span className="font-semibold">{creditCardAverageRate?.averageLabel || '21.52%'}</span>,
+                  The current average is <span className="font-semibold">{creditCardAverageRate?.averageLabel || '21.52%'}</span>,
                   and that&apos;s often a safe number to use.
                 </p>
 
@@ -888,7 +1015,7 @@ export default function ValidatePage() {
                         value={creditCardRateEstimate}
                         onChange={(e) => setCreditCardRateEstimate(e.target.value)}
                         className="w-full rounded-xl border border-gray-300 px-4 py-3 pr-12 text-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                        placeholder={creditCardAverageRate?.rate ? creditCardAverageRate.rate.toFixed(2) : '21.52'}
+                        placeholder={defaultAverageRate ? defaultAverageRate.toFixed(2) : '21.52'}
                       />
                       <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-gray-500">%</span>
                     </div>
@@ -896,19 +1023,18 @@ export default function ValidatePage() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (creditCardAverageRate?.rate !== null && creditCardAverageRate?.rate !== undefined) {
-                        setCreditCardRateEstimate(String(creditCardAverageRate.rate.toFixed(2)));
+                      if (defaultAverageRate !== null) {
+                        setCreditCardRateEstimate(defaultAverageRate.toFixed(2));
                       }
                     }}
                     className="rounded-xl border border-amber-300 bg-white px-4 py-3 text-sm font-semibold text-amber-900 hover:bg-amber-100"
                   >
-                    Use FRED average
+                    Use Average
                   </button>
                 </div>
 
                 <p className="mt-3 text-xs text-amber-800">
-                  We&apos;ll save this to the application before continuing.
-                  {creditCardAverageRate?.observedDate ? ` FRED observed date: ${creditCardAverageRate.observedDate}.` : ''}
+                  {creditCardAverageRate?.observedDate ? `Observed date: ${creditCardAverageRate.observedDate}.` : ''}
                   {creditCardAverageRate?.cached !== undefined ? ` ${creditCardAverageRate.cached ? 'Served from daily cache.' : 'Fetched fresh today.'}` : ''}
                 </p>
               </div>
@@ -917,9 +1043,9 @@ export default function ValidatePage() {
                 {loading
                   ? (isMeridianLinkProdTest ? 'Submitting MeridianLink test while you choose a credit card rate...' : 'Loading the credit report while you choose a credit card rate...')
                   : pendingCreditError
-                    ? 'Credit submission finished. Save your rate selection to continue and see the result.'
+                    ? 'Credit submission finished. Continue to see the result.'
                     : creditPullCompleted
-                      ? 'Credit submission finished. Save your rate selection to continue.'
+                      ? 'Credit submission finished. Continue when you are ready.'
                       : 'Waiting to start credit submission...'}
               </div>
 
@@ -953,7 +1079,7 @@ export default function ValidatePage() {
                   }}
                   className={`rounded-xl px-4 py-3 text-sm font-semibold text-white ${hasEstimatedCreditCardRate && creditPullCompleted ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'}`}
                 >
-                  {loading ? 'Waiting for credit...' : 'Save and continue'}
+                  {loading ? 'Waiting for credit...' : 'Continue'}
                 </button>
               </div>
             </div>
@@ -1013,9 +1139,15 @@ export default function ValidatePage() {
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Open mortgage accounts</h3>
                   <div className="space-y-4">
                     {openMortgageLiabilities.map((liability) => {
-                      const mortgage = mortgages.find((item) => item.id === liability.id);
+                      const action = getLiabilityAction(liability.id);
+                      const interestRate = getDisplayedInterestRate(liability, hasEstimatedCreditCardRate ? parsedEstimatedCreditCardRate : null, action.manualRate);
+                      const cardClasses = action.resolution === 'payoff'
+                        ? 'border-emerald-200 bg-emerald-50/60'
+                        : action.resolution === 'exclude'
+                          ? 'border-blue-200 bg-blue-50/60'
+                          : 'border-gray-200 hover:border-blue-300';
                       return (
-                        <div key={liability.id} className="border-2 border-gray-200 rounded-xl p-5 hover:border-blue-300 transition-colors">
+                        <div key={liability.id} className={`border-2 rounded-xl p-5 transition-colors ${cardClasses}`}>
                           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div>
                               <h4 className="font-semibold text-gray-900">{liability.creditorName}</h4>
@@ -1040,11 +1172,12 @@ export default function ValidatePage() {
                               </div>
                               <div>
                                 <p className="text-gray-500">Interest Rate</p>
-                                <p className="font-semibold text-gray-900">—</p>
+                                <p className="font-semibold text-gray-900">{formatInterestRate(interestRate)}</p>
                               </div>
                             </div>
                           </div>
 
+                          {renderLiabilityActions(liability, interestRate)}
                         </div>
                       );
                     })}
@@ -1060,10 +1193,15 @@ export default function ValidatePage() {
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Open consumer accounts</h3>
                   <div className="space-y-4">
                     {openConsumerLiabilities.map((liability) => {
-                      const interestRate = getDisplayedInterestRate(liability, hasEstimatedCreditCardRate ? parsedEstimatedCreditCardRate : null);
-                      const isPaidOff = paidOffLiabilityIds.includes(liability.id);
+                      const action = getLiabilityAction(liability.id);
+                      const interestRate = getDisplayedInterestRate(liability, hasEstimatedCreditCardRate ? parsedEstimatedCreditCardRate : null, action.manualRate);
+                      const cardClasses = action.resolution === 'payoff'
+                        ? 'border-emerald-200 bg-emerald-50/60'
+                        : action.resolution === 'exclude'
+                          ? 'border-blue-200 bg-blue-50/60'
+                          : 'border-gray-200';
                       return (
-                        <div key={liability.id} className={`rounded-xl border p-5 transition-colors ${isPaidOff ? 'border-emerald-200 bg-emerald-50/60' : 'border-gray-200'}`}>
+                        <div key={liability.id} className={`rounded-xl border p-5 transition-colors ${cardClasses}`}>
                           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div>
                               <h4 className="font-semibold text-gray-900">{liability.creditorName}</h4>
@@ -1093,15 +1231,7 @@ export default function ValidatePage() {
                             </div>
                           </div>
 
-                          <label className="mt-4 inline-flex items-center gap-3 text-sm font-medium text-gray-700">
-                            <input
-                              type="checkbox"
-                              checked={isPaidOff}
-                              onChange={() => togglePaidOffLiability(liability.id)}
-                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            Mark as already paid off
-                          </label>
+                          {renderLiabilityActions(liability, interestRate)}
                         </div>
                       );
                     })}
