@@ -158,6 +158,14 @@ export default function ValidatePage() {
   const [creditCardAverageRate, setCreditCardAverageRate] = useState<CreditCardAverageRatePayload | null>(null);
   const [creditCardRateEstimate, setCreditCardRateEstimate] = useState('');
   const [showCreditCardRatePrompt, setShowCreditCardRatePrompt] = useState(false);
+  const [creditPullCompleted, setCreditPullCompleted] = useState(false);
+  const [pendingCreditError, setPendingCreditError] = useState<string | null>(null);
+  const [pendingProdTestResult, setPendingProdTestResult] = useState<Record<string, any> | null>(null);
+  const [pendingProdTestXmlPreview, setPendingProdTestXmlPreview] = useState<string | null>(null);
+  const [pendingParsedProdTestReport, setPendingParsedProdTestReport] = useState<MeridianLinkParsedReport | null>(null);
+  const [pendingProdTestStatusMessage, setPendingProdTestStatusMessage] = useState<string | null>(null);
+  const [pendingCreditScore, setPendingCreditScore] = useState<number | null>(null);
+  const [pendingMortgages, setPendingMortgages] = useState<Mortgage[]>([]);
 
   // Updated numbers
   const [updatedCashAvailable] = useState<number | null>(null);
@@ -199,9 +207,6 @@ export default function ValidatePage() {
         if (averageRateRes.ok) {
           const averagePayload: CreditCardAverageRatePayload = await averageRateRes.json();
           setCreditCardAverageRate(averagePayload);
-          if (averagePayload?.rate !== null && averagePayload?.rate !== undefined) {
-            setCreditCardRateEstimate(String(averagePayload.rate.toFixed(2)));
-          }
         }
       } catch (err) {
         console.error('Failed to load credit metadata', err);
@@ -351,13 +356,15 @@ export default function ValidatePage() {
   };
 
   const executeCreditPull = async () => {
-    setShowCreditCardRatePrompt(false);
     setLoading(true);
-    setCreditError(null);
-    setProdTestResult(null);
-    setProdTestXmlPreview(null);
-    setParsedProdTestReport(null);
-    setProdTestStatusMessage(null);
+    setCreditPullCompleted(false);
+    setPendingCreditError(null);
+    setPendingProdTestResult(null);
+    setPendingProdTestXmlPreview(null);
+    setPendingParsedProdTestReport(null);
+    setPendingProdTestStatusMessage(null);
+    setPendingCreditScore(null);
+    setPendingMortgages([]);
 
     try {
       const requestBody = isMeridianLinkProdTest
@@ -410,18 +417,17 @@ export default function ValidatePage() {
         const representativeScore = getRepresentativeMeridianLinkScore(parsedReport.scores);
         const mortgageLiabilities = parsedReport.liabilities.filter(isMortgageLiability);
 
-        setProdTestResult(payload);
-        setProdTestXmlPreview(responseXml.slice(0, 350));
-        setParsedProdTestReport(parsedReport);
-        setProdTestStatusMessage(String(payload?.reportStatusMessage || '').trim() || null);
-        setCreditScore(representativeScore);
-        setMortgages(mortgageLiabilities.map(mapLiabilityToMortgage));
-        goToStep('mortgages');
+        setPendingProdTestResult(payload);
+        setPendingProdTestXmlPreview(responseXml.slice(0, 350));
+        setPendingParsedProdTestReport(parsedReport);
+        setPendingProdTestStatusMessage(String(payload?.reportStatusMessage || '').trim() || null);
+        setPendingCreditScore(representativeScore);
+        setPendingMortgages(mortgageLiabilities.map(mapLiabilityToMortgage));
         return;
       }
 
-      setCreditScore(Number(payload?.scores?.representative) || null);
-      setMortgages(
+      setPendingCreditScore(Number(payload?.scores?.representative) || null);
+      setPendingMortgages(
         Array.isArray(payload?.mortgages)
           ? payload.mortgages.map((mortgage: any) => ({
               id: String(mortgage.id),
@@ -434,22 +440,18 @@ export default function ValidatePage() {
             }))
           : []
       );
-      goToStep('mortgages');
     } catch (error) {
-      setCreditError(error instanceof Error ? error.message : 'Soft credit check failed.');
+      setPendingCreditError(error instanceof Error ? error.message : 'Soft credit check failed.');
     } finally {
       setLoading(false);
+      setCreditPullCompleted(true);
     }
   };
 
   const handleCreditPull = async () => {
-    if (!hasEstimatedCreditCardRate) {
-      setShowCreditCardRatePrompt(true);
-      return;
-    }
-
-    await persistEstimatedCreditCardRate(parsedEstimatedCreditCardRate);
-    await executeCreditPull();
+    setCreditError(null);
+    setShowCreditCardRatePrompt(true);
+    void executeCreditPull();
   };
 
   const handleMortgageMatch = (mortgageId: string, propertyIndex: number | null) => {
@@ -800,10 +802,20 @@ export default function ValidatePage() {
                 </div>
 
                 <p className="mt-3 text-xs text-amber-800">
-                  We&apos;ll save this to the application before starting the credit pull.
+                  We&apos;ll save this to the application before continuing.
                   {creditCardAverageRate?.observedDate ? ` FRED observed date: ${creditCardAverageRate.observedDate}.` : ''}
                   {creditCardAverageRate?.cached !== undefined ? ` ${creditCardAverageRate.cached ? 'Served from daily cache.' : 'Fetched fresh today.'}` : ''}
                 </p>
+              </div>
+
+              <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                {loading
+                  ? (isMeridianLinkProdTest ? 'Submitting MeridianLink test while you choose a credit card rate...' : 'Loading the credit report while you choose a credit card rate...')
+                  : pendingCreditError
+                    ? 'Credit submission finished. Save your rate selection to continue and see the result.'
+                    : creditPullCompleted
+                      ? 'Credit submission finished. Save your rate selection to continue.'
+                      : 'Waiting to start credit submission...'}
               </div>
 
               <div className="mt-6 flex justify-end gap-3">
@@ -816,32 +828,28 @@ export default function ValidatePage() {
                 </button>
                 <button
                   type="button"
-                  disabled={!hasEstimatedCreditCardRate}
+                  disabled={!hasEstimatedCreditCardRate || !creditPullCompleted}
                   onClick={async () => {
                     await persistEstimatedCreditCardRate(parsedEstimatedCreditCardRate);
-                    await executeCreditPull();
-                  }}
-                  className={`rounded-xl px-4 py-3 text-sm font-semibold text-white ${hasEstimatedCreditCardRate ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'}`}
-                >
-                  Save and continue
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+                    setShowCreditCardRatePrompt(false);
 
-        {loading && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4">
-            <div className="w-full max-w-lg rounded-3xl bg-white p-8 shadow-2xl">
-              <div className="flex items-center gap-4">
-                <svg className="h-8 w-8 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">Loading credit report</h3>
-                  <p className="mt-1 text-sm text-gray-600">{isMeridianLinkProdTest ? 'Submitting MeridianLink test and waiting for the report...' : 'Pulling credit report...'}</p>
-                </div>
+                    if (pendingCreditError) {
+                      setCreditError(pendingCreditError);
+                      return;
+                    }
+
+                    setProdTestResult(pendingProdTestResult);
+                    setProdTestXmlPreview(pendingProdTestXmlPreview);
+                    setParsedProdTestReport(pendingParsedProdTestReport);
+                    setProdTestStatusMessage(pendingProdTestStatusMessage);
+                    setCreditScore(pendingCreditScore);
+                    setMortgages(pendingMortgages);
+                    goToStep('mortgages');
+                  }}
+                  className={`rounded-xl px-4 py-3 text-sm font-semibold text-white ${hasEstimatedCreditCardRate && creditPullCompleted ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'}`}
+                >
+                  {loading ? 'Waiting for credit...' : 'Save and continue'}
+                </button>
               </div>
             </div>
           </div>
