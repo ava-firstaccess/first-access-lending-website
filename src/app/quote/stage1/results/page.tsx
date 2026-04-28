@@ -195,6 +195,8 @@ export default function ResultsPage() {
   const [cesLoanAmount, setCesLoanAmount] = useState<number | null>(null);
   const [helocLiveQuote, setHelocLiveQuote] = useState<LiveQuoteCalc | null>(null);
   const [cesLiveQuote, setCesLiveQuote] = useState<LiveQuoteCalc | null>(null);
+  const [helocPricingLoading, setHelocPricingLoading] = useState(true);
+  const [cesPricingLoading, setCesPricingLoading] = useState(true);
   const skipOtp = process.env.NEXT_PUBLIC_SKIP_OTP === 'true';
 
   useEffect(() => {
@@ -276,6 +278,7 @@ export default function ResultsPage() {
     let cancelled = false;
 
     async function loadHelocQuote() {
+      setHelocPricingLoading(true);
       try {
         const response = await fetch('/api/stage1-pricing', {
           method: 'POST',
@@ -322,6 +325,8 @@ export default function ResultsPage() {
       } catch (error) {
         console.error('Failed to load HELOC quote', error);
         if (!cancelled) setHelocLiveQuote(null);
+      } finally {
+        if (!cancelled) setHelocPricingLoading(false);
       }
     }
 
@@ -333,6 +338,7 @@ export default function ResultsPage() {
     let cancelled = false;
 
     async function loadCesQuote() {
+      setCesPricingLoading(true);
       try {
         const response = await fetch('/api/stage1-pricing', {
           method: 'POST',
@@ -378,6 +384,8 @@ export default function ResultsPage() {
       } catch (error) {
         console.error('Failed to load CES quote', error);
         if (!cancelled) setCesLiveQuote(null);
+      } finally {
+        if (!cancelled) setCesPricingLoading(false);
       }
     }
 
@@ -533,17 +541,30 @@ export default function ResultsPage() {
                         <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">HELOC</h3>
 
                         <div className="bg-blue-50 rounded-lg p-4 text-center mb-5">
-                          <div className="text-xs text-blue-600 font-medium mb-1">Max Available</div>
-                          <div className="text-2xl font-bold text-blue-900">${displayedHelocQuote.maxAvailable.toLocaleString()}</div>
+                          {helocPricingLoading ? (
+                            <>
+                              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600 mb-3"></div>
+                              <div className="text-sm font-medium text-blue-900">Loading HELOC quote</div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="text-xs text-blue-600 font-medium mb-1">Max Available</div>
+                              <div className="text-2xl font-bold text-blue-900">${displayedHelocQuote.maxAvailable.toLocaleString()}</div>
+                            </>
+                          )}
                         </div>
 
                         <div className="mb-5 bg-gray-50 rounded-lg p-4">
-                          <LoanAmountSlider
-                            value={effectiveHelocAmount}
-                            max={displayedHelocQuote.maxAvailable}
-                            min={Math.min(MIN_LOAN_AMOUNT, displayedHelocQuote.maxAvailable)}
-                            onChange={setHelocLoanAmount}
-                          />
+                          {helocPricingLoading ? (
+                            <div className="text-center py-4 text-sm text-gray-500">Waiting for live pricing...</div>
+                          ) : (
+                            <LoanAmountSlider
+                              value={effectiveHelocAmount}
+                              max={displayedHelocQuote.maxAvailable}
+                              min={Math.min(MIN_LOAN_AMOUNT, displayedHelocQuote.maxAvailable)}
+                              onChange={setHelocLoanAmount}
+                            />
+                          )}
                         </div>
 
                         <div className="space-y-3 mb-5">
@@ -567,14 +588,26 @@ export default function ResultsPage() {
 
                         <div className="mt-auto">
                           <div className="bg-green-50 rounded-lg p-4 text-center mb-3">
-                            <div className="text-xs text-green-600 font-medium mb-1">Estimated Rate</div>
-                            <div className="text-2xl font-bold text-green-900">{displayedHelocQuote.rate.toFixed(3)}%</div>
-                            <div className="text-xs text-green-600 mt-0.5">{displayedHelocQuote.rateType}</div>
+                            {helocPricingLoading ? (
+                              <div className="text-sm font-medium text-green-900">Loading rate...</div>
+                            ) : (
+                              <>
+                                <div className="text-xs text-green-600 font-medium mb-1">Estimated Rate</div>
+                                <div className="text-2xl font-bold text-green-900">{displayedHelocQuote.rate.toFixed(3)}%</div>
+                                <div className="text-xs text-green-600 mt-0.5">{displayedHelocQuote.rateType}</div>
+                              </>
+                            )}
                           </div>
                           <div className="bg-orange-50 rounded-lg p-4 text-center">
-                            <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly (Draw Period)</div>
-                            <div className="text-2xl font-bold text-orange-900">${displayedHelocQuote.monthlyPayment.toLocaleString()}</div>
-                            <div className="text-xs text-orange-600 mt-0.5">Interest only</div>
+                            {helocPricingLoading ? (
+                              <div className="text-sm font-medium text-orange-900">Loading payment...</div>
+                            ) : (
+                              <>
+                                <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly (Draw Period)</div>
+                                <div className="text-2xl font-bold text-orange-900">${displayedHelocQuote.monthlyPayment.toLocaleString()}</div>
+                                <div className="text-xs text-orange-600 mt-0.5">Interest only</div>
+                              </>
+                            )}
                           </div>
 
                           <button
@@ -588,7 +621,8 @@ export default function ResultsPage() {
                               localStorage.setItem('stage1-data', JSON.stringify(s1));
                               router.push(skipOtp ? '/quote/next-steps' : '/quote/verify-contact');
                             }}
-                            className="w-full mt-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm"
+                            disabled={helocPricingLoading}
+                            className="w-full mt-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm"
                           >
                             Select HELOC &amp; Get Access! →
                           </button>
@@ -603,17 +637,30 @@ export default function ResultsPage() {
                       <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">Closed-End Second</h3>
 
                       <div className="bg-blue-50 rounded-lg p-4 text-center mb-5">
-                        <div className="text-xs text-blue-600 font-medium mb-1">Max Available</div>
-                        <div className="text-2xl font-bold text-blue-900">${displayedCesQuote.maxAvailable.toLocaleString()}</div>
+                        {cesPricingLoading ? (
+                          <>
+                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600 mb-3"></div>
+                            <div className="text-sm font-medium text-blue-900">Loading CES quote</div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-xs text-blue-600 font-medium mb-1">Max Available</div>
+                            <div className="text-2xl font-bold text-blue-900">${displayedCesQuote.maxAvailable.toLocaleString()}</div>
+                          </>
+                        )}
                       </div>
 
                       <div className="mb-5 bg-gray-50 rounded-lg p-4">
-                        <LoanAmountSlider
-                          value={effectiveCesAmount}
-                          max={displayedCesQuote.maxAvailable}
-                          min={Math.min(MIN_LOAN_AMOUNT, displayedCesQuote.maxAvailable)}
-                          onChange={setCesLoanAmount}
-                        />
+                        {cesPricingLoading ? (
+                          <div className="text-center py-4 text-sm text-gray-500">Waiting for live pricing...</div>
+                        ) : (
+                          <LoanAmountSlider
+                            value={effectiveCesAmount}
+                            max={displayedCesQuote.maxAvailable}
+                            min={Math.min(MIN_LOAN_AMOUNT, displayedCesQuote.maxAvailable)}
+                            onChange={setCesLoanAmount}
+                          />
+                        )}
                       </div>
 
                       <div className="space-y-3 mb-5">
@@ -629,14 +676,26 @@ export default function ResultsPage() {
 
                       <div className="mt-auto">
                         <div className="bg-green-50 rounded-lg p-4 text-center mb-3">
-                          <div className="text-xs text-green-600 font-medium mb-1">Estimated Rate</div>
-                          <div className="text-2xl font-bold text-green-900">{displayedCesQuote.rate.toFixed(3)}%</div>
-                          <div className="text-xs text-green-600 mt-0.5">{displayedCesQuote.rateType}</div>
+                          {cesPricingLoading ? (
+                            <div className="text-sm font-medium text-green-900">Loading rate...</div>
+                          ) : (
+                            <>
+                              <div className="text-xs text-green-600 font-medium mb-1">Estimated Rate</div>
+                              <div className="text-2xl font-bold text-green-900">{displayedCesQuote.rate.toFixed(3)}%</div>
+                              <div className="text-xs text-green-600 mt-0.5">{displayedCesQuote.rateType}</div>
+                            </>
+                          )}
                         </div>
                         <div className="bg-orange-50 rounded-lg p-4 text-center">
-                          <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly Payment</div>
-                          <div className="text-2xl font-bold text-orange-900">${displayedCesQuote.monthlyPayment.toLocaleString()}</div>
-                          <div className="text-xs text-orange-600 mt-0.5">Principal &amp; Interest</div>
+                          {cesPricingLoading ? (
+                            <div className="text-sm font-medium text-orange-900">Loading payment...</div>
+                          ) : (
+                            <>
+                              <div className="text-xs text-orange-600 font-medium mb-1">Est. Monthly Payment</div>
+                              <div className="text-2xl font-bold text-orange-900">${displayedCesQuote.monthlyPayment.toLocaleString()}</div>
+                              <div className="text-xs text-orange-600 mt-0.5">Principal &amp; Interest</div>
+                            </>
+                          )}
                         </div>
 
                         <button
@@ -649,7 +708,8 @@ export default function ResultsPage() {
                             localStorage.setItem('stage1-data', JSON.stringify(s1));
                             router.push(skipOtp ? '/quote/next-steps' : '/quote/verify-contact');
                           }}
-                          className="w-full mt-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm"
+                          disabled={cesPricingLoading}
+                          className="w-full mt-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm"
                         >
                           Select CES &amp; Get Access! →
                         </button>

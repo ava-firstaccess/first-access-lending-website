@@ -11,6 +11,7 @@ interface QuoteBuilderProps {
   stage: 'stage1' | 'stage2';
   sticky?: boolean;
   showMaxAvailable?: boolean;
+  loading?: boolean;
 }
 
 export default function QuoteBuilder({
@@ -23,6 +24,7 @@ export default function QuoteBuilder({
   stage,
   sticky = true,
   showMaxAvailable = true,
+  loading = false,
 }: QuoteBuilderProps) {
   
   const formatCurrency = (amount: number) => {
@@ -49,6 +51,13 @@ export default function QuoteBuilder({
       </div>
 
       {/* Quote Details */}
+      {loading ? (
+        <div className="py-10 text-center">
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600 mb-4"></div>
+          <p className="text-sm font-medium text-gray-900">Loading live quote</p>
+          <p className="text-xs text-gray-500 mt-1">We&apos;re pulling fresh pricing now.</p>
+        </div>
+      ) : (
       <div className="space-y-6">
         
         {/* Max Available */}
@@ -104,6 +113,7 @@ export default function QuoteBuilder({
         </div>
 
       </div>
+      )}
 
       {/* Progress Indicator */}
       <div className="mt-6 pt-6 border-t border-gray-200">

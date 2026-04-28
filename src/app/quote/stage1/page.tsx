@@ -121,6 +121,7 @@ export default function Stage1() {
     monthlyPayment: 0,
     monthlyPaymentRange: { min: 0, max: 0 }
   });
+  const [quoteLoading, setQuoteLoading] = useState(false);
 
   // Load prefill data from localStorage (set by verify page after OTP)
   useEffect(() => {
@@ -150,11 +151,13 @@ export default function Stage1() {
     const optimisticCreditScore = 780;
 
     if (!propertyValue) {
+      setQuoteLoading(false);
       setQuote({ maxAvailable: 0, rateRange: { min: 0, max: 0 }, monthlyPayment: 0, monthlyPaymentRange: { min: 0, max: 0 } });
       return;
     }
 
     if ((product === 'HELOC' || product === 'CES') && !hasCreditScore) {
+      setQuoteLoading(true);
       setQuote({
         maxAvailable: floorDisplayedMaxAvailable(getStage1MaxAvailable(data, optimisticCreditScore)),
         rateRange: { min: 0, max: 0 },
@@ -166,6 +169,7 @@ export default function Stage1() {
 
     if (product === 'HELOC' || product === 'CES') {
       if (!propertyState || !hasCreditScore) return;
+      setQuoteLoading(true);
       const timeout = window.setTimeout(async () => {
         try {
           const calculatedMaxAvailable = estimateDesiredLoanAmount(data);
@@ -231,12 +235,15 @@ export default function Stage1() {
         } catch (error) {
           console.error('Failed to load live Stage 1 pricing', error);
           setQuote({ maxAvailable: 0, rateRange: { min: 0, max: 0 }, monthlyPayment: 0, monthlyPaymentRange: { min: 0, max: 0 } });
+        } finally {
+          setQuoteLoading(false);
         }
       }, 250);
       return () => window.clearTimeout(timeout);
     }
 
     if (!hasCreditScore) {
+      setQuoteLoading(true);
       setQuote({
         maxAvailable: floorDisplayedMaxAvailable(getStage1MaxAvailable(data, optimisticCreditScore)),
         rateRange: { min: 0, max: 0 },
@@ -254,6 +261,7 @@ export default function Stage1() {
     const monthlyRate = 7.5 / 100 / 12;
     const monthlyPayment = adjustedMaxAvailable > 0 ? adjustedMaxAvailable * monthlyRate : 0;
 
+    setQuoteLoading(false);
     setQuote({
       maxAvailable: floorDisplayedMaxAvailable(adjustedMaxAvailable),
       rateRange: { min: 7.5, max: 8.0 },
@@ -716,6 +724,7 @@ export default function Stage1() {
               monthlyPaymentRange={quote.monthlyPaymentRange}
               progress={progress}
               stage="stage1"
+              loading={quoteLoading}
             />
           </div>
         </div>
@@ -730,6 +739,7 @@ export default function Stage1() {
             monthlyPaymentRange={quote.monthlyPaymentRange}
             progress={progress}
             stage="stage1"
+            loading={quoteLoading}
           />
         </div>
 
