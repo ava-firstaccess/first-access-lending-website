@@ -23,6 +23,31 @@ import { useStepTracker } from '@/hooks/useStepTracker';
 type FormDataValue = any;
 type FormData = Record<string, FormDataValue>;
 
+interface StoredCreditMortgage {
+  id: string;
+  creditorName: string;
+  accountType: string;
+  loanType: string;
+  unpaidBalance: number | null;
+  monthlyPayment: number | null;
+  termMonths: number | null;
+  openedDate: string;
+  status: string;
+  currentRating: string;
+}
+
+interface MortgagePropertyCard {
+  key: string;
+  label: string;
+  address: string;
+  addressField?: string;
+  hoaField: string;
+  hoaAmountField: string;
+  escrowField: string;
+  taxesPrefix: string;
+  insurancePrefix: string;
+}
+
 const OTHER_INCOME_TYPES = [
   { value: 'Social Security', label: 'Social Security' },
   { value: 'Pension', label: 'Pension' },
@@ -221,9 +246,35 @@ function AnnualMonthlyField({ label, namePrefix, formData, onChange, required = 
   );
 }
 
+function normalizeAddress(value: string) {
+  return value.toLowerCase().replace(/\s+/g, ' ').replace(/[.,]/g, '').trim();
+}
+
+function formatCurrency(value: number | null | undefined) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '—';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function isFirstMortgageAccount(mortgage: StoredCreditMortgage) {
+  const haystack = `${mortgage.accountType} ${mortgage.loanType}`.toLowerCase();
+  return /mortgage/.test(haystack) && !/heloc|home equity|second|junior|closed-end second|line of credit/.test(haystack);
+}
+
 function Stage2Content() {
   const router = useRouter();
   const [formData, setFormData] = useState<FormData>({});
+  const [draggedMortgageId, setDraggedMortgageId] = useState<string | null>(null);
 
   // Stage 1 data
   const stage1Product = formData['product'] || '';
@@ -364,6 +415,54 @@ function Stage2Content() {
       ? types.some((value) => String(value) === type)
       : types === type;
   };
+  const creditReportMortgages = Array.isArray(formData['Credit Report - Open Mortgages'])
+    ? (formData['Credit Report - Open Mortgages'] as StoredCreditMortgage[])
+    : [];
+  const subjectPropertyAddress = String(formData['Subject Property - Address'] || formData.propertyAddress || '').trim();
+  const currentResidenceAddress = String(formData['Borrower - Current Address'] || '').trim();
+  const showSeparateCurrentResidenceCard = Boolean(
+    currentResidenceAddress && normalizeAddress(currentResidenceAddress) !== normalizeAddress(subjectPropertyAddress)
+  );
+  const mortgagePropertyCards: MortgagePropertyCard[] = [
+    {
+      key: 'subject-property',
+      label: 'Subject Property',
+      address: subjectPropertyAddress,
+      hoaField: 'Current Loan - Pay HOA',
+      hoaAmountField: 'Current Loan - HOA Dues',
+      escrowField: 'Current Loan - Escrowed',
+      taxesPrefix: 'Current Loan - Taxes',
+      insurancePrefix: 'Current Loan - HOI',
+    },
+    ...(showSeparateCurrentResidenceCard ? [{
+      key: 'primary-residence',
+      label: 'Primary Residence',
+      address: currentResidenceAddress,
+      hoaField: 'Primary Residence - Pay HOA',
+      hoaAmountField: 'Primary Residence - HOA Dues',
+      escrowField: 'Primary Residence - Escrowed',
+      taxesPrefix: 'Primary Residence - Taxes',
+      insurancePrefix: 'Primary Residence - HOI',
+    }] : []),
+    ...Array.from({ length: Math.min(Number(formData['Number of Other Properties']) || 0, 5) }, (_, i) => {
+      const n = i + 1;
+      return {
+        key: `other-${n}`,
+        label: `Other Property ${n}`,
+        address: String(formData[`Other Properties - Address ${n}`] || '').trim(),
+        addressField: `Other Properties - Address ${n}`,
+        hoaField: `Other Properties - Address ${n} HOA`,
+        hoaAmountField: `Other Properties - ${n} HOA Amount`,
+        escrowField: `Other Properties - Address ${n} Escrow`,
+        taxesPrefix: `Other Properties - ${n} Taxes`,
+        insurancePrefix: `Other Properties - ${n} Insurance`,
+      };
+    }),
+  ];
+  const mortgageAssignmentFields = creditReportMortgages.map((mortgage) => `Mortgage Match - ${mortgage.id}`);
+  const unmatchedMortgageNames = creditReportMortgages
+    .filter((mortgage) => !String(formData[`Mortgage Match - ${mortgage.id}`] || '').trim())
+    .map((mortgage) => `${mortgage.creditorName || 'Mortgage'} assignment`);
 
   // Section definitions for completion tracking
   const sections = {
@@ -411,23 +510,32 @@ function Stage2Content() {
       { name: 'Owns Other Properties', required: true },
       ...(formData['Owns Other Properties'] === 'Yes' ? [
         { name: 'Number of Other Properties', required: true },
-        // Dynamic REO fields based on count
         ...Array.from({ length: Math.min(Number(formData['Number of Other Properties']) || 0, 5) }, (_, i) => {
           const n = i + 1;
           return [
             { name: `Other Properties - Address ${n}`, required: true },
-            { name: `Other Properties - Address ${n} Escrow`, required: true },
-            ...(formData[`Other Properties - Address ${n} Escrow`] === 'No' ? [
-              { name: `Other Properties - ${n} Taxes - Monthly`, required: true },
-              { name: `Other Properties - ${n} Insurance - Monthly`, required: true },
-            ] : []),
-            { name: `Other Properties - Address ${n} HOA`, required: true },
-            ...(formData[`Other Properties - Address ${n} HOA`] === 'Yes' ? [
-              { name: `Other Properties - ${n} HOA Amount`, required: true },
-            ] : []),
           ];
         }).flat(),
       ] : []),
+      ...mortgagePropertyCards
+        .filter((property) => property.address)
+        .flatMap((property) => {
+          const hasMatchedFirstMortgage = creditReportMortgages.some(
+            (mortgage) => formData[`Mortgage Match - ${mortgage.id}`] === property.key && isFirstMortgageAccount(mortgage)
+          );
+          return [
+            { name: property.hoaField, required: true },
+            ...(formData[property.hoaField] === 'Yes' ? [{ name: property.hoaAmountField, required: true }] : []),
+            ...(hasMatchedFirstMortgage ? [{ name: property.escrowField, required: true }] : []),
+            ...(hasMatchedFirstMortgage && formData[property.escrowField] === 'No'
+              ? [
+                  { name: `${property.taxesPrefix} - Monthly`, required: true },
+                  { name: `${property.insurancePrefix} - Monthly`, required: true },
+                ]
+              : []),
+          ];
+        }),
+      ...mortgageAssignmentFields.map((field) => ({ name: field, required: creditReportMortgages.length > 0 })),
     ],
     employmentIncome: [
       { name: 'Borrower - Employment Status', required: true },
@@ -559,6 +667,9 @@ function Stage2Content() {
       const missing = currentFields
         .filter((f: { name: string; required?: boolean }) => f.required && (formData[f.name] === undefined || formData[f.name] === null || formData[f.name] === ''))
         .map((f: { name: string; required?: boolean }) => f.name);
+      if (currentSectionKey === 'otherProperties' && unmatchedMortgageNames.length > 0) {
+        missing.push(...unmatchedMortgageNames);
+      }
       if (missing.length > 0) {
         setValidationErrors(missing);
         // Scroll to top to show error message
@@ -586,6 +697,19 @@ function Stage2Content() {
       handleBackToResults();
     }
   };
+
+  const assignMortgageToProperty = (mortgageId: string, propertyKey: string) => {
+    updateField(`Mortgage Match - ${mortgageId}`, propertyKey);
+    setValidationErrors((prev) => prev.filter((field) => field !== `${creditReportMortgages.find((mortgage) => mortgage.id === mortgageId)?.creditorName || 'Mortgage'} assignment`));
+  };
+
+  const unassignMortgage = (mortgageId: string) => {
+    updateField(`Mortgage Match - ${mortgageId}`, '');
+  };
+
+  const getMatchedMortgagesForProperty = (propertyKey: string) => creditReportMortgages.filter(
+    (mortgage) => formData[`Mortgage Match - ${mortgage.id}`] === propertyKey
+  );
 
   // ─── Employment & Income Section (per person) ───
   const renderEmploymentFields = (person: 'Borrower' | 'Co-Borrower') => {
@@ -1233,31 +1357,8 @@ function Stage2Content() {
                     )}
                   </div>
 
-                  {/* Escrow - Yes/No in col1, if No -> taxes col1 + insurance col2 on next row */}
-                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                    <RadioField
-                      label="Taxes & Insurance Escrowed?" name="Current Loan - Escrowed"
-                      value={formData['Current Loan - Escrowed']} onChange={updateField} inline
-                      options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
-                    />
-                  </div>
-                  {formData['Current Loan - Escrowed'] === 'No' && (
-                    <>
-                      <AnnualMonthlyField label="Property Taxes" namePrefix="Current Loan - Taxes" formData={formData} onChange={updateField} required />
-                      <AnnualMonthlyField label="Homeowners Insurance" namePrefix="Current Loan - HOI" formData={formData} onChange={updateField} required />
-                    </>
-                  )}
-
-                  {/* HOA - Yes/No in col1, amount in col2 */}
-                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                    <RadioField
-                      label="HOA Dues?" name="Current Loan - Pay HOA"
-                      value={formData['Current Loan - Pay HOA']} onChange={updateField} inline
-                      options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
-                    />
-                    {formData['Current Loan - Pay HOA'] === 'Yes' && (
-                      <CurrencyField label="Monthly HOA Dues" name="Current Loan - HOA Dues" value={formData['Current Loan - HOA Dues']} onChange={updateField} required />
-                    )}
+                  <div className="md:col-span-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+                    Escrow, taxes, insurance, and HOA for each property are handled in the Other Properties step so you can match each mortgage to the right address first.
                   </div>
 
                   {/* Second Mortgage */}
@@ -1293,7 +1394,11 @@ function Stage2Content() {
                 OTHER PROPERTIES
             ═══════════════════════════════════════════════ */}
             {currentSectionKey === 'otherProperties' && (
-            <SectionCard title="Other Properties" description="Additional real estate you own" isComplete={isSectionCompleted(sections.otherProperties)} defaultOpen={true} sectionNumber={currentStep + 1}>
+            <SectionCard title="Other Properties" description="Add any extra properties, then drag each mortgage to the correct address." isComplete={isSectionCompleted(sections.otherProperties)} defaultOpen={true} sectionNumber={currentStep + 1}>
+              <div className="md:col-span-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+                Drag the mortgage cards on the right to the matching property on the left. Each mortgage must be matched before you continue.
+              </div>
+
               <RadioField
                 label="Do you own other properties?" name="Owns Other Properties" value={formData['Owns Other Properties']} onChange={updateField} required inline
                 options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
@@ -1304,57 +1409,169 @@ function Stage2Content() {
                   <NumberField label="How many other properties?" name="Number of Other Properties" value={formData['Number of Other Properties']} onChange={updateField} min={1} max={5} required />
                   {Array.from({ length: Math.min(Number(formData['Number of Other Properties']) || 0, 5) }, (_, i) => {
                     const n = i + 1;
-                    const escrowKey = `Other Properties - Address ${n} Escrow`;
-                    const hoaKey = `Other Properties - Address ${n} HOA`;
                     return (
                       <div key={`prop-${n}`} className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
-                        <h4 className="font-semibold text-gray-700 mb-3">Property {n}</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Address <span className="text-red-500">*</span></label>
-                            <AddressAutocomplete
-                              value={formData[`Other Properties - Address ${n}`] || ''}
-                              onChange={(address) => updateField(`Other Properties - Address ${n}`, address)}
-                              placeholder="Property address..."
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                          </div>
-
-                          {/* Escrow question */}
-                          <RadioField
-                            label="Do you escrow taxes and homeowner's insurance in the mortgage?"
-                            name={escrowKey}
-                            value={formData[escrowKey]}
-                            onChange={updateField} required inline
-                            options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
-                            className="md:col-span-2"
+                        <h4 className="font-semibold text-gray-700 mb-3">Other Property {n}</h4>
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Address <span className="text-red-500">*</span></label>
+                          <AddressAutocomplete
+                            value={formData[`Other Properties - Address ${n}`] || ''}
+                            onChange={(address) => updateField(`Other Properties - Address ${n}`, address)}
+                            placeholder="Property address..."
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
-
-                          {/* If not escrowed, show taxes and insurance */}
-                          {formData[escrowKey] === 'No' && (
-                            <AnnualMonthlyField label={`Property ${n} Taxes`} namePrefix={`Other Properties - ${n} Taxes`} formData={formData} onChange={updateField} required />
-                          )}
-                          {formData[escrowKey] === 'No' && (
-                            <AnnualMonthlyField label={`Property ${n} Insurance`} namePrefix={`Other Properties - ${n} Insurance`} formData={formData} onChange={updateField} required />
-                          )}
-
-                          {/* HOA */}
-                          <RadioField
-                            label="Do you pay HOA?"
-                            name={hoaKey}
-                            value={formData[hoaKey]}
-                            onChange={updateField} required inline
-                            options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
-                          />
-                          {formData[hoaKey] === 'Yes' && (
-                            <CurrencyField label="Monthly HOA Dues" name={`Other Properties - ${n} HOA Amount`} value={formData[`Other Properties - ${n} HOA Amount`]} onChange={updateField} required />
-                          )}
                         </div>
                       </div>
                     );
                   })}
                 </>
               )}
+
+              <div className="md:col-span-2 grid grid-cols-1 xl:grid-cols-2 gap-6 pt-4">
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold text-gray-900">Properties</h4>
+                    <p className="text-sm text-gray-500">Subject property, primary residence if different, and any additional addresses you entered.</p>
+                  </div>
+                  {mortgagePropertyCards.filter((property) => property.address).map((property) => {
+                    const matchedMortgages = getMatchedMortgagesForProperty(property.key);
+                    const hasMatchedFirstMortgage = matchedMortgages.some(isFirstMortgageAccount);
+                    return (
+                      <div
+                        key={property.key}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          const mortgageId = event.dataTransfer.getData('text/plain') || draggedMortgageId;
+                          if (mortgageId) assignMortgageToProperty(mortgageId, property.key);
+                          setDraggedMortgageId(null);
+                        }}
+                        className="rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 p-5"
+                      >
+                        <div className="mb-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">{property.label}</p>
+                          <p className="mt-1 font-semibold text-gray-900">{property.address}</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <RadioField
+                            label="Do you pay HOA?"
+                            name={property.hoaField}
+                            value={formData[property.hoaField]}
+                            onChange={updateField}
+                            required
+                            inline
+                            options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
+                          />
+                          {formData[property.hoaField] === 'Yes' && (
+                            <CurrencyField label="Monthly HOA Dues" name={property.hoaAmountField} value={formData[property.hoaAmountField]} onChange={updateField} required />
+                          )}
+                        </div>
+
+                        <div className="mt-4 rounded-xl bg-white p-4 border border-gray-200">
+                          <p className="text-sm font-medium text-gray-700 mb-3">Matched mortgages</p>
+                          {matchedMortgages.length > 0 ? (
+                            <div className="space-y-3">
+                              {matchedMortgages.map((mortgage) => (
+                                <div key={mortgage.id} className="rounded-xl border border-gray-200 p-3">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="font-medium text-gray-900">{mortgage.creditorName}</p>
+                                      <p className="text-sm text-gray-500">{mortgage.loanType || mortgage.accountType}</p>
+                                      <p className="text-xs text-gray-500 mt-1">{formatCurrency(mortgage.unpaidBalance)} balance • {formatCurrency(mortgage.monthlyPayment)}/mo • opened {formatDate(mortgage.openedDate)}</p>
+                                    </div>
+                                    <button type="button" onClick={() => unassignMortgage(mortgage.id)} className="text-sm font-medium text-blue-600 hover:text-blue-700">
+                                      Remove
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500">Drop mortgages here.</p>
+                          )}
+                        </div>
+
+                        {hasMatchedFirstMortgage && (
+                          <div className="mt-4 space-y-4">
+                            <RadioField
+                              label="Does this mortgage escrow your taxes and homeowners insurance?"
+                              name={property.escrowField}
+                              value={formData[property.escrowField]}
+                              onChange={updateField}
+                              required
+                              inline
+                              options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
+                              className="md:col-span-2"
+                            />
+                            {formData[property.escrowField] === 'No' && (
+                              <>
+                                <AnnualMonthlyField label="Property Taxes" namePrefix={property.taxesPrefix} formData={formData} onChange={updateField} required />
+                                <AnnualMonthlyField label="Homeowners Insurance" namePrefix={property.insurancePrefix} formData={formData} onChange={updateField} required />
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold text-gray-900">Mortgages from your credit report</h4>
+                    <p className="text-sm text-gray-500">Drag each mortgage card onto the matching property.</p>
+                  </div>
+                  {creditReportMortgages.length > 0 ? creditReportMortgages.map((mortgage) => {
+                    const assignedPropertyKey = String(formData[`Mortgage Match - ${mortgage.id}`] || '');
+                    const assignedProperty = mortgagePropertyCards.find((property) => property.key === assignedPropertyKey);
+                    return (
+                      <div
+                        key={mortgage.id}
+                        draggable
+                        onDragStart={(event) => {
+                          event.dataTransfer.setData('text/plain', mortgage.id);
+                          setDraggedMortgageId(mortgage.id);
+                        }}
+                        onDragEnd={() => setDraggedMortgageId(null)}
+                        className="cursor-move rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-gray-900">{mortgage.creditorName}</p>
+                            <p className="text-sm text-gray-500">{mortgage.loanType || mortgage.accountType}</p>
+                          </div>
+                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${assignedProperty ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {assignedProperty ? `Matched: ${assignedProperty.label}` : 'Unmatched'}
+                          </span>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="text-gray-500">Balance</p>
+                            <p className="font-semibold text-gray-900">{formatCurrency(mortgage.unpaidBalance)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Payment</p>
+                            <p className="font-semibold text-gray-900">{formatCurrency(mortgage.monthlyPayment)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Term</p>
+                            <p className="font-semibold text-gray-900">{mortgage.termMonths ? `${mortgage.termMonths} mo` : '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Open Date</p>
+                            <p className="font-semibold text-gray-900">{formatDate(mortgage.openedDate)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }) : (
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+                      No open mortgage accounts were carried over from the credit report.
+                    </div>
+                  )}
+                </div>
+              </div>
             </SectionCard>
             )}
 

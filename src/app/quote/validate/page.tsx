@@ -528,6 +528,35 @@ export default function ValidatePage() {
     ));
   };
 
+  const handleContinueToFinalizeDetails = async () => {
+    const nextFormData = {
+      ...formData,
+      'Credit Report - Open Mortgages': openMortgageLiabilities.map((liability) => ({
+        id: liability.id,
+        creditorName: liability.creditorName,
+        accountType: liability.accountType,
+        loanType: liability.loanType,
+        unpaidBalance: liability.unpaidBalance,
+        monthlyPayment: liability.monthlyPayment,
+        termMonths: liability.termMonths,
+        openedDate: liability.openedDate,
+        status: liability.status,
+        currentRating: liability.currentRating,
+      })),
+      'Credit Report - Paid Off Liability IDs': paidOffLiabilityIds,
+    };
+
+    setFormData(nextFormData);
+    localStorage.setItem('stage2-progress', JSON.stringify(nextFormData));
+
+    const parsedRate = Number(creditCardRateEstimate);
+    if (creditCardRateEstimate.trim() && Number.isFinite(parsedRate)) {
+      await persistEstimatedCreditCardRate(parsedRate);
+    }
+
+    router.push('/quote/finalize-details');
+  };
+
   const togglePaidOffLiability = (liabilityId: string) => {
     setPaidOffLiabilityIds((prev) => (
       prev.includes(liabilityId)
@@ -1016,22 +1045,6 @@ export default function ValidatePage() {
                             </div>
                           </div>
 
-                          <div className="mt-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Which property is this mortgage on?</label>
-                            <select
-                              value={mortgage?.matchedPropertyIndex ?? ''}
-                              onChange={(e) => handleMortgageMatch(liability.id, e.target.value === '' ? null : Number(e.target.value))}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                            >
-                              <option value="">-- Select a property --</option>
-                              {properties.map((prop) => (
-                                <option key={prop.index} value={prop.index}>
-                                  {prop.address.split(',')[0]}
-                                </option>
-                              ))}
-                              <option value={-1}>❓ I don&apos;t recognize this</option>
-                            </select>
-                          </div>
                         </div>
                       );
                     })}
@@ -1102,39 +1115,9 @@ export default function ValidatePage() {
               </div>
             )}
 
-            {/* Unmatched mortgage warning */}
-            {mortgages.some(m => m.matchedPropertyIndex === null) && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-                <p className="text-amber-700 text-sm font-medium">Please match all mortgages to a property before continuing.</p>
-              </div>
-            )}
-
-            {/* Extra property prompt */}
-            {mortgages.some(m => m.matchedPropertyIndex === -1) && (
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-                <p className="text-blue-700 text-sm font-medium mb-2">
-                  It looks like you may have a property we don&apos;t have listed.
-                </p>
-                <button
-                  className="text-blue-600 hover:text-blue-700 font-medium text-sm underline"
-                  onClick={() => {
-                    // TODO: Open modal to add missing property
-                    alert('Add missing property - TODO');
-                  }}
-                >
-                  + Add a property I missed
-                </button>
-              </div>
-            )}
-
             <button
               onClick={() => goToStep('updated-quote')}
-              disabled={mortgages.some(m => m.matchedPropertyIndex === null)}
-              className={`w-full py-4 px-6 rounded-xl font-semibold text-lg transition-all ${
-                !mortgages.some(m => m.matchedPropertyIndex === null)
-                  ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              }`}
+              className="w-full py-4 px-6 rounded-xl font-semibold text-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg transition-all"
             >
               Continue to Updated Quote →
             </button>
@@ -1232,7 +1215,7 @@ export default function ValidatePage() {
             </p>
 
             <button
-              onClick={() => router.push('/quote/finalize-details')}
+              onClick={handleContinueToFinalizeDetails}
               className="w-full py-4 px-6 rounded-xl font-semibold text-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all"
             >
               Continue to Finalize Details →
