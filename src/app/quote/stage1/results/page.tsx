@@ -309,8 +309,14 @@ export default function ResultsPage() {
             investor: bestEligible.investor,
             program: bestEligible.quote.program,
           } : null;
-          setHelocLiveQuote(nextQuote);
-          setHelocLiveQuoteKey(nextQuote ? helocPricingKey : null);
+          if (helocLoanAmount === null && nextQuote) {
+            setHelocLoanAmount(clampLoanAmount(nextQuote.maxAvailable, nextQuote.maxAvailable));
+            setHelocLiveQuote(null);
+            setHelocLiveQuoteKey(null);
+          } else {
+            setHelocLiveQuote(nextQuote);
+            setHelocLiveQuoteKey(nextQuote ? helocPricingKey : null);
+          }
         }
       } catch (error) {
         console.error('Failed to load HELOC quote', error);
@@ -372,8 +378,14 @@ export default function ResultsPage() {
             investor: bestEligible.investor,
             program: bestEligible.quote.program,
           } : null;
-          setCesLiveQuote(nextQuote);
-          setCesLiveQuoteKey(nextQuote ? cesPricingKey : null);
+          if (cesLoanAmount === null && nextQuote) {
+            setCesLoanAmount(clampLoanAmount(nextQuote.maxAvailable, nextQuote.maxAvailable));
+            setCesLiveQuote(null);
+            setCesLiveQuoteKey(null);
+          } else {
+            setCesLiveQuote(nextQuote);
+            setCesLiveQuoteKey(nextQuote ? cesPricingKey : null);
+          }
         }
       } catch (error) {
         console.error('Failed to load CES quote', error);
@@ -393,19 +405,6 @@ export default function ResultsPage() {
   const displayedCesQuote = cesLiveQuote && cesLiveQuoteKey === cesPricingKey
     ? { ...cesLiveQuote, maxAvailable: floorDisplayedMaxAvailable(cesLiveQuote.maxAvailable) }
     : null;
-
-  // Initialize loan amounts to max when quotes change
-  useEffect(() => {
-    if (displayedHelocQuote && displayedHelocQuote.maxAvailable > 0 && helocLoanAmount === null) {
-      setHelocLoanAmount(clampLoanAmount(displayedHelocQuote.maxAvailable, displayedHelocQuote.maxAvailable));
-    }
-  }, [displayedHelocQuote, helocLoanAmount]);
-
-  useEffect(() => {
-    if (displayedCesQuote && displayedCesQuote.maxAvailable > 0 && cesLoanAmount === null) {
-      setCesLoanAmount(clampLoanAmount(displayedCesQuote.maxAvailable, displayedCesQuote.maxAvailable));
-    }
-  }, [displayedCesQuote, cesLoanAmount]);
 
   // Clamp loan amounts to max when terms change
   useEffect(() => {
