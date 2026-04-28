@@ -1,17 +1,16 @@
 CREATE TABLE IF NOT EXISTS market_rate_cache (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  cache_key TEXT NOT NULL,
-  cache_date DATE NOT NULL,
+  cache_key TEXT PRIMARY KEY,
+  refresh_date DATE,
+  expires_at TIMESTAMPTZ,
   value_numeric NUMERIC,
   source_url TEXT,
   payload JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE (cache_key, cache_date)
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_market_rate_cache_key_date
-  ON market_rate_cache (cache_key, cache_date DESC);
+CREATE INDEX IF NOT EXISTS idx_market_rate_cache_expires_at
+  ON market_rate_cache (expires_at);
 
 ALTER TABLE market_rate_cache ENABLE ROW LEVEL SECURITY;
 

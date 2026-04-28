@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase';
+import {
+  getMarketRateCache,
+  getNextPacificMidnightIso,
+  getPacificDateKey,
+  isMarketRateCacheFresh,
+  upsertMarketRateCache,
+} from '@/lib/market-rate-cache';
 
 const CACHE_KEY = 'credit_card_average_interest_rate';
 const SOURCE_URL = 'https://fred.stlouisfed.org/series/TERMCBCCINTNS';
 const CSV_URL = 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=TERMCBCCINTNS';
-
-function getTodayKey() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function parseLatestFredValue(csv: string) {
   const lines = csv.trim().split(/\r?\n/).slice(1);
@@ -24,29 +26,19 @@ function parseLatestFredValue(csv: string) {
 }
 
 export async function GET() {
-  const cacheDate = getTodayKey();
+  const cacheDate = getPacificDateKey();
 
   try {
-    const supabase = getSupabaseAdmin();
-    const { data: cached, error: cacheError } = await supabase
-      .from('market_rate_cache')
-      .select('cache_date, value_numeric, payload, updated_at')
-      .eq('cache_key', CACHE_KEY)
-      .eq('cache_date', cacheDate)
-      .maybeSingle();
+    const cached = await getMarketRateCache(CACHE_KEY);
 
-    if (cacheError) {
-      console.warn('market_rate_cache lookup failed:', cacheError.message);
-    }
-
-    if (cached?.value_numeric !== null && cached?.value_numeric !== undefined) {
+    if (cached?.value_numeric !== null && cached?.value_numeric !== undefined && isMarketRateCacheFresh(cached)) {
       return NextResponse.json({
         rate: Number(cached.value_numeric),
         averageLabel: `${Number(cached.value_numeric).toFixed(2)}%`,
         source: SOURCE_URL,
         sourceSeries: 'TERMCBCCINTNS',
         cached: true,
-        cacheDate,
+        cacheDate: cached.refresh_date || cacheDate,
         observedDate: cached.payload?.observedDate || null,
         updatedAt: cached.updated_at || null,
       });
@@ -73,21 +65,14 @@ export async function GET() {
       series: 'TERMCBCCINTNS',
     };
 
-    const { error: upsertError } = await supabase.from('market_rate_cache').upsert(
-      {
-        cache_key: CACHE_KEY,
-        cache_date: cacheDate,
-        value_numeric: parsed.value,
-        source_url: SOURCE_URL,
-        payload,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'cache_key,cache_date' }
-    );
-
-    if (upsertError) {
-      console.warn('market_rate_cache upsert failed:', upsertError.message);
-    }
+    await upsertMarketRateCache({
+      cacheKey: CACHE_KEY,
+      valueNumeric: parsed.value,
+      sourceUrl: SOURCE_URL,
+      payload,
+      refreshDate: cacheDate,
+      expiresAt: getNextPacificMidnightIso(),
+    });
 
     return NextResponse.json({
       rate: parsed.value,

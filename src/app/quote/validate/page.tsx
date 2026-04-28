@@ -239,6 +239,9 @@ export default function ValidatePage() {
 
       if (hydratedData) {
         setFormData(hydratedData);
+        if (hydratedData.estimatedCreditCardAverageRate !== undefined && hydratedData.estimatedCreditCardAverageRate !== null) {
+          setCreditCardRateEstimate(String(hydratedData.estimatedCreditCardAverageRate));
+        }
 
         const props = [];
         if (hydratedData.propertyAddress) {
@@ -271,13 +274,26 @@ export default function ValidatePage() {
     hydrate();
   }, []);
 
+  useEffect(() => {
+    const parsedRate = Number(creditCardRateEstimate);
+    const hasRate = creditCardRateEstimate.trim().length > 0 && Number.isFinite(parsedRate);
+    if (!hasRate) return;
+    if (Number(formData.estimatedCreditCardAverageRate) === parsedRate) return;
+
+    const timeoutId = window.setTimeout(() => {
+      void persistEstimatedCreditCardRate(parsedRate);
+    }, 500);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [creditCardRateEstimate, formData]);
+
   const steps = [
     { label: 'Quote', icon: '💬', state: 'done' as const },
     { label: 'Property Value', icon: '🏠', state: 'done' as const },
     {
       label: 'Soft Credit Check',
       icon: '📊',
-      state: (currentStep === 'credit' || currentStep === 'summary' || currentStep === 'mortgages') ? 'current' as const : 'done' as const,
+      state: (currentStep === 'credit' || currentStep === 'mortgages' || currentStep === 'summary') ? 'current' as const : 'done' as const,
     },
     {
       label: 'Update Quote',
@@ -301,6 +317,34 @@ export default function ValidatePage() {
   const totalLiabilityBalance = (parsedProdTestReport?.liabilities || []).reduce((sum, liability) => sum + (liability.unpaidBalance || 0), 0);
   const totalCreditCardBalance = creditCardLiabilities.reduce((sum, liability) => sum + (liability.unpaidBalance || 0), 0);
   const totalMortgageBalance = mortgages.reduce((sum, mortgage) => sum + (mortgage.balance || 0), 0);
+  const parsedEstimatedCreditCardRate = Number(creditCardRateEstimate);
+  const hasEstimatedCreditCardRate = creditCardRateEstimate.trim().length > 0 && Number.isFinite(parsedEstimatedCreditCardRate);
+
+  const persistEstimatedCreditCardRate = async (rateValue: number) => {
+    const nextFormData = {
+      ...formData,
+      estimatedCreditCardAverageRate: rateValue,
+    };
+
+    setFormData(nextFormData);
+    localStorage.setItem('stage2-progress', JSON.stringify(nextFormData));
+
+    try {
+      await fetch('/api/application', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          formData: {
+            estimatedCreditCardAverageRate: rateValue,
+          },
+        }),
+      });
+    } catch (error) {
+      console.error('Failed to persist estimated credit card average rate', error);
+    }
+  };
 
   const goToStep = (step: ValidationStep) => {
     setCurrentStep(step);
@@ -372,7 +416,7 @@ export default function ValidatePage() {
         setProdTestStatusMessage(String(payload?.reportStatusMessage || '').trim() || null);
         setCreditScore(representativeScore);
         setMortgages(mortgageLiabilities.map(mapLiabilityToMortgage));
-        goToStep('summary');
+        goToStep(hasEstimatedCreditCardRate ? 'mortgages' : 'summary');
         return;
       }
 
@@ -390,7 +434,7 @@ export default function ValidatePage() {
             }))
           : []
       );
-      goToStep('summary');
+      goToStep(hasEstimatedCreditCardRate ? 'mortgages' : 'summary');
     } catch (error) {
       setCreditError(error instanceof Error ? error.message : 'Soft credit check failed.');
     } finally {
@@ -787,19 +831,84 @@ export default function ValidatePage() {
             </div>
 
             <button
-              onClick={() => {
-                const nextFormData = {
-                  ...formData,
-                  estimatedCreditCardAverageRate: creditCardRateEstimate ? Number(creditCardRateEstimate) : null,
-                };
-                setFormData(nextFormData);
-                localStorage.setItem('stage2-progress', JSON.stringify(nextFormData));
+              onClick={async () => {
+                if (hasEstimatedCreditCardRate) {
+                  await persistEstimatedCreditCardRate(parsedEstimatedCreditCardRate);
+                }
                 goToStep('mortgages');
               }}
               className="w-full py-4 px-6 rounded-xl font-semibold text-lg transition-all bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg"
             >
               Continue to Mortgage Review →
             </button>
+          </div>
+        )}
+
+        {loading && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4">
+            <div className="w-full max-w-2xl rounded-3xl bg-white p-8 shadow-2xl">
+              <div className="flex items-start gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-2xl">⏳</div>
+                <div className="flex-1">
+                  <h3 className="text-2xl font-bold text-gray-900">While we load your credit report...</h3>
+                  <p className="mt-2 text-gray-600">
+                    Credit cards don&apos;t report their interest rate. To help us estimate those payments more accurately,
+                    please enter your estimated average credit card rate now.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                <p className="text-sm leading-6 text-amber-900">
+                  The current FRED average is <span className="font-semibold">{creditCardAverageRate?.averageLabel || '21.52%'}</span>,
+                  and that&apos;s often a safe number to use.
+                </p>
+
+                <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-end">
+                  <div className="flex-1">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Estimated average credit card rate</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        max="99"
+                        step="0.01"
+                        value={creditCardRateEstimate}
+                        onChange={(e) => setCreditCardRateEstimate(e.target.value)}
+                        className="w-full rounded-xl border border-gray-300 px-4 py-3 pr-12 text-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        placeholder={creditCardAverageRate?.rate ? creditCardAverageRate.rate.toFixed(2) : '21.52'}
+                      />
+                      <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-gray-500">%</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (creditCardAverageRate?.rate !== null && creditCardAverageRate?.rate !== undefined) {
+                        setCreditCardRateEstimate(String(creditCardAverageRate.rate.toFixed(2)));
+                      }
+                    }}
+                    className="rounded-xl border border-amber-300 bg-white px-4 py-3 text-sm font-semibold text-amber-900 hover:bg-amber-100"
+                  >
+                    Use FRED average
+                  </button>
+                </div>
+
+                <p className="mt-3 text-xs text-amber-800">
+                  We&apos;ll save this to the application automatically.
+                  {creditCardAverageRate?.observedDate ? ` FRED observed date: ${creditCardAverageRate.observedDate}.` : ''}
+                  {creditCardAverageRate?.cached !== undefined ? ` ${creditCardAverageRate.cached ? 'Served from daily cache.' : 'Fetched fresh today.'}` : ''}
+                </p>
+              </div>
+
+              <div className="mt-6 flex items-center gap-3 text-sm text-gray-500">
+                <svg className="h-5 w-5 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <span>{isMeridianLinkProdTest ? 'Submitting MeridianLink test and waiting for the report...' : 'Pulling credit report...'}</span>
+              </div>
+            </div>
           </div>
         )}
 

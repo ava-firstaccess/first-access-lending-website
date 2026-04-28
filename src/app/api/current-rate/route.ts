@@ -1,22 +1,24 @@
 import { NextResponse } from 'next/server';
+import {
+  getMarketRateCache,
+  getNextPacificMidnightIso,
+  getPacificDateKey,
+  isMarketRateCacheFresh,
+  upsertMarketRateCache,
+} from '@/lib/market-rate-cache';
 
-let cachedRates: { 
-  conventional: number | null; 
-  fha: number | null; 
-  va: number | null;
-  timestamp: number 
-} | null = null;
-const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_KEY = 'mortgage_news_daily_rates';
 
 export async function GET() {
   try {
-    // Return cached rates if fresh
-    if (cachedRates && Date.now() - cachedRates.timestamp < CACHE_DURATION) {
-      return NextResponse.json({ 
-        conventional: cachedRates.conventional,
-        fha: cachedRates.fha,
-        va: cachedRates.va,
-        cached: true 
+    const cachedRates = await getMarketRateCache(CACHE_KEY);
+    if (cachedRates?.payload && isMarketRateCacheFresh(cachedRates)) {
+      return NextResponse.json({
+        conventional: typeof cachedRates.payload.conventional === 'number' ? cachedRates.payload.conventional : null,
+        fha: typeof cachedRates.payload.fha === 'number' ? cachedRates.payload.fha : null,
+        va: typeof cachedRates.payload.va === 'number' ? cachedRates.payload.va : null,
+        cached: true,
+        cacheDate: cachedRates.refresh_date || getPacificDateKey(),
       });
     }
 
@@ -50,13 +52,17 @@ export async function GET() {
       throw new Error('Could not parse rates from page');
     }
     
-    // Cache the results
-    cachedRates = {
-      conventional: conventionalRate,
-      fha: fhaRate,
-      va: vaRate,
-      timestamp: Date.now(),
-    };
+    await upsertMarketRateCache({
+      cacheKey: CACHE_KEY,
+      sourceUrl: 'https://www.mortgagenewsdaily.com/mortgage-rates',
+      payload: {
+        conventional: conventionalRate,
+        fha: fhaRate,
+        va: vaRate,
+      },
+      refreshDate: getPacificDateKey(),
+      expiresAt: getNextPacificMidnightIso(),
+    });
 
     return NextResponse.json({ 
       conventional: conventionalRate,
