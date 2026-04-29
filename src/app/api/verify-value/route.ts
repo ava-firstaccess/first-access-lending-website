@@ -671,8 +671,8 @@ export async function POST(req: NextRequest) {
     const newMaxLoan = Math.max(0, (hcEstimate * maxLtv) - balance);
     const hcRatio = desired > 0 ? newMaxLoan / desired : 0;
     const useHouseCanaryEstimateOnly = hcRatio >= 0.8;
-    const shouldCascadeToClearCapital = hcRatio >= 0.25 && hcRatio < 0.8 && newMaxLoan >= 25000;
-    const shouldHardFail = hcRatio < 0.25 || newMaxLoan < 25000;
+    const shouldCascadeToClearCapital = hcRatio >= 0.25 && hcRatio < 0.8 && newMaxLoan >= 50000;
+    const shouldHardFail = hcRatio < 0.25 || newMaxLoan < 50000;
 
     console.log('verify-value decision after HouseCanary estimate', {
       useHouseCanaryEstimateOnly,

@@ -43,7 +43,7 @@ Example:
 ### C. Hard fail, no Clear Capital call
 Do not run Clear Capital when either is true:
 - `hcRatio < 0.25`
-- or `hcMaxLoan < 25000`
+- or `hcMaxLoan < 50000`
 
 Example:
 - target = $100,000
@@ -63,8 +63,8 @@ That is not the current default decision rule unless added explicitly.
 
 Version 1 should use this simple logic:
 - `hcRatio >= 0.80` → use HC
-- `hcRatio >= 0.25` and `hcRatio < 0.80` and `hcMaxLoan >= 25000` → run CC
-- `hcRatio < 0.25` or `hcMaxLoan < 25000` → stop
+- `hcRatio >= 0.25` and `hcRatio < 0.80` and `hcMaxLoan >= 50000` → run CC
+- `hcRatio < 0.25` or `hcMaxLoan < 50000` → stop
 
 ## Why this rule exists
 
