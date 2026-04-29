@@ -509,10 +509,10 @@ export default function Stage1() {
             title="Your credit score?"
             subtitle="Your best estimate - we'll verify later"
             progress={progress}
-            isValid={!!data.creditScore}
+            isValid={!!data.creditScore && !quoteLoading}
             onContinue={goForward}
             onBack={step > 0 ? goBack : undefined}
-            continueText="Next Step: Customize"
+            continueText={quoteLoading ? "Loading rate..." : "Next Step: Customize"}
           >
             <div className="space-y-4">
               <input
