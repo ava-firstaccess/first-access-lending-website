@@ -145,8 +145,10 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
     ? (Number.isFinite(Number(request.targetPriceOverride)) ? Number(request.targetPriceOverride) : undefined)
     : undefined;
   const hasTargetPriceOverride = parsedTargetPriceOverride !== undefined;
-  const loTargetPrice = parsedTargetPriceOverride ?? 100;
-  const effectiveTargetPrice = roundToThree(defaultBackendTargetPrice + (100 - loTargetPrice));
+  const displayTargetPrice = parsedTargetPriceOverride ?? defaultBackendTargetPrice;
+  const effectiveTargetPrice = hasTargetPriceOverride
+    ? roundToThree(defaultBackendTargetPrice + (100 - displayTargetPrice))
+    : defaultBackendTargetPrice;
   const effectiveManualRateOverride = request.manualRateOverride?.trim() ? (Number.isFinite(Number(request.manualRateOverride)) ? Number(request.manualRateOverride) : undefined) : undefined;
   const activeResult = getActiveResult(engine, input, effectiveTargetPrice, effectiveManualRateOverride, tolerance, hasTargetPriceOverride);
 
@@ -157,7 +159,7 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
   const bestExLockPeriodDays = input.bestExLockPeriodDays ?? 30;
   const bestExDocType = input.bestExDocType ?? 'Full Doc';
   const actualLockPeriodDays = bestExLockPeriodDays + 30;
-  const makeSummary = (eligibility: Stage1Eligibility, quote: Stage1ExecutionQuote, maxPrice: number, requestedRates: number[], getQuoteForRate: (rateOverride?: number) => Stage1ExecutionQuote): InvestorSummary => { const selectionTarget = getBestXSelectionTarget(effectiveTargetPrice, maxPrice, hasTargetPriceOverride); const bestExWindowLowerBound = roundToThree(selectionTarget - BEST_EX_WINDOW_FLOOR); const bestExWindowUpperBound = roundToThree(selectionTarget + BEST_EX_WINDOW_CEILING); const rawDiscountPoints = effectiveTargetPrice - quote.purchasePrice; const discountPoints = roundBorrowerPoints(rawDiscountPoints); const buyPrice = 0; const deltaFromTarget = roundToThree(quote.purchasePrice - effectiveTargetPrice); const respectsMaxPrice = maxPrice <= 0 || quote.purchasePrice <= maxPrice + 0.0001; const windowMatched = eligibility.eligible && respectsMaxPrice && quote.purchasePrice >= bestExWindowLowerBound && quote.purchasePrice <= bestExWindowUpperBound; return { investor: quote.engine, eligibility, quote, discountPoints, buyPrice, windowMatched, deltaFromTarget, targetPrice: defaultBackendTargetPrice, maxPrice, priceLadder: buildTargetPriceLadder(requestedRates, getQuoteForRate, quote, effectiveTargetPrice, loTargetPrice, maxPrice) }; };
+  const makeSummary = (eligibility: Stage1Eligibility, quote: Stage1ExecutionQuote, maxPrice: number, requestedRates: number[], getQuoteForRate: (rateOverride?: number) => Stage1ExecutionQuote): InvestorSummary => { const selectionTarget = getBestXSelectionTarget(effectiveTargetPrice, maxPrice, hasTargetPriceOverride); const bestExWindowLowerBound = roundToThree(selectionTarget - BEST_EX_WINDOW_FLOOR); const bestExWindowUpperBound = roundToThree(selectionTarget + BEST_EX_WINDOW_CEILING); const rawDiscountPoints = effectiveTargetPrice - quote.purchasePrice; const discountPoints = roundBorrowerPoints(rawDiscountPoints); const buyPrice = 0; const deltaFromTarget = roundToThree(quote.purchasePrice - effectiveTargetPrice); const respectsMaxPrice = maxPrice <= 0 || quote.purchasePrice <= maxPrice + 0.0001; const windowMatched = eligibility.eligible && respectsMaxPrice && quote.purchasePrice >= bestExWindowLowerBound && quote.purchasePrice <= bestExWindowUpperBound; return { investor: quote.engine, eligibility, quote, discountPoints, buyPrice, windowMatched, deltaFromTarget, targetPrice: displayTargetPrice, maxPrice, priceLadder: buildTargetPriceLadder(requestedRates, getQuoteForRate, quote, effectiveTargetPrice, displayTargetPrice, maxPrice) }; };
   const makeIneligible = (investor: Stage1ExecutionQuote['engine'], program: string, product: string, reason: string, maxPrice = 0): InvestorSummary => ({ investor, eligibility: { eligible: false, reasons: [reason], maxAvailable: 0, resultingCltv: 0 }, quote: { engine: investor, program, product, maxAvailable: 0, rate: 0, noteRate: 0, monthlyPayment: 0, maxLtv: 0, purchasePrice: 0, basePrice: 0, llpaAdjustment: 0, adjustments: [] }, discountPoints: 0, buyPrice: 0, windowMatched: false, deltaFromTarget: 0, targetPrice: defaultBackendTargetPrice, maxPrice, priceLadder: [] });
   const chooseBestXSummary = (eligibility: Stage1Eligibility, fallbackQuote: Stage1ExecutionQuote, requestedRates: number[], getQuote: (rateOverride?: number) => Stage1ExecutionQuote, maxPrice: number): InvestorSummary => {
     if (!eligibility.eligible) return makeSummary(eligibility, fallbackQuote, maxPrice, requestedRates, getQuote);
@@ -176,7 +178,7 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
     const usableCandidates = cappedCandidates.length > 0 ? cappedCandidates : allCandidates;
     const windowCandidates = usableCandidates.filter(summary => summary.windowMatched);
     if (windowCandidates.length > 0) {
-      return [...windowCandidates].sort((a, b) => Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget) || ((a.deltaFromTarget > 0) === (b.deltaFromTarget > 0) ? 0 : a.deltaFromTarget > 0 ? 1 : -1) || a.quote.rate - b.quote.rate || a.discountPoints - b.discountPoints || a.investor.localeCompare(b.investor))[0];
+      return [...windowCandidates].sort((a, b) => a.quote.rate - b.quote.rate || Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget) || ((a.deltaFromTarget > 0) === (b.deltaFromTarget > 0) ? 0 : a.deltaFromTarget > 0 ? 1 : -1) || a.discountPoints - b.discountPoints || a.investor.localeCompare(b.investor))[0];
     }
     return [...usableCandidates].sort((a, b) => distanceToBestExWindow(a.quote.purchasePrice, roundToThree(getBestXSelectionTarget(effectiveTargetPrice, a.maxPrice, hasTargetPriceOverride) - BEST_EX_WINDOW_FLOOR), roundToThree(getBestXSelectionTarget(effectiveTargetPrice, a.maxPrice, hasTargetPriceOverride) + BEST_EX_WINDOW_CEILING)) - distanceToBestExWindow(b.quote.purchasePrice, roundToThree(getBestXSelectionTarget(effectiveTargetPrice, b.maxPrice, hasTargetPriceOverride) - BEST_EX_WINDOW_FLOOR), roundToThree(getBestXSelectionTarget(effectiveTargetPrice, b.maxPrice, hasTargetPriceOverride) + BEST_EX_WINDOW_CEILING)) || Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget) || ((a.deltaFromTarget > 0) === (b.deltaFromTarget > 0) ? 0 : a.deltaFromTarget > 0 ? 1 : -1) || a.quote.rate - b.quote.rate || a.discountPoints - b.discountPoints || a.investor.localeCompare(b.investor))[0];
   };
@@ -256,29 +258,13 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
     if (windowOrder !== 0) return windowOrder;
 
     if (a.windowMatched && b.windowMatched) {
-      return Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget)
-        || ((a.deltaFromTarget > 0) === (b.deltaFromTarget > 0) ? 0 : a.deltaFromTarget > 0 ? 1 : -1)
-        || a.quote.rate - b.quote.rate
+      return a.quote.rate - b.quote.rate
         || a.discountPoints - b.discountPoints
         || a.investor.localeCompare(b.investor);
     }
 
     if (a.eligibility.eligible && b.eligibility.eligible) {
-      const aDistance = distanceToBestExWindow(
-        a.quote.purchasePrice,
-        roundToThree(getBestXSelectionTarget(effectiveTargetPrice, a.maxPrice, hasTargetPriceOverride) - BEST_EX_WINDOW_FLOOR),
-        roundToThree(getBestXSelectionTarget(effectiveTargetPrice, a.maxPrice, hasTargetPriceOverride) + BEST_EX_WINDOW_CEILING)
-      );
-      const bDistance = distanceToBestExWindow(
-        b.quote.purchasePrice,
-        roundToThree(getBestXSelectionTarget(effectiveTargetPrice, b.maxPrice, hasTargetPriceOverride) - BEST_EX_WINDOW_FLOOR),
-        roundToThree(getBestXSelectionTarget(effectiveTargetPrice, b.maxPrice, hasTargetPriceOverride) + BEST_EX_WINDOW_CEILING)
-      );
-
-      return aDistance - bDistance
-        || Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget)
-        || ((a.deltaFromTarget > 0) === (b.deltaFromTarget > 0) ? 0 : a.deltaFromTarget > 0 ? 1 : -1)
-        || a.quote.rate - b.quote.rate
+      return a.quote.rate - b.quote.rate
         || a.discountPoints - b.discountPoints
         || a.investor.localeCompare(b.investor);
     }
