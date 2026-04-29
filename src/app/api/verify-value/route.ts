@@ -161,6 +161,16 @@ function getMaxLtv(creditScore: number, propertyType: string): number {
   return propertyType === 'Primary' ? 0.70 : propertyType === '2nd Home' ? 0.65 : 0.60;
 }
 
+function hasClearCapitalLowConfidence(result: ClearCapitalClearAvmResult | undefined) {
+  const confidenceScore = String(result?.confidenceScore || '').trim().toLowerCase();
+  const confidenceScoreAlt = String(result?.confidenceScoreAlt || '').trim().toLowerCase();
+  const forecastStdDev = typeof result?.forecastStdDev === 'number' ? result.forecastStdDev : null;
+
+  return confidenceScore === 'low'
+    || confidenceScoreAlt === 'low'
+    || (forecastStdDev !== null && forecastStdDev >= 0.20);
+}
+
 // Step 1: Property Estimate ($0.05/call)
 async function getPropertyEstimate(address: string, zipcode: string, city?: string, state?: string) {
   const params = new URLSearchParams({ address });
@@ -350,6 +360,9 @@ async function tryClearCapitalFallback({
     const ccResult = clearCapital?.result;
     const clearCapitalValue = Math.round(ccResult?.marketValue || 0);
     const clearCapitalMaxLoan = Math.max(0, clearCapitalValue * maxLtv - balance);
+    const clearCapitalRatio = desired > 0 ? clearCapitalMaxLoan / desired : 0;
+    const clearCapitalLowConfidence = hasClearCapitalLowConfidence(ccResult);
+    const clearCapitalLowValue = clearCapitalRatio < 0.25 || clearCapitalMaxLoan < 50000;
 
     await updateClearCapitalRun(supabase, clearCapitalRunId, {
       ...baseRunPayload,
@@ -366,8 +379,62 @@ async function tryClearCapitalFallback({
       low_value: Math.round(ccResult?.lowValue || 0),
       effective_date: clearCapital?.response?.effectiveDate || null,
       vendor_run_date: ccResult?.runDate || null,
-      notes: `ClearAVM success after ${triggerReason}`,
+      notes: clearCapitalLowValue
+        ? `ClearAVM low value exit ramp after ${triggerReason}`
+        : clearCapitalLowConfidence
+          ? `ClearAVM low confidence exit ramp after ${triggerReason}`
+          : `ClearAVM success after ${triggerReason}`,
     });
+
+    if (clearCapitalLowValue) {
+      return {
+        tier: 'low_confidence',
+        hcValue: clearCapitalValue,
+        statedValue,
+        price_lwr: Math.round(ccResult?.lowValue || 0),
+        price_upr: Math.round(ccResult?.highValue || 0),
+        newMaxLoan: Math.round(clearCapitalMaxLoan),
+        maxLtv,
+        desiredLoanAmount: desired,
+        valuationProvider: 'clearcapital',
+        cascadeDecision: 'clearcapital_low_value_exit_ramp',
+        clearCapitalConfidenceScore: ccResult?.confidenceScore,
+        clearCapitalConfidenceScoreAlt: ccResult?.confidenceScoreAlt,
+        clearCapitalEstimatedError: ccResult?.estimatedError,
+        clearCapitalForecastStdDev: ccResult?.forecastStdDev,
+        clearCapitalRunDate: ccResult?.runDate,
+        clearCapitalEffectiveDate: clearCapital?.response?.effectiveDate,
+        houseCanaryFsd: fsd,
+        houseCanaryEstimate: hcEstimate,
+        houseCanaryValue: hcValue,
+        needsHuman: true,
+      };
+    }
+
+    if (clearCapitalLowConfidence) {
+      return {
+        tier: 'low_confidence',
+        hcValue: clearCapitalValue,
+        statedValue,
+        price_lwr: Math.round(ccResult?.lowValue || 0),
+        price_upr: Math.round(ccResult?.highValue || 0),
+        newMaxLoan: Math.round(clearCapitalMaxLoan),
+        maxLtv,
+        desiredLoanAmount: desired,
+        valuationProvider: 'clearcapital',
+        cascadeDecision: 'clearcapital_low_confidence_exit_ramp',
+        clearCapitalConfidenceScore: ccResult?.confidenceScore,
+        clearCapitalConfidenceScoreAlt: ccResult?.confidenceScoreAlt,
+        clearCapitalEstimatedError: ccResult?.estimatedError,
+        clearCapitalForecastStdDev: ccResult?.forecastStdDev,
+        clearCapitalRunDate: ccResult?.runDate,
+        clearCapitalEffectiveDate: clearCapital?.response?.effectiveDate,
+        houseCanaryFsd: fsd,
+        houseCanaryEstimate: hcEstimate,
+        houseCanaryValue: hcValue,
+        needsHuman: true,
+      };
+    }
 
     return {
       tier: 'verified',
