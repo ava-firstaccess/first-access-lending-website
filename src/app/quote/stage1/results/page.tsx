@@ -428,10 +428,8 @@ export default function ResultsPage() {
   const effectiveCesAmount = displayedCesQuote
     ? (cesLoanAmount ?? clampLoanAmount(displayedCesQuote.maxAvailable, displayedCesQuote.maxAvailable))
     : 0;
-  const helocNeedsSelectionInit = !!displayedHelocQuote && helocLoanAmount === null;
-  const cesNeedsSelectionInit = !!displayedCesQuote && cesLoanAmount === null;
-  const helocQuoteReady = !helocPricingLoading && !!displayedHelocQuote && !helocNeedsSelectionInit;
-  const cesQuoteReady = !cesPricingLoading && !!displayedCesQuote && !cesNeedsSelectionInit;
+  const helocQuoteReady = !helocPricingLoading && !!displayedHelocQuote;
+  const cesQuoteReady = !cesPricingLoading && !!displayedCesQuote;
 
   // Recalculate payments based on chosen loan amount
   const helocRepaymentYears = helocTotalTerm - helocDrawTerm;
