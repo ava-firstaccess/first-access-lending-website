@@ -436,9 +436,6 @@ export default function ResultsPage() {
   const cesNeedsSelectionInit = !!displayedCesQuote && cesLoanAmount === null;
   const helocQuoteReady = !helocPricingLoading && !!displayedHelocQuote && !helocNeedsSelectionInit;
   const cesQuoteReady = !cesPricingLoading && !!displayedCesQuote && !cesNeedsSelectionInit;
-  const productQuotesReady = product === 'HELOC' || product === 'CES'
-    ? helocQuoteReady && cesQuoteReady
-    : true;
 
   // Recalculate payments based on chosen loan amount
   const helocRepaymentYears = helocTotalTerm - helocDrawTerm;
@@ -503,14 +500,10 @@ export default function ResultsPage() {
     }
   }
 
-  if (!loaded || !stage1Hydrated || !productQuotesReady) {
+  if (!loaded || !stage1Hydrated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600 mb-4"></div>
-          <div className="text-gray-700 font-medium">Calculating your quote...</div>
-          <div className="text-sm text-gray-500 mt-1">Loading live pricing with your exact scenario.</div>
-        </div>
+        <div className="text-gray-600">Calculating your quote...</div>
       </div>
     );
   }
