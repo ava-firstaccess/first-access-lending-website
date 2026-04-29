@@ -177,7 +177,6 @@ interface Stage1Data {
 export default function ResultsPage() {
   const router = useRouter();
   const [loaded, setLoaded] = useState(false);
-  const [stage1Hydrated, setStage1Hydrated] = useState(false);
   const [stage1, setStage1] = useState<Stage1Data>({});
   const [leadForm, setLeadForm] = useState({
     firstName: '',
@@ -210,7 +209,6 @@ export default function ResultsPage() {
         if (parsed.helocDrawTerm) setHelocDrawTerm(Number(parsed.helocDrawTerm));
         else if (parsed.drawTerm) setHelocDrawTerm(Number(parsed.drawTerm));
         else setHelocDrawTerm(3);
-        setStage1Hydrated(true);
       } catch {
         router.push('/quote/start');
         return;
@@ -223,7 +221,6 @@ export default function ResultsPage() {
   }, [router]);
 
   const product = String(stage1.product || 'HELOC');
-  const readyForPricing = loaded && stage1Hydrated;
   const propertyValue = Number(stage1.propertyValue) || 500000;
   const loanBalance = Number(stage1.loanBalance) || 0;
   const creditScore = Number(stage1.creditScore) || 720;
@@ -264,7 +261,6 @@ export default function ResultsPage() {
   }), [stage1.propertyState, propertyValue, loanBalance, creditScore, propertyType, propertyOccupancy, structureType, numberOfUnits, cashOutAmount, cesLoanAmount, cesTerm]);
 
   useEffect(() => {
-    if (!readyForPricing) return;
     let cancelled = false;
 
     async function loadHelocQuote() {
@@ -332,10 +328,9 @@ export default function ResultsPage() {
 
     loadHelocQuote();
     return () => { cancelled = true; };
-  }, [cashOutAmount, creditScore, helocDrawTerm, helocLoanAmount, helocPricingKey, helocTotalTerm, loanBalance, numberOfUnits, propertyOccupancy, propertyType, propertyValue, readyForPricing, stage1.propertyState, structureType]);
+  }, [cashOutAmount, creditScore, helocDrawTerm, helocLoanAmount, helocPricingKey, helocTotalTerm, loanBalance, numberOfUnits, propertyOccupancy, propertyType, propertyValue, stage1.propertyState, structureType]);
 
   useEffect(() => {
-    if (!readyForPricing) return;
     let cancelled = false;
 
     async function loadCesQuote() {
@@ -402,7 +397,7 @@ export default function ResultsPage() {
 
     loadCesQuote();
     return () => { cancelled = true; };
-  }, [cashOutAmount, cesLoanAmount, cesPricingKey, cesTerm, creditScore, loanBalance, numberOfUnits, propertyOccupancy, propertyType, propertyValue, readyForPricing, stage1.propertyState, structureType]);
+  }, [cashOutAmount, cesLoanAmount, cesPricingKey, cesTerm, creditScore, loanBalance, numberOfUnits, propertyOccupancy, propertyType, propertyValue, stage1.propertyState, structureType]);
 
   const displayedHelocQuote = helocLiveQuote && helocLiveQuoteKey === helocPricingKey
     ? { ...helocLiveQuote, maxAvailable: floorDisplayedMaxAvailable(helocLiveQuote.maxAvailable) }
@@ -500,7 +495,7 @@ export default function ResultsPage() {
     }
   }
 
-  if (!loaded || !stage1Hydrated) {
+  if (!loaded) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50 flex items-center justify-center">
         <div className="text-gray-600">Calculating your quote...</div>
