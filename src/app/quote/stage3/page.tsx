@@ -55,26 +55,18 @@ function LoanAmountSlider({ value, max, min, onChange }: {
 }
 
 function parseAddress(fullAddress: string): { street: string; zipcode: string } {
-  // Try to extract zipcode from anywhere in the address
+  const parts = fullAddress
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  const street = parts[0] || fullAddress.trim();
   const zipMatch = fullAddress.match(/\b(\d{5})(-\d{4})?\b/);
-  if (zipMatch) {
-    // Remove the zip and everything after it for the street
-    const idx = fullAddress.indexOf(zipMatch[0]);
-    const street = fullAddress.substring(0, idx).replace(/,?\s*$/, '').trim();
-    return {
-      street: street || fullAddress.split(',')[0].trim(),
-      zipcode: zipMatch[1],
-    };
-  }
-  
-  // Try splitting by comma - "123 Main St, Baltimore, MD" format
-  const parts = fullAddress.split(',').map(p => p.trim());
-  if (parts.length >= 1) {
-    // Return just the street portion, no zip
-    return { street: parts[0], zipcode: '' };
-  }
-  
-  return { street: fullAddress, zipcode: '' };
+
+  return {
+    street,
+    zipcode: zipMatch?.[1] || '',
+  };
 }
 
 type Stage3Data = Record<string, unknown>;
