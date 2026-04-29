@@ -362,7 +362,11 @@ async function tryClearCapitalFallback({
     const clearCapitalMaxLoan = Math.max(0, clearCapitalValue * maxLtv - balance);
     const clearCapitalRatio = desired > 0 ? clearCapitalMaxLoan / desired : 0;
     const clearCapitalLowConfidence = hasClearCapitalLowConfidence(ccResult);
-    const clearCapitalLowValue = clearCapitalRatio < 0.25 || clearCapitalMaxLoan < 50000;
+    const clearCapitalBelowTarget = clearCapitalRatio < 0.25;
+    const clearCapitalBelowFloor = clearCapitalMaxLoan < 50000;
+    const clearCapitalLowValue = clearCapitalBelowTarget || clearCapitalBelowFloor;
+    const houseCanaryComparableValue = Math.round(hcValue ?? hcEstimate ?? 0);
+    const houseCanaryComparableMaxLoan = Math.max(0, houseCanaryComparableValue * maxLtv - balance);
 
     await updateClearCapitalRun(supabase, clearCapitalRunId, {
       ...baseRunPayload,
@@ -385,6 +389,55 @@ async function tryClearCapitalFallback({
           ? `ClearAVM low confidence exit ramp after ${triggerReason}`
           : `ClearAVM success after ${triggerReason}`,
     });
+
+    if (clearCapitalBelowTarget && !clearCapitalBelowFloor) {
+      const useClearCapital = clearCapitalMaxLoan >= houseCanaryComparableMaxLoan;
+
+      if (useClearCapital) {
+        return {
+          tier: 'verified',
+          hcValue: clearCapitalValue,
+          statedValue,
+          price_lwr: Math.round(ccResult?.lowValue || 0),
+          price_upr: Math.round(ccResult?.highValue || 0),
+          newMaxLoan: Math.round(clearCapitalMaxLoan),
+          maxLtv,
+          desiredLoanAmount: desired,
+          valuationProvider: 'clearcapital',
+          cascadeDecision: 'use_higher_of_hc_and_clearcapital',
+          clearCapitalConfidenceScore: ccResult?.confidenceScore,
+          clearCapitalConfidenceScoreAlt: ccResult?.confidenceScoreAlt,
+          clearCapitalEstimatedError: ccResult?.estimatedError,
+          clearCapitalForecastStdDev: ccResult?.forecastStdDev,
+          clearCapitalRunDate: ccResult?.runDate,
+          clearCapitalEffectiveDate: clearCapital?.response?.effectiveDate,
+          houseCanaryFsd: fsd,
+          houseCanaryEstimate: hcEstimate,
+          houseCanaryValue: hcValue,
+        };
+      }
+
+      return {
+        tier: hcValue ? 'verified' : 'estimate',
+        hcValue: houseCanaryComparableValue,
+        statedValue,
+        fsd: fsd ?? undefined,
+        newMaxLoan: Math.round(houseCanaryComparableMaxLoan),
+        maxLtv,
+        desiredLoanAmount: desired,
+        valuationProvider: hcValue ? 'housecanary' : 'housecanary_estimate',
+        cascadeDecision: 'use_higher_of_hc_and_clearcapital',
+        houseCanaryFsd: fsd,
+        houseCanaryEstimate: hcEstimate,
+        houseCanaryValue: hcValue,
+        clearCapitalConfidenceScore: ccResult?.confidenceScore,
+        clearCapitalConfidenceScoreAlt: ccResult?.confidenceScoreAlt,
+        clearCapitalEstimatedError: ccResult?.estimatedError,
+        clearCapitalForecastStdDev: ccResult?.forecastStdDev,
+        clearCapitalRunDate: ccResult?.runDate,
+        clearCapitalEffectiveDate: clearCapital?.response?.effectiveDate,
+      };
+    }
 
     if (clearCapitalLowValue) {
       return {
