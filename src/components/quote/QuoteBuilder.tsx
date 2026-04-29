@@ -76,44 +76,40 @@ export default function QuoteBuilder({
           </div>
         )}
 
-        {loading ? (
-          <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-5 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600 mb-3"></div>
-            <p className="text-sm font-medium text-gray-900">Loading live quote</p>
-            <p className="text-xs text-gray-500 mt-1">We&apos;re pulling fresh pricing now.</p>
+        {/* Rate Range */}
+        <div>
+          <label className="text-sm text-gray-600 block mb-1">
+            {stage === 'stage1' ? 'Estimated Rate' : 'Your Rate'}
+          </label>
+          <div className={`flex items-center gap-2 text-2xl font-bold ${rateRange ? 'text-gray-900' : 'text-gray-300'}`}>
+            {rateRange 
+              ? stage === 'stage1' 
+                ? `${formatRate(rateRange.min)} - ${formatRate(rateRange.max)}`
+                : formatRate(rateRange.min)
+              : '—%'
+            }
+            {loading && (
+              <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" aria-label="Loading live quote" />
+            )}
           </div>
-        ) : (
-          <>
-            {/* Rate Range */}
-            <div>
-              <label className="text-sm text-gray-600 block mb-1">
-                {stage === 'stage1' ? 'Estimated Rate' : 'Your Rate'}
-              </label>
-              <div className={`text-2xl font-bold ${rateRange ? 'text-gray-900' : 'text-gray-300'}`}>
-                {rateRange 
-                  ? stage === 'stage1' 
-                    ? `${formatRate(rateRange.min)} - ${formatRate(rateRange.max)}`
-                    : formatRate(rateRange.min)
-                  : '—%'
-                }
-              </div>
-            </div>
+          {loading && (
+            <p className="text-xs text-gray-500 mt-1">Loading live quote...</p>
+          )}
+        </div>
 
-            {/* Monthly Payment */}
-            <div>
-              <label className="text-sm text-gray-600 block mb-1">
-                {stage === 'stage1' ? '~Monthly Payment' : 'Monthly Payment'}
-              </label>
-              <div className={`text-2xl font-bold ${(monthlyPayment || monthlyPaymentRange) ? 'text-gray-900' : 'text-gray-300'}`}>
-                {stage === 'stage1' && monthlyPaymentRange
-                  ? `${formatCurrency(monthlyPaymentRange.min)} - ${formatCurrency(monthlyPaymentRange.max)}`
-                  : monthlyPayment
-                    ? formatCurrency(monthlyPayment)
-                    : '$—'}
-              </div>
-            </div>
-          </>
-        )}
+        {/* Monthly Payment */}
+        <div>
+          <label className="text-sm text-gray-600 block mb-1">
+            {stage === 'stage1' ? '~Monthly Payment' : 'Monthly Payment'}
+          </label>
+          <div className={`text-2xl font-bold ${(monthlyPayment || monthlyPaymentRange) ? 'text-gray-900' : 'text-gray-300'}`}>
+            {stage === 'stage1' && monthlyPaymentRange
+              ? `${formatCurrency(monthlyPaymentRange.min)} - ${formatCurrency(monthlyPaymentRange.max)}`
+              : monthlyPayment
+                ? formatCurrency(monthlyPayment)
+                : '$—'}
+          </div>
+        </div>
 
       </div>
 

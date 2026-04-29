@@ -161,7 +161,7 @@ export default function Stage1() {
   const currentQuestion = flow[step];
   const totalSteps = flow.length;
   const progress = ((step + 1) / (totalSteps + 1)) * 100; // +1 for results
-  const showPendingQuoteSpinner = quoteLoading || (currentQuestion === 'creditScore' && data.creditScore !== undefined);
+  const showPendingQuoteSpinner = quoteLoading;
 
   // Calculate quote whenever data changes
   useEffect(() => {
@@ -176,7 +176,7 @@ export default function Stage1() {
     }
 
     if ((product === 'HELOC' || product === 'CES') && !hasCreditScore) {
-      setQuoteLoading(true);
+      setQuoteLoading(false);
       setQuote({
         maxAvailable: floorDisplayedMaxAvailable(getStage1MaxAvailable(data, optimisticCreditScore)),
         rateRange: { min: 0, max: 0 },
@@ -188,8 +188,8 @@ export default function Stage1() {
 
     if (product === 'HELOC' || product === 'CES') {
       if (!propertyState || !hasCreditScore) return;
-      setQuoteLoading(true);
       const timeout = window.setTimeout(async () => {
+        setQuoteLoading(true);
         try {
           const calculatedMaxAvailable = estimateDesiredLoanAmount(data);
           const displayedMaxAvailable = floorDisplayedMaxAvailable(calculatedMaxAvailable);
@@ -262,7 +262,7 @@ export default function Stage1() {
     }
 
     if (!hasCreditScore) {
-      setQuoteLoading(true);
+      setQuoteLoading(false);
       setQuote({
         maxAvailable: floorDisplayedMaxAvailable(getStage1MaxAvailable(data, optimisticCreditScore)),
         rateRange: { min: 0, max: 0 },
@@ -291,7 +291,6 @@ export default function Stage1() {
 
   const updateData = useCallback(<K extends keyof Stage1Data>(field: K, value: Stage1Data[K]) => {
     if (field === 'creditScore') {
-      setQuoteLoading(true);
       setQuote(prev => ({
         ...prev,
         rateRange: { min: 0, max: 0 },
