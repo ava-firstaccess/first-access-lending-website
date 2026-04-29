@@ -193,6 +193,8 @@ export default function ResultsPage() {
   const [helocDrawTerm, setHelocDrawTerm] = useState<number>(3);
   const [helocLoanAmount, setHelocLoanAmount] = useState<number | null>(null);
   const [cesLoanAmount, setCesLoanAmount] = useState<number | null>(null);
+  const [debouncedHelocLoanAmount, setDebouncedHelocLoanAmount] = useState<number | null>(null);
+  const [debouncedCesLoanAmount, setDebouncedCesLoanAmount] = useState<number | null>(null);
   const [helocLiveQuote, setHelocLiveQuote] = useState<LiveQuoteCalc | null>(null);
   const [cesLiveQuote, setCesLiveQuote] = useState<LiveQuoteCalc | null>(null);
   const [helocPricingLoading, setHelocPricingLoading] = useState(true);
@@ -275,6 +277,20 @@ export default function ResultsPage() {
   );
 
   useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedHelocLoanAmount(helocLoanAmount);
+    }, 250);
+    return () => window.clearTimeout(timeout);
+  }, [helocLoanAmount]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedCesLoanAmount(cesLoanAmount);
+    }, 250);
+    return () => window.clearTimeout(timeout);
+  }, [cesLoanAmount]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadHelocQuote() {
@@ -294,7 +310,7 @@ export default function ResultsPage() {
               propertyState: String(stage1.propertyState || ''),
               propertyValue,
               loanBalance,
-              desiredLoanAmount: clampLoanAmount(helocLoanAmount ?? helocQuote.maxAvailable, helocQuote.maxAvailable),
+              desiredLoanAmount: clampLoanAmount(debouncedHelocLoanAmount ?? helocQuote.maxAvailable, helocQuote.maxAvailable),
               creditScore,
               dti: 35,
               occupancy: mapStage1Occupancy(propertyType, propertyOccupancy),
@@ -332,7 +348,7 @@ export default function ResultsPage() {
 
     loadHelocQuote();
     return () => { cancelled = true; };
-  }, [cashOutAmount, creditScore, helocDrawTerm, helocLoanAmount, helocQuote.maxAvailable, helocTotalTerm, loanBalance, numberOfUnits, propertyOccupancy, propertyType, propertyValue, stage1.propertyState, structureType]);
+  }, [cashOutAmount, creditScore, debouncedHelocLoanAmount, helocDrawTerm, helocQuote.maxAvailable, helocTotalTerm, loanBalance, numberOfUnits, propertyOccupancy, propertyType, propertyValue, stage1.propertyState, structureType]);
 
   useEffect(() => {
     let cancelled = false;
@@ -353,7 +369,7 @@ export default function ResultsPage() {
               propertyState: String(stage1.propertyState || ''),
               propertyValue,
               loanBalance,
-              desiredLoanAmount: clampLoanAmount(cesLoanAmount ?? cesQuote.maxAvailable, cesQuote.maxAvailable),
+              desiredLoanAmount: clampLoanAmount(debouncedCesLoanAmount ?? cesQuote.maxAvailable, cesQuote.maxAvailable),
               creditScore,
               dti: 35,
               occupancy: mapStage1Occupancy(propertyType, propertyOccupancy),
@@ -391,7 +407,7 @@ export default function ResultsPage() {
 
     loadCesQuote();
     return () => { cancelled = true; };
-  }, [cashOutAmount, cesLoanAmount, cesQuote.maxAvailable, cesTerm, creditScore, loanBalance, numberOfUnits, propertyOccupancy, propertyType, propertyValue, stage1.propertyState, structureType]);
+  }, [cashOutAmount, debouncedCesLoanAmount, cesQuote.maxAvailable, cesTerm, creditScore, loanBalance, numberOfUnits, propertyOccupancy, propertyType, propertyValue, stage1.propertyState, structureType]);
 
   const displayedHelocQuote = helocLiveQuote
     ? { ...helocLiveQuote, maxAvailable: floorDisplayedMaxAvailable(helocLiveQuote.maxAvailable) }
