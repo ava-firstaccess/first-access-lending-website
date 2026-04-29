@@ -4,6 +4,7 @@
 import { useRouter } from 'next/navigation';
 import React, { useState, useEffect, useMemo } from 'react';
 import { TextField, PhoneField } from '@/components/quote/FormField';
+import { useStepTracker } from '@/hooks/useStepTracker';
 import { calculateButtonStage1Quote } from '@/lib/rates/button';
 import type { Stage1PricingResponse } from '@/lib/stage1-pricing/types';
 
@@ -179,6 +180,7 @@ export default function ResultsPage() {
   const router = useRouter();
   const [loaded, setLoaded] = useState(false);
   const [stage1, setStage1] = useState<Stage1Data>({});
+  const { trackStep } = useStepTracker('stage1');
   const [leadForm, setLeadForm] = useState({
     firstName: '',
     lastName: '',
@@ -634,7 +636,12 @@ export default function ResultsPage() {
                               s1.helocDrawTerm = String(helocDrawTerm);
                               s1.desiredLoanAmount = String(effectiveHelocAmount);
                               s1.maxAvailable = String(displayedHelocQuote.maxAvailable);
+                              s1.quotedInvestor = helocLiveQuote?.investor || null;
+                              s1.quotedProgram = helocLiveQuote?.program || 'HELOC';
+                              s1.quotedRate = displayedHelocQuote.rate;
+                              s1.quotedRateType = displayedHelocQuote.rateType;
                               localStorage.setItem('stage1-data', JSON.stringify(s1));
+                              void trackStep('quote-selection', 999, 999, s1);
                               router.push(skipOtp ? '/quote/next-steps' : '/quote/verify-contact');
                             }}
                             disabled={helocPricingLoading}
@@ -721,7 +728,12 @@ export default function ResultsPage() {
                             s1.cesTerm = String(cesTerm);
                             s1.desiredLoanAmount = String(effectiveCesAmount);
                             s1.maxAvailable = String(displayedCesQuote.maxAvailable);
+                            s1.quotedInvestor = cesLiveQuote?.investor || null;
+                            s1.quotedProgram = cesLiveQuote?.program || 'CES';
+                            s1.quotedRate = displayedCesQuote.rate;
+                            s1.quotedRateType = displayedCesQuote.rateType;
                             localStorage.setItem('stage1-data', JSON.stringify(s1));
+                            void trackStep('quote-selection', 999, 999, s1);
                             router.push(skipOtp ? '/quote/next-steps' : '/quote/verify-contact');
                           }}
                           disabled={cesPricingLoading}
