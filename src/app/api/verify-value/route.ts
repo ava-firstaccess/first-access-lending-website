@@ -681,34 +681,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (useHouseCanaryEstimateOnly) {
-      const responsePayload = {
-        tier: 'estimate',
-        hcValue: hcEstimate,
-        statedValue: numericStatedValue,
-        newMaxLoan: Math.round(newMaxLoan),
-        maxLtv,
-        desiredLoanAmount: desired,
-        hcRatio: Number(hcRatio.toFixed(4)),
-        valuationProvider: 'housecanary_estimate',
-        cascadeDecision: 'use_hc',
-        needsHuman: false,
-      };
-      await saveCachedAvmResult(supabase, {
-        address_key: addressKey,
-        address,
-        zipcode: zipcode || null,
-        city: city || null,
-        state: state || null,
-        application_id: applicationId,
-        tier: 'estimate',
-        hc_estimate: hcEstimate,
-        hc_value: null,
-        fsd: null,
-        new_max_loan: Math.round(newMaxLoan),
-        max_ltv: maxLtv,
-        response_payload: responsePayload,
-      });
-      return NextResponse.json(responsePayload);
+      console.log('verify-value continuing to HouseCanary full AVM to return FSD');
     }
 
     if (shouldHardFail) {
@@ -742,7 +715,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(responsePayload);
     }
 
-    if (!shouldCascadeToClearCapital) {
+    if (!useHouseCanaryEstimateOnly && !shouldCascadeToClearCapital) {
       const responsePayload = {
         tier: 'estimate',
         hcValue: hcEstimate,
