@@ -82,7 +82,6 @@ function buildTargetPriceLadder(requestedRates: number[], getQuoteForRate: (rate
 
     const displayPrice = getBorrowerFacingDisplayPrice(quote.purchasePrice, referencePrice, displayTargetPrice);
     const { pointsLabel, pointsValue } = getBorrowerFacingPoints(displayPrice, displayTargetPrice);
-    if (pointsLabel === 'Discount' && pointsValue > 3) continue;
     const key = `${quote.rate}|${quote.noteRate}|${quote.purchasePrice}`;
     rows.set(key, {
       displayPrice,
