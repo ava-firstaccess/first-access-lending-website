@@ -287,7 +287,18 @@ export default function Stage1() {
       monthlyPayment: Math.round(monthlyPayment),
       monthlyPaymentRange: { min: Math.round(monthlyPayment), max: Math.round(monthlyPayment) }
     });
-  }, [data]);
+  }, [
+    data.product,
+    data.propertyValue,
+    data.loanBalance,
+    data.creditScore,
+    data.propertyState,
+    data.cashOutAmount,
+    data.occupancy,
+    data.propertyType,
+    data.structureType,
+    data.numberOfUnits,
+  ]);
 
   const updateData = useCallback(<K extends keyof Stage1Data>(field: K, value: Stage1Data[K]) => {
     if (field === 'creditScore') {

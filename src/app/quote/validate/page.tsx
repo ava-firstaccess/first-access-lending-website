@@ -259,11 +259,12 @@ function calculatePayment(amount: number, rate: number, product: string, cesTerm
   return Math.round(amount * monthlyRate);
 }
 
-function LoanAmountSlider({ value, max, min, onChange }: {
+function LoanAmountSlider({ value, max, min, onChange, onCommit }: {
   value: number;
   max: number;
   min: number;
   onChange: (v: number) => void;
+  onCommit?: (v: number) => void;
 }) {
   const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
 
@@ -280,6 +281,10 @@ function LoanAmountSlider({ value, max, min, onChange }: {
         step={1000}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
+        onMouseUp={(e) => onCommit?.(Number((e.currentTarget as HTMLInputElement).value))}
+        onTouchEnd={(e) => onCommit?.(Number((e.currentTarget as HTMLInputElement).value))}
+        onKeyUp={(e) => onCommit?.(Number((e.currentTarget as HTMLInputElement).value))}
+        onBlur={(e) => onCommit?.(Number((e.currentTarget as HTMLInputElement).value))}
         className="w-full h-2 rounded-lg appearance-none cursor-pointer"
         style={{
           background: `linear-gradient(to right, #3b82f6 ${pct}%, #e5e7eb ${pct}%)`
@@ -362,6 +367,7 @@ export default function ValidatePage() {
   const [pendingMortgages, setPendingMortgages] = useState<Mortgage[]>([]);
   const [liabilityActions, setLiabilityActions] = useState<Record<string, LiabilityActionState>>({});
   const [selectedLoanAmount, setSelectedLoanAmount] = useState<number>(0);
+  const [submittedSelectedLoanAmount, setSubmittedSelectedLoanAmount] = useState<number>(0);
 
   // Updated numbers
   const [originalCashAvailable, setOriginalCashAvailable] = useState<number>(0);
@@ -455,7 +461,9 @@ export default function ValidatePage() {
         }
         setProperties(props);
         setOriginalCashAvailable(Number(hydratedData.desiredLoanAmount) || Number(hydratedData.maxAvailable) || 0);
-        setSelectedLoanAmount(Number(hydratedData.desiredLoanAmount) || Number(hydratedData.maxAvailable) || 0);
+        const initialLoanAmount = Number(hydratedData.desiredLoanAmount) || Number(hydratedData.maxAvailable) || 0;
+        setSelectedLoanAmount(initialLoanAmount);
+        setSubmittedSelectedLoanAmount(initialLoanAmount);
       }
 
       const statedValue = Number((hydratedData || stage1Data || {}).propertyValue || 0);
@@ -543,24 +551,32 @@ export default function ValidatePage() {
   const effectiveSelectedLoanAmount = selectedLoanAmount > 0
     ? clampLoanAmount(selectedLoanAmount, displayedMaxAvailable)
     : clampLoanAmount(originalCashAvailable || previousQuote.maxAvailable || displayedMaxAvailable, displayedMaxAvailable);
+  const appliedSelectedLoanAmount = submittedSelectedLoanAmount > 0
+    ? clampLoanAmount(submittedSelectedLoanAmount, displayedMaxAvailable)
+    : effectiveSelectedLoanAmount;
+  const sliderDirty = effectiveSelectedLoanAmount !== appliedSelectedLoanAmount;
   const previousPayment = calculatePayment(
     Number(formData.desiredLoanAmount || originalCashAvailable || 0),
     previousQuote.rate,
     product,
     cesTerm,
   );
-  const updatedPayment = calculatePayment(effectiveSelectedLoanAmount, scoreAdjustedQuote.rate, product, cesTerm);
+  const updatedPayment = calculatePayment(appliedSelectedLoanAmount, scoreAdjustedQuote.rate, product, cesTerm);
   const payoffTotal = openLiabilities.reduce((sum, liability) => {
     const action = liabilityActions[liability.id];
     return action?.resolution === 'payoff' ? sum + (liability.unpaidBalance || 0) : sum;
   }, 0);
   const maxPayoff = displayedMaxAvailable - payoffTotal;
-  const cashBackAmount = effectiveSelectedLoanAmount - payoffTotal;
+  const cashBackAmount = appliedSelectedLoanAmount - payoffTotal;
   const sidebarProgress = currentStep === 'credit' ? 68 : currentStep === 'score-adjustment' ? 76 : currentStep === 'mortgages' ? 84 : 92;
 
   useEffect(() => {
     if (!displayedMaxAvailable) return;
     setSelectedLoanAmount((prev) => {
+      const baseline = prev || originalCashAvailable || displayedMaxAvailable;
+      return clampLoanAmount(baseline, displayedMaxAvailable);
+    });
+    setSubmittedSelectedLoanAmount((prev) => {
       const baseline = prev || originalCashAvailable || displayedMaxAvailable;
       return clampLoanAmount(baseline, displayedMaxAvailable);
     });
@@ -734,7 +750,7 @@ export default function ValidatePage() {
   const handleContinueToFinalizeDetails = async () => {
     const nextFormData = {
       ...formData,
-      desiredLoanAmount: effectiveSelectedLoanAmount,
+      desiredLoanAmount: appliedSelectedLoanAmount,
       verifiedMaxAvailable: displayedMaxAvailable,
       verifiedRate: scoreAdjustedQuote.rate,
       verifiedMonthlyPayment: updatedPayment,
@@ -1285,9 +1301,10 @@ export default function ValidatePage() {
                   max={displayedMaxAvailable}
                   min={Math.min(MIN_LOAN_AMOUNT, displayedMaxAvailable)}
                   onChange={setSelectedLoanAmount}
+                  onCommit={setSubmittedSelectedLoanAmount}
                 />
                 <div className="mt-3 text-center text-sm text-gray-600">
-                  {product} estimated payment updates live as the loan amount changes.
+                  {sliderDirty ? 'Move the slider, release to refresh the quote.' : `${product} payment updates after you release the slider.`}
                 </div>
               </div>
             )}
@@ -1516,7 +1533,7 @@ export default function ValidatePage() {
               </div>
               <div className="bg-emerald-50 rounded-xl p-5 border-2 border-emerald-200">
                 <p className="text-sm text-emerald-600 mb-1 text-center">Verified Amount</p>
-                <p className="text-3xl font-bold text-emerald-700 text-center">{formatCurrency(effectiveSelectedLoanAmount)}</p>
+                <p className="text-3xl font-bold text-emerald-700 text-center">{formatCurrency(appliedSelectedLoanAmount)}</p>
               </div>
             </div>
 
@@ -1560,7 +1577,7 @@ export default function ValidatePage() {
               </div>
               <div className="px-5 py-2 bg-blue-50 text-sm font-semibold text-blue-700">Loan Costs</div>
               {[
-                { desc: 'Origination Fee (1%)', amount: Math.round(effectiveSelectedLoanAmount * 0.01) },
+                { desc: 'Origination Fee (1%)', amount: Math.round(appliedSelectedLoanAmount * 0.01) },
                 { desc: 'Appraisal Fee', amount: 500 },
                 { desc: 'Credit Report', amount: 75 },
                 { desc: 'Flood Certification', amount: 15 },
@@ -1568,7 +1585,7 @@ export default function ValidatePage() {
                 { desc: 'Title Insurance (Lender)', amount: 350 },
                 { desc: 'Settlement/Closing Fee', amount: 495 },
                 { desc: 'Recording Fees', amount: 150 },
-                { desc: 'Prepaid Interest (15 days)', amount: Math.round(((effectiveSelectedLoanAmount * scoreAdjustedQuote.rate / 100) / 365) * 15) },
+                { desc: 'Prepaid Interest (15 days)', amount: Math.round(((appliedSelectedLoanAmount * scoreAdjustedQuote.rate / 100) / 365) * 15) },
                 { desc: 'Homeowners Insurance (2 mo)', amount: 300 },
               ].map((item, i) => (
                 <div key={i} className="flex justify-between px-5 py-2.5 text-sm border-t border-gray-100">
@@ -1579,9 +1596,9 @@ export default function ValidatePage() {
               <div className="flex justify-between px-5 py-4 bg-gray-900 text-white font-bold text-lg">
                 <span>Estimated Total</span>
                 <span>${(
-                  Math.round(effectiveSelectedLoanAmount * 0.01) +
+                  Math.round(appliedSelectedLoanAmount * 0.01) +
                   500 + 75 + 15 + 250 + 350 + 495 + 150 +
-                  Math.round(((effectiveSelectedLoanAmount * scoreAdjustedQuote.rate / 100) / 365) * 15) +
+                  Math.round(((appliedSelectedLoanAmount * scoreAdjustedQuote.rate / 100) / 365) * 15) +
                   300
                 ).toLocaleString()}</span>
               </div>
@@ -1606,7 +1623,7 @@ export default function ValidatePage() {
             <div className="sticky top-6 space-y-4">
               <QuoteBuilder
                 maxAvailable={displayedMaxAvailable || previousQuote.maxAvailable || originalCashAvailable}
-                desiredLoanAmount={effectiveSelectedLoanAmount}
+                desiredLoanAmount={appliedSelectedLoanAmount}
                 rateRange={{ min: scoreAdjustedQuote.rate, max: scoreAdjustedQuote.rate }}
                 monthlyPayment={updatedPayment || scoreAdjustedQuote.monthlyPayment}
                 progress={sidebarProgress}
