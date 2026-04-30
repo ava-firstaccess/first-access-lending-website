@@ -8,6 +8,10 @@ CREATE TABLE IF NOT EXISTS clearcapital_runs (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   provider TEXT NOT NULL DEFAULT 'clearcapital',
   product TEXT NOT NULL DEFAULT 'property_analytics',
+  address TEXT,
+  zipcode TEXT,
+  city TEXT,
+  state TEXT,
   endpoint_host TEXT NOT NULL,
   status_code INTEGER,
   status TEXT,
@@ -26,6 +30,11 @@ CREATE TABLE IF NOT EXISTS clearcapital_runs (
   vendor_run_date DATE,
   notes TEXT
 );
+
+ALTER TABLE clearcapital_runs ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE clearcapital_runs ADD COLUMN IF NOT EXISTS zipcode TEXT;
+ALTER TABLE clearcapital_runs ADD COLUMN IF NOT EXISTS city TEXT;
+ALTER TABLE clearcapital_runs ADD COLUMN IF NOT EXISTS state TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_clearcapital_runs_created_at ON clearcapital_runs (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_clearcapital_runs_application_id ON clearcapital_runs (application_id);
@@ -47,6 +56,10 @@ CREATE TABLE IF NOT EXISTS housecanary_runs (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   provider TEXT NOT NULL DEFAULT 'housecanary',
   product TEXT NOT NULL,
+  address TEXT,
+  zipcode TEXT,
+  city TEXT,
+  state TEXT,
   endpoint_path TEXT NOT NULL,
   status_code INTEGER,
   status TEXT,
@@ -60,6 +73,11 @@ CREATE TABLE IF NOT EXISTS housecanary_runs (
   fsd NUMERIC,
   notes TEXT
 );
+
+ALTER TABLE housecanary_runs ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE housecanary_runs ADD COLUMN IF NOT EXISTS zipcode TEXT;
+ALTER TABLE housecanary_runs ADD COLUMN IF NOT EXISTS city TEXT;
+ALTER TABLE housecanary_runs ADD COLUMN IF NOT EXISTS state TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_housecanary_runs_created_at ON housecanary_runs (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_housecanary_runs_application_id ON housecanary_runs (application_id);
