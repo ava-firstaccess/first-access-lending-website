@@ -13,6 +13,18 @@ type PortalSession = {
   name?: string;
 };
 
+type AvmSidebarInvestor = {
+  investor: string;
+  program: string;
+  product: string;
+  eligible: boolean;
+  reasons: string[];
+  rate: number;
+  maxAvailable: number;
+  payment: number;
+  maxLtv: number;
+};
+
 type DraftForm = {
   propertyState: string;
   propertyValue: string;
@@ -223,6 +235,18 @@ export function Stage1PricingPage({ mode, portalSession }: { mode: Mode; portalS
 
   function pushScenarioToAvm(result: InvestorSummary | null) {
     if (!isLoanOfficerPortal || !portalSession || !result) return;
+    const bestXResults: AvmSidebarInvestor[] = (response?.results ?? []).map((entry) => ({
+      investor: entry.investor,
+      program: entry.quote.program,
+      product: entry.quote.product,
+      eligible: entry.eligibility.eligible,
+      reasons: entry.eligibility.reasons,
+      rate: Number(entry.quote.rate || 0),
+      maxAvailable: Number(entry.eligibility.maxAvailable || 0),
+      payment: Number(entry.quote.monthlyPayment || 0),
+      maxLtv: Number(entry.quote.maxLtv || 0),
+    }));
+
     const scenario = {
       createdAt: new Date().toISOString(),
       officerPrefix: portalSession.prefix,
@@ -243,6 +267,7 @@ export function Stage1PricingPage({ mode, portalSession }: { mode: Mode; portalS
       creditScore: Number(input.creditScore || 0),
       verificationProvider: input.verificationProvider,
       verificationFsd: typeof input.verificationFsd === 'number' ? input.verificationFsd : undefined,
+      bestXResults,
     };
     window.sessionStorage.setItem(LO_AVM_SCENARIO_STORAGE_KEY, JSON.stringify(scenario));
     router.push('/avm');
