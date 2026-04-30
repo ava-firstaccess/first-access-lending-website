@@ -4,6 +4,7 @@
 import { useRouter } from 'next/navigation';
 import React, { useState, useEffect, useMemo } from 'react';
 import QuoteBuilder from '@/components/quote/QuoteBuilder';
+import type { Stage1PricingResponse } from '@/lib/stage1-pricing/types';
 
 type VerifyResult = {
   tier: 'estimate' | 'verified' | 'low_confidence' | 'no_data' | 'error';
@@ -81,6 +82,28 @@ function parseAddress(fullAddress: string): { street: string; zipcode: string } 
   };
 }
 
+interface LiveQuoteCalc {
+  rate: number;
+  monthlyPayment: number;
+  maxAvailable: number;
+  maxLtv: number;
+  rateType: string;
+  investor?: string;
+  program?: string;
+}
+
+function mapStageOccupancy(propertyType: string, occupancy: string): 'Owner-Occupied' | 'Second Home' | 'Investment' {
+  if (propertyType === 'Investment') return 'Investment';
+  if (propertyType === '2nd Home') return occupancy === 'Rental' ? 'Investment' : 'Second Home';
+  return 'Owner-Occupied';
+}
+
+function mapStructureType(structureType: string): 'SFR' | 'Condo' | 'Townhome' | 'PUD' | '2-4 Unit' {
+  if (structureType === 'Townhouse') return 'Townhome';
+  if (structureType === 'Multi-Family') return '2-4 Unit';
+  return (structureType as 'SFR' | 'Condo' | 'Townhome' | 'PUD' | '2-4 Unit') || 'SFR';
+}
+
 type Stage3Data = Record<string, unknown>;
 
 export default function Stage3Page() {
@@ -98,6 +121,8 @@ export default function Stage3Page() {
   const [result, setResult] = useState<VerifyResult | null>(null);
   const [loanAmount, setLoanAmount] = useState<number>(0);
   const [submittedLoanAmount, setSubmittedLoanAmount] = useState<number>(0);
+  const [liveQuote, setLiveQuote] = useState<LiveQuoteCalc | null>(null);
+  const [liveQuoteLoading, setLiveQuoteLoading] = useState(false);
   const [showDisagree, setShowDisagree] = useState(false);
   const [optIn, setOptIn] = useState(false);
   const [testSession, setTestSession] = useState<{ applicationId: string; sessionToken: string } | null>(null);
@@ -215,20 +240,94 @@ export default function Stage3Page() {
   const previousRate = getRateForScenario(desiredLoanAmount);
   const appliedLoanAmount = submittedLoanAmount || desiredLoanAmount;
   const sliderDirty = loanAmount !== appliedLoanAmount;
-  const updatedRate = useMemo(() => {
-    const validatedValue = result?.hcValue || propertyValue;
-    const selectedLoanAmount = appliedLoanAmount;
-    const baseRate = product === 'HELOC' ? 7.25 : 8.0;
-    const creditAdj = creditScore >= 720 ? 0 : creditScore >= 680 ? 0.25 : creditScore >= 640 ? 0.5 : 1.0;
-    const propertyAdj: Record<string, number> = { Primary: 0, Investment: 0.5, '2nd Home': 0.25 };
-    let ltvAdj = 0;
-    if (selectedLoanAmount > 0) {
-      const combinedLtv = (loanBalance + selectedLoanAmount) / Math.max(validatedValue, 1);
-      if (combinedLtv > 0.85) ltvAdj = 0.5;
-      else if (combinedLtv > 0.80) ltvAdj = 0.25;
+
+  useEffect(() => {
+    if (status !== 'done') return;
+    if (!result || appliedLoanAmount <= 0) return;
+    if (product !== 'HELOC' && product !== 'CES') {
+      setLiveQuote(null);
+      setLiveQuoteLoading(false);
+      return;
     }
-    return baseRate + creditAdj + (propertyAdj[propertyType] || 0) + ltvAdj;
-  }, [result, propertyValue, appliedLoanAmount, product, creditScore, propertyType, loanBalance]);
+
+    const validatedValue = result.hcValue || propertyValue;
+    const propertyState = String(stage1.propertyState || '');
+    if (!validatedValue || !propertyState || !creditScore) return;
+
+    const timeout = window.setTimeout(async () => {
+      setLiveQuoteLoading(true);
+      try {
+        const response = await fetch('/api/stage1-pricing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            engine: 'BestX',
+            input: {
+              bestExProduct: product,
+              bestExDrawPeriodYears: Number(stage1.helocDrawTerm || stage1.drawTerm || 3),
+              bestExTermYears: Number(stage1.cesTerm || 20),
+              bestExLockPeriodDays: 30,
+              bestExDocType: 'Full Doc',
+              propertyState,
+              propertyValue: validatedValue,
+              loanBalance,
+              desiredLoanAmount: appliedLoanAmount,
+              creditScore,
+              dti: 35,
+              occupancy: mapStageOccupancy(propertyType, String(stage1.occupancy || '')),
+              structureType: mapStructureType(String(stage1.structureType || 'SFR')),
+              numberOfUnits: Number(stage1.numberOfUnits || 1),
+              cashOut: false,
+            }
+          })
+        });
+
+        if (!response.ok) throw new Error('stage1 pricing failed');
+        const pricing = await response.json() as Stage1PricingResponse;
+        const eligible = pricing.results.find((entry) => entry.eligibility.eligible);
+
+        if (!eligible) {
+          setLiveQuote(null);
+          return;
+        }
+
+        setLiveQuote({
+          rate: eligible.quote.rate,
+          monthlyPayment: Math.round(eligible.quote.monthlyPayment),
+          maxAvailable: eligible.quote.maxAvailable,
+          maxLtv: eligible.quote.maxLtv,
+          rateType: product === 'HELOC' ? 'Variable' : 'Fixed',
+          investor: eligible.investor,
+          program: eligible.quote.program,
+        });
+      } catch (error) {
+        console.error('Failed to load live Stage 3 pricing', error);
+        setLiveQuote(null);
+      } finally {
+        setLiveQuoteLoading(false);
+      }
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    status,
+    result,
+    appliedLoanAmount,
+    product,
+    propertyValue,
+    loanBalance,
+    creditScore,
+    propertyType,
+    stage1.propertyState,
+    stage1.occupancy,
+    stage1.structureType,
+    stage1.numberOfUnits,
+    stage1.helocDrawTerm,
+    stage1.drawTerm,
+    stage1.cesTerm,
+  ]);
+
+  const updatedRate = liveQuote?.rate ?? previousRate;
 
   const originalMonthlyPayment = useMemo(() => {
     if (desiredLoanAmount <= 0) return 0;
@@ -245,6 +344,7 @@ export default function Stage3Page() {
 
   // Calculate monthly payment for chosen amount
   const monthlyPayment = useMemo(() => {
+    if (liveQuote) return liveQuote.monthlyPayment;
     if (appliedLoanAmount <= 0) return 0;
     const monthlyRate = updatedRate / 100 / 12;
 
@@ -255,7 +355,7 @@ export default function Stage3Page() {
       const n = cesTerm * 12;
       return Math.round(appliedLoanAmount * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
     }
-  }, [appliedLoanAmount, product, updatedRate, stage1.cesTerm]);
+  }, [liveQuote, appliedLoanAmount, product, updatedRate, stage1.cesTerm]);
 
   async function handleValidate() {
     setStatus('loading');
@@ -719,14 +819,16 @@ export default function Stage3Page() {
                   <div className="mt-4 flex flex-col items-center gap-3">
                     <div className="text-center">
                       <span className="text-sm text-gray-500">Est. Monthly Payment: </span>
-                      <span className="text-lg font-bold text-gray-900">${monthlyPayment.toLocaleString()}</span>
+                      <span className="text-lg font-bold text-gray-900">{liveQuoteLoading ? 'Loading rate...' : `$${monthlyPayment.toLocaleString()}`}</span>
                       <span className="text-xs text-gray-400 ml-1">
                         {product === 'HELOC' ? '(interest only)' : '(P&I)'}
                       </span>
                     </div>
-                    {sliderDirty && (
+                    {sliderDirty ? (
                       <div className="text-xs text-amber-600">Move the slider, release to refresh the quote.</div>
-                    )}
+                    ) : liveQuoteLoading ? (
+                      <div className="text-xs text-blue-600">Refreshing live pricing…</div>
+                    ) : null}
                   </div>
                 </div>
               )}
@@ -735,7 +837,7 @@ export default function Stage3Page() {
               {newMax > 0 && (result.tier === 'verified' || result.tier === 'estimate' || result.tier === 'low_confidence') && (
                 <button
                   onClick={handleContinue}
-                  disabled={sliderDirty}
+                  disabled={sliderDirty || liveQuoteLoading}
                   className={`w-full py-4 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all text-lg mb-4 ${
                     result.tier === 'verified'
                       ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
