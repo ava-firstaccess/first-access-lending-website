@@ -77,6 +77,10 @@ const INVESTOR_NAME_MAP: Record<string, InvestorName> = {
   OSB: 'Onslow',
 };
 
+function getAvmProviderLabel(provider: AvmProviderName) {
+  return provider === 'Veros' ? 'Vero Value' : provider;
+}
+
 export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSession }) {
   const [scenario, setScenario] = useState<StoredScenario | null>(null);
   const [selectedInvestor, setSelectedInvestor] = useState<string>('');
@@ -249,7 +253,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
               {(parsedCity || parsedState || parsedZipcode) ? <div className="mt-3 text-xs text-slate-500">Parsed: {[parsedCity, parsedState, parsedZipcode].filter(Boolean).join(', ')}</div> : null}
               <div className="mt-4 grid gap-3 md:grid-cols-3">
                 <Metric label="Address ID" value="Pending cache / run wiring" muted />
-                <Metric label="Winner" value={winnerRow?.provider || 'No winner yet'} muted={!winnerRow} />
+                <Metric label="Winner" value={winnerRow ? getAvmProviderLabel(winnerRow.provider) : 'No winner yet'} muted={!winnerRow} />
                 <Metric label="Winner FSD" value={winnerRow?.fsd !== null && winnerRow?.fsd !== undefined ? winnerRow.fsd.toFixed(2) : 'No winner yet'} muted={!winnerRow} />
               </div>
             </div>
@@ -282,7 +286,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                           <input type="radio" checked={checked} disabled={!row.supported} onChange={() => setSelectedProvider(row.provider)} />
                         </div>
                         <div>
-                          <div className="font-semibold">{row.provider}</div>
+                          <div className="font-semibold">{getAvmProviderLabel(row.provider)}</div>
                           <div className="mt-1 text-xs text-slate-500">{row.maxFsdAllowed !== null ? `Investor max FSD ${row.maxFsdAllowed.toFixed(2)}` : 'Not allowed for this investor'}</div>
                         </div>
                         <div>{row.date || '—'}</div>
