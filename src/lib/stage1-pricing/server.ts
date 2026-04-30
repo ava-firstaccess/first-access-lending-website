@@ -71,18 +71,18 @@ function chooseDisplayQuote(engine: Stage1ExecutionQuote['engine'], fallbackQuot
 type EngineQuoteLike = Omit<Stage1ExecutionQuote, 'engine'> & { program?: string };
 function toQuote(engine: Stage1ExecutionQuote['engine'], quote: EngineQuoteLike): Stage1ExecutionQuote { return { engine, program: quote.program ?? engine, product: quote.product, maxAvailable: quote.maxAvailable, rate: quote.rate, noteRate: quote.noteRate, monthlyPayment: quote.monthlyPayment, maxLtv: quote.maxLtv, purchasePrice: quote.purchasePrice, basePrice: quote.basePrice, llpaAdjustment: quote.llpaAdjustment, adjustments: quote.adjustments }; }
 
-function buildTargetPriceLadder(requestedRates: number[], getQuoteForRate: (rateOverride?: number) => Stage1ExecutionQuote, highlightedQuote: Stage1ExecutionQuote, referencePrice: number, displayTargetPrice: number, maxPrice: number): InvestorPriceLadderRow[] {
+function buildTargetPriceLadder(requestedRates: number[], getQuoteForRate: (rateOverride?: number) => Stage1ExecutionQuote, highlightedQuote: Stage1ExecutionQuote, _referencePrice: number, _displayTargetPrice: number, maxPrice: number): InvestorPriceLadderRow[] {
   const rows = new Map<string, InvestorPriceLadderRow>();
 
   for (const requestedRate of requestedRates) {
     const quote = getQuoteForRate(requestedRate);
     if (maxPrice > 0 && quote.purchasePrice > maxPrice + 0.0001) continue;
-    const displayMaxPrice = maxPrice > 0 ? roundToThree(displayTargetPrice + (maxPrice - referencePrice)) : 103;
-    const displayPrice = getBorrowerFacingDisplayPrice(quote.purchasePrice, referencePrice, displayTargetPrice);
-    if (displayPrice < 97 || displayPrice > Math.min(103, displayMaxPrice)) continue;
+    const displayPrice = roundToThree(quote.purchasePrice);
+    if (displayPrice < 97 || displayPrice > 103) continue;
 
-    const { pointsLabel, pointsValue } = getBorrowerFacingPoints(displayPrice, displayTargetPrice);
-    if (pointsLabel === 'Discount' && pointsValue > 3) continue;
+    const rawDeltaFromPar = roundToThree(100 - displayPrice);
+    const pointsLabel = rawDeltaFromPar >= 0 ? 'Discount' : 'Rebate';
+    const pointsValue = roundBorrowerPoints(rawDeltaFromPar);
     const key = `${quote.rate}|${quote.noteRate}|${quote.purchasePrice}`;
     rows.set(key, {
       displayPrice,
