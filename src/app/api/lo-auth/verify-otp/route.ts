@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { verifyOtpCode } from '@/lib/otp';
 import { consumeRateLimit, getClientIp } from '@/lib/rate-limit';
-import { createLoanOfficerPortalSession, findLoanOfficerPortalUser, getRequestHost, isLoanOfficerPortalHost, setLoanOfficerPortalSessionCookie } from '@/lib/lo-portal-auth';
+import { createLoanOfficerPortalSession, findLoanOfficerPortalUser, getRequestHost, isLoanOfficerPortalHost, issueTrustedLoanOfficerBrowser, setLoanOfficerPortalSessionCookie } from '@/lib/lo-portal-auth';
 import { requireTrustedBrowserRequest } from '@/lib/application-session';
 
 const MAX_VERIFY_ATTEMPTS = 5;
@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
       name: user.name || null,
     });
     setLoanOfficerPortalSessionCookie(response, createLoanOfficerPortalSession(user));
+    await issueTrustedLoanOfficerBrowser(response, user, req);
     return response;
   } catch {
     console.error('LO verify OTP error');

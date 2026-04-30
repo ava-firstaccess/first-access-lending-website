@@ -1,7 +1,8 @@
 import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { LoanOfficerAvmPage } from '@/components/LoanOfficerAvmPage';
 import { LoanOfficerPortalGate } from '@/components/LoanOfficerPortalGate';
-import { getLoanOfficerPortalSession, isLoanOfficerPortalHost } from '@/lib/lo-portal-auth';
+import { getLoanOfficerPortalSession, hasTrustedLoanOfficerBrowser, isLoanOfficerPortalHost } from '@/lib/lo-portal-auth';
 
 export default async function Page() {
   const headerStore = await headers();
@@ -21,6 +22,9 @@ export default async function Page() {
 
   const session = await getLoanOfficerPortalSession();
   if (!session) {
+    if (await hasTrustedLoanOfficerBrowser()) {
+      redirect('/api/lo-auth/bootstrap-session?next=%2Favm');
+    }
     return <LoanOfficerPortalGate nextPath="/avm" title="Loan Officer AVM" subtitle="Login with your email prefix and verify the code sent to your work email to access AVM tools." />;
   }
 

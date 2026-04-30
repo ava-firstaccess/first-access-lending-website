@@ -1,8 +1,9 @@
 import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { Stage1PricingPage } from '@/components/Stage1PricingPage';
 import { PricerPasswordGate } from '@/components/PricerPasswordGate';
 import { LoanOfficerPortalGate } from '@/components/LoanOfficerPortalGate';
-import { getLoanOfficerPortalSession, isLoanOfficerPortalHost } from '@/lib/lo-portal-auth';
+import { getLoanOfficerPortalSession, hasTrustedLoanOfficerBrowser, isLoanOfficerPortalHost } from '@/lib/lo-portal-auth';
 import { hasPricerAccess, isPricerConfigured } from '@/lib/pricer-auth';
 
 export default async function Page() {
@@ -12,6 +13,9 @@ export default async function Page() {
   if (isLoanOfficerPortalHost(host)) {
     const session = await getLoanOfficerPortalSession();
     if (!session) {
+      if (await hasTrustedLoanOfficerBrowser()) {
+        redirect('/api/lo-auth/bootstrap-session?next=%2Fpricer');
+      }
       return <LoanOfficerPortalGate nextPath="/pricer" title="Loan Officer Pricer" subtitle="Login with your email prefix, then verify the code sent to your work email to access pricing." />;
     }
     return <Stage1PricingPage mode="pricer" portalSession={session} />;

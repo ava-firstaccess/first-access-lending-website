@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     const code = String(Math.floor(1000 + Math.random() * 9000));
     const codeHash = hashOtpCode(email, code);
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     const supabase = getSupabaseAdmin();
 
     await supabase.from('otp_codes').update({ used: true }).eq('phone', email).eq('used', false);
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
         from: 'First Access Lending <info@firstaccesslending.com>',
         to: [email],
         subject: 'Your First Access Lending portal verification code',
-        html: `<div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a"><p>Your First Access Lending Loan Officer portal verification code is:</p><p style="font-size:32px;font-weight:700;letter-spacing:4px;margin:16px 0">${code}</p><p>This code expires in 5 minutes.</p></div>`,
+        html: `<div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a"><p>Your First Access Lending Loan Officer portal verification code is:</p><p style="font-size:32px;font-weight:700;letter-spacing:4px;margin:16px 0">${code}</p><p>This code expires in 10 minutes.</p></div>`,
       }),
     });
 

@@ -1,12 +1,16 @@
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 export const LO_PORTAL_SESSION_COOKIE = 'lo_portal_session';
+export const LO_PORTAL_TRUSTED_BROWSER_COOKIE = 'lo_portal_trusted_browser';
+
 const DEFAULT_SESSION_TTL_MINUTES = 12 * 60;
+const DEFAULT_TRUSTED_BROWSER_TTL_DAYS = 30;
 const DEFAULT_EMAIL_DOMAIN = 'firstaccesslending.com';
 const LO_PORTAL_USERS_TABLE = 'loan_officer_portal_users';
+const TRUSTED_DEVICES_TABLE = 'trusted_devices';
 
 export type LoanOfficerPortalUser = {
   prefix: string;
@@ -23,6 +27,18 @@ export type LoanOfficerPortalSession = {
   exp: number;
 };
 
+type TrustedLoanOfficerBrowser = {
+  deviceId: string;
+  token: string;
+  expiresAt: string;
+  user: LoanOfficerPortalUser;
+};
+
+function readPositiveNumber(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 function normalizePrefix(value: string) {
   return String(value || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
 }
@@ -37,6 +53,16 @@ function sign(value: string) {
   return createHmac('sha256', secret).update(value).digest('hex');
 }
 
+function trustedDeviceSecret() {
+  return process.env.LO_PORTAL_TRUSTED_DEVICE_SECRET || sessionSecret();
+}
+
+function hashTrustedDeviceToken(token: string) {
+  const secret = trustedDeviceSecret();
+  if (!secret) throw new Error('LO_PORTAL_TRUSTED_DEVICE_SECRET or fallback secret is required.');
+  return createHmac('sha256', secret).update(token).digest('hex');
+}
+
 function encodePayload(payload: LoanOfficerPortalSession) {
   return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
 }
@@ -47,6 +73,11 @@ function decodePayload(encoded: string) {
 
 function cookieSecure() {
   return process.env.NODE_ENV === 'production';
+}
+
+function getTrustedBrowserExpiresAt(now = Date.now()) {
+  const ttlDays = readPositiveNumber(process.env.LO_PORTAL_TRUSTED_BROWSER_TTL_DAYS, DEFAULT_TRUSTED_BROWSER_TTL_DAYS);
+  return new Date(now + ttlDays * 24 * 60 * 60 * 1000);
 }
 
 export function maskPhone(phone: string) {
@@ -107,7 +138,7 @@ export async function findLoanOfficerPortalUser(identifier: string): Promise<Loa
 }
 
 export function createLoanOfficerPortalSession(user: LoanOfficerPortalUser): string {
-  const ttlMinutes = Number(process.env.LO_PORTAL_SESSION_TTL_MINUTES || DEFAULT_SESSION_TTL_MINUTES);
+  const ttlMinutes = readPositiveNumber(process.env.LO_PORTAL_SESSION_TTL_MINUTES, DEFAULT_SESSION_TTL_MINUTES);
   const payload: LoanOfficerPortalSession = {
     prefix: user.prefix,
     email: user.email,
@@ -156,6 +187,109 @@ export function setLoanOfficerPortalSessionCookie(response: NextResponse, token:
     expires: parsed ? new Date(parsed.exp) : undefined,
     path: '/',
   });
+}
+
+export function clearTrustedLoanOfficerBrowserCookie(response: NextResponse) {
+  response.cookies.set(LO_PORTAL_TRUSTED_BROWSER_COOKIE, '', {
+    httpOnly: true,
+    secure: cookieSecure(),
+    sameSite: 'lax',
+    expires: new Date(0),
+    path: '/',
+  });
+}
+
+export function setTrustedLoanOfficerBrowserCookie(response: NextResponse, token: string, expiresAt: string | Date) {
+  response.cookies.set(LO_PORTAL_TRUSTED_BROWSER_COOKIE, token, {
+    httpOnly: true,
+    secure: cookieSecure(),
+    sameSite: 'lax',
+    expires: expiresAt instanceof Date ? expiresAt : new Date(expiresAt),
+    path: '/',
+  });
+}
+
+async function resolveTrustedLoanOfficerBrowser(token: string | undefined | null): Promise<TrustedLoanOfficerBrowser | null> {
+  if (!token) return null;
+
+  const supabase = getSupabaseAdmin();
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from(TRUSTED_DEVICES_TABLE)
+    .select('id, user_key, expires_at')
+    .eq('user_type', 'loan_officer')
+    .eq('token_hash', hashTrustedDeviceToken(token))
+    .is('revoked_at', null)
+    .gt('expires_at', nowIso)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Trusted LO browser lookup error:', error);
+    return null;
+  }
+
+  if (!data) return null;
+
+  const user = await findLoanOfficerPortalUser(String(data.user_key || ''));
+  if (!user) {
+    await supabase
+      .from(TRUSTED_DEVICES_TABLE)
+      .update({ revoked_at: nowIso, updated_at: nowIso })
+      .eq('id', data.id);
+    return null;
+  }
+
+  return {
+    deviceId: String(data.id),
+    token: String(token),
+    expiresAt: String(data.expires_at),
+    user,
+  };
+}
+
+export async function hasTrustedLoanOfficerBrowser() {
+  const store = await cookies();
+  const token = store.get(LO_PORTAL_TRUSTED_BROWSER_COOKIE)?.value;
+  return Boolean(await resolveTrustedLoanOfficerBrowser(token));
+}
+
+export async function issueTrustedLoanOfficerBrowser(response: NextResponse, user: LoanOfficerPortalUser, req: NextRequest) {
+  const token = randomBytes(32).toString('hex');
+  const expiresAt = getTrustedBrowserExpiresAt();
+  const nowIso = new Date().toISOString();
+  const supabase = getSupabaseAdmin();
+
+  const { error } = await supabase.from(TRUSTED_DEVICES_TABLE).insert({
+    user_type: 'loan_officer',
+    user_key: user.prefix,
+    token_hash: hashTrustedDeviceToken(token),
+    user_agent: req.headers.get('user-agent')?.slice(0, 1000) || null,
+    expires_at: expiresAt.toISOString(),
+    last_seen_at: nowIso,
+  });
+
+  if (error) {
+    console.error('Trusted LO browser insert error:', error);
+    return false;
+  }
+
+  setTrustedLoanOfficerBrowserCookie(response, token, expiresAt);
+  return true;
+}
+
+export async function restoreLoanOfficerPortalSessionFromTrustedBrowser(req: NextRequest) {
+  const token = req.cookies.get(LO_PORTAL_TRUSTED_BROWSER_COOKIE)?.value;
+  const trusted = await resolveTrustedLoanOfficerBrowser(token);
+  if (!trusted) return null;
+
+  const nowIso = new Date().toISOString();
+  await getSupabaseAdmin()
+    .from(TRUSTED_DEVICES_TABLE)
+    .update({ last_seen_at: nowIso, updated_at: nowIso })
+    .eq('id', trusted.deviceId);
+
+  return trusted;
 }
 
 export async function getLoanOfficerPortalSession() {

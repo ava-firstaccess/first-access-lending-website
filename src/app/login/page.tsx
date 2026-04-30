@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { LoanOfficerPortalGate } from '@/components/LoanOfficerPortalGate';
-import { getLoanOfficerPortalSession, isLoanOfficerPortalHost } from '@/lib/lo-portal-auth';
+import { getLoanOfficerPortalSession, hasTrustedLoanOfficerBrowser, isLoanOfficerPortalHost } from '@/lib/lo-portal-auth';
 
 export default async function Page() {
   const headerStore = await headers();
@@ -15,6 +15,10 @@ export default async function Page() {
   const session = await getLoanOfficerPortalSession();
   if (session) {
     redirect('/pricer');
+  }
+
+  if (await hasTrustedLoanOfficerBrowser()) {
+    redirect('/api/lo-auth/bootstrap-session?next=%2Fpricer');
   }
 
   return <LoanOfficerPortalGate nextPath="/pricer" />;
