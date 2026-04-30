@@ -634,29 +634,10 @@ function Stage2Content() {
   const currentSectionKey = sectionOrder[currentStep]?.key || 'borrowerInfo';
   const progress = ((currentStep + 1) / (totalSteps + 1)) * 100;
 
-  const propertyValue = Number(formData.propertyValue || 0);
-  const loanBalance = Number(formData.loanBalance || 0);
-  const creditScore = Number(formData.creditScore || 720);
-  const propertyType = String(formData.propertyType || 'Primary');
   const selectedProduct = String(formData.product || stage1Product || 'HELOC');
-
-  let maxLtv = 0.80;
-  if (creditScore >= 720) {
-    maxLtv = propertyType === 'Primary' ? 0.90 : propertyType === '2nd Home' ? 0.85 : 0.80;
-  } else if (creditScore >= 680) {
-    maxLtv = propertyType === 'Primary' ? 0.85 : propertyType === '2nd Home' ? 0.80 : 0.75;
-  } else if (creditScore >= 640) {
-    maxLtv = propertyType === 'Primary' ? 0.80 : propertyType === '2nd Home' ? 0.75 : 0.70;
-  } else {
-    maxLtv = propertyType === 'Primary' ? 0.70 : propertyType === '2nd Home' ? 0.65 : 0.60;
-  }
-
-  const maxAvailable = Math.max(0, (propertyValue * maxLtv) - loanBalance);
-  const baseRate = selectedProduct === 'HELOC' ? 7.25 : 8.0;
-  const creditAdj = creditScore >= 720 ? 0 : creditScore >= 680 ? 0.25 : creditScore >= 640 ? 0.5 : 1.0;
-  const propertyAdj: Record<string, number> = { Primary: 0, Investment: 0.5, '2nd Home': 0.25 };
-  const sidebarRate = baseRate + creditAdj + (propertyAdj[propertyType] || 0);
-  const monthlyPayment = Math.round(maxAvailable * (sidebarRate / 100 / 12));
+  const maxAvailable = Number(formData.verifiedMaxAvailable || formData.quotedMaxAvailable || formData.maxAvailable || 0);
+  const sidebarRate = Number(formData.verifiedRate || formData.quotedRate || 0);
+  const monthlyPayment = Number(formData.verifiedMonthlyPayment || formData.quotedMonthlyPayment || 0);
 
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
@@ -1813,7 +1794,7 @@ function Stage2Content() {
             <QuoteBuilder
               maxAvailable={maxAvailable}
               desiredLoanAmount={Number(formData.desiredLoanAmount || 0)}
-              rateRange={{ min: sidebarRate, max: sidebarRate + 0.5 }}
+              rateRange={{ min: sidebarRate, max: sidebarRate }}
               monthlyPayment={monthlyPayment}
               progress={progress}
               stage="stage2"

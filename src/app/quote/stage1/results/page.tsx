@@ -45,65 +45,6 @@ function clampLoanAmount(value: number, maxAvailable: number) {
   return Math.max(MIN_LOAN_AMOUNT, Math.min(value, displayedMax));
 }
 
-function calcQuote(
-  product: string,
-  propertyValue: number,
-  loanBalance: number,
-  creditScore: number,
-  propertyType: string,
-  drawTerm: number,
-  cesTerm: number = 20
-): QuoteCalc {
-  let maxLtv = 0.80;
-  if (creditScore >= 720) {
-    maxLtv = propertyType === 'Primary' ? 0.90 : propertyType === '2nd Home' ? 0.85 : 0.80;
-  } else if (creditScore >= 680) {
-    maxLtv = propertyType === 'Primary' ? 0.85 : propertyType === '2nd Home' ? 0.80 : 0.75;
-  } else if (creditScore >= 640) {
-    maxLtv = propertyType === 'Primary' ? 0.80 : propertyType === '2nd Home' ? 0.75 : 0.70;
-  } else {
-    maxLtv = propertyType === 'Primary' ? 0.70 : propertyType === '2nd Home' ? 0.65 : 0.60;
-  }
-
-  const maxLoan = propertyValue * maxLtv;
-  const maxAvailable = Math.max(0, maxLoan - loanBalance);
-
-  let baseRate = 7.50;
-  if (product === 'HELOC') {
-    baseRate = 7.25;
-    if (drawTerm === 3) baseRate -= 0.50;
-    else if (drawTerm === 5) baseRate -= 0.25;
-  } else if (product === 'CES') {
-    baseRate = 8.00;
-    if (cesTerm === 30) baseRate += 0.25;
-  }
-
-  let creditAdj = 0;
-  if (creditScore >= 720) creditAdj = 0;
-  else if (creditScore >= 680) creditAdj = 0.25;
-  else if (creditScore >= 640) creditAdj = 0.50;
-  else creditAdj = 1.00;
-
-  const propertyAdj: Record<string, number> = { 'Primary': 0, 'Investment': 0.50, '2nd Home': 0.25 };
-  const rate = baseRate + creditAdj + (propertyAdj[propertyType] || 0);
-
-  const monthlyRate = rate / 100 / 12;
-  let monthlyPayment = 0;
-
-  if (maxAvailable > 0) {
-    if (product === 'CES') {
-      const n = cesTerm * 12;
-      monthlyPayment = Math.round(maxAvailable * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
-    } else if (product === 'HELOC') {
-      monthlyPayment = Math.round(maxAvailable * monthlyRate);
-    } else {
-      monthlyPayment = Math.round(maxAvailable * monthlyRate);
-    }
-  }
-
-  return { maxAvailable, rate, monthlyPayment, maxLtv, rateType: product === 'HELOC' ? 'Variable' : 'Fixed' };
-}
-
 // Loan amount slider component
 function LoanAmountSlider({ value, max, min, onChange, onCommit }: {
   value: number;
@@ -480,10 +421,6 @@ export default function ResultsPage() {
   const helocRepaymentYears = helocTotalTerm - helocDrawTerm;
 
   const isRefi = product === 'CashOut' || product === 'NoCashRefi';
-  const refiQuote = useMemo(() =>
-    isRefi ? calcQuote(product, propertyValue, loanBalance, creditScore, propertyType, 0) : null,
-    [isRefi, product, propertyValue, loanBalance, creditScore, propertyType]
-  );
 
   const productFullLabels: Record<string, string> = {
     'HELOC': 'Home Equity Line of Credit',
@@ -670,6 +607,8 @@ export default function ResultsPage() {
                               s1.quotedProgram = helocLiveQuote?.program || 'HELOC';
                               s1.quotedRate = displayedHelocQuote.rate;
                               s1.quotedRateType = displayedHelocQuote.rateType;
+                              s1.quotedMonthlyPayment = displayedHelocQuote.monthlyPayment;
+                              s1.quotedMaxAvailable = displayedHelocQuote.maxAvailable;
                               localStorage.setItem('stage1-data', JSON.stringify(s1));
                               void trackStep('quote-selection', 999, 999, s1);
                               router.push(skipOtp ? '/quote/next-steps' : '/quote/verify-contact');
@@ -765,6 +704,8 @@ export default function ResultsPage() {
                             s1.quotedProgram = cesLiveQuote?.program || 'CES';
                             s1.quotedRate = displayedCesQuote.rate;
                             s1.quotedRateType = displayedCesQuote.rateType;
+                            s1.quotedMonthlyPayment = displayedCesQuote.monthlyPayment;
+                            s1.quotedMaxAvailable = displayedCesQuote.maxAvailable;
                             localStorage.setItem('stage1-data', JSON.stringify(s1));
                             void trackStep('quote-selection', 999, 999, s1);
                             router.push(skipOtp ? '/quote/next-steps' : '/quote/verify-contact');
@@ -806,20 +747,13 @@ export default function ResultsPage() {
           {/* ═══════════════════════════════════════════════ */}
           {/* Refinance (single product) */}
           {/* ═══════════════════════════════════════════════ */}
-          {isRefi && refiQuote && (
+          {isRefi && (
             <>
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-6 text-center">
                 <div className="text-sm font-semibold text-amber-800 mb-2">Instant rate quote for this product type coming soon</div>
                 <p className="text-sm text-amber-700 leading-relaxed">
                   We&apos;re still finalizing the automated instant-quote flow for {productFullLabels[product]}. You can still submit your scenario now and our team will follow up with next steps and options.
                 </p>
-              </div>
-
-              <div className="max-w-md mx-auto mb-8 opacity-90">
-                <div className="bg-blue-50 rounded-xl p-6 text-center">
-                  <div className="text-sm text-blue-600 font-medium mb-1">Estimated Max Available</div>
-                  <div className="text-3xl md:text-4xl font-bold text-blue-900">${refiQuote.maxAvailable.toLocaleString()}</div>
-                </div>
               </div>
 
               <div className="bg-white border-2 border-blue-100 rounded-2xl p-6 mb-8">

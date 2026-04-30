@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { SSNField } from '@/components/quote/FormField';
 import QuoteBuilder from '@/components/quote/QuoteBuilder';
@@ -14,6 +14,7 @@ import {
   type MeridianLinkLiabilitySummary,
   type MeridianLinkParsedReport,
 } from '@/lib/meridianlink-report';
+import type { Stage1PricingResponse } from '@/lib/stage1-pricing/types';
 
 type ValidationStep = 'credit' | 'score-adjustment' | 'mortgages' | 'updated-quote';
 
@@ -200,63 +201,16 @@ function clampLoanAmount(value: number, maxAvailable: number) {
   return Math.max(Math.min(MIN_LOAN_AMOUNT, displayedMax), Math.min(value, displayedMax));
 }
 
-function calcQuote(
-  product: string,
-  propertyValue: number,
-  loanBalance: number,
-  creditScore: number,
-  propertyType: string,
-  drawTerm: number,
-  cesTerm: number = 20,
-): QuoteCalc {
-  let maxLtv = 0.80;
-  if (creditScore >= 720) {
-    maxLtv = propertyType === 'Primary' ? 0.90 : propertyType === '2nd Home' ? 0.85 : 0.80;
-  } else if (creditScore >= 680) {
-    maxLtv = propertyType === 'Primary' ? 0.85 : propertyType === '2nd Home' ? 0.80 : 0.75;
-  } else if (creditScore >= 640) {
-    maxLtv = propertyType === 'Primary' ? 0.80 : propertyType === '2nd Home' ? 0.75 : 0.70;
-  } else {
-    maxLtv = propertyType === 'Primary' ? 0.70 : propertyType === '2nd Home' ? 0.65 : 0.60;
-  }
-
-  const maxLoan = propertyValue * maxLtv;
-  const maxAvailable = Math.max(0, maxLoan - loanBalance);
-
-  let baseRate = 7.50;
-  if (product === 'HELOC') {
-    baseRate = 7.25;
-    if (drawTerm === 3) baseRate -= 0.50;
-    else if (drawTerm === 5) baseRate -= 0.25;
-  } else if (product === 'CES') {
-    baseRate = 8.00;
-    if (cesTerm === 30) baseRate += 0.25;
-  }
-
-  let creditAdj = 0;
-  if (creditScore >= 720) creditAdj = 0;
-  else if (creditScore >= 680) creditAdj = 0.25;
-  else if (creditScore >= 640) creditAdj = 0.50;
-  else creditAdj = 1.00;
-
-  const propertyAdj: Record<string, number> = { Primary: 0, Investment: 0.50, '2nd Home': 0.25 };
-  const rate = baseRate + creditAdj + (propertyAdj[propertyType] || 0);
-
-  return {
-    maxAvailable,
-    rate,
-    monthlyPayment: calculatePayment(maxAvailable, rate, product, cesTerm),
-  };
+function mapStageOccupancy(propertyType: string, occupancy: string): 'Owner-Occupied' | 'Second Home' | 'Investment' {
+  if (propertyType === 'Investment') return 'Investment';
+  if (propertyType === '2nd Home') return occupancy === 'Rental' ? 'Investment' : 'Second Home';
+  return 'Owner-Occupied';
 }
 
-function calculatePayment(amount: number, rate: number, product: string, cesTerm: number) {
-  if (amount <= 0 || rate <= 0) return 0;
-  const monthlyRate = rate / 100 / 12;
-  if (product === 'CES') {
-    const n = cesTerm * 12;
-    return Math.round(amount * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
-  }
-  return Math.round(amount * monthlyRate);
+function mapStructureType(structureType: string): 'SFR' | 'Condo' | 'Townhome' | 'PUD' | '2-4 Unit' {
+  if (structureType === 'Townhouse') return 'Townhome';
+  if (structureType === 'Multi-Family') return '2-4 Unit';
+  return (structureType as 'SFR' | 'Condo' | 'Townhome' | 'PUD' | '2-4 Unit') || 'SFR';
 }
 
 function LoanAmountSlider({ value, max, min, onChange, onCommit }: {
@@ -368,6 +322,10 @@ export default function ValidatePage() {
   const [liabilityActions, setLiabilityActions] = useState<Record<string, LiabilityActionState>>({});
   const [selectedLoanAmount, setSelectedLoanAmount] = useState<number>(0);
   const [submittedSelectedLoanAmount, setSubmittedSelectedLoanAmount] = useState<number>(0);
+  const [previousQuote, setPreviousQuote] = useState<QuoteCalc | null>(null);
+  const [scoreAdjustedQuote, setScoreAdjustedQuote] = useState<QuoteCalc | null>(null);
+  const [pricingLoading, setPricingLoading] = useState(false);
+  const [pricingError, setPricingError] = useState<string | null>(null);
 
   // Updated numbers
   const [originalCashAvailable, setOriginalCashAvailable] = useState<number>(0);
@@ -535,39 +493,143 @@ export default function ValidatePage() {
     .sort((a, b) => (b.unpaidBalance || 0) - (a.unpaidBalance || 0));
   const product = String(formData.product || 'HELOC');
   const propertyType = String(formData.propertyType || 'Primary');
-  const drawTerm = Number(formData.drawTerm) || 3;
+  const propertyState = String(formData.propertyState || '');
+  const occupancy = String(formData.occupancy || '');
+  const structureType = String(formData.structureType || 'SFR');
+  const numberOfUnits = Number(formData.numberOfUnits || 1);
+  const drawTerm = Number(formData.drawTerm || formData.helocDrawTerm) || 3;
   const cesTerm = Number(formData.cesTerm) || 20;
   const loanBalance = Number(formData.loanBalance || 0);
   const statedCreditScore = Number(formData.creditScore) || 680;
   const verifiedPropertyValue = Number(avmResult?.estimatedValue || formData.verifiedPropertyValue || formData.propertyValue || 0);
-  const previousQuote = useMemo(
-    () => calcQuote(product, verifiedPropertyValue, loanBalance, statedCreditScore, propertyType, drawTerm, cesTerm),
-    [product, verifiedPropertyValue, loanBalance, statedCreditScore, propertyType, drawTerm, cesTerm],
-  );
-  const scoreAdjustedQuote = useMemo(
-    () => calcQuote(product, verifiedPropertyValue, loanBalance, creditScore || statedCreditScore, propertyType, drawTerm, cesTerm),
-    [product, verifiedPropertyValue, loanBalance, creditScore, statedCreditScore, propertyType, drawTerm, cesTerm],
-  );
-  const displayedMaxAvailable = floorDisplayedMaxAvailable(scoreAdjustedQuote.maxAvailable || previousQuote.maxAvailable);
+  const displayedMaxAvailable = floorDisplayedMaxAvailable(scoreAdjustedQuote?.maxAvailable || previousQuote?.maxAvailable || 0);
+
+  useEffect(() => {
+    if (product !== 'HELOC' && product !== 'CES') {
+      setPreviousQuote(null);
+      setScoreAdjustedQuote(null);
+      setPricingLoading(false);
+      setPricingError('Pricing API is not wired for this product yet.');
+      return;
+    }
+
+    if (!verifiedPropertyValue || !propertyState || !statedCreditScore) {
+      setPreviousQuote(null);
+      setScoreAdjustedQuote(null);
+      setPricingLoading(false);
+      return;
+    }
+
+    const originalLoanAmount = Number(formData.desiredLoanAmount || originalCashAvailable || MIN_LOAN_AMOUNT);
+    const selectedCommittedAmount = submittedSelectedLoanAmount > 0
+      ? submittedSelectedLoanAmount
+      : Number(formData.desiredLoanAmount || originalCashAvailable || MIN_LOAN_AMOUNT);
+
+    const buildPricingBody = (desiredLoanAmount: number, scenarioCreditScore: number) => ({
+      engine: 'BestX',
+      input: {
+        bestExProduct: product,
+        bestExDrawPeriodYears: drawTerm,
+        bestExTermYears: cesTerm,
+        bestExLockPeriodDays: 30,
+        bestExDocType: 'Full Doc',
+        propertyState,
+        propertyValue: verifiedPropertyValue,
+        loanBalance,
+        desiredLoanAmount,
+        creditScore: scenarioCreditScore,
+        dti: 35,
+        occupancy: mapStageOccupancy(propertyType, occupancy),
+        structureType: mapStructureType(structureType),
+        numberOfUnits,
+        cashOut: false,
+      },
+    });
+
+    const timeout = window.setTimeout(async () => {
+      setPricingLoading(true);
+      setPricingError(null);
+      try {
+        const [previousResponse, updatedResponse] = await Promise.all([
+          fetch('/api/stage1-pricing', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(buildPricingBody(originalLoanAmount, statedCreditScore)),
+          }),
+          fetch('/api/stage1-pricing', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(buildPricingBody(selectedCommittedAmount, creditScore || statedCreditScore)),
+          }),
+        ]);
+
+        if (!previousResponse.ok || !updatedResponse.ok) {
+          throw new Error('stage1 pricing failed');
+        }
+
+        const previousPricing = await previousResponse.json() as Stage1PricingResponse;
+        const updatedPricing = await updatedResponse.json() as Stage1PricingResponse;
+        const previousEligible = previousPricing.results.find((entry) => entry.eligibility.eligible);
+        const updatedEligible = updatedPricing.results.find((entry) => entry.eligibility.eligible);
+
+        if (!previousEligible || !updatedEligible) {
+          throw new Error('No eligible pricing result returned');
+        }
+
+        setPreviousQuote({
+          maxAvailable: previousEligible.quote.maxAvailable,
+          rate: previousEligible.quote.rate,
+          monthlyPayment: Math.round(previousEligible.quote.monthlyPayment),
+        });
+        setScoreAdjustedQuote({
+          maxAvailable: updatedEligible.quote.maxAvailable,
+          rate: updatedEligible.quote.rate,
+          monthlyPayment: Math.round(updatedEligible.quote.monthlyPayment),
+        });
+      } catch (error) {
+        console.error('Failed to load live pricing in validate flow', error);
+        setPreviousQuote(null);
+        setScoreAdjustedQuote(null);
+        setPricingError('Live pricing is unavailable. This step still needs API wiring.');
+      } finally {
+        setPricingLoading(false);
+      }
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    product,
+    verifiedPropertyValue,
+    propertyState,
+    statedCreditScore,
+    formData.desiredLoanAmount,
+    originalCashAvailable,
+    submittedSelectedLoanAmount,
+    creditScore,
+    drawTerm,
+    cesTerm,
+    loanBalance,
+    propertyType,
+    occupancy,
+    structureType,
+    numberOfUnits,
+  ]);
+
   const effectiveSelectedLoanAmount = selectedLoanAmount > 0
     ? clampLoanAmount(selectedLoanAmount, displayedMaxAvailable)
-    : clampLoanAmount(originalCashAvailable || previousQuote.maxAvailable || displayedMaxAvailable, displayedMaxAvailable);
+    : clampLoanAmount(originalCashAvailable || previousQuote?.maxAvailable || displayedMaxAvailable, displayedMaxAvailable);
   const appliedSelectedLoanAmount = submittedSelectedLoanAmount > 0
     ? clampLoanAmount(submittedSelectedLoanAmount, displayedMaxAvailable)
     : effectiveSelectedLoanAmount;
   const sliderDirty = effectiveSelectedLoanAmount !== appliedSelectedLoanAmount;
-  const previousPayment = calculatePayment(
-    Number(formData.desiredLoanAmount || originalCashAvailable || 0),
-    previousQuote.rate,
-    product,
-    cesTerm,
-  );
-  const updatedPayment = calculatePayment(appliedSelectedLoanAmount, scoreAdjustedQuote.rate, product, cesTerm);
+  const previousPayment = previousQuote?.monthlyPayment || 0;
+  const updatedPayment = scoreAdjustedQuote?.monthlyPayment || 0;
   const payoffTotal = openLiabilities.reduce((sum, liability) => {
     const action = liabilityActions[liability.id];
     return action?.resolution === 'payoff' ? sum + (liability.unpaidBalance || 0) : sum;
   }, 0);
   const maxPayoff = displayedMaxAvailable - payoffTotal;
+  const liveRate = scoreAdjustedQuote?.rate || 0;
   const cashBackAmount = appliedSelectedLoanAmount - payoffTotal;
   const sidebarProgress = currentStep === 'credit' ? 68 : currentStep === 'score-adjustment' ? 76 : currentStep === 'mortgages' ? 84 : 92;
 
@@ -753,7 +815,7 @@ export default function ValidatePage() {
       ...formData,
       desiredLoanAmount: appliedSelectedLoanAmount,
       verifiedMaxAvailable: displayedMaxAvailable,
-      verifiedRate: scoreAdjustedQuote.rate,
+      verifiedRate: liveRate,
       verifiedMonthlyPayment: updatedPayment,
       verifiedCreditScore: creditScore,
       payoffTotal,
@@ -1262,7 +1324,7 @@ export default function ValidatePage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="bg-gray-100 rounded-xl p-4 text-center border border-gray-200">
                 <div className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Previous Max Loan Amount</div>
-                <div className="text-xl font-bold text-gray-400 line-through">{formatCurrency(previousQuote.maxAvailable)}</div>
+                <div className="text-xl font-bold text-gray-400 line-through">{formatCurrency(previousQuote?.maxAvailable || 0)}</div>
               </div>
               <div className="bg-emerald-50 rounded-xl p-4 text-center border-2 border-emerald-300">
                 <div className="text-xs uppercase tracking-wider text-emerald-600 font-semibold mb-1">Updated Max Loan Amount</div>
@@ -1274,22 +1336,28 @@ export default function ValidatePage() {
               </div>
             </div>
 
+            {pricingError && (
+              <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                {pricingError}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div className="bg-gray-100 rounded-xl p-4 text-center border border-gray-200">
                 <div className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Previous Rate</div>
-                <div className="text-xl font-bold text-gray-400 line-through">{previousQuote.rate.toFixed(2)}%</div>
+                <div className="text-xl font-bold text-gray-400 line-through">{previousQuote?.rate ? `${previousQuote.rate.toFixed(2)}%` : '—'}</div>
               </div>
-              <div className={`rounded-xl p-4 text-center border-2 ${scoreAdjustedQuote.rate <= previousQuote.rate ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300'}`}>
+              <div className={`rounded-xl p-4 text-center border-2 ${previousQuote?.rate && liveRate <= previousQuote.rate ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300'}`}>
                 <div className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Updated Rate</div>
-                <div className={`text-xl font-bold ${scoreAdjustedQuote.rate <= previousQuote.rate ? 'text-green-700' : 'text-amber-700'}`}>{scoreAdjustedQuote.rate.toFixed(2)}%</div>
+                <div className={`text-xl font-bold ${previousQuote?.rate && liveRate <= previousQuote.rate ? 'text-green-700' : 'text-amber-700'}`}>{pricingLoading ? 'Loading rate...' : liveRate ? `${liveRate.toFixed(2)}%` : '—'}</div>
               </div>
               <div className="bg-gray-100 rounded-xl p-4 text-center border border-gray-200">
                 <div className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Previous Payment</div>
                 <div className="text-xl font-bold text-gray-400 line-through">{formatCurrency(previousPayment)}</div>
               </div>
-              <div className={`rounded-xl p-4 text-center border-2 ${updatedPayment <= previousPayment ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300'}`}>
+              <div className={`rounded-xl p-4 text-center border-2 ${previousPayment > 0 && updatedPayment <= previousPayment ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300'}`}>
                 <div className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Updated Payment</div>
-                <div className={`text-xl font-bold ${updatedPayment <= previousPayment ? 'text-green-700' : 'text-amber-700'}`}>{formatCurrency(updatedPayment)}</div>
+                <div className={`text-xl font-bold ${previousPayment > 0 && updatedPayment <= previousPayment ? 'text-green-700' : 'text-amber-700'}`}>{pricingLoading ? 'Loading payment...' : formatCurrency(updatedPayment)}</div>
               </div>
             </div>
 
@@ -1310,7 +1378,8 @@ export default function ValidatePage() {
 
             <button
               onClick={() => goToStep('mortgages')}
-              className="w-full py-4 px-6 rounded-xl font-semibold text-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg transition-all"
+              disabled={pricingLoading || !scoreAdjustedQuote}
+              className="w-full py-4 px-6 rounded-xl font-semibold text-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed text-white shadow-lg transition-all"
             >
               Continue to Credit Report Review →
             </button>
@@ -1536,9 +1605,15 @@ export default function ValidatePage() {
               </div>
             </div>
 
+            {pricingError && (
+              <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                {pricingError}
+              </div>
+            )}
+
             <div className="bg-blue-50 rounded-xl p-5 mb-8 text-center">
               <p className="text-sm text-blue-600 mb-1">Updated Rate</p>
-              <p className="text-4xl font-bold text-blue-700">{scoreAdjustedQuote.rate.toFixed(2)}%</p>
+              <p className="text-4xl font-bold text-blue-700">{pricingLoading ? 'Loading rate...' : liveRate ? `${liveRate.toFixed(2)}%` : '—'}</p>
               <p className="text-xs text-blue-500 mt-1">Based on {creditScore || 'your'} credit score</p>
             </div>
 
@@ -1584,7 +1659,7 @@ export default function ValidatePage() {
                 { desc: 'Title Insurance (Lender)', amount: 350 },
                 { desc: 'Settlement/Closing Fee', amount: 495 },
                 { desc: 'Recording Fees', amount: 150 },
-                { desc: 'Prepaid Interest (15 days)', amount: Math.round(((appliedSelectedLoanAmount * scoreAdjustedQuote.rate / 100) / 365) * 15) },
+                { desc: 'Prepaid Interest (15 days)', amount: Math.round(((appliedSelectedLoanAmount * liveRate / 100) / 365) * 15) },
                 { desc: 'Homeowners Insurance (2 mo)', amount: 300 },
               ].map((item, i) => (
                 <div key={i} className="flex justify-between px-5 py-2.5 text-sm border-t border-gray-100">
@@ -1597,7 +1672,7 @@ export default function ValidatePage() {
                 <span>${(
                   Math.round(appliedSelectedLoanAmount * 0.01) +
                   500 + 75 + 15 + 250 + 350 + 495 + 150 +
-                  Math.round(((appliedSelectedLoanAmount * scoreAdjustedQuote.rate / 100) / 365) * 15) +
+                  Math.round(((appliedSelectedLoanAmount * liveRate / 100) / 365) * 15) +
                   300
                 ).toLocaleString()}</span>
               </div>
@@ -1609,7 +1684,8 @@ export default function ValidatePage() {
 
             <button
               onClick={handleContinueToFinalizeDetails}
-              className="w-full py-4 px-6 rounded-xl font-semibold text-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all"
+              disabled={pricingLoading || !scoreAdjustedQuote}
+              className="w-full py-4 px-6 rounded-xl font-semibold text-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed text-white shadow-lg hover:shadow-xl transition-all"
             >
               Continue to Finalize Details →
             </button>
@@ -1621,10 +1697,10 @@ export default function ValidatePage() {
           <div className="lg:col-span-1">
             <div className="sticky top-6 space-y-4">
               <QuoteBuilder
-                maxAvailable={displayedMaxAvailable || previousQuote.maxAvailable || originalCashAvailable}
+                maxAvailable={displayedMaxAvailable || previousQuote?.maxAvailable || originalCashAvailable}
                 desiredLoanAmount={appliedSelectedLoanAmount}
-                rateRange={{ min: scoreAdjustedQuote.rate, max: scoreAdjustedQuote.rate }}
-                monthlyPayment={updatedPayment || scoreAdjustedQuote.monthlyPayment}
+                rateRange={{ min: liveRate, max: liveRate }}
+                monthlyPayment={updatedPayment}
                 progress={sidebarProgress}
                 stage="stage2"
                 sticky={false}

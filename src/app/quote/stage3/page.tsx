@@ -2,7 +2,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import QuoteBuilder from '@/components/quote/QuoteBuilder';
 import type { Stage1PricingResponse } from '@/lib/stage1-pricing/types';
 
@@ -221,23 +221,8 @@ export default function Stage3Page() {
   const propertyAddress = String(stage1.propertyAddress || '');
   const product = String(stage1.product || 'HELOC');
   const desiredLoanAmount = Number(stage1.desiredLoanAmount) || 0;
-
-  function getRateForScenario(maxAvailableForPricing: number) {
-    const baseRate = product === 'HELOC' ? 7.25 : 8.0;
-    const creditAdj = creditScore >= 720 ? 0 : creditScore >= 680 ? 0.25 : creditScore >= 640 ? 0.5 : 1.0;
-    const propertyAdj: Record<string, number> = { Primary: 0, Investment: 0.5, '2nd Home': 0.25 };
-    let ltvAdj = 0;
-
-    if (maxAvailableForPricing > 0) {
-      const combinedLtv = (loanBalance + maxAvailableForPricing) / Math.max(propertyValue, 1);
-      if (combinedLtv > 0.85) ltvAdj = 0.5;
-      else if (combinedLtv > 0.80) ltvAdj = 0.25;
-    }
-
-    return baseRate + creditAdj + (propertyAdj[propertyType] || 0) + ltvAdj;
-  }
-
-  const previousRate = getRateForScenario(desiredLoanAmount);
+  const previousRate = Number(stage1.quotedRate || 0);
+  const previousMonthlyPayment = Number(stage1.quotedMonthlyPayment || 0);
   const appliedLoanAmount = submittedLoanAmount || desiredLoanAmount;
   const sliderDirty = loanAmount !== appliedLoanAmount;
 
@@ -327,35 +312,12 @@ export default function Stage3Page() {
     stage1.cesTerm,
   ]);
 
-  const updatedRate = liveQuote?.rate ?? previousRate;
+  const updatedRate = liveQuote?.rate ?? 0;
 
-  const originalMonthlyPayment = useMemo(() => {
-    if (desiredLoanAmount <= 0) return 0;
-    const monthlyRate = previousRate / 100 / 12;
-
-    if (product === 'HELOC') {
-      return Math.round(desiredLoanAmount * monthlyRate);
-    }
-
-    const cesTerm = Number(stage1.cesTerm) || 20;
-    const n = cesTerm * 12;
-    return Math.round(desiredLoanAmount * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
-  }, [desiredLoanAmount, previousRate, product, stage1.cesTerm]);
+  const originalMonthlyPayment = previousMonthlyPayment;
 
   // Calculate monthly payment for chosen amount
-  const monthlyPayment = useMemo(() => {
-    if (liveQuote) return liveQuote.monthlyPayment;
-    if (appliedLoanAmount <= 0) return 0;
-    const monthlyRate = updatedRate / 100 / 12;
-
-    if (product === 'HELOC') {
-      return Math.round(appliedLoanAmount * monthlyRate);
-    } else {
-      const cesTerm = Number(stage1.cesTerm) || 20;
-      const n = cesTerm * 12;
-      return Math.round(appliedLoanAmount * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
-    }
-  }, [liveQuote, appliedLoanAmount, product, updatedRate, stage1.cesTerm]);
+  const monthlyPayment = liveQuote?.monthlyPayment ?? 0;
 
   async function handleValidate() {
     setStatus('loading');
@@ -434,6 +396,14 @@ export default function Stage3Page() {
     s2.desiredLoanAmount = String(appliedLoanAmount);
     s1.verifiedMaxAvailable = String(result?.newMaxLoan || s1.maxAvailable || s2.maxAvailable);
     s2.verifiedMaxAvailable = String(result?.newMaxLoan || s2.maxAvailable || s1.maxAvailable);
+    if (liveQuote) {
+      s1.verifiedRate = liveQuote.rate;
+      s2.verifiedRate = liveQuote.rate;
+      s1.verifiedMonthlyPayment = liveQuote.monthlyPayment;
+      s2.verifiedMonthlyPayment = liveQuote.monthlyPayment;
+      s1.quotedInvestor = liveQuote.investor || s1.quotedInvestor || null;
+      s1.quotedProgram = liveQuote.program || s1.quotedProgram || null;
+    }
     s1.verificationTier = result?.tier;
     s2.verificationTier = result?.tier;
     s1.verificationFsd = result?.fsd ? String(result.fsd) : undefined;
@@ -777,7 +747,7 @@ export default function Stage3Page() {
                   <div className="grid grid-cols-2 gap-3 mb-6">
                     <div className="bg-gray-100 rounded-xl p-4 text-center border border-gray-200">
                       <div className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Previous Rate</div>
-                      <div className="text-xl font-bold text-gray-400 line-through">{previousRate.toFixed(2)}%</div>
+                      <div className="text-xl font-bold text-gray-400 line-through">{previousRate > 0 ? `${previousRate.toFixed(2)}%` : '—'}</div>
                     </div>
                     <div className={`rounded-xl p-4 text-center border-2 ${
                       updatedRate <= previousRate
@@ -785,8 +755,8 @@ export default function Stage3Page() {
                         : 'bg-amber-50 border-amber-300'
                     }`}>
                       <div className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Updated Rate</div>
-                      <div className={`text-xl font-bold ${updatedRate <= previousRate ? 'text-green-700' : 'text-amber-700'}`}>
-                        {updatedRate.toFixed(2)}%
+                      <div className={`text-xl font-bold ${previousRate > 0 && updatedRate <= previousRate ? 'text-green-700' : 'text-amber-700'}`}>
+                        {liveQuoteLoading ? 'Loading rate...' : updatedRate > 0 ? `${updatedRate.toFixed(2)}%` : '—'}
                       </div>
                     </div>
                   </div>
@@ -794,12 +764,12 @@ export default function Stage3Page() {
                   <div className="grid grid-cols-2 gap-3 mb-6">
                     <div className="bg-gray-100 rounded-xl p-4 text-center border border-gray-200">
                       <div className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Previous Payment</div>
-                      <div className="text-xl font-bold text-gray-400 line-through">${originalMonthlyPayment.toLocaleString()}</div>
+                      <div className="text-xl font-bold text-gray-400 line-through">{originalMonthlyPayment > 0 ? `$${originalMonthlyPayment.toLocaleString()}` : '—'}</div>
                     </div>
-                    <div className={`rounded-xl p-4 text-center border-2 ${monthlyPayment <= originalMonthlyPayment ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300'}`}>
+                    <div className={`rounded-xl p-4 text-center border-2 ${originalMonthlyPayment > 0 && monthlyPayment <= originalMonthlyPayment ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300'}`}>
                       <div className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Updated Payment</div>
-                      <div className={`text-xl font-bold ${monthlyPayment <= originalMonthlyPayment ? 'text-green-700' : 'text-amber-700'}`}>
-                        ${monthlyPayment.toLocaleString()}
+                      <div className={`text-xl font-bold ${originalMonthlyPayment > 0 && monthlyPayment <= originalMonthlyPayment ? 'text-green-700' : 'text-amber-700'}`}>
+                        {liveQuoteLoading ? 'Loading payment...' : monthlyPayment > 0 ? `$${monthlyPayment.toLocaleString()}` : '—'}
                       </div>
                     </div>
                   </div>
@@ -837,7 +807,7 @@ export default function Stage3Page() {
               {newMax > 0 && (result.tier === 'verified' || result.tier === 'estimate' || result.tier === 'low_confidence') && (
                 <button
                   onClick={handleContinue}
-                  disabled={sliderDirty || liveQuoteLoading}
+                  disabled={sliderDirty || liveQuoteLoading || !liveQuote}
                   className={`w-full py-4 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all text-lg mb-4 ${
                     result.tier === 'verified'
                       ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
