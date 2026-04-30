@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { hashOtpCode, normalizePhone } from '@/lib/otp';
+import { hashOtpCode } from '@/lib/otp';
 import { consumeRateLimit, getClientIp } from '@/lib/rate-limit';
-import { findLoanOfficerPortalUser, getRequestHost, isLoanOfficerPortalHost, maskPhone } from '@/lib/lo-portal-auth';
+import { findLoanOfficerPortalUser, getRequestHost, isLoanOfficerPortalHost } from '@/lib/lo-portal-auth';
 import { requireTrustedBrowserRequest } from '@/lib/application-session';
 
 const SEND_OTP_USER_LIMIT = 3;
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unknown loan officer login.' }, { status: 404 });
     }
 
-    const normalizedPhone = normalizePhone(user.phone);
+    const email = user.email.trim().toLowerCase();
     const clientIp = getClientIp(req);
     const [userRate, ipRate] = await Promise.all([
       consumeRateLimit({ scope: 'lo-send-otp:user', key: user.prefix, limit: SEND_OTP_USER_LIMIT, windowSeconds: SEND_OTP_WINDOW_SECONDS }),
@@ -39,14 +39,14 @@ export async function POST(req: NextRequest) {
     }
 
     const code = String(Math.floor(1000 + Math.random() * 9000));
-    const codeHash = hashOtpCode(normalizedPhone, code);
+    const codeHash = hashOtpCode(email, code);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
     const supabase = getSupabaseAdmin();
 
-    await supabase.from('otp_codes').update({ used: true }).eq('phone', normalizedPhone).eq('used', false);
+    await supabase.from('otp_codes').update({ used: true }).eq('phone', email).eq('used', false);
 
     const { error: insertError } = await supabase.from('otp_codes').insert({
-      phone: normalizedPhone,
+      phone: email,
       code: codeHash,
       expires_at: expiresAt,
       used: false,
@@ -58,30 +58,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to generate code' }, { status: 500 });
     }
 
-    const webhookUrl = process.env.GHL_SMS_WEBHOOK_URL;
-    if (!webhookUrl) {
-      console.error('GHL_SMS_WEBHOOK_URL not configured');
-      return NextResponse.json({ error: 'SMS service not configured' }, { status: 500 });
+    const resendApiKey = process.env.RESEND_API_KEY;
+    if (!resendApiKey) {
+      console.error('RESEND_API_KEY not configured');
+      return NextResponse.json({ error: 'Email service not configured' }, { status: 500 });
     }
 
-    const smsResponse = await fetch(webhookUrl, {
+    const emailResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
-        phone: normalizedPhone,
-        text: `Your First Access Lending LO portal verification code is ${code}. Expires in 5 minutes.`
-      })
+        from: 'First Access Lending <info@firstaccesslending.com>',
+        to: [email],
+        subject: 'Your First Access Lending portal verification code',
+        html: `<div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a"><p>Your First Access Lending Loan Officer portal verification code is:</p><p style="font-size:32px;font-weight:700;letter-spacing:4px;margin:16px 0">${code}</p><p>This code expires in 5 minutes.</p></div>`,
+      }),
     });
 
-    if (!smsResponse.ok) {
-      console.error('LO OTP SMS webhook failed:', { status: smsResponse.status });
+    if (!emailResponse.ok) {
+      console.error('LO OTP email send failed:', { status: emailResponse.status });
       return NextResponse.json({ error: 'Failed to send verification code' }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      email: user.email,
-      phoneMask: maskPhone(normalizedPhone),
+      email,
     });
   } catch {
     console.error('LO send OTP error');

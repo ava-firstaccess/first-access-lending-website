@@ -8,11 +8,11 @@ type LoanOfficerPortalGateProps = {
   subtitle?: string;
 };
 
-export function LoanOfficerPortalGate({ nextPath, title = 'Loan Officer Portal', subtitle = 'Login with your email prefix, then verify with the code sent to your phone.' }: LoanOfficerPortalGateProps) {
+export function LoanOfficerPortalGate({ nextPath, title = 'Loan Officer Portal', subtitle = 'Login with your email prefix, then verify with the code sent to your work email.' }: LoanOfficerPortalGateProps) {
   const [identifier, setIdentifier] = useState('');
   const [code, setCode] = useState('');
   const [phase, setPhase] = useState<'request' | 'verify'>('request');
-  const [maskedPhone, setMaskedPhone] = useState('');
+  const [deliveryEmail, setDeliveryEmail] = useState('');
   const [resolvedEmail, setResolvedEmail] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,7 +33,7 @@ export function LoanOfficerPortalGate({ nextPath, title = 'Loan Officer Portal',
         setError(data?.error || 'Unable to send code.');
         return;
       }
-      setMaskedPhone(data.phoneMask || '');
+      setDeliveryEmail(data.email || '');
       setResolvedEmail(data.email || '');
       setPhase('verify');
     } catch {
@@ -102,7 +102,7 @@ export function LoanOfficerPortalGate({ nextPath, title = 'Loan Officer Portal',
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-slate-200 outline-none focus:border-sky-500"
                 inputMode="numeric"
               />
-              {maskedPhone ? <div className="mt-1 text-xs text-slate-400">Code sent to {maskedPhone}</div> : null}
+              {deliveryEmail ? <div className="mt-1 text-xs text-slate-400">Code sent to {deliveryEmail}</div> : null}
             </label>
           ) : null}
 
@@ -129,7 +129,7 @@ export function LoanOfficerPortalGate({ nextPath, title = 'Loan Officer Portal',
               </button>
               <button
                 type="button"
-                onClick={() => { setPhase('request'); setCode(''); setMaskedPhone(''); setResolvedEmail(''); setError(''); }}
+                onClick={() => { setPhase('request'); setCode(''); setDeliveryEmail(''); setResolvedEmail(''); setError(''); }}
                 className="w-full rounded-xl border border-slate-700 px-4 py-3 text-sm font-semibold text-slate-200"
               >
                 Use a different login

@@ -15,14 +15,19 @@ function getOtpHashSecret() {
   return secret;
 }
 
-export function hashOtpCode(phone: string, code: string) {
+function normalizeOtpTarget(target: string) {
+  const raw = String(target || '').trim();
+  return raw.includes('@') ? raw.toLowerCase() : normalizePhone(raw);
+}
+
+export function hashOtpCode(target: string, code: string) {
   return createHmac('sha256', getOtpHashSecret())
-    .update(`${normalizePhone(phone)}:${String(code).trim()}`)
+    .update(`${normalizeOtpTarget(target)}:${String(code).trim()}`)
     .digest('hex');
 }
 
-export function verifyOtpCode(phone: string, candidateCode: string, storedValue: string) {
-  const candidateHash = hashOtpCode(phone, candidateCode);
+export function verifyOtpCode(target: string, candidateCode: string, storedValue: string) {
+  const candidateHash = hashOtpCode(target, candidateCode);
   const normalizedStored = String(storedValue || '').trim();
 
   if (/^[a-f0-9]{64}$/i.test(normalizedStored)) {

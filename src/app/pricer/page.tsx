@@ -12,7 +12,7 @@ export default async function Page() {
   if (isLoanOfficerPortalHost(host)) {
     const session = await getLoanOfficerPortalSession();
     if (!session) {
-      return <LoanOfficerPortalGate nextPath="/pricer" title="Loan Officer Pricer" subtitle="Login with your email prefix, then verify with the code sent to your phone to access pricing." />;
+      return <LoanOfficerPortalGate nextPath="/pricer" title="Loan Officer Pricer" subtitle="Login with your email prefix, then verify the code sent to your work email to access pricing." />;
     }
     return <Stage1PricingPage mode="pricer" portalSession={session} />;
   }

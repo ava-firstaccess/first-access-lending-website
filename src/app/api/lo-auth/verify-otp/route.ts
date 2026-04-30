@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { normalizePhone, verifyOtpCode } from '@/lib/otp';
+import { verifyOtpCode } from '@/lib/otp';
 import { consumeRateLimit, getClientIp } from '@/lib/rate-limit';
 import { createLoanOfficerPortalSession, findLoanOfficerPortalUser, getRequestHost, isLoanOfficerPortalHost, setLoanOfficerPortalSessionCookie } from '@/lib/lo-portal-auth';
 import { requireTrustedBrowserRequest } from '@/lib/application-session';
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Login and code required.' }, { status: 400 });
     }
 
-    const normalizedPhone = normalizePhone(user.phone);
+    const email = user.email.trim().toLowerCase();
     const clientIp = getClientIp(req);
     const [userRate, ipRate] = await Promise.all([
       consumeRateLimit({ scope: 'lo-verify-otp:user', key: user.prefix, limit: VERIFY_OTP_USER_LIMIT, windowSeconds: VERIFY_OTP_WINDOW_SECONDS }),
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     const { data: otpRecord, error: fetchError } = await supabase
       .from('otp_codes')
       .select('*')
-      .eq('phone', normalizedPhone)
+      .eq('phone', email)
       .eq('used', false)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Too many incorrect attempts. Request a new code.' }, { status: 429 });
     }
 
-    if (!verifyOtpCode(normalizedPhone, String(code), otpRecord.code)) {
+    if (!verifyOtpCode(email, String(code), otpRecord.code)) {
       await supabase.from('otp_codes').update({ attempts: otpRecord.attempts + 1 }).eq('id', otpRecord.id);
       const remaining = MAX_VERIFY_ATTEMPTS - otpRecord.attempts - 1;
       return NextResponse.json(

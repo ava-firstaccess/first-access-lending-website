@@ -21,7 +21,7 @@ export default async function Page() {
 
   const session = await getLoanOfficerPortalSession();
   if (!session) {
-    return <LoanOfficerPortalGate nextPath="/avm" title="Loan Officer AVM" subtitle="Login with your email prefix and verify the code sent to your phone to access AVM tools." />;
+    return <LoanOfficerPortalGate nextPath="/avm" title="Loan Officer AVM" subtitle="Login with your email prefix and verify the code sent to your work email to access AVM tools." />;
   }
 
   return <LoanOfficerAvmPage session={session} />;
