@@ -527,6 +527,7 @@ export default function ValidatePage() {
   const parsedEstimatedCreditCardRate = Number(creditCardRateEstimate);
   const hasEstimatedCreditCardRate = creditCardRateEstimate.trim().length > 0 && Number.isFinite(parsedEstimatedCreditCardRate);
   const defaultAverageRate = parseAverageRateValue(creditCardAverageRate);
+  const resolvedAverageRate = defaultAverageRate ?? 21.52;
   const openLiabilities = parsedProdTestReport?.liabilities.filter(isOpenLiability) || [];
   const openMortgageLiabilities = openLiabilities.filter(isMortgageLiability);
   const openConsumerLiabilities = openLiabilities
@@ -1160,7 +1161,7 @@ export default function ValidatePage() {
 
               <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
                 <p className="text-sm leading-6 text-amber-900">
-                  The current average is <span className="font-semibold">{creditCardAverageRate?.averageLabel || '21.52%'}</span>,
+                  The current average is <span className="font-semibold">{creditCardAverageRate?.averageLabel || `${resolvedAverageRate.toFixed(2)}%`}</span>,
                   and that&apos;s often a safe number to use.
                 </p>
 
@@ -1176,7 +1177,7 @@ export default function ValidatePage() {
                         value={creditCardRateEstimate}
                         onChange={(e) => setCreditCardRateEstimate(e.target.value)}
                         className="w-full rounded-xl border border-gray-300 px-4 py-3 pr-12 text-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                        placeholder={defaultAverageRate ? defaultAverageRate.toFixed(2) : '21.52'}
+                        placeholder={resolvedAverageRate.toFixed(2)}
                       />
                       <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-gray-500">%</span>
                     </div>
@@ -1184,9 +1185,7 @@ export default function ValidatePage() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (defaultAverageRate !== null) {
-                        setCreditCardRateEstimate(defaultAverageRate.toFixed(2));
-                      }
+                      setCreditCardRateEstimate(resolvedAverageRate.toFixed(2));
                     }}
                     className="rounded-xl border border-amber-300 bg-white px-4 py-3 text-sm font-semibold text-amber-900 hover:bg-amber-100"
                   >
