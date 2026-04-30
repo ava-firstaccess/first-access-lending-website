@@ -23,8 +23,8 @@ function roundDownToEighth(value: number) {
 function roundBorrowerPoints(deltaFromTarget: number) {
   return deltaFromTarget >= 0 ? roundUpToEighth(deltaFromTarget) : roundDownToEighth(Math.abs(deltaFromTarget));
 }
-function getBorrowerFacingPoints(purchasePrice: number): { rawDeltaFromPar: number; pointsLabel: 'Discount' | 'Rebate'; pointsValue: number } {
-  const rawDeltaFromPar = roundToThree(100 - purchasePrice);
+function getBorrowerFacingPoints(displayPrice: number, parPrice: number): { rawDeltaFromPar: number; pointsLabel: 'Discount' | 'Rebate'; pointsValue: number } {
+  const rawDeltaFromPar = roundToThree(parPrice - displayPrice);
   const pointsLabel: 'Discount' | 'Rebate' = rawDeltaFromPar >= 0 ? 'Discount' : 'Rebate';
   const pointsValue = roundBorrowerPoints(rawDeltaFromPar);
   return { rawDeltaFromPar, pointsLabel, pointsValue };
@@ -81,7 +81,7 @@ function buildTargetPriceLadder(requestedRates: number[], getQuoteForRate: (rate
     const displayPrice = getBorrowerFacingDisplayPrice(quote.purchasePrice, referencePrice, displayTargetPrice);
     if (displayPrice < 97 || displayPrice > Math.min(103, displayMaxPrice)) continue;
 
-    const { pointsLabel, pointsValue } = getBorrowerFacingPoints(displayPrice);
+    const { pointsLabel, pointsValue } = getBorrowerFacingPoints(displayPrice, displayTargetPrice);
     if (pointsLabel === 'Discount' && pointsValue > 3) continue;
     const key = `${quote.rate}|${quote.noteRate}|${quote.purchasePrice}`;
     rows.set(key, {
@@ -241,7 +241,7 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
   const bestExLockPeriodDays = input.bestExLockPeriodDays ?? 30;
   const bestExDocType = input.bestExDocType ?? 'Full Doc';
   const actualLockPeriodDays = bestExLockPeriodDays + 30;
-  const makeSummary = (eligibility: Stage1Eligibility, quote: Stage1ExecutionQuote, maxPrice: number, requestedRates: number[], getQuoteForRate: (rateOverride?: number) => Stage1ExecutionQuote): InvestorSummary => { const overlaidEligibility = applyAvmOverlay(eligibility, quote.engine, input); const selectionTarget = getBestXSelectionTarget(effectiveTargetPrice, maxPrice, hasTargetPriceOverride); const bestExWindowLowerBound = roundToThree(selectionTarget - BEST_EX_WINDOW_FLOOR); const bestExWindowUpperBound = roundToThree(selectionTarget + BEST_EX_WINDOW_CEILING); const displayPrice = getBorrowerFacingDisplayPrice(quote.purchasePrice, effectiveTargetPrice, displayTargetPrice); const { pointsValue: discountPoints } = getBorrowerFacingPoints(displayPrice); const buyPrice = 0; const deltaFromTarget = roundToThree(quote.purchasePrice - effectiveTargetPrice); const respectsMaxPrice = maxPrice <= 0 || quote.purchasePrice <= maxPrice + 0.0001; const windowMatched = overlaidEligibility.eligible && respectsMaxPrice && quote.purchasePrice >= bestExWindowLowerBound && quote.purchasePrice <= bestExWindowUpperBound; return { investor: quote.engine, eligibility: overlaidEligibility, quote, discountPoints, buyPrice, windowMatched, deltaFromTarget, targetPrice: displayTargetPrice, maxPrice, priceLadder: buildTargetPriceLadder(requestedRates, getQuoteForRate, quote, effectiveTargetPrice, displayTargetPrice, maxPrice) }; };
+  const makeSummary = (eligibility: Stage1Eligibility, quote: Stage1ExecutionQuote, maxPrice: number, requestedRates: number[], getQuoteForRate: (rateOverride?: number) => Stage1ExecutionQuote): InvestorSummary => { const overlaidEligibility = applyAvmOverlay(eligibility, quote.engine, input); const selectionTarget = getBestXSelectionTarget(effectiveTargetPrice, maxPrice, hasTargetPriceOverride); const bestExWindowLowerBound = roundToThree(selectionTarget - BEST_EX_WINDOW_FLOOR); const bestExWindowUpperBound = roundToThree(selectionTarget + BEST_EX_WINDOW_CEILING); const displayPrice = getBorrowerFacingDisplayPrice(quote.purchasePrice, effectiveTargetPrice, displayTargetPrice); const { pointsValue: discountPoints } = getBorrowerFacingPoints(displayPrice, displayTargetPrice); const buyPrice = 0; const deltaFromTarget = roundToThree(quote.purchasePrice - effectiveTargetPrice); const respectsMaxPrice = maxPrice <= 0 || quote.purchasePrice <= maxPrice + 0.0001; const windowMatched = overlaidEligibility.eligible && respectsMaxPrice && quote.purchasePrice >= bestExWindowLowerBound && quote.purchasePrice <= bestExWindowUpperBound; return { investor: quote.engine, eligibility: overlaidEligibility, quote, discountPoints, buyPrice, windowMatched, deltaFromTarget, targetPrice: displayTargetPrice, maxPrice, priceLadder: buildTargetPriceLadder(requestedRates, getQuoteForRate, quote, effectiveTargetPrice, displayTargetPrice, maxPrice) }; };
   const makeIneligible = (investor: Stage1ExecutionQuote['engine'], program: string, product: string, reason: string, maxPrice = 0): InvestorSummary => ({ investor, eligibility: applyAvmOverlay({ eligible: false, reasons: [reason], maxAvailable: 0, resultingCltv: 0, avmEvaluation: null }, investor, input), quote: { engine: investor, program, product, maxAvailable: 0, rate: 0, noteRate: 0, monthlyPayment: 0, maxLtv: 0, purchasePrice: 0, basePrice: 0, llpaAdjustment: 0, adjustments: [] }, discountPoints: 0, buyPrice: 0, windowMatched: false, deltaFromTarget: 0, targetPrice: defaultBackendTargetPrice, maxPrice, priceLadder: [] });
   const chooseBestXSummary = (eligibility: Stage1Eligibility, fallbackQuote: Stage1ExecutionQuote, requestedRates: number[], getQuote: (rateOverride?: number) => Stage1ExecutionQuote, maxPrice: number): InvestorSummary => {
     if (!eligibility.eligible) return makeSummary(eligibility, fallbackQuote, maxPrice, requestedRates, getQuote);
@@ -258,8 +258,8 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
     const compareDisplayedPar = (a: InvestorSummary, b: InvestorSummary) => {
       const aDisplayPrice = getBorrowerFacingDisplayPrice(a.quote.purchasePrice, effectiveTargetPrice, displayTargetPrice);
       const bDisplayPrice = getBorrowerFacingDisplayPrice(b.quote.purchasePrice, effectiveTargetPrice, displayTargetPrice);
-      const aPoints = getBorrowerFacingPoints(aDisplayPrice);
-      const bPoints = getBorrowerFacingPoints(bDisplayPrice);
+      const aPoints = getBorrowerFacingPoints(aDisplayPrice, displayTargetPrice);
+      const bPoints = getBorrowerFacingPoints(bDisplayPrice, displayTargetPrice);
       const aIsPar = aPoints.pointsValue === 0;
       const bIsPar = bPoints.pointsValue === 0;
 
