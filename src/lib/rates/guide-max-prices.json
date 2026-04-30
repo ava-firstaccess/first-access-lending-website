@@ -1,0 +1,98 @@
+{
+  "source": "Scraped from investor ratesheet workbooks",
+  "generatedAt": "2026-04-30T23:08:21.448Z",
+  "investors": {
+    "NewRez": {
+      "default": 107,
+      "sheet": "Home Equity",
+      "cell": "O121"
+    },
+    "OSB": {
+      "secondLiens": {
+        "maxPrice30Year": 106,
+        "maxPriceShorterTerm": 106,
+        "sheet": "2nd Liens",
+        "cells": {
+          "maxPrice30Year": "E78",
+          "maxPriceShorterTerm": "E79"
+        }
+      },
+      "heloc": {
+        "maxPrice30Year": 106,
+        "maxPriceShorterTerm": 106,
+        "sheet": "HELOC",
+        "cells": {
+          "maxPrice30Year": "U30",
+          "maxPriceShorterTerm": "U31"
+        }
+      }
+    },
+    "Vista": {
+      "ownerOccupied": 105,
+      "nonOwnerOccupied": {
+        "noPrepayHard": 105,
+        "prepay3to5YearHard": 105.5
+      },
+      "sheet": "Price",
+      "cell": "H41"
+    },
+    "Verus": {
+      "CES": {
+        "primaryAndSecondHomes": 104,
+        "investor": {
+          "noPenalty": 104,
+          "prepay12Months": 104,
+          "prepay24Months": 104.5,
+          "prepay36Months": 105,
+          "prepay48Months": 105.5,
+          "prepay60Months": 105.5
+        },
+        "sheet": "CES"
+      },
+      "HELOC": {
+        "default": 100,
+        "sheet": "HELOC",
+        "cell": "B56"
+      }
+    },
+    "Deephaven": {
+      "equityAdvantage": {
+        "default": 105,
+        "over500k": 104,
+        "sheet": "Equity Advantage"
+      },
+      "equityAdvantageElite": {
+        "default": 105,
+        "sheet": "Equity Advantage Elite",
+        "cell": "H40"
+      }
+    },
+    "Arc Home": {
+      "allElse": {
+        "10 Year Maturity": 106.5,
+        "15 Year Maturity": 106.5,
+        "20 Year Maturity": 106.5,
+        "30 Year Maturity": 106.5
+      },
+      "withCondition": {
+        "10 Year Maturity": 107.5,
+        "15 Year Maturity": 107.5,
+        "20 Year Maturity": 107.5,
+        "30 Year Maturity": 107.5
+      },
+      "sheet": "Corr - Del Non-Agency"
+    },
+    "Button": {
+      "over500k": {
+        "CES": 104,
+        "HELOC": 103
+      },
+      "sheet": "Fully Delegated",
+      "cells": {
+        "CES": "J5",
+        "HELOC": "J6"
+      },
+      "note": "Workbook exposes over-$500k max price labels; current stage-1 default cap for Button remains 105 outside that special case."
+    }
+  }
+}

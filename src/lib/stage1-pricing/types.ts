@@ -79,10 +79,10 @@ export type Stage1AdjustmentLine = { label: string; value: number };
 export type Stage1Eligibility = { eligible: boolean; reasons: string[]; maxAvailable: number; resultingCltv: number; avmEvaluation?: InvestorAvmEvaluation | null };
 export type Stage1ExecutionQuote = { engine: Stage1PricingEngine; program: string; product: string; maxAvailable: number; rate: number; noteRate: number; monthlyPayment: number; maxLtv: number; purchasePrice: number; basePrice: number; llpaAdjustment: number; adjustments: Stage1AdjustmentLine[] };
 export type Stage1TargetExecutionQuote = Stage1ExecutionQuote & { targetPrice: number; tolerance: number; deltaFromTarget: number; withinTolerance: boolean; withinToleranceAllowOverage: boolean };
-export type Stage1PricingEngineResult = { eligibility: Stage1Eligibility; quote: Stage1ExecutionQuote; targetQuote: Stage1TargetExecutionQuote; maxPrice: number };
+export type Stage1PricingEngineResult = { eligibility: Stage1Eligibility; quote: Stage1ExecutionQuote; targetQuote: Stage1TargetExecutionQuote; maxPrice: number; guideMaxPrice: number };
 
 export type InvestorPriceLadderRow = { displayPrice: number; purchasePrice: number; rate: number; noteRate: number; pointsLabel: 'Discount' | 'Rebate'; pointsValue: number; highlighted: boolean; };
-export type InvestorSummary = { investor: string; eligibility: Stage1Eligibility; quote: Stage1ExecutionQuote; discountPoints: number; buyPrice: number; windowMatched: boolean; deltaFromTarget: number; targetPrice: number; maxPrice: number; priceLadder: InvestorPriceLadderRow[] };
+export type InvestorSummary = { investor: string; eligibility: Stage1Eligibility; quote: Stage1ExecutionQuote; discountPoints: number; buyPrice: number; windowMatched: boolean; deltaFromTarget: number; targetPrice: number; maxPrice: number; guideMaxPrice: number; priceLadder: InvestorPriceLadderRow[] };
 
 export type Stage1PricingRequest = { engine: PricingViewEngine; input: TesterInput; targetPriceOverride?: string; manualRateOverride?: string; tolerance?: number };
 export type Stage1PricingResponse = { defaultBackendTargetPrice: number; effectiveTargetPrice: number; activeResult: Stage1PricingEngineResult | null; results: InvestorSummary[] };
