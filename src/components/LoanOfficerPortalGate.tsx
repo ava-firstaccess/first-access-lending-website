@@ -81,7 +81,7 @@ export function LoanOfficerPortalGate({ nextPath, title = 'Loan Officer Portal',
               <input
                 value={identifier}
                 onChange={(e) => { setIdentifier(e.target.value); if (error) setError(''); }}
-                placeholder="zbosson"
+                placeholder=""
                 className="w-full bg-transparent outline-none"
                 autoCapitalize="none"
                 autoCorrect="off"
