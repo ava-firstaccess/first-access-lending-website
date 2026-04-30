@@ -122,6 +122,66 @@ async function saveCachedAvmResult(supabase: any, payload: any) {
   }
 }
 
+function getFinalAvmFsd(responsePayload: any) {
+  if (typeof responsePayload?.finalFsd === 'number' && Number.isFinite(responsePayload.finalFsd)) {
+    return responsePayload.finalFsd;
+  }
+
+  if (responsePayload?.valuationProvider === 'clearcapital') {
+    return typeof responsePayload?.clearCapitalForecastStdDev === 'number' && Number.isFinite(responsePayload.clearCapitalForecastStdDev)
+      ? responsePayload.clearCapitalForecastStdDev
+      : null;
+  }
+
+  if (typeof responsePayload?.fsd === 'number' && Number.isFinite(responsePayload.fsd)) {
+    return responsePayload.fsd;
+  }
+
+  return typeof responsePayload?.houseCanaryFsd === 'number' && Number.isFinite(responsePayload.houseCanaryFsd)
+    ? responsePayload.houseCanaryFsd
+    : null;
+}
+
+function buildCachedAvmPayload({
+  addressKey,
+  address,
+  zipcode,
+  city,
+  state,
+  applicationId,
+  maxLtv,
+  responsePayload,
+}: {
+  addressKey: string;
+  address: string;
+  zipcode?: string | null;
+  city?: string | null;
+  state?: string | null;
+  applicationId: string;
+  maxLtv: number;
+  responsePayload: any;
+}) {
+  return {
+    address_key: addressKey,
+    address,
+    zipcode: zipcode || null,
+    city: city || null,
+    state: state || null,
+    application_id: applicationId,
+    tier: responsePayload?.tier || null,
+    hc_estimate: null,
+    hc_value: null,
+    fsd: null,
+    new_max_loan: null,
+    max_ltv: maxLtv,
+    final_value: typeof responsePayload?.hcValue === 'number' ? Math.round(responsePayload.hcValue) : null,
+    final_provider: typeof responsePayload?.valuationProvider === 'string' ? responsePayload.valuationProvider : null,
+    final_fsd: getFinalAvmFsd(responsePayload),
+    final_new_max_loan: typeof responsePayload?.newMaxLoan === 'number' ? Math.round(responsePayload.newMaxLoan) : null,
+    response_payload: responsePayload,
+  };
+}
+
 function getClearCapitalPaaConfig() {
   const apiKey = process.env.CLEARCAPITAL_PAA_API_KEY;
   const baseUrl = process.env.CLEARCAPITAL_PAA_BASE_URL || 'https://api.clearcapital.com/property-analytics-api';
@@ -817,21 +877,16 @@ export async function POST(req: NextRequest) {
       });
 
       if (ccFallback) {
-        await saveCachedAvmResult(supabase, {
-          address_key: addressKey,
+        await saveCachedAvmResult(supabase, buildCachedAvmPayload({
+          addressKey,
           address,
-          zipcode: zipcode || null,
-          city: city || null,
-          state: state || null,
-          application_id: applicationId,
-          tier: 'verified',
-          hc_estimate: null,
-          hc_value: null,
-          fsd: null,
-          new_max_loan: ccFallback.newMaxLoan,
-          max_ltv: maxLtv,
-          response_payload: ccFallback,
-        });
+          zipcode,
+          city,
+          state,
+          applicationId,
+          maxLtv,
+          responsePayload: ccFallback,
+        }));
         return NextResponse.json(ccFallback);
       }
 
@@ -841,21 +896,16 @@ export async function POST(req: NextRequest) {
         cascadeDecision: 'hc_failed_cc_unavailable_or_failed',
         needsHuman: true,
       };
-      await saveCachedAvmResult(supabase, {
-        address_key: addressKey,
-        address,
-        zipcode: zipcode || null,
-        city: city || null,
-        state: state || null,
-        application_id: applicationId,
-        tier: 'no_data',
-        hc_estimate: null,
-        hc_value: null,
-        fsd: null,
-        new_max_loan: null,
-        max_ltv: maxLtv,
-        response_payload: responsePayload,
-      });
+      await saveCachedAvmResult(supabase, buildCachedAvmPayload({
+          addressKey,
+          address,
+          zipcode,
+          city,
+          state,
+          applicationId,
+          maxLtv,
+          responsePayload: responsePayload,
+        }));
       return NextResponse.json(responsePayload);
     }
 
@@ -880,21 +930,16 @@ export async function POST(req: NextRequest) {
       });
 
       if (ccFallback) {
-        await saveCachedAvmResult(supabase, {
-          address_key: addressKey,
+        await saveCachedAvmResult(supabase, buildCachedAvmPayload({
+          addressKey,
           address,
-          zipcode: zipcode || null,
-          city: city || null,
-          state: state || null,
-          application_id: applicationId,
-          tier: 'verified',
-          hc_estimate: null,
-          hc_value: null,
-          fsd: null,
-          new_max_loan: ccFallback.newMaxLoan,
-          max_ltv: maxLtv,
-          response_payload: ccFallback,
-        });
+          zipcode,
+          city,
+          state,
+          applicationId,
+          maxLtv,
+          responsePayload: ccFallback,
+        }));
         return NextResponse.json(ccFallback);
       }
 
@@ -904,21 +949,16 @@ export async function POST(req: NextRequest) {
         cascadeDecision: 'hc_no_data_cc_unavailable_or_failed',
         needsHuman: true,
       };
-      await saveCachedAvmResult(supabase, {
-        address_key: addressKey,
-        address,
-        zipcode: zipcode || null,
-        city: city || null,
-        state: state || null,
-        application_id: applicationId,
-        tier: 'no_data',
-        hc_estimate: null,
-        hc_value: null,
-        fsd: null,
-        new_max_loan: null,
-        max_ltv: maxLtv,
-        response_payload: responsePayload,
-      });
+      await saveCachedAvmResult(supabase, buildCachedAvmPayload({
+          addressKey,
+          address,
+          zipcode,
+          city,
+          state,
+          applicationId,
+          maxLtv,
+          responsePayload: responsePayload,
+        }));
       return NextResponse.json(responsePayload);
     }
 
@@ -951,21 +991,16 @@ export async function POST(req: NextRequest) {
         cascadeDecision: 'hard_fail_no_cc',
         needsHuman: true,
       };
-      await saveCachedAvmResult(supabase, {
-        address_key: addressKey,
-        address,
-        zipcode: zipcode || null,
-        city: city || null,
-        state: state || null,
-        application_id: applicationId,
-        tier: 'estimate',
-        hc_estimate: hcEstimate,
-        hc_value: null,
-        fsd: null,
-        new_max_loan: Math.round(newMaxLoan),
-        max_ltv: maxLtv,
-        response_payload: responsePayload,
-      });
+      await saveCachedAvmResult(supabase, buildCachedAvmPayload({
+          addressKey,
+          address,
+          zipcode,
+          city,
+          state,
+          applicationId,
+          maxLtv,
+          responsePayload: responsePayload,
+        }));
       return NextResponse.json(responsePayload);
     }
 
@@ -982,21 +1017,16 @@ export async function POST(req: NextRequest) {
         cascadeDecision: 'manual_review',
         needsHuman: true,
       };
-      await saveCachedAvmResult(supabase, {
-        address_key: addressKey,
-        address,
-        zipcode: zipcode || null,
-        city: city || null,
-        state: state || null,
-        application_id: applicationId,
-        tier: 'estimate',
-        hc_estimate: hcEstimate,
-        hc_value: null,
-        fsd: null,
-        new_max_loan: Math.round(newMaxLoan),
-        max_ltv: maxLtv,
-        response_payload: responsePayload,
-      });
+      await saveCachedAvmResult(supabase, buildCachedAvmPayload({
+          addressKey,
+          address,
+          zipcode,
+          city,
+          state,
+          applicationId,
+          maxLtv,
+          responsePayload: responsePayload,
+        }));
       return NextResponse.json(responsePayload);
     }
 
@@ -1047,21 +1077,16 @@ export async function POST(req: NextRequest) {
           quotedInvestorProviderEligible: clearCapitalInvestorEvaluation?.passes ?? null,
           quotedInvestorProviderReason: clearCapitalInvestorEvaluation?.reason ?? null,
         };
-        await saveCachedAvmResult(supabase, {
-          address_key: addressKey,
+        await saveCachedAvmResult(supabase, buildCachedAvmPayload({
+          addressKey,
           address,
-          zipcode: zipcode || null,
-          city: city || null,
-          state: state || null,
-          application_id: applicationId,
-          tier: 'verified',
-          hc_estimate: hcEstimate,
-          hc_value: null,
-          fsd: null,
-          new_max_loan: Math.round(clearCapitalCandidate.maxLoan),
-          max_ltv: maxLtv,
-          response_payload: responsePayload,
-        });
+          zipcode,
+          city,
+          state,
+          applicationId,
+          maxLtv,
+          responsePayload: responsePayload,
+        }));
         return NextResponse.json(responsePayload);
       }
     }
@@ -1152,21 +1177,16 @@ export async function POST(req: NextRequest) {
           });
 
       if (ccFallback) {
-        await saveCachedAvmResult(supabase, {
-          address_key: addressKey,
+        await saveCachedAvmResult(supabase, buildCachedAvmPayload({
+          addressKey,
           address,
-          zipcode: zipcode || null,
-          city: city || null,
-          state: state || null,
-          application_id: applicationId,
-          tier: 'verified',
-          hc_estimate: hcEstimate,
-          hc_value: null,
-          fsd: null,
-          new_max_loan: ccFallback.newMaxLoan,
-          max_ltv: maxLtv,
-          response_payload: ccFallback,
-        });
+          zipcode,
+          city,
+          state,
+          applicationId,
+          maxLtv,
+          responsePayload: ccFallback,
+        }));
         return NextResponse.json(ccFallback);
       }
 
@@ -1181,21 +1201,16 @@ export async function POST(req: NextRequest) {
         cascadeDecision: 'hc_full_avm_failed_cc_unavailable_or_failed',
         needsClearCapital: true,
       };
-      await saveCachedAvmResult(supabase, {
-        address_key: addressKey,
-        address,
-        zipcode: zipcode || null,
-        city: city || null,
-        state: state || null,
-        application_id: applicationId,
-        tier: 'low_confidence',
-        hc_estimate: hcEstimate,
-        hc_value: null,
-        fsd: null,
-        new_max_loan: Math.round(newMaxLoan),
-        max_ltv: maxLtv,
-        response_payload: responsePayload,
-      });
+      await saveCachedAvmResult(supabase, buildCachedAvmPayload({
+          addressKey,
+          address,
+          zipcode,
+          city,
+          state,
+          applicationId,
+          maxLtv,
+          responsePayload: responsePayload,
+        }));
       return NextResponse.json(responsePayload);
     }
 
@@ -1267,21 +1282,16 @@ export async function POST(req: NextRequest) {
               houseCanaryQuotedInvestorEligible: hcInvestorEvaluation?.passes ?? null,
               houseCanaryQuotedInvestorReason: hcInvestorEvaluation?.reason ?? null,
             };
-        await saveCachedAvmResult(supabase, {
-          address_key: addressKey,
+        await saveCachedAvmResult(supabase, buildCachedAvmPayload({
+          addressKey,
           address,
-          zipcode: zipcode || null,
-          city: city || null,
-          state: state || null,
-          application_id: applicationId,
-          tier: 'verified',
-          hc_estimate: hcEstimate,
-          hc_value: Math.round(verifiedValue),
-          fsd: fsdData.fsd,
-          new_max_loan: Math.round(useClearCapital ? ccCandidate.maxLoan : verifiedMaxLoan),
-          max_ltv: maxLtv,
-          response_payload: responsePayload,
-        });
+          zipcode,
+          city,
+          state,
+          applicationId,
+          maxLtv,
+          responsePayload: responsePayload,
+        }));
         return NextResponse.json(responsePayload);
       }
 
@@ -1303,21 +1313,16 @@ export async function POST(req: NextRequest) {
         houseCanaryQuotedInvestorEligible: hcInvestorEvaluation?.passes ?? null,
         houseCanaryQuotedInvestorReason: hcInvestorEvaluation?.reason ?? null,
       };
-      await saveCachedAvmResult(supabase, {
-        address_key: addressKey,
-        address,
-        zipcode: zipcode || null,
-        city: city || null,
-        state: state || null,
-        application_id: applicationId,
-        tier: 'verified',
-        hc_estimate: hcEstimate,
-        hc_value: Math.round(verifiedValue),
-        fsd: fsdData.fsd,
-        new_max_loan: Math.round(verifiedMaxLoan),
-        max_ltv: maxLtv,
-        response_payload: responsePayload,
-      });
+      await saveCachedAvmResult(supabase, buildCachedAvmPayload({
+          addressKey,
+          address,
+          zipcode,
+          city,
+          state,
+          applicationId,
+          maxLtv,
+          responsePayload: responsePayload,
+        }));
       return NextResponse.json(responsePayload);
     }
 
@@ -1367,21 +1372,16 @@ export async function POST(req: NextRequest) {
         });
 
     if (ccFallback) {
-      await saveCachedAvmResult(supabase, {
-        address_key: addressKey,
-        address,
-        zipcode: zipcode || null,
-        city: city || null,
-        state: state || null,
-        application_id: applicationId,
-        tier: 'verified',
-        hc_estimate: hcEstimate,
-        hc_value: Math.round(verifiedValue),
-        fsd: fsdData.fsd,
-        new_max_loan: ccFallback.newMaxLoan,
-        max_ltv: maxLtv,
-        response_payload: ccFallback,
-      });
+      await saveCachedAvmResult(supabase, buildCachedAvmPayload({
+          addressKey,
+          address,
+          zipcode,
+          city,
+          state,
+          applicationId,
+          maxLtv,
+          responsePayload: ccFallback,
+        }));
       return NextResponse.json(ccFallback);
     }
 
@@ -1404,21 +1404,16 @@ export async function POST(req: NextRequest) {
       houseCanaryQuotedInvestorEligible: hcInvestorEvaluation?.passes ?? null,
       houseCanaryQuotedInvestorReason: hcInvestorEvaluation?.reason ?? null,
     };
-    await saveCachedAvmResult(supabase, {
-      address_key: addressKey,
-      address,
-      zipcode: zipcode || null,
-      city: city || null,
-      state: state || null,
-      application_id: applicationId,
-      tier: 'low_confidence',
-      hc_estimate: hcEstimate,
-      hc_value: Math.round(verifiedValue),
-      fsd: fsdData.fsd,
-      new_max_loan: Math.round(verifiedMaxLoan),
-      max_ltv: maxLtv,
-      response_payload: responsePayload,
-    });
+    await saveCachedAvmResult(supabase, buildCachedAvmPayload({
+          addressKey,
+          address,
+          zipcode,
+          city,
+          state,
+          applicationId,
+          maxLtv,
+          responsePayload: responsePayload,
+        }));
     return NextResponse.json(responsePayload);
   } catch (err: any) {
     console.error('Verify value error');
