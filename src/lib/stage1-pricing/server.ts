@@ -77,10 +77,10 @@ function buildTargetPriceLadder(requestedRates: number[], getQuoteForRate: (rate
   for (const requestedRate of requestedRates) {
     const quote = getQuoteForRate(requestedRate);
     if (maxPrice > 0 && quote.purchasePrice > maxPrice + 0.0001) continue;
-    const rawScaffoldPrice = roundToThree(quote.purchasePrice);
-    if (rawScaffoldPrice < 97 || rawScaffoldPrice > 103) continue;
 
     const displayPrice = getBorrowerFacingDisplayPrice(quote.purchasePrice, referencePrice, displayTargetPrice);
+    if (displayPrice < 97 || displayPrice > 103) continue;
+
     const { pointsLabel, pointsValue } = getBorrowerFacingPoints(displayPrice, displayTargetPrice);
     const key = `${quote.rate}|${quote.noteRate}|${quote.purchasePrice}`;
     rows.set(key, {
