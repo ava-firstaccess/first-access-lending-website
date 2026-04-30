@@ -11,9 +11,11 @@ function isAllowedLoanOfficerPath(pathname: string) {
 }
 
 export function proxy(request: NextRequest) {
-  const host = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').split(':')[0].toLowerCase();
+  const headerHost = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').split(':')[0].toLowerCase();
+  const urlHost = request.nextUrl.hostname.toLowerCase();
+  const host = headerHost || urlHost;
 
-  if (!isLoanOfficerPortalHost(host)) {
+  if (!isLoanOfficerPortalHost(host) && !isLoanOfficerPortalHost(urlHost)) {
     return NextResponse.next();
   }
 
