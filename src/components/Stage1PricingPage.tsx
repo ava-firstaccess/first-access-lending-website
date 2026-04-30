@@ -20,6 +20,7 @@ type AvmSidebarInvestor = {
   eligible: boolean;
   reasons: string[];
   rate: number;
+  discountPoints: number;
   maxAvailable: number;
   payment: number;
   maxLtv: number;
@@ -243,6 +244,7 @@ export function Stage1PricingPage({ mode, portalSession }: { mode: Mode; portalS
       eligible: entry.eligibility.eligible,
       reasons: entry.eligibility.reasons,
       rate: Number(entry.quote.rate || 0),
+      discountPoints: Number(entry.discountPoints || 0),
       maxAvailable: Number(entry.eligibility.maxAvailable || 0),
       payment: Number(entry.quote.monthlyPayment || 0),
       maxLtv: Number(entry.quote.maxLtv || 0),

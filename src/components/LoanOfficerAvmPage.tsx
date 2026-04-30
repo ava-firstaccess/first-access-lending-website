@@ -17,6 +17,7 @@ type BestXSidebarInvestor = {
   eligible: boolean;
   reasons: string[];
   rate: number;
+  discountPoints: number;
   maxAvailable: number;
   payment: number;
   maxLtv: number;
@@ -64,9 +65,6 @@ const KNOWN_PROVIDERS: AvmProviderName[] = [
   'Veros',
   'CA Value',
   'Black Knight (Valusure)',
-  'CoreLogic',
-  'Red Bell',
-  'Home Genius',
 ];
 
 const INVESTOR_NAME_MAP: Record<string, InvestorName> = {
@@ -110,6 +108,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
       eligible: true,
       reasons: [],
       rate: Number(scenario.rate || 0),
+      discountPoints: 0,
       maxAvailable: Number(scenario.maxAvailable || 0),
       payment: Number(scenario.monthlyPayment || 0),
       maxLtv: 0,
@@ -208,8 +207,9 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                           </div>
                           <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${item.eligible ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>{item.eligible ? 'Eligible' : 'Ruled out'}</span>
                         </div>
-                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                        <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
                           <MiniMetric label="BestX rate" value={item.rate ? `${item.rate.toFixed(3)}%` : '—'} />
+                          <MiniMetric label="Discount points" value={formatPoints(item.discountPoints)} />
                           <MiniMetric label="Max loan" value={currency(item.maxAvailable)} />
                         </div>
                         {!item.eligible && item.reasons.length > 0 ? <div className="mt-2 text-xs text-slate-500">{item.reasons[0]}</div> : null}
@@ -228,6 +228,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                 <div className="mt-4 space-y-3">
                   <Metric label="Investor" value={selectedSidebarInvestor.investor} />
                   <Metric label="BestX rate" value={selectedSidebarInvestor.rate ? `${selectedSidebarInvestor.rate.toFixed(3)}%` : 'N/A'} />
+                  <Metric label="Discount points" value={formatPoints(selectedSidebarInvestor.discountPoints)} />
                   <Metric label="Selected AVM max loan" value={currency(displayedMaxLoanAmount)} />
                   <Metric label="Current payment" value={currency(selectedSidebarInvestor.payment)} />
                 </div>
@@ -311,7 +312,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                   <Metric label="Combined CLTV" value={`${scenario.combinedLtv.toFixed(2)}%`} />
                   <Metric label="BestX rate" value={scenario.rate ? `${scenario.rate.toFixed(3)}%` : 'N/A'} />
                   <Metric label="Property state" value={scenario.propertyState || 'N/A'} />
-                  <Metric label="Borrower email" value={scenario.officerEmail} />
+                  <Metric label="Loan officer email" value={scenario.officerEmail} />
                 </div>
               ) : (
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">No pricing scenario has been handed off yet. Open <span className="font-semibold">/pricer</span>, price a scenario, then click <span className="font-semibold">Pull AVM</span> on the investor you want.</div>
@@ -346,4 +347,9 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
 function currency(value: number | null | undefined) {
   if (value === null || value === undefined || !Number.isFinite(Number(value))) return '—';
   return `$${Math.round(Number(value || 0)).toLocaleString()}`;
+}
+
+function formatPoints(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return '—';
+  return Number(value).toFixed(3);
 }
