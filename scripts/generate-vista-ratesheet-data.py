@@ -221,6 +221,7 @@ def main():
                     'rows': list(spec['pricingRows']),
                     'rowsData': parse_pricing_table(ws, spec['pricingRows'][0], spec['pricingRows'][1], spec['basePriceColumn']),
                     'maxPrice': parse_price_map(ws, spec['maxPriceRows']),
+                    'guideMaxPrice': parse_price_map(ws, spec['maxPriceRows']),
                     'minPrice': parse_price_map(ws, spec['minPriceRows']),
                 },
                 'cltvDoc01': {

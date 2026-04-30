@@ -957,7 +957,18 @@
         "20 YR FIX",
         "25 YR FIX",
         "30 YR FIX"
-      ]
+      ],
+      "guideMaxPrice": {
+        "primarySecondHomes": 104,
+        "investor": {
+          "noPenalty": 104,
+          "prepay12Months": 104,
+          "prepay24Months": 104.5,
+          "prepay36Months": 105,
+          "prepay48Months": 105.5,
+          "prepay60Months": 105.5
+        }
+      }
     },
     "HELOC": {
       "sheet": "HELOC",
@@ -1397,7 +1408,10 @@
         2,
         3,
         5
-      ]
+      ],
+      "guideMaxPrice": {
+        "default": 100
+      }
     }
   }
 }

@@ -104,6 +104,12 @@ type JsonProgram = {
 const VISTA_PRODUCTS: VistaProduct[] = ['10yr Fixed', '15yr Fixed', '20yr Fixed', '30yr Fixed'];
 const PROGRAMS = (ratesheet as unknown as { programs: Record<ProgramKey, JsonProgram> }).programs;
 
+export function getVistaGuideMaxPrice(occupancy: string): number {
+  const program = occupancy === 'Investment' ? PROGRAMS.secondNOO : PROGRAMS.secondOO;
+  const values = Object.values(program.sections.pricing30Day.maxPrice).filter((value): value is number => typeof value === 'number');
+  return values.length ? Math.min(...values) : 105;
+}
+
 export function buildVistaStage1PricingInput(stage1: ButtonStage1Input & { vistaProduct?: VistaProduct; vistaDocType?: VistaDocType; vistaLockPeriodDays?: 30 | 45 | 60 }): VistaPricingInput {
   const propertyValue = Number(stage1.propertyValue || 0);
   const loanBalance = Number(stage1.loanBalance || 0);

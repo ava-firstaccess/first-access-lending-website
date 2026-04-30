@@ -68,6 +68,10 @@ type JsonRatesheet = {
   cltv1520: JsonMatrix;
   additional: JsonMatrix;
   loanAmount: JsonMatrix;
+  guideMaxPrice?: {
+    default: number;
+    byCltvBucket?: Record<string, number | null>;
+  };
 };
 
 type SelectedExecution = {
@@ -94,6 +98,10 @@ const DEFAULT_NEWREZ_END_SECONDS: NewRezEndSeconds = 'BE45';
  * update this constant and the eligibility message together.
  */
 const NEWREZ_MAX_UNIT_COUNT = 1;
+
+export function getNewRezGuideMaxPrice(): number {
+  return DATA.guideMaxPrice?.default ?? 107;
+}
 
 export function getNewRezRateBounds(product: NewRezProduct, lockPeriodDays: 15 | 30 | 45 | 60): { minRate: number; maxRate: number } | null {
   const sheet = DATA.pricing[product];

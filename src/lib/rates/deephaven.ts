@@ -83,6 +83,18 @@ const DEEPHAVEN_PROGRAM_MAP: Record<DeephavenProgram, 'Expanded Prime' | 'Non-Pr
 };
 const DEEPHAVEN_PROGRAMS: DeephavenProgram[] = ['Equity Advantage', 'Equity Advantage Elite'];
 
+export function getDeephavenGuideMaxPrice(program: DeephavenProgram, desiredLoanAmount: number): number {
+  const source = DATA.programs[sourceProgram(program)];
+  let maxPrice = source.maxPriceTiers[source.maxPriceTiers.length - 1]?.maxPrice ?? 0;
+  for (const tier of source.maxPriceTiers) {
+    if (desiredLoanAmount <= tier.upToLoanAmount) {
+      maxPrice = tier.maxPrice;
+      break;
+    }
+  }
+  return maxPrice;
+}
+
 export function buildDeephavenStage1PricingInput(
   stage1: ButtonStage1Input & { deephavenProgram?: DeephavenProgram; deephavenProduct?: DeephavenProduct; deephavenDocType?: DeephavenDocType; deephavenLockPeriodDays?: 15 | 30 }
 ): DeephavenPricingInput {

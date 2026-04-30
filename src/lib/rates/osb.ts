@@ -90,6 +90,12 @@ type JsonProgram = {
 const PROGRAMS = (ratesheet as { programs: Record<JsonProgramKey, JsonProgram> }).programs;
 const TIER_1_STATES = new Set(['NV', 'LA', 'FL', 'GA', 'SC', 'CO', 'AZ', 'NC']);
 
+export function getOsbGuideMaxPrice(program: OsbProgram, product: OsbProduct): number {
+  const source = program === 'HELOC' ? PROGRAMS.heloc : PROGRAMS.secondLiens;
+  const isThirtyYear = product === '30 Year Maturity' || product === 'Fixed 30';
+  return (isThirtyYear ? source.constraints.maxPrice30Year : source.constraints.maxPriceShorterTerm) ?? 0;
+}
+
 export function buildOsbStage1PricingInput(stage1: ButtonStage1Input & {
   osbProgram?: OsbProgram;
   osbProduct?: OsbProduct;

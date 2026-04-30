@@ -85,6 +85,11 @@ const LOCK_PERIOD_COLUMNS: Record<ArcHomeLockPeriod, keyof PriceRow['prices']> =
 };
 const ARC_HOME_PRODUCTS: ArcHomeProduct[] = ['10 Year Maturity', '15 Year Maturity', '20 Year Maturity', '30 Year Maturity'];
 
+export function getArcHomeGuideMaxPrice(product: ArcHomeProduct): number {
+  const row = DATA.adjustments.maxPrice.rows.find(entry => entry.term === product);
+  return Number(row?.allElse ?? 0);
+}
+
 const CLTV_BUCKETS = [55, 60, 65, 70, 75, 80] as const;
 const TERM_TO_YEARS: Record<ArcHomeProduct, number> = {
   '10 Year Maturity': 10,

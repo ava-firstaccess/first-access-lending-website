@@ -1,12 +1,11 @@
-import { calculateButtonStage1Quote, evaluateButtonStage1Eligibility, getTargetPurchasePriceForLoanAmount, solveButtonStage1TargetRate, type ButtonStage1Input } from '@/lib/rates/button';
-import { calculateArcHomeStage1Quote, evaluateArcHomeStage1Eligibility, solveArcHomeStage1TargetRate } from '@/lib/rates/arc-home';
-import { calculateNewRezStage1Quote, evaluateNewRezStage1Eligibility, getNewRezRateBounds, solveNewRezStage1TargetRate } from '@/lib/rates/newrez';
-import { calculateDeephavenStage1Quote, evaluateDeephavenStage1Eligibility, solveDeephavenStage1TargetRate } from '@/lib/rates/deephaven';
-import { calculateOsbStage1Quote, evaluateOsbStage1Eligibility, solveOsbStage1TargetRate } from '@/lib/rates/osb';
-import { calculateVerusStage1Quote, evaluateVerusStage1Eligibility, solveVerusStage1TargetRate } from '@/lib/rates/verus';
-import { calculateVistaStage1Quote, evaluateVistaStage1Eligibility, solveVistaStage1TargetRate } from '@/lib/rates/vista';
+import { calculateButtonStage1Quote, evaluateButtonStage1Eligibility, getButtonGuideMaxPrice, getTargetPurchasePriceForLoanAmount, solveButtonStage1TargetRate, type ButtonStage1Input } from '@/lib/rates/button';
+import { calculateArcHomeStage1Quote, evaluateArcHomeStage1Eligibility, getArcHomeGuideMaxPrice, solveArcHomeStage1TargetRate } from '@/lib/rates/arc-home';
+import { calculateNewRezStage1Quote, evaluateNewRezStage1Eligibility, getNewRezGuideMaxPrice, getNewRezRateBounds, solveNewRezStage1TargetRate } from '@/lib/rates/newrez';
+import { calculateDeephavenStage1Quote, evaluateDeephavenStage1Eligibility, getDeephavenGuideMaxPrice, solveDeephavenStage1TargetRate } from '@/lib/rates/deephaven';
+import { calculateOsbStage1Quote, evaluateOsbStage1Eligibility, getOsbGuideMaxPrice, solveOsbStage1TargetRate } from '@/lib/rates/osb';
+import { calculateVerusStage1Quote, evaluateVerusStage1Eligibility, getVerusGuideMaxPrice, solveVerusStage1TargetRate } from '@/lib/rates/verus';
+import { calculateVistaStage1Quote, evaluateVistaStage1Eligibility, getVistaGuideMaxPrice, solveVistaStage1TargetRate } from '@/lib/rates/vista';
 import { evaluateInvestorAvmRule, type InvestorName } from '@/lib/rates/investor-confidence-rules';
-import { getGuideMaxBuyPrice } from '@/lib/rates/guide-max-prices';
 import type { BestExDocType, BestExTermYears, ButtonDocType, DeephavenDocType, InvestorPriceLadderRow, InvestorSummary, OsbLockPeriod, PricingViewEngine, SharedDocType, Stage1Eligibility, Stage1ExecutionQuote, Stage1PricingEngineResult, Stage1PricingRequest, Stage1PricingResponse, TesterInput, VerusDrawPeriodYears, VerusLockPeriodDays, VistaDocType } from './types';
 
 const BEST_EX_WINDOW_FLOOR = 0.375;
@@ -73,7 +72,30 @@ type EngineQuoteLike = Omit<Stage1ExecutionQuote, 'engine'> & { program?: string
 function toQuote(engine: Stage1ExecutionQuote['engine'], quote: EngineQuoteLike): Stage1ExecutionQuote { return { engine, program: quote.program ?? engine, product: quote.product, maxAvailable: quote.maxAvailable, rate: quote.rate, noteRate: quote.noteRate, monthlyPayment: quote.monthlyPayment, maxLtv: quote.maxLtv, purchasePrice: quote.purchasePrice, basePrice: quote.basePrice, llpaAdjustment: quote.llpaAdjustment, adjustments: quote.adjustments }; }
 
 function getLadderMaxBuyPrice(quote: Stage1ExecutionQuote, input: TesterInput, fallbackMaxPrice: number) {
-  const guideMaxBuyPrice = getGuideMaxBuyPrice(quote, input);
+  let guideMaxBuyPrice = 0;
+  switch (quote.engine) {
+    case 'Button':
+      guideMaxBuyPrice = getButtonGuideMaxPrice(quote.product as 'HELOC' | 'CES', input.desiredLoanAmount ?? 0);
+      break;
+    case 'Arc Home':
+      guideMaxBuyPrice = getArcHomeGuideMaxPrice(quote.product as Parameters<typeof getArcHomeGuideMaxPrice>[0]);
+      break;
+    case 'Vista':
+      guideMaxBuyPrice = getVistaGuideMaxPrice(String(input.occupancy ?? 'Owner-Occupied'));
+      break;
+    case 'OSB':
+      guideMaxBuyPrice = getOsbGuideMaxPrice(quote.program as Parameters<typeof getOsbGuideMaxPrice>[0], quote.product as Parameters<typeof getOsbGuideMaxPrice>[1]);
+      break;
+    case 'NewRez':
+      guideMaxBuyPrice = getNewRezGuideMaxPrice();
+      break;
+    case 'Verus':
+      guideMaxBuyPrice = getVerusGuideMaxPrice(quote.program as Parameters<typeof getVerusGuideMaxPrice>[0], String(input.occupancy ?? 'Owner-Occupied'));
+      break;
+    case 'Deephaven':
+      guideMaxBuyPrice = getDeephavenGuideMaxPrice(quote.program as Parameters<typeof getDeephavenGuideMaxPrice>[0], input.desiredLoanAmount ?? 0);
+      break;
+  }
   return guideMaxBuyPrice > 0 ? guideMaxBuyPrice : (fallbackMaxPrice > 0 ? Math.floor(fallbackMaxPrice) : 0);
 }
 
@@ -221,7 +243,7 @@ function sortResults(results: InvestorSummary[], effectiveManualRateOverride: nu
 
 function getActiveResult(engine: PricingViewEngine, input: TesterInput, effectiveTargetPrice: number, effectiveManualRateOverride: number | undefined, tolerance: number, hasTargetPriceOverride: boolean): Stage1PricingEngineResult | null {
   if (engine === 'BestX') return null;
-  const withGuide = (result: Omit<Stage1PricingEngineResult, 'guideMaxPrice'>): Stage1PricingEngineResult => ({ ...result, guideMaxPrice: getGuideMaxBuyPrice(result.quote, input) });
+  const withGuide = (result: Omit<Stage1PricingEngineResult, 'guideMaxPrice'>): Stage1PricingEngineResult => ({ ...result, guideMaxPrice: getLadderMaxBuyPrice(result.quote, input, result.maxPrice) });
   if (engine === 'Button') {
     const eligibility = evaluateButtonStage1Eligibility(input as ButtonStage1Input, input.desiredLoanAmount);
     const baseQuote = calculateButtonStage1Quote(input as ButtonStage1Input, { selectedLoanAmount: input.desiredLoanAmount, rateOverride: effectiveManualRateOverride, cesTermYears: input.buttonTermYears, helocDrawTermYears: input.helocDrawTermYears, lockPeriodDays: 60 });

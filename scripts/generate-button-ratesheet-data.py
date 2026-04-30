@@ -52,6 +52,13 @@ def main() -> None:
     data = {
         'sourceWorkbook': str(WORKBOOK),
         'sheet': 'Fully Delegated',
+        'guideMaxPrice': {
+            'default': ws.cell(5, 7).value,
+            'over500k': {
+                'CES': ws.cell(5, 10).value,
+                'HELOC': ws.cell(6, 10).value,
+            },
+        },
         'noteRates': note_rates,
         'tables': {
             'cltv': {

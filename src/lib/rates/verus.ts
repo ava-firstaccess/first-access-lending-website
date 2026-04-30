@@ -63,8 +63,23 @@ type Matrix = MatrixCell[][];
 
 type VerusData = {
   programs: {
-    CES: { minPrice: number; maxPrice: number; pricing: { standard: CesRow[]; alt: CesRow[] } };
-    HELOC: { primeRate: number; pricing: HelocRow[] };
+    CES: {
+      minPrice: number;
+      maxPrice: number;
+      pricing: { standard: CesRow[]; alt: CesRow[] };
+      guideMaxPrice?: {
+        primarySecondHomes: number;
+        investor?: {
+          noPenalty: number;
+          prepay12Months: number;
+          prepay24Months: number;
+          prepay36Months: number;
+          prepay48Months: number;
+          prepay60Months: number;
+        };
+      };
+    };
+    HELOC: { primeRate: number; pricing: HelocRow[]; guideMaxPrice?: { default: number } };
   };
 };
 
@@ -75,6 +90,12 @@ type VerusSecondPriceMatrixTable = {
 };
 
 const DATA = ratesheet as VerusData;
+
+export function getVerusGuideMaxPrice(program: VerusProgram, occupancy: string): number {
+  if (program === 'HELOC') return DATA.programs.HELOC.guideMaxPrice?.default ?? 100;
+  if (occupancy === 'Investment') return DATA.programs.CES.guideMaxPrice?.investor?.noPenalty ?? DATA.programs.CES.maxPrice;
+  return DATA.programs.CES.guideMaxPrice?.primarySecondHomes ?? DATA.programs.CES.maxPrice;
+}
 const VERUS_CES_LOAN_AMOUNT_TABLE: VerusSecondPriceMatrixTable = {
   rows: ['< $75,000', '$75,000 - $100,000', '$100,001 - $150,000', '$150,001 - $200,000', '$200,001 - $350,000', '$350,001 - $500,000', '$500,001 - $750,000'],
   columns: ['CES | <=50', 'CES | 50.01 - 55', 'CES | 55.01 - 60', 'CES | 60.01 - 65', 'CES | 65.01 - 70', 'CES | 70.01 - 75', 'CES | 75.01 - 80', 'CES | 80.01 - 85', 'CES | 85.01 - 90', 'CES | 90.01 - 95'],

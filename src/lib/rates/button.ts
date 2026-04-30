@@ -87,6 +87,10 @@ type RateRow = {
 };
 
 type Matrix = Array<Array<number | string | null>>;
+type ButtonRatesheetGuideMaxPrice = {
+  default: number;
+  over500k?: { CES?: number | null; HELOC?: number | null };
+};
 
 const NOTE_RATE_ROWS = ratesheet.noteRates as unknown as RateRow[];
 const CLTV_MATRIX = ratesheet.tables.cltv as { rows: string[]; columns: string[]; fullDoc: Matrix; altDoc: Matrix };
@@ -99,6 +103,7 @@ const DRAW_TABLE = ratesheet.tables.draw as {
   heloc: { rows: string[]; columns: Array<string | number | null>; values: Matrix };
   nonHeloc: { rows: string[]; columns: Array<string | number | null>; values: Matrix };
 };
+const BUTTON_GUIDE_MAX_PRICE = (ratesheet as { guideMaxPrice?: ButtonRatesheetGuideMaxPrice }).guideMaxPrice;
 
 const BUTTON_MAX_PURCHASE_PRICE = 105;
 const BUTTON_LOCK_EXTENSION_PER_15_DAYS = -0.125;
@@ -288,6 +293,14 @@ export function getBackendFeeForLoanAmount(loanAmount: number): number {
 
 export function getTargetPurchasePriceForLoanAmount(loanAmount: number): number {
   return roundToThree(100 + getBackendFeeForLoanAmount(loanAmount) * 100);
+}
+
+export function getButtonGuideMaxPrice(product: ButtonProduct, desiredLoanAmount: number): number {
+  if (BUTTON_GUIDE_MAX_PRICE?.over500k && desiredLoanAmount > 500000) {
+    const over500k = BUTTON_GUIDE_MAX_PRICE.over500k[product];
+    if (typeof over500k === 'number') return over500k;
+  }
+  return BUTTON_GUIDE_MAX_PRICE?.default ?? BUTTON_MAX_PURCHASE_PRICE;
 }
 
 export function evaluateButtonStage1Eligibility(stage1: ButtonStage1Input, selectedLoanAmount?: number): ButtonEligibilityResult {

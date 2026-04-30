@@ -1787,5 +1787,11 @@
         ]
       }
     ]
+  },
+  "guideMaxPrice": {
+    "default": 107,
+    "byCltvBucket": {
+      ">85%": 107
+    }
   }
 }
