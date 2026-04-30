@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import AddressAutocomplete from '@/components/quote/AddressAutocomplete';
 
 type LoanOfficerPortalSession = {
   prefix: string;
@@ -49,6 +50,13 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
     }
   }, []);
 
+  function handleAddressChange(nextAddress: string, nextState?: string, nextZipcode?: string, nextCity?: string) {
+    setAddress(nextAddress);
+    if (nextCity) setCity(nextCity);
+    if (nextState) setState(nextState);
+    if (nextZipcode) setZipcode(nextZipcode);
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-8">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -87,18 +95,26 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
 
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Property details for AVM pull</h2>
-            <p className="mt-2 text-sm text-slate-600">Pricing does not currently collect an address, so the AVM step starts here. This is where we’ll wire the valuation providers and PDF output.</p>
+            <p className="mt-2 text-sm text-slate-600">Pricing does not currently collect an address, so the AVM step starts here. Street address now uses the same Google Places pattern as the customer value flow and will auto-fill city, state, and zip when Google returns them.</p>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <Field label="Street address" value={address} onChange={setAddress} className="sm:col-span-2" />
+              <div className="sm:col-span-2 text-sm">
+                <div className="mb-1 font-medium text-slate-700">Street address</div>
+                <AddressAutocomplete value={address} onChange={handleAddressChange} placeholder="Start typing a property address" />
+              </div>
               <Field label="City" value={city} onChange={setCity} />
               <Field label="State" value={state} onChange={setState} />
               <Field label="Zip code" value={zipcode} onChange={setZipcode} />
             </div>
-            <div className="mt-6 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950">
+            <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+              <div className="font-semibold">No auto-run right now</div>
+              <p className="mt-2 text-amber-900">This page still does not call any AVM provider automatically. There is no submit action wired yet, so filling the address will not trigger a pull on its own.</p>
+            </div>
+            <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950">
               <div className="font-semibold">Next wiring already framed</div>
               <ul className="mt-2 list-disc space-y-1 pl-5 text-sky-900">
                 <li>Use the inherited investor, CLTV, and target-loan context as AVM decision inputs.</li>
                 <li>Call HouseCanary and/or Clear Capital from this page.</li>
+                <li>Log dedicated LO AVM pull rows in Supabase.</li>
                 <li>Generate LO-facing AVM and pricing PDFs using the logged-in officer email.</li>
               </ul>
             </div>
