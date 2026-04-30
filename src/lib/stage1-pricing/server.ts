@@ -23,12 +23,6 @@ function roundDownToEighth(value: number) {
 function roundBorrowerPoints(deltaFromTarget: number) {
   return deltaFromTarget >= 0 ? roundUpToEighth(deltaFromTarget) : roundDownToEighth(Math.abs(deltaFromTarget));
 }
-function getBorrowerFacingPoints(purchasePrice: number): { rawDeltaFromPar: number; pointsLabel: 'Discount' | 'Rebate'; pointsValue: number } {
-  const rawDeltaFromPar = roundToThree(100 - purchasePrice);
-  const pointsLabel: 'Discount' | 'Rebate' = rawDeltaFromPar >= 0 ? 'Discount' : 'Rebate';
-  const pointsValue = roundBorrowerPoints(rawDeltaFromPar);
-  return { rawDeltaFromPar, pointsLabel, pointsValue };
-}
 function buildRequestedRates(min: number, max: number, step = 0.125) { const values: number[] = []; for (let rate = min; rate <= max + 0.0001; rate += step) values.push(roundToThree(rate)); return values; }
 function distanceToBestExWindow(purchasePrice: number, lowerBound: number, upperBound: number) { if (purchasePrice < lowerBound) return roundToThree(lowerBound - purchasePrice); if (purchasePrice > upperBound) return roundToThree(purchasePrice - upperBound); return 0; }
 function capSelectionTarget(targetPrice: number, maxPrice: number) {
@@ -68,17 +62,16 @@ function chooseDisplayQuote(engine: Stage1ExecutionQuote['engine'], fallbackQuot
 type EngineQuoteLike = Omit<Stage1ExecutionQuote, 'engine'> & { program?: string };
 function toQuote(engine: Stage1ExecutionQuote['engine'], quote: EngineQuoteLike): Stage1ExecutionQuote { return { engine, program: quote.program ?? engine, product: quote.product, maxAvailable: quote.maxAvailable, rate: quote.rate, noteRate: quote.noteRate, monthlyPayment: quote.monthlyPayment, maxLtv: quote.maxLtv, purchasePrice: quote.purchasePrice, basePrice: quote.basePrice, llpaAdjustment: quote.llpaAdjustment, adjustments: quote.adjustments }; }
 
-function buildTargetPriceLadder(requestedRates: number[], getQuoteForRate: (rateOverride?: number) => Stage1ExecutionQuote, highlightedQuote: Stage1ExecutionQuote, referencePrice: number, displayTargetPrice: number, maxPrice: number): InvestorPriceLadderRow[] {
+function buildTargetPriceLadder(requestedRates: number[], getQuoteForRate: (rateOverride?: number) => Stage1ExecutionQuote, highlightedQuote: Stage1ExecutionQuote, maxPrice: number): InvestorPriceLadderRow[] {
   const rows = new Map<string, InvestorPriceLadderRow>();
 
   for (const requestedRate of requestedRates) {
     const quote = getQuoteForRate(requestedRate);
     if (maxPrice > 0 && quote.purchasePrice > maxPrice + 0.0001) continue;
-    const displayMaxPrice = maxPrice > 0 ? roundToThree(displayTargetPrice + (maxPrice - referencePrice)) : 103;
-    const displayPrice = roundToThree(displayTargetPrice + (quote.purchasePrice - referencePrice));
-    if (displayPrice < 97 || displayPrice > Math.min(103, displayMaxPrice)) continue;
+    const displayPrice = roundToThree(quote.purchasePrice);
+    if (displayPrice < 97 || displayPrice > 103) continue;
 
-    const pointsDelta = roundToThree(displayTargetPrice - displayPrice);
+    const pointsDelta = roundToThree(100 - displayPrice);
     const key = `${quote.rate}|${quote.noteRate}|${quote.purchasePrice}`;
     rows.set(key, {
       displayPrice,
@@ -91,7 +84,7 @@ function buildTargetPriceLadder(requestedRates: number[], getQuoteForRate: (rate
     });
   }
 
-  return [...rows.values()].sort((a, b) => a.rate - b.rate || a.noteRate - b.noteRate || a.displayPrice - b.displayPrice);
+  return [...rows.values()].sort((a, b) => b.displayPrice - a.displayPrice || a.rate - b.rate || a.noteRate - b.noteRate);
 }
 
 function mapBestExDocTypeToButton(docType: BestExDocType, product: 'HELOC' | 'CES'): ButtonDocType | null {
@@ -237,7 +230,7 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
   const bestExLockPeriodDays = input.bestExLockPeriodDays ?? 30;
   const bestExDocType = input.bestExDocType ?? 'Full Doc';
   const actualLockPeriodDays = bestExLockPeriodDays + 30;
-  const makeSummary = (eligibility: Stage1Eligibility, quote: Stage1ExecutionQuote, maxPrice: number, requestedRates: number[], getQuoteForRate: (rateOverride?: number) => Stage1ExecutionQuote): InvestorSummary => { const overlaidEligibility = applyAvmOverlay(eligibility, quote.engine, input); const selectionTarget = getBestXSelectionTarget(effectiveTargetPrice, maxPrice, hasTargetPriceOverride); const bestExWindowLowerBound = roundToThree(selectionTarget - BEST_EX_WINDOW_FLOOR); const bestExWindowUpperBound = roundToThree(selectionTarget + BEST_EX_WINDOW_CEILING); const rawDiscountPoints = effectiveTargetPrice - quote.purchasePrice; const discountPoints = roundBorrowerPoints(rawDiscountPoints); const buyPrice = 0; const deltaFromTarget = roundToThree(quote.purchasePrice - effectiveTargetPrice); const respectsMaxPrice = maxPrice <= 0 || quote.purchasePrice <= maxPrice + 0.0001; const windowMatched = overlaidEligibility.eligible && respectsMaxPrice && quote.purchasePrice >= bestExWindowLowerBound && quote.purchasePrice <= bestExWindowUpperBound; return { investor: quote.engine, eligibility: overlaidEligibility, quote, discountPoints, buyPrice, windowMatched, deltaFromTarget, targetPrice: displayTargetPrice, maxPrice, priceLadder: buildTargetPriceLadder(requestedRates, getQuoteForRate, quote, effectiveTargetPrice, displayTargetPrice, maxPrice) }; };
+  const makeSummary = (eligibility: Stage1Eligibility, quote: Stage1ExecutionQuote, maxPrice: number, requestedRates: number[], getQuoteForRate: (rateOverride?: number) => Stage1ExecutionQuote): InvestorSummary => { const overlaidEligibility = applyAvmOverlay(eligibility, quote.engine, input); const selectionTarget = getBestXSelectionTarget(effectiveTargetPrice, maxPrice, hasTargetPriceOverride); const bestExWindowLowerBound = roundToThree(selectionTarget - BEST_EX_WINDOW_FLOOR); const bestExWindowUpperBound = roundToThree(selectionTarget + BEST_EX_WINDOW_CEILING); const rawDiscountPoints = 100 - quote.purchasePrice; const discountPoints = roundBorrowerPoints(rawDiscountPoints); const buyPrice = 0; const deltaFromTarget = roundToThree(quote.purchasePrice - effectiveTargetPrice); const respectsMaxPrice = maxPrice <= 0 || quote.purchasePrice <= maxPrice + 0.0001; const windowMatched = overlaidEligibility.eligible && respectsMaxPrice && quote.purchasePrice >= bestExWindowLowerBound && quote.purchasePrice <= bestExWindowUpperBound; return { investor: quote.engine, eligibility: overlaidEligibility, quote, discountPoints, buyPrice, windowMatched, deltaFromTarget, targetPrice: displayTargetPrice, maxPrice, priceLadder: buildTargetPriceLadder(requestedRates, getQuoteForRate, quote, maxPrice) }; };
   const makeIneligible = (investor: Stage1ExecutionQuote['engine'], program: string, product: string, reason: string, maxPrice = 0): InvestorSummary => ({ investor, eligibility: applyAvmOverlay({ eligible: false, reasons: [reason], maxAvailable: 0, resultingCltv: 0, avmEvaluation: null }, investor, input), quote: { engine: investor, program, product, maxAvailable: 0, rate: 0, noteRate: 0, monthlyPayment: 0, maxLtv: 0, purchasePrice: 0, basePrice: 0, llpaAdjustment: 0, adjustments: [] }, discountPoints: 0, buyPrice: 0, windowMatched: false, deltaFromTarget: 0, targetPrice: defaultBackendTargetPrice, maxPrice, priceLadder: [] });
   const chooseBestXSummary = (eligibility: Stage1Eligibility, fallbackQuote: Stage1ExecutionQuote, requestedRates: number[], getQuote: (rateOverride?: number) => Stage1ExecutionQuote, maxPrice: number): InvestorSummary => {
     if (!eligibility.eligible) return makeSummary(eligibility, fallbackQuote, maxPrice, requestedRates, getQuote);
