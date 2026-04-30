@@ -85,6 +85,7 @@ export default function Stage3Page() {
   const [status, setStatus] = useState<'pre' | 'loading' | 'done' | 'error'>('pre');
   const [result, setResult] = useState<VerifyResult | null>(null);
   const [loanAmount, setLoanAmount] = useState<number>(0);
+  const [submittedLoanAmount, setSubmittedLoanAmount] = useState<number>(0);
   const [showDisagree, setShowDisagree] = useState(false);
   const [optIn, setOptIn] = useState(false);
   const [testSession, setTestSession] = useState<{ applicationId: string; sessionToken: string } | null>(null);
@@ -161,8 +162,10 @@ export default function Stage3Page() {
       }
 
       const hydrateTimer = window.setTimeout(() => {
+        const initialLoanAmount = Number(merged?.desiredLoanAmount) || 0;
         setStage1(merged || {});
-        setLoanAmount(Number(merged?.desiredLoanAmount) || 0);
+        setLoanAmount(initialLoanAmount);
+        setSubmittedLoanAmount(initialLoanAmount);
         setLoaded(true);
       }, 0);
 
@@ -198,9 +201,11 @@ export default function Stage3Page() {
   }
 
   const previousRate = getRateForScenario(desiredLoanAmount);
+  const appliedLoanAmount = submittedLoanAmount || desiredLoanAmount;
+  const sliderDirty = loanAmount !== appliedLoanAmount;
   const updatedRate = useMemo(() => {
     const validatedValue = result?.hcValue || propertyValue;
-    const selectedLoanAmount = loanAmount || desiredLoanAmount;
+    const selectedLoanAmount = appliedLoanAmount;
     const baseRate = product === 'HELOC' ? 7.25 : 8.0;
     const creditAdj = creditScore >= 720 ? 0 : creditScore >= 680 ? 0.25 : creditScore >= 640 ? 0.5 : 1.0;
     const propertyAdj: Record<string, number> = { Primary: 0, Investment: 0.5, '2nd Home': 0.25 };
@@ -211,7 +216,7 @@ export default function Stage3Page() {
       else if (combinedLtv > 0.80) ltvAdj = 0.25;
     }
     return baseRate + creditAdj + (propertyAdj[propertyType] || 0) + ltvAdj;
-  }, [result, propertyValue, desiredLoanAmount, loanAmount, product, creditScore, propertyType, loanBalance]);
+  }, [result, propertyValue, appliedLoanAmount, product, creditScore, propertyType, loanBalance]);
 
   const originalMonthlyPayment = useMemo(() => {
     if (desiredLoanAmount <= 0) return 0;
@@ -228,17 +233,17 @@ export default function Stage3Page() {
 
   // Calculate monthly payment for chosen amount
   const monthlyPayment = useMemo(() => {
-    if (loanAmount <= 0) return 0;
+    if (appliedLoanAmount <= 0) return 0;
     const monthlyRate = updatedRate / 100 / 12;
 
     if (product === 'HELOC') {
-      return Math.round(loanAmount * monthlyRate);
+      return Math.round(appliedLoanAmount * monthlyRate);
     } else {
       const cesTerm = Number(stage1.cesTerm) || 20;
       const n = cesTerm * 12;
-      return Math.round(loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
+      return Math.round(appliedLoanAmount * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
     }
-  }, [loanAmount, product, updatedRate, stage1.cesTerm]);
+  }, [appliedLoanAmount, product, updatedRate, stage1.cesTerm]);
 
   async function handleValidate() {
     setStatus('loading');
@@ -291,6 +296,9 @@ export default function Stage3Page() {
       if (data.newMaxLoan && data.newMaxLoan < loanAmount) {
         setLoanAmount(data.newMaxLoan);
       }
+      if (data.newMaxLoan && data.newMaxLoan < submittedLoanAmount) {
+        setSubmittedLoanAmount(data.newMaxLoan);
+      }
 
       setStatus('done');
     } catch (err) {
@@ -298,6 +306,10 @@ export default function Stage3Page() {
       setResult({ tier: 'error', error: message });
       setStatus('error');
     }
+  }
+
+  function handleApplyLoanAmount() {
+    setSubmittedLoanAmount(loanAmount);
   }
 
   function handleContinue() {
@@ -310,8 +322,8 @@ export default function Stage3Page() {
       s2.verifiedPropertyValue = String(result.hcValue);
     }
 
-    s1.desiredLoanAmount = String(loanAmount);
-    s2.desiredLoanAmount = String(loanAmount);
+    s1.desiredLoanAmount = String(appliedLoanAmount);
+    s2.desiredLoanAmount = String(appliedLoanAmount);
     s1.verifiedMaxAvailable = String(result?.newMaxLoan || s1.maxAvailable || s2.maxAvailable);
     s2.verifiedMaxAvailable = String(result?.newMaxLoan || s2.maxAvailable || s1.maxAvailable);
     s1.verificationTier = result?.tier;
@@ -685,12 +697,24 @@ export default function Stage3Page() {
                     min={Math.min(10000, newMax)}
                     onChange={setLoanAmount}
                   />
-                  <div className="mt-3 text-center">
-                    <span className="text-sm text-gray-500">Est. Monthly Payment: </span>
-                    <span className="text-lg font-bold text-gray-900">${monthlyPayment.toLocaleString()}</span>
-                    <span className="text-xs text-gray-400 ml-1">
-                      {product === 'HELOC' ? '(interest only)' : '(P&I)'}
-                    </span>
+                  <div className="mt-4 flex flex-col items-center gap-3">
+                    <button
+                      onClick={handleApplyLoanAmount}
+                      disabled={!sliderDirty}
+                      className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                    >
+                      Update rate and payment
+                    </button>
+                    <div className="text-center">
+                      <span className="text-sm text-gray-500">Est. Monthly Payment: </span>
+                      <span className="text-lg font-bold text-gray-900">${monthlyPayment.toLocaleString()}</span>
+                      <span className="text-xs text-gray-400 ml-1">
+                        {product === 'HELOC' ? '(interest only)' : '(P&I)'}
+                      </span>
+                    </div>
+                    {sliderDirty && (
+                      <div className="text-xs text-amber-600">Move the slider, then click update to refresh the quote.</div>
+                    )}
                   </div>
                 </div>
               )}
@@ -699,13 +723,14 @@ export default function Stage3Page() {
               {newMax > 0 && (result.tier === 'verified' || result.tier === 'estimate' || result.tier === 'low_confidence') && (
                 <button
                   onClick={handleContinue}
+                  disabled={sliderDirty}
                   className={`w-full py-4 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all text-lg mb-4 ${
                     result.tier === 'verified'
                       ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
                       : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
-                  }`}
+                  } disabled:cursor-not-allowed disabled:from-gray-300 disabled:to-gray-400`}
                 >
-                  Continue to Soft Credit Check with ${loanAmount.toLocaleString()} →
+                  Continue to Soft Credit Check with ${appliedLoanAmount.toLocaleString()} →
                 </button>
               )}
 

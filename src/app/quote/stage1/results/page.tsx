@@ -194,7 +194,9 @@ export default function ResultsPage() {
   const [helocTotalTerm, setHelocTotalTerm] = useState<number>(20);
   const [helocDrawTerm, setHelocDrawTerm] = useState<number>(3);
   const [helocLoanAmount, setHelocLoanAmount] = useState<number | null>(null);
+  const [submittedHelocLoanAmount, setSubmittedHelocLoanAmount] = useState<number | null>(null);
   const [cesLoanAmount, setCesLoanAmount] = useState<number | null>(null);
+  const [submittedCesLoanAmount, setSubmittedCesLoanAmount] = useState<number | null>(null);
   const [debouncedHelocLoanAmount, setDebouncedHelocLoanAmount] = useState<number | null>(null);
   const [debouncedCesLoanAmount, setDebouncedCesLoanAmount] = useState<number | null>(null);
   const [helocLiveQuote, setHelocLiveQuote] = useState<LiveQuoteCalc | null>(null);
@@ -248,12 +250,12 @@ export default function ResultsPage() {
         cashOut: Boolean(cashOutAmount > 0),
       },
       {
-        selectedLoanAmount: helocLoanAmount ?? undefined,
+        selectedLoanAmount: submittedHelocLoanAmount ?? undefined,
         helocDrawTermYears: helocDrawTerm,
         helocTotalTermYears: helocTotalTerm,
       }
     ),
-    [propertyValue, loanBalance, creditScore, propertyOccupancy, structureType, numberOfUnits, cashOutAmount, helocDrawTerm, helocTotalTerm, helocLoanAmount, stage1.propertyState]
+    [propertyValue, loanBalance, creditScore, propertyOccupancy, structureType, numberOfUnits, cashOutAmount, helocDrawTerm, helocTotalTerm, submittedHelocLoanAmount, stage1.propertyState]
   );
 
   const cesQuote = useMemo(() =>
@@ -271,26 +273,26 @@ export default function ResultsPage() {
         cashOut: Boolean(cashOutAmount > 0),
       },
       {
-        selectedLoanAmount: cesLoanAmount ?? undefined,
+        selectedLoanAmount: submittedCesLoanAmount ?? undefined,
         cesTermYears: cesTerm,
       }
     ),
-    [propertyValue, loanBalance, creditScore, propertyOccupancy, structureType, numberOfUnits, cashOutAmount, cesTerm, cesLoanAmount, stage1.propertyState]
+    [propertyValue, loanBalance, creditScore, propertyOccupancy, structureType, numberOfUnits, cashOutAmount, cesTerm, submittedCesLoanAmount, stage1.propertyState]
   );
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
-      setDebouncedHelocLoanAmount(helocLoanAmount);
+      setDebouncedHelocLoanAmount(submittedHelocLoanAmount);
     }, 250);
     return () => window.clearTimeout(timeout);
-  }, [helocLoanAmount]);
+  }, [submittedHelocLoanAmount]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
-      setDebouncedCesLoanAmount(cesLoanAmount);
+      setDebouncedCesLoanAmount(submittedCesLoanAmount);
     }, 250);
     return () => window.clearTimeout(timeout);
-  }, [cesLoanAmount]);
+  }, [submittedCesLoanAmount]);
 
   useEffect(() => {
     let cancelled = false;
@@ -420,16 +422,24 @@ export default function ResultsPage() {
 
   // Initialize loan amounts to max when quotes change
   useEffect(() => {
+    const defaultAmount = clampLoanAmount(displayedHelocQuote.maxAvailable, displayedHelocQuote.maxAvailable);
     if (displayedHelocQuote.maxAvailable > 0 && helocLoanAmount === null) {
-      setHelocLoanAmount(clampLoanAmount(displayedHelocQuote.maxAvailable, displayedHelocQuote.maxAvailable));
+      setHelocLoanAmount(defaultAmount);
     }
-  }, [displayedHelocQuote.maxAvailable, helocLoanAmount]);
+    if (displayedHelocQuote.maxAvailable > 0 && submittedHelocLoanAmount === null) {
+      setSubmittedHelocLoanAmount(defaultAmount);
+    }
+  }, [displayedHelocQuote.maxAvailable, helocLoanAmount, submittedHelocLoanAmount]);
 
   useEffect(() => {
+    const defaultAmount = clampLoanAmount(displayedCesQuote.maxAvailable, displayedCesQuote.maxAvailable);
     if (displayedCesQuote.maxAvailable > 0 && cesLoanAmount === null) {
-      setCesLoanAmount(clampLoanAmount(displayedCesQuote.maxAvailable, displayedCesQuote.maxAvailable));
+      setCesLoanAmount(defaultAmount);
     }
-  }, [displayedCesQuote.maxAvailable, cesLoanAmount]);
+    if (displayedCesQuote.maxAvailable > 0 && submittedCesLoanAmount === null) {
+      setSubmittedCesLoanAmount(defaultAmount);
+    }
+  }, [displayedCesQuote.maxAvailable, cesLoanAmount, submittedCesLoanAmount]);
 
   // Clamp loan amounts to max when terms change
   useEffect(() => {
@@ -437,17 +447,29 @@ export default function ResultsPage() {
       const clamped = clampLoanAmount(helocLoanAmount, displayedHelocQuote.maxAvailable);
       if (clamped !== helocLoanAmount) setHelocLoanAmount(clamped);
     }
-  }, [displayedHelocQuote.maxAvailable, helocLoanAmount]);
+    if (submittedHelocLoanAmount !== null) {
+      const clamped = clampLoanAmount(submittedHelocLoanAmount, displayedHelocQuote.maxAvailable);
+      if (clamped !== submittedHelocLoanAmount) setSubmittedHelocLoanAmount(clamped);
+    }
+  }, [displayedHelocQuote.maxAvailable, helocLoanAmount, submittedHelocLoanAmount]);
 
   useEffect(() => {
     if (cesLoanAmount !== null) {
       const clamped = clampLoanAmount(cesLoanAmount, displayedCesQuote.maxAvailable);
       if (clamped !== cesLoanAmount) setCesLoanAmount(clamped);
     }
-  }, [displayedCesQuote.maxAvailable, cesLoanAmount]);
+    if (submittedCesLoanAmount !== null) {
+      const clamped = clampLoanAmount(submittedCesLoanAmount, displayedCesQuote.maxAvailable);
+      if (clamped !== submittedCesLoanAmount) setSubmittedCesLoanAmount(clamped);
+    }
+  }, [displayedCesQuote.maxAvailable, cesLoanAmount, submittedCesLoanAmount]);
 
   const effectiveHelocAmount = helocLoanAmount ?? clampLoanAmount(displayedHelocQuote.maxAvailable, displayedHelocQuote.maxAvailable);
+  const appliedHelocAmount = submittedHelocLoanAmount ?? effectiveHelocAmount;
+  const helocSliderDirty = effectiveHelocAmount !== appliedHelocAmount;
   const effectiveCesAmount = cesLoanAmount ?? clampLoanAmount(displayedCesQuote.maxAvailable, displayedCesQuote.maxAvailable);
+  const appliedCesAmount = submittedCesLoanAmount ?? effectiveCesAmount;
+  const cesSliderDirty = effectiveCesAmount !== appliedCesAmount;
 
   // Recalculate payments based on chosen loan amount
   const helocRepaymentYears = helocTotalTerm - helocDrawTerm;
@@ -576,12 +598,26 @@ export default function ResultsPage() {
                           {helocPricingLoading ? (
                             <div className="text-center py-4 text-sm text-gray-500">Waiting for live pricing...</div>
                           ) : (
-                            <LoanAmountSlider
-                              value={effectiveHelocAmount}
-                              max={displayedHelocQuote.maxAvailable}
-                              min={Math.min(MIN_LOAN_AMOUNT, displayedHelocQuote.maxAvailable)}
-                              onChange={setHelocLoanAmount}
-                            />
+                            <>
+                              <LoanAmountSlider
+                                value={effectiveHelocAmount}
+                                max={displayedHelocQuote.maxAvailable}
+                                min={Math.min(MIN_LOAN_AMOUNT, displayedHelocQuote.maxAvailable)}
+                                onChange={setHelocLoanAmount}
+                              />
+                              <div className="mt-4 flex flex-col items-center gap-2">
+                                <button
+                                  onClick={() => setSubmittedHelocLoanAmount(effectiveHelocAmount)}
+                                  disabled={helocPricingLoading || !helocSliderDirty}
+                                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                                >
+                                  Update rate and payment
+                                </button>
+                                {helocSliderDirty && (
+                                  <div className="text-xs text-amber-600">Move the slider, then click update to refresh the quote.</div>
+                                )}
+                              </div>
+                            </>
                           )}
                         </div>
 
@@ -634,7 +670,7 @@ export default function ResultsPage() {
                               s1.product = 'HELOC';
                               s1.helocTotalTerm = String(helocTotalTerm);
                               s1.helocDrawTerm = String(helocDrawTerm);
-                              s1.desiredLoanAmount = String(effectiveHelocAmount);
+                              s1.desiredLoanAmount = String(appliedHelocAmount);
                               s1.maxAvailable = String(displayedHelocQuote.maxAvailable);
                               s1.quotedInvestor = helocLiveQuote?.investor || null;
                               s1.quotedProgram = helocLiveQuote?.program || 'HELOC';
@@ -644,7 +680,7 @@ export default function ResultsPage() {
                               void trackStep('quote-selection', 999, 999, s1);
                               router.push(skipOtp ? '/quote/next-steps' : '/quote/verify-contact');
                             }}
-                            disabled={helocPricingLoading}
+                            disabled={helocPricingLoading || helocSliderDirty}
                             className="w-full mt-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm"
                           >
                             Select HELOC &amp; Get Access! →
@@ -677,12 +713,26 @@ export default function ResultsPage() {
                         {cesPricingLoading ? (
                           <div className="text-center py-4 text-sm text-gray-500">Waiting for live pricing...</div>
                         ) : (
-                          <LoanAmountSlider
-                            value={effectiveCesAmount}
-                            max={displayedCesQuote.maxAvailable}
-                            min={Math.min(MIN_LOAN_AMOUNT, displayedCesQuote.maxAvailable)}
-                            onChange={setCesLoanAmount}
-                          />
+                          <>
+                            <LoanAmountSlider
+                              value={effectiveCesAmount}
+                              max={displayedCesQuote.maxAvailable}
+                              min={Math.min(MIN_LOAN_AMOUNT, displayedCesQuote.maxAvailable)}
+                              onChange={setCesLoanAmount}
+                            />
+                            <div className="mt-4 flex flex-col items-center gap-2">
+                              <button
+                                onClick={() => setSubmittedCesLoanAmount(effectiveCesAmount)}
+                                disabled={cesPricingLoading || !cesSliderDirty}
+                                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                              >
+                                Update rate and payment
+                              </button>
+                              {cesSliderDirty && (
+                                <div className="text-xs text-amber-600">Move the slider, then click update to refresh the quote.</div>
+                              )}
+                            </div>
+                          </>
                         )}
                       </div>
 
@@ -726,7 +776,7 @@ export default function ResultsPage() {
                             const s1 = JSON.parse(localStorage.getItem('stage1-data') || '{}');
                             s1.product = 'CES';
                             s1.cesTerm = String(cesTerm);
-                            s1.desiredLoanAmount = String(effectiveCesAmount);
+                            s1.desiredLoanAmount = String(appliedCesAmount);
                             s1.maxAvailable = String(displayedCesQuote.maxAvailable);
                             s1.quotedInvestor = cesLiveQuote?.investor || null;
                             s1.quotedProgram = cesLiveQuote?.program || 'CES';
@@ -736,7 +786,7 @@ export default function ResultsPage() {
                             void trackStep('quote-selection', 999, 999, s1);
                             router.push(skipOtp ? '/quote/next-steps' : '/quote/verify-contact');
                           }}
-                          disabled={cesPricingLoading}
+                          disabled={cesPricingLoading || cesSliderDirty}
                           className="w-full mt-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all text-sm"
                         >
                           Select CES &amp; Get Access! →
