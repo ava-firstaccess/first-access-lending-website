@@ -23,6 +23,7 @@ type AvmSidebarInvestor = {
   maxAvailable: number;
   payment: number;
   maxLtv: number;
+  noteRate: number;
 };
 
 type DraftForm = {
@@ -245,6 +246,7 @@ export function Stage1PricingPage({ mode, portalSession }: { mode: Mode; portalS
       maxAvailable: Number(entry.eligibility.maxAvailable || 0),
       payment: Number(entry.quote.monthlyPayment || 0),
       maxLtv: Number(entry.quote.maxLtv || 0),
+      noteRate: Number(entry.quote.noteRate || 0),
     }));
 
     const scenario = {
@@ -267,6 +269,8 @@ export function Stage1PricingPage({ mode, portalSession }: { mode: Mode; portalS
       creditScore: Number(input.creditScore || 0),
       verificationProvider: input.verificationProvider,
       verificationFsd: typeof input.verificationFsd === 'number' ? input.verificationFsd : undefined,
+      propertyValue: Number(input.propertyValue || 0),
+      loanBalance: Number(input.loanBalance || 0),
       bestXResults,
     };
     window.sessionStorage.setItem(LO_AVM_SCENARIO_STORAGE_KEY, JSON.stringify(scenario));
