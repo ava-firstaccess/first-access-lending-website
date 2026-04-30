@@ -19,7 +19,7 @@ export type InvestorName =
   | 'DeepHaven'
   | 'Arc';
 
-export type VerificationAvmProvider = 'HouseCanary' | 'Clear Capital';
+export type VerificationAvmProvider = 'HouseCanary' | 'Clear Capital' | 'Veros' | 'CA Value' | 'Black Knight (Valusure)';
 
 export type InvestorAvmRule = {
   investor: InvestorName;
@@ -167,7 +167,7 @@ export function getMaxFsdAllowed(investor: InvestorName, provider: AvmProviderNa
 }
 
 export function mapVerificationProviderToRuleProvider(provider: VerificationAvmProvider): AvmProviderName {
-  return provider === 'Clear Capital' ? 'Clear Capital' : 'HouseCanary';
+  return provider;
 }
 
 export function evaluateInvestorAvmRule(
