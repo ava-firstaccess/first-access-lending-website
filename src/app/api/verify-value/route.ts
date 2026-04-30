@@ -1240,6 +1240,8 @@ export async function POST(req: NextRequest) {
               quotedInvestor: quotedInvestor.quotedInvestor,
               quotedInvestorProviderEligible: clearCapitalInvestorEvaluation?.passes ?? null,
               quotedInvestorProviderReason: clearCapitalInvestorEvaluation?.reason ?? null,
+              houseCanaryQuotedInvestorEligible: hcInvestorEvaluation?.passes ?? null,
+              houseCanaryQuotedInvestorReason: hcInvestorEvaluation?.reason ?? null,
             }
           : {
               tier: 'verified',
@@ -1262,6 +1264,8 @@ export async function POST(req: NextRequest) {
               quotedInvestor: quotedInvestor.quotedInvestor,
               quotedInvestorProviderEligible: hcInvestorEvaluation?.passes ?? null,
               quotedInvestorProviderReason: hcInvestorEvaluation?.reason ?? null,
+              houseCanaryQuotedInvestorEligible: hcInvestorEvaluation?.passes ?? null,
+              houseCanaryQuotedInvestorReason: hcInvestorEvaluation?.reason ?? null,
             };
         await saveCachedAvmResult(supabase, {
           address_key: addressKey,
@@ -1296,6 +1300,8 @@ export async function POST(req: NextRequest) {
         quotedInvestor: quotedInvestor.quotedInvestor,
         quotedInvestorProviderEligible: hcInvestorEvaluation?.passes ?? null,
         quotedInvestorProviderReason: hcInvestorEvaluation?.reason ?? null,
+        houseCanaryQuotedInvestorEligible: hcInvestorEvaluation?.passes ?? null,
+        houseCanaryQuotedInvestorReason: hcInvestorEvaluation?.reason ?? null,
       };
       await saveCachedAvmResult(supabase, {
         address_key: addressKey,
@@ -1339,6 +1345,8 @@ export async function POST(req: NextRequest) {
           quotedInvestor: quotedInvestor.quotedInvestor,
           quotedInvestorProviderEligible: clearCapitalInvestorEvaluation?.passes ?? null,
           quotedInvestorProviderReason: clearCapitalInvestorEvaluation?.reason ?? null,
+          houseCanaryQuotedInvestorEligible: hcInvestorEvaluation?.passes ?? null,
+          houseCanaryQuotedInvestorReason: hcInvestorEvaluation?.reason ?? null,
         }
       : await tryClearCapitalFallback({
           supabase,
@@ -1393,6 +1401,8 @@ export async function POST(req: NextRequest) {
       quotedInvestor: quotedInvestor.quotedInvestor,
       quotedInvestorProviderEligible: hcInvestorEvaluation?.passes ?? null,
       quotedInvestorProviderReason: hcInvestorEvaluation?.reason ?? null,
+      houseCanaryQuotedInvestorEligible: hcInvestorEvaluation?.passes ?? null,
+      houseCanaryQuotedInvestorReason: hcInvestorEvaluation?.reason ?? null,
     };
     await saveCachedAvmResult(supabase, {
       address_key: addressKey,

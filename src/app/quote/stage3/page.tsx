@@ -23,6 +23,8 @@ type VerifyResult = {
   quotedInvestor?: string | null;
   quotedInvestorProviderEligible?: boolean | null;
   quotedInvestorProviderReason?: string | null;
+  houseCanaryQuotedInvestorEligible?: boolean | null;
+  houseCanaryQuotedInvestorReason?: string | null;
   error?: string;
 };
 
@@ -355,8 +357,9 @@ export default function Stage3Page() {
   const valueDiffPct = propertyValue > 0 ? (valueDiff / propertyValue) * 100 : 0;
   const valueIncreased = valueDiff > 0;
   const isClearCapitalVerifiedValue = result?.tier === 'verified' && result?.valuationProvider === 'clearcapital';
+  const houseCanaryInvestorMismatch = isClearCapitalVerifiedValue && result?.houseCanaryQuotedInvestorEligible === false;
   const displayFsd = typeof result?.fsd === 'number' ? result.fsd : result?.houseCanaryFsd;
-  const confidenceLabel = isClearCapitalVerifiedValue ? 'Medium Value Confidence' : displayFsd !== undefined && displayFsd < 0.10 ? 'High Value Confidence' : 'Medium Value Confidence';
+  const confidenceLabel = houseCanaryInvestorMismatch ? 'Medium Value Confidence' : displayFsd !== undefined && displayFsd < 0.10 ? 'High Value Confidence' : 'Medium Value Confidence';
   const newMax = result?.newMaxLoan || 0;
   const oldMax = Number(stage1.verifiedMaxAvailable || stage1.maxAvailable || desiredLoanAmount || 0);
   const isAdjustmentFailState = status === 'done' && !!result && (result.tier === 'estimate' || !!result.needsHuman) && !valueIncreased;
@@ -625,14 +628,14 @@ export default function Stage3Page() {
 
                   {/* Confidence / investor-provider indicator for verified */}
                   {result.tier === 'verified' && (displayFsd !== undefined || isClearCapitalVerifiedValue) && (
-                    <div className={`rounded-lg p-4 mb-6 text-center border ${isClearCapitalVerifiedValue ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}>
+                    <div className={`rounded-lg p-4 mb-6 text-center border ${houseCanaryInvestorMismatch ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}>
                       <div className="text-xs uppercase tracking-wide text-gray-500">Value Confidence</div>
-                      <div className={`mt-1 text-sm font-semibold ${isClearCapitalVerifiedValue ? 'text-amber-700' : 'text-green-600'}`}>
+                      <div className={`mt-1 text-sm font-semibold ${houseCanaryInvestorMismatch ? 'text-amber-700' : 'text-green-600'}`}>
                         {confidenceLabel}
                       </div>
-                      {isClearCapitalVerifiedValue ? (
+                      {houseCanaryInvestorMismatch ? (
                         <p className="mt-2 text-xs text-amber-800">
-                          Your quoted investor{result.quotedInvestor ? `, ${result.quotedInvestor},` : ''} required a different approved valuation source, so we used Clear Capital to confirm this higher value.
+                          Your quoted investor{result.quotedInvestor ? `, ${result.quotedInvestor},` : ''} did not accept the original HouseCanary confidence/FSD result, so we used Clear Capital to confirm this value.
                         </p>
                       ) : null}
                       {(displayFsd !== undefined || (result.price_lwr && result.price_upr)) && (
