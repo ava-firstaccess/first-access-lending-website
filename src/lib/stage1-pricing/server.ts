@@ -72,18 +72,14 @@ type EngineQuoteLike = Omit<Stage1ExecutionQuote, 'engine'> & { program?: string
 function toQuote(engine: Stage1ExecutionQuote['engine'], quote: EngineQuoteLike): Stage1ExecutionQuote { return { engine, program: quote.program ?? engine, product: quote.product, maxAvailable: quote.maxAvailable, rate: quote.rate, noteRate: quote.noteRate, monthlyPayment: quote.monthlyPayment, maxLtv: quote.maxLtv, purchasePrice: quote.purchasePrice, basePrice: quote.basePrice, llpaAdjustment: quote.llpaAdjustment, adjustments: quote.adjustments }; }
 
 function buildTargetPriceLadder(requestedRates: number[], getQuoteForRate: (rateOverride?: number) => Stage1ExecutionQuote, highlightedQuote: Stage1ExecutionQuote, referencePrice: number, displayTargetPrice: number, maxPrice: number): InvestorPriceLadderRow[] {
-  const rows = new Map<string, InvestorPriceLadderRow>();
-
-  for (const requestedRate of requestedRates) {
-    const quote = getQuoteForRate(requestedRate);
-    if (maxPrice > 0 && quote.purchasePrice > maxPrice + 0.0001) continue;
+  const toRow = (quote: Stage1ExecutionQuote): InvestorPriceLadderRow | null => {
+    if (maxPrice > 0 && quote.purchasePrice > maxPrice + 0.0001) return null;
 
     const displayPrice = getBorrowerFacingDisplayPrice(quote.purchasePrice, referencePrice, displayTargetPrice);
-    if (displayPrice < 97 || displayPrice > 103) continue;
+    if (displayPrice < 97 || displayPrice > 103) return null;
 
     const { pointsLabel, pointsValue } = getBorrowerFacingPoints(displayPrice, displayTargetPrice);
-    const key = `${quote.rate}|${quote.noteRate}|${quote.purchasePrice}`;
-    rows.set(key, {
+    return {
       displayPrice,
       purchasePrice: quote.purchasePrice,
       rate: quote.rate,
@@ -91,7 +87,33 @@ function buildTargetPriceLadder(requestedRates: number[], getQuoteForRate: (rate
       pointsLabel,
       pointsValue,
       highlighted: Math.abs(quote.rate - highlightedQuote.rate) < 0.0001 && Math.abs(quote.purchasePrice - highlightedQuote.purchasePrice) < 0.0001,
-    });
+    };
+  };
+
+  const rows = new Map<string, InvestorPriceLadderRow>();
+  const anchorRow = toRow(highlightedQuote);
+  if (anchorRow) {
+    rows.set(`${anchorRow.rate}|${anchorRow.noteRate}|${anchorRow.purchasePrice}`, anchorRow);
+  }
+
+  const sortedRates = [...new Set([...requestedRates, highlightedQuote.rate])].sort((a, b) => a - b);
+  const anchorIndex = sortedRates.findIndex(rate => Math.abs(rate - highlightedQuote.rate) < 0.0001);
+  if (anchorIndex === -1) {
+    return [...rows.values()].sort((a, b) => a.rate - b.rate || a.noteRate - b.noteRate || a.displayPrice - b.displayPrice);
+  }
+
+  for (let index = anchorIndex - 1; index >= 0; index -= 1) {
+    const quote = getQuoteForRate(sortedRates[index]);
+    const row = toRow(quote);
+    if (!row) break;
+    rows.set(`${row.rate}|${row.noteRate}|${row.purchasePrice}`, row);
+  }
+
+  for (let index = anchorIndex + 1; index < sortedRates.length; index += 1) {
+    const quote = getQuoteForRate(sortedRates[index]);
+    const row = toRow(quote);
+    if (!row) break;
+    rows.set(`${row.rate}|${row.noteRate}|${row.purchasePrice}`, row);
   }
 
   return [...rows.values()].sort((a, b) => a.rate - b.rate || a.noteRate - b.noteRate || a.displayPrice - b.displayPrice);
