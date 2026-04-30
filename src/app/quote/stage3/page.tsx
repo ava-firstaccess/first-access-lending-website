@@ -28,11 +28,12 @@ type VerifyResult = {
   error?: string;
 };
 
-function LoanAmountSlider({ value, max, min, onChange }: {
+function LoanAmountSlider({ value, max, min, onChange, onCommit }: {
   value: number;
   max: number;
   min: number;
   onChange: (v: number) => void;
+  onCommit?: (v: number) => void;
 }) {
   const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
   return (
@@ -48,6 +49,10 @@ function LoanAmountSlider({ value, max, min, onChange }: {
         step={1000}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
+        onMouseUp={(e) => onCommit?.(Number((e.currentTarget as HTMLInputElement).value))}
+        onTouchEnd={(e) => onCommit?.(Number((e.currentTarget as HTMLInputElement).value))}
+        onKeyUp={(e) => onCommit?.(Number((e.currentTarget as HTMLInputElement).value))}
+        onBlur={(e) => onCommit?.(Number((e.currentTarget as HTMLInputElement).value))}
         className="w-full h-2 rounded-lg appearance-none cursor-pointer"
         style={{
           background: `linear-gradient(to right, #3b82f6 ${pct}%, #e5e7eb ${pct}%)`
@@ -313,10 +318,6 @@ export default function Stage3Page() {
       setResult({ tier: 'error', error: message });
       setStatus('error');
     }
-  }
-
-  function handleApplyLoanAmount() {
-    setSubmittedLoanAmount(loanAmount);
   }
 
   function handleContinue() {
@@ -713,15 +714,9 @@ export default function Stage3Page() {
                     max={newMax}
                     min={Math.min(10000, newMax)}
                     onChange={setLoanAmount}
+                    onCommit={setSubmittedLoanAmount}
                   />
                   <div className="mt-4 flex flex-col items-center gap-3">
-                    <button
-                      onClick={handleApplyLoanAmount}
-                      disabled={!sliderDirty}
-                      className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-                    >
-                      Update rate and payment
-                    </button>
                     <div className="text-center">
                       <span className="text-sm text-gray-500">Est. Monthly Payment: </span>
                       <span className="text-lg font-bold text-gray-900">${monthlyPayment.toLocaleString()}</span>
@@ -730,7 +725,7 @@ export default function Stage3Page() {
                       </span>
                     </div>
                     {sliderDirty && (
-                      <div className="text-xs text-amber-600">Move the slider, then click update to refresh the quote.</div>
+                      <div className="text-xs text-amber-600">Move the slider, release to refresh the quote.</div>
                     )}
                   </div>
                 </div>
