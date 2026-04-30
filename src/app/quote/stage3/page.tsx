@@ -10,6 +10,7 @@ type VerifyResult = {
   hcValue?: number;
   statedValue?: number;
   fsd?: number;
+  houseCanaryFsd?: number;
   price_lwr?: number;
   price_upr?: number;
   newMaxLoan?: number;
@@ -18,6 +19,10 @@ type VerifyResult = {
   loanDiffPct?: number;
   needsHuman?: boolean;
   needsClearCapital?: boolean;
+  valuationProvider?: 'housecanary' | 'housecanary_estimate' | 'clearcapital';
+  quotedInvestor?: string | null;
+  quotedInvestorProviderEligible?: boolean | null;
+  quotedInvestorProviderReason?: string | null;
   error?: string;
 };
 
@@ -349,6 +354,9 @@ export default function Stage3Page() {
   const valueDiff = result?.hcValue ? result.hcValue - propertyValue : 0;
   const valueDiffPct = propertyValue > 0 ? (valueDiff / propertyValue) * 100 : 0;
   const valueIncreased = valueDiff > 0;
+  const isClearCapitalVerifiedValue = result?.tier === 'verified' && result?.valuationProvider === 'clearcapital';
+  const displayFsd = typeof result?.fsd === 'number' ? result.fsd : result?.houseCanaryFsd;
+  const confidenceLabel = isClearCapitalVerifiedValue ? 'Medium Value Confidence' : displayFsd !== undefined && displayFsd < 0.10 ? 'High Value Confidence' : 'Medium Value Confidence';
   const newMax = result?.newMaxLoan || 0;
   const oldMax = Number(stage1.verifiedMaxAvailable || stage1.maxAvailable || desiredLoanAmount || 0);
   const isAdjustmentFailState = status === 'done' && !!result && (result.tier === 'estimate' || !!result.needsHuman) && !valueIncreased;
@@ -615,19 +623,25 @@ export default function Stage3Page() {
                     </div>
                   )}
 
-                  {/* FSD indicator for verified */}
-                  {result.fsd !== undefined && result.tier === 'verified' && (
-                    <div className="bg-gray-50 rounded-lg p-3 mb-6 text-center">
-                      <span className="text-xs text-gray-500">
-                        Confidence: <strong className="text-green-600">
-                          {result.fsd < 0.10 ? 'High' : 'Moderate'}
-                        </strong>
-                        {result.price_lwr && result.price_upr && (
-                          <span className="ml-2">
-                            (Range: ${result.price_lwr.toLocaleString()} - ${result.price_upr.toLocaleString()})
-                          </span>
-                        )}
-                      </span>
+                  {/* Confidence / investor-provider indicator for verified */}
+                  {result.tier === 'verified' && (displayFsd !== undefined || isClearCapitalVerifiedValue) && (
+                    <div className={`rounded-lg p-4 mb-6 text-center border ${isClearCapitalVerifiedValue ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="text-xs uppercase tracking-wide text-gray-500">Value Confidence</div>
+                      <div className={`mt-1 text-sm font-semibold ${isClearCapitalVerifiedValue ? 'text-amber-700' : 'text-green-600'}`}>
+                        {confidenceLabel}
+                      </div>
+                      {isClearCapitalVerifiedValue ? (
+                        <p className="mt-2 text-xs text-amber-800">
+                          Your quoted investor{result.quotedInvestor ? `, ${result.quotedInvestor},` : ''} required a different approved valuation source, so we used Clear Capital to confirm this higher value.
+                        </p>
+                      ) : null}
+                      {(displayFsd !== undefined || (result.price_lwr && result.price_upr)) && (
+                        <div className="mt-2 text-xs text-gray-500">
+                          {displayFsd !== undefined ? <span>HouseCanary FSD: {displayFsd.toFixed(3)}</span> : null}
+                          {displayFsd !== undefined && result.price_lwr && result.price_upr ? <span className="mx-2">•</span> : null}
+                          {result.price_lwr && result.price_upr ? <span>Range: ${result.price_lwr.toLocaleString()} - ${result.price_upr.toLocaleString()}</span> : null}
+                        </div>
+                      )}
                     </div>
                   )}
                 </>
