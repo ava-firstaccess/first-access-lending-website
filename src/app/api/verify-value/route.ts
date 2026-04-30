@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getApplicationBySessionToken, requireTrustedBrowserRequest } from '@/lib/application-session';
 import { consumeRateLimit, getClientIp } from '@/lib/rate-limit';
+import { evaluateInvestorAvmRule, type InvestorName, type VerificationAvmProvider } from '@/lib/rates/investor-confidence-rules';
 
 const VERIFY_VALUE_IP_LIMIT = 20;
 const VERIFY_VALUE_SESSION_LIMIT = 10;
@@ -54,6 +55,11 @@ type ClearCapitalCandidate = {
   responseBytes: number;
   statusCode?: number;
   effectiveDate?: string;
+};
+
+type QuotedInvestorContext = {
+  quotedInvestor: string | null;
+  mappedInvestor: InvestorName | null;
 };
 
 function buildSafeHouseCanaryError(message: string, status?: number) {
@@ -184,7 +190,34 @@ function hasClearCapitalLowConfidence(result: ClearCapitalClearAvmResult | undef
 
   return confidenceScore === 'low'
     || confidenceScoreAlt === 'low'
-    || (forecastStdDev !== null && forecastStdDev >= 0.20);
+    || (forecastStdDev !== null && forecastStdDev > 0.20);
+}
+
+function mapQuotedInvestorLabelToRuleInvestor(investorLabel: string | null | undefined): InvestorName | null {
+  if (!investorLabel) return null;
+  if (investorLabel === 'OSB' || investorLabel === 'Onslow') return 'Onslow';
+  if (investorLabel === 'Arc Home' || investorLabel === 'Arc') return 'Arc';
+  if (investorLabel === 'Deephaven' || investorLabel === 'DeepHaven') return 'DeepHaven';
+  if (investorLabel === 'Button' || investorLabel === 'Vista' || investorLabel === 'NewRez' || investorLabel === 'Verus' || investorLabel === 'SG Capital' || investorLabel === 'NQM Capital') return investorLabel;
+  return null;
+}
+
+function getQuotedInvestorContext(app: Record<string, unknown>): QuotedInvestorContext {
+  const formData = (app.form_data && typeof app.form_data === 'object') ? app.form_data as Record<string, unknown> : null;
+  const quotedInvestor = typeof formData?.quotedInvestor === 'string' ? formData.quotedInvestor : null;
+  return {
+    quotedInvestor,
+    mappedInvestor: mapQuotedInvestorLabelToRuleInvestor(quotedInvestor),
+  };
+}
+
+function evaluateQuotedInvestorProvider(
+  quotedInvestor: QuotedInvestorContext,
+  provider: VerificationAvmProvider,
+  fsd: number | null | undefined,
+) {
+  if (!quotedInvestor.mappedInvestor || typeof fsd !== 'number' || !Number.isFinite(fsd)) return null;
+  return evaluateInvestorAvmRule(quotedInvestor.mappedInvestor, provider, fsd);
 }
 
 // Step 1: Property Estimate ($0.05/call)
@@ -446,6 +479,7 @@ async function tryClearCapitalFallback({
   hcValue,
   fsd,
   triggerReason,
+  quotedInvestor,
 }: {
   supabase: any;
   applicationId: string;
@@ -461,6 +495,7 @@ async function tryClearCapitalFallback({
   hcValue: number | null;
   fsd: number | null;
   triggerReason: string;
+  quotedInvestor: QuotedInvestorContext;
 }) {
   const candidate = await runClearCapitalCandidate({
     supabase,
@@ -476,6 +511,16 @@ async function tryClearCapitalFallback({
   });
 
   if (!candidate) return null;
+
+  const ccInvestorEvaluation = evaluateQuotedInvestorProvider(
+    quotedInvestor,
+    'Clear Capital',
+    candidate.result?.forecastStdDev,
+  );
+  const ccEligibleForQuotedInvestor = candidate.eligible && (ccInvestorEvaluation?.passes ?? true);
+  if (!ccEligibleForQuotedInvestor) {
+    return null;
+  }
 
   const ccResult = candidate.result;
   const houseCanaryComparableValue = Math.round(hcValue ?? hcEstimate ?? 0);
@@ -619,7 +664,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const auth = await getApplicationBySessionToken(sessionToken, 'id, session_expires_at');
+    const auth = await getApplicationBySessionToken(sessionToken, 'id, session_expires_at, form_data');
     if ('response' in auth) return auth.response;
     const { supabase, app } = auth;
     const applicationId = typeof app?.id === 'string' ? app.id : null;
@@ -680,6 +725,8 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('verify-value request received');
+
+    const quotedInvestor = getQuotedInvestorContext(app as Record<string, unknown>);
 
     const addressKey = normalizeAddressKey(
       address,
@@ -766,6 +813,7 @@ export async function POST(req: NextRequest) {
         hcValue: null,
         fsd: null,
         triggerReason: 'housecanary_estimate_failure',
+        quotedInvestor,
       });
 
       if (ccFallback) {
@@ -828,6 +876,7 @@ export async function POST(req: NextRequest) {
         hcValue: null,
         fsd: null,
         triggerReason: 'housecanary_estimate_no_data',
+        quotedInvestor,
       });
 
       if (ccFallback) {
@@ -952,6 +1001,8 @@ export async function POST(req: NextRequest) {
     }
 
     let clearCapitalCandidate: ClearCapitalCandidate | null = null;
+    let clearCapitalInvestorEvaluation: ReturnType<typeof evaluateQuotedInvestorProvider> = null;
+    let clearCapitalEligibleForQuotedInvestor = false;
     if (shouldCascadeToClearCapital) {
       clearCapitalCandidate = await runClearCapitalCandidate({
         supabase,
@@ -966,7 +1017,14 @@ export async function POST(req: NextRequest) {
         triggerReason: 'housecanary_estimate_mid_band_skip_full_avm',
       });
 
-      if (clearCapitalCandidate?.eligible && clearCapitalCandidate.maxLoan >= newMaxLoan) {
+      clearCapitalInvestorEvaluation = evaluateQuotedInvestorProvider(
+        quotedInvestor,
+        'Clear Capital',
+        clearCapitalCandidate?.result?.forecastStdDev,
+      );
+      clearCapitalEligibleForQuotedInvestor = Boolean(clearCapitalCandidate?.eligible && (clearCapitalInvestorEvaluation?.passes ?? true));
+
+      if (clearCapitalCandidate && clearCapitalEligibleForQuotedInvestor && clearCapitalCandidate.maxLoan >= newMaxLoan) {
         const responsePayload = {
           tier: 'verified',
           hcValue: clearCapitalCandidate.value,
@@ -985,6 +1043,9 @@ export async function POST(req: NextRequest) {
           clearCapitalRunDate: clearCapitalCandidate.result?.runDate,
           clearCapitalEffectiveDate: clearCapitalCandidate.effectiveDate,
           houseCanaryEstimate: hcEstimate,
+          quotedInvestor: quotedInvestor.quotedInvestor,
+          quotedInvestorProviderEligible: clearCapitalInvestorEvaluation?.passes ?? null,
+          quotedInvestorProviderReason: clearCapitalInvestorEvaluation?.reason ?? null,
         };
         await saveCachedAvmResult(supabase, {
           address_key: addressKey,
@@ -1052,7 +1113,7 @@ export async function POST(req: NextRequest) {
         notes: valueError instanceof Error ? valueError.message : 'HouseCanary full AVM request failed',
       });
 
-      const ccFallback = clearCapitalCandidate?.eligible
+      const ccFallback = clearCapitalCandidate && clearCapitalEligibleForQuotedInvestor
         ? {
             tier: 'verified',
             hcValue: clearCapitalCandidate.value,
@@ -1087,6 +1148,7 @@ export async function POST(req: NextRequest) {
             hcValue: null,
             fsd: null,
             triggerReason: 'housecanary_full_avm_failure',
+            quotedInvestor,
           });
 
       if (ccFallback) {
@@ -1139,7 +1201,8 @@ export async function POST(req: NextRequest) {
 
     const verifiedValue = fsdData.price_mean;
     const verifiedMaxLoan = Math.max(0, (verifiedValue * maxLtv) - balance);
-    const hcVerifiedEligible = fsdData.fsd < 0.20 && verifiedMaxLoan >= 50000;
+    const hcInvestorEvaluation = evaluateQuotedInvestorProvider(quotedInvestor, 'HouseCanary', fsdData.fsd);
+    const hcVerifiedEligible = fsdData.fsd <= 0.20 && verifiedMaxLoan >= 50000 && (hcInvestorEvaluation?.passes ?? true);
 
     if (hcVerifiedEligible) {
       const bothBelowTargetAfterFullRuns = Boolean(
@@ -1150,7 +1213,7 @@ export async function POST(req: NextRequest) {
         && verifiedMaxLoan / desired < 0.25
       );
 
-      if (clearCapitalCandidate?.eligible || bothBelowTargetAfterFullRuns) {
+      if (clearCapitalEligibleForQuotedInvestor || bothBelowTargetAfterFullRuns) {
         const ccCandidate = clearCapitalCandidate!;
         const useClearCapital = ccCandidate.maxLoan > verifiedMaxLoan;
         const responsePayload = useClearCapital
@@ -1174,6 +1237,9 @@ export async function POST(req: NextRequest) {
               houseCanaryFsd: fsdData.fsd,
               houseCanaryEstimate: hcEstimate,
               houseCanaryValue: Math.round(verifiedValue),
+              quotedInvestor: quotedInvestor.quotedInvestor,
+              quotedInvestorProviderEligible: clearCapitalInvestorEvaluation?.passes ?? null,
+              quotedInvestorProviderReason: clearCapitalInvestorEvaluation?.reason ?? null,
             }
           : {
               tier: 'verified',
@@ -1193,6 +1259,9 @@ export async function POST(req: NextRequest) {
               clearCapitalForecastStdDev: ccCandidate.result?.forecastStdDev,
               clearCapitalRunDate: ccCandidate.result?.runDate,
               clearCapitalEffectiveDate: ccCandidate.effectiveDate,
+              quotedInvestor: quotedInvestor.quotedInvestor,
+              quotedInvestorProviderEligible: hcInvestorEvaluation?.passes ?? null,
+              quotedInvestorProviderReason: hcInvestorEvaluation?.reason ?? null,
             };
         await saveCachedAvmResult(supabase, {
           address_key: addressKey,
@@ -1224,6 +1293,9 @@ export async function POST(req: NextRequest) {
         desiredLoanAmount: desired,
         valuationProvider: 'housecanary',
         cascadeDecision: 'use_hc_verified',
+        quotedInvestor: quotedInvestor.quotedInvestor,
+        quotedInvestorProviderEligible: hcInvestorEvaluation?.passes ?? null,
+        quotedInvestorProviderReason: hcInvestorEvaluation?.reason ?? null,
       };
       await saveCachedAvmResult(supabase, {
         address_key: addressKey,
@@ -1243,7 +1315,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(responsePayload);
     }
 
-    const ccFallback = clearCapitalCandidate?.eligible
+    const ccFallback = clearCapitalCandidate && clearCapitalEligibleForQuotedInvestor
       ? {
           tier: 'verified',
           hcValue: clearCapitalCandidate.value,
@@ -1264,6 +1336,9 @@ export async function POST(req: NextRequest) {
           houseCanaryFsd: fsdData.fsd,
           houseCanaryEstimate: hcEstimate,
           houseCanaryValue: Math.round(verifiedValue),
+          quotedInvestor: quotedInvestor.quotedInvestor,
+          quotedInvestorProviderEligible: clearCapitalInvestorEvaluation?.passes ?? null,
+          quotedInvestorProviderReason: clearCapitalInvestorEvaluation?.reason ?? null,
         }
       : await tryClearCapitalFallback({
           supabase,
@@ -1280,6 +1355,7 @@ export async function POST(req: NextRequest) {
           hcValue: Math.round(verifiedValue),
           fsd: fsdData.fsd,
           triggerReason: `housecanary_low_confidence_fsd_${fsdData.fsd}`,
+          quotedInvestor,
         });
 
     if (ccFallback) {
@@ -1314,6 +1390,9 @@ export async function POST(req: NextRequest) {
       valuationProvider: 'housecanary',
       cascadeDecision: 'hc_low_confidence_cc_unavailable_or_failed',
       needsClearCapital: true,
+      quotedInvestor: quotedInvestor.quotedInvestor,
+      quotedInvestorProviderEligible: hcInvestorEvaluation?.passes ?? null,
+      quotedInvestorProviderReason: hcInvestorEvaluation?.reason ?? null,
     };
     await saveCachedAvmResult(supabase, {
       address_key: addressKey,

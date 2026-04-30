@@ -19,6 +19,8 @@ export type InvestorName =
   | 'DeepHaven'
   | 'Arc';
 
+export type VerificationAvmProvider = 'HouseCanary' | 'Clear Capital';
+
 export type InvestorAvmRule = {
   investor: InvestorName;
   allowsQmHpml: boolean;
@@ -30,9 +32,24 @@ export type InvestorAvmRule = {
   notes?: string;
 };
 
+export type InvestorAvmEvaluation = {
+  investor: InvestorName;
+  provider: VerificationAvmProvider;
+  actualFsd: number;
+  actualConfidence: number;
+  rule: InvestorAvmRule | null;
+  supported: boolean;
+  passes: boolean;
+  reason: string | null;
+};
+
 function toMaxFsd(minConfidenceAllowed: number | null) {
   if (minConfidenceAllowed === null) return null;
   return Number((1 - minConfidenceAllowed).toFixed(2));
+}
+
+function toActualConfidence(actualFsd: number) {
+  return Number((1 - actualFsd).toFixed(2));
 }
 
 function rule(
@@ -147,4 +164,56 @@ export function getInvestorAvmRule(investor: InvestorName, provider: AvmProvider
 
 export function getMaxFsdAllowed(investor: InvestorName, provider: AvmProviderName) {
   return getInvestorAvmRule(investor, provider)?.maxFsdAllowed ?? null;
+}
+
+export function mapVerificationProviderToRuleProvider(provider: VerificationAvmProvider): AvmProviderName {
+  return provider === 'Clear Capital' ? 'Clear Capital' : 'HouseCanary';
+}
+
+export function evaluateInvestorAvmRule(
+  investor: InvestorName,
+  provider: VerificationAvmProvider,
+  actualFsd: number,
+): InvestorAvmEvaluation {
+  const normalizedFsd = Number(actualFsd.toFixed(2));
+  const actualConfidence = toActualConfidence(normalizedFsd);
+  const ruleProvider = mapVerificationProviderToRuleProvider(provider);
+  const investorRule = getInvestorAvmRule(investor, ruleProvider);
+
+  if (!investorRule || !investorRule.supported || investorRule.maxFsdAllowed === null) {
+    return {
+      investor,
+      provider,
+      actualFsd: normalizedFsd,
+      actualConfidence,
+      rule: investorRule,
+      supported: false,
+      passes: false,
+      reason: `${investor} does not support ${provider} AVM for pricing eligibility.`,
+    };
+  }
+
+  if (normalizedFsd <= investorRule.maxFsdAllowed) {
+    return {
+      investor,
+      provider,
+      actualFsd: normalizedFsd,
+      actualConfidence,
+      rule: investorRule,
+      supported: true,
+      passes: true,
+      reason: null,
+    };
+  }
+
+  return {
+    investor,
+    provider,
+    actualFsd: normalizedFsd,
+    actualConfidence,
+    rule: investorRule,
+    supported: true,
+    passes: false,
+    reason: `${investor} requires ${provider} FSD <= ${investorRule.maxFsdAllowed.toFixed(2)} (confidence >= ${investorRule.minConfidenceAllowed?.toFixed(2)}). Actual FSD is ${normalizedFsd.toFixed(2)} (confidence ${actualConfidence.toFixed(2)}).`,
+  };
 }

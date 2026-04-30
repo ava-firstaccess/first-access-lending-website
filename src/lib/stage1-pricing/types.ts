@@ -1,3 +1,5 @@
+import type { InvestorAvmEvaluation, VerificationAvmProvider } from '@/lib/rates/investor-confidence-rules';
+
 export type PricingViewEngine = 'BestX' | 'Button' | 'Arc Home' | 'Vista' | 'OSB' | 'NewRez' | 'Verus' | 'Deephaven';
 
 export type VistaProduct = '30yr Fixed' | '20yr Fixed' | '15yr Fixed' | '10yr Fixed';
@@ -68,11 +70,13 @@ export type TesterInput = {
   bestExTermYears?: BestExTermYears;
   bestExLockPeriodDays?: BestExLockPeriodDays;
   bestExDocType?: BestExDocType;
+  verificationProvider?: VerificationAvmProvider;
+  verificationFsd?: number;
 };
 
 export type Stage1PricingEngine = 'Button' | 'Arc Home' | 'Vista' | 'OSB' | 'NewRez' | 'Verus' | 'Deephaven';
 export type Stage1AdjustmentLine = { label: string; value: number };
-export type Stage1Eligibility = { eligible: boolean; reasons: string[]; maxAvailable: number; resultingCltv: number };
+export type Stage1Eligibility = { eligible: boolean; reasons: string[]; maxAvailable: number; resultingCltv: number; avmEvaluation?: InvestorAvmEvaluation | null };
 export type Stage1ExecutionQuote = { engine: Stage1PricingEngine; program: string; product: string; maxAvailable: number; rate: number; noteRate: number; monthlyPayment: number; maxLtv: number; purchasePrice: number; basePrice: number; llpaAdjustment: number; adjustments: Stage1AdjustmentLine[] };
 export type Stage1TargetExecutionQuote = Stage1ExecutionQuote & { targetPrice: number; tolerance: number; deltaFromTarget: number; withinTolerance: boolean; withinToleranceAllowOverage: boolean };
 export type Stage1PricingEngineResult = { eligibility: Stage1Eligibility; quote: Stage1ExecutionQuote; targetQuote: Stage1TargetExecutionQuote; maxPrice: number };

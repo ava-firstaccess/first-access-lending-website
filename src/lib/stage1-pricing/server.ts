@@ -5,6 +5,7 @@ import { calculateDeephavenStage1Quote, evaluateDeephavenStage1Eligibility, solv
 import { calculateOsbStage1Quote, evaluateOsbStage1Eligibility, solveOsbStage1TargetRate } from '@/lib/rates/osb';
 import { calculateVerusStage1Quote, evaluateVerusStage1Eligibility, solveVerusStage1TargetRate } from '@/lib/rates/verus';
 import { calculateVistaStage1Quote, evaluateVistaStage1Eligibility, solveVistaStage1TargetRate } from '@/lib/rates/vista';
+import { evaluateInvestorAvmRule, type InvestorName } from '@/lib/rates/investor-confidence-rules';
 import type { BestExDocType, BestExTermYears, ButtonDocType, DeephavenDocType, InvestorPriceLadderRow, InvestorSummary, OsbLockPeriod, PricingViewEngine, SharedDocType, Stage1Eligibility, Stage1ExecutionQuote, Stage1PricingEngineResult, Stage1PricingRequest, Stage1PricingResponse, TesterInput, VerusDrawPeriodYears, VerusLockPeriodDays, VistaDocType } from './types';
 
 const BEST_EX_WINDOW_FLOOR = 0.375;
@@ -119,6 +120,71 @@ function mapBestExDocTypeToDeephaven(docType: BestExDocType): DeephavenDocType |
   return null;
 }
 
+function mapInvestorLabelToRuleInvestor(investorLabel: string): InvestorName | null {
+  if (investorLabel === 'OSB') return 'Onslow';
+  if (investorLabel === 'Arc Home') return 'Arc';
+  if (investorLabel === 'Deephaven') return 'DeepHaven';
+  if (investorLabel === 'Button' || investorLabel === 'Vista' || investorLabel === 'NewRez' || investorLabel === 'Verus') return investorLabel;
+  return null;
+}
+
+function applyAvmOverlay(eligibility: Stage1Eligibility, investorLabel: string, input: TesterInput): Stage1Eligibility {
+  const verificationProvider = input.verificationProvider;
+  const verificationFsd = Number(input.verificationFsd);
+  if (!verificationProvider || !Number.isFinite(verificationFsd)) {
+    return { ...eligibility, avmEvaluation: null };
+  }
+
+  const investor = mapInvestorLabelToRuleInvestor(investorLabel);
+  if (!investor) {
+    return { ...eligibility, avmEvaluation: null };
+  }
+
+  const avmEvaluation = evaluateInvestorAvmRule(investor, verificationProvider, verificationFsd);
+  if (avmEvaluation.passes) {
+    return { ...eligibility, avmEvaluation };
+  }
+
+  const existingReasons = eligibility.reasons.includes(avmEvaluation.reason || '')
+    ? eligibility.reasons
+    : [...eligibility.reasons, avmEvaluation.reason || 'AVM confidence rule failed.'];
+
+  return {
+    ...eligibility,
+    eligible: false,
+    reasons: existingReasons,
+    avmEvaluation,
+  };
+}
+
+function sortResults(results: InvestorSummary[], effectiveManualRateOverride: number | undefined) {
+  results.sort((a, b) => {
+    const eligibilityOrder = (a.eligibility.eligible === b.eligibility.eligible ? 0 : a.eligibility.eligible ? -1 : 1);
+    if (eligibilityOrder !== 0) return eligibilityOrder;
+
+    if (effectiveManualRateOverride !== undefined && a.eligibility.eligible && b.eligibility.eligible) {
+      return b.buyPrice - a.buyPrice || b.quote.purchasePrice - a.quote.purchasePrice || a.investor.localeCompare(b.investor);
+    }
+
+    const windowOrder = (a.windowMatched === b.windowMatched ? 0 : a.windowMatched ? -1 : 1);
+    if (windowOrder !== 0) return windowOrder;
+
+    if (a.windowMatched && b.windowMatched) {
+      return a.quote.rate - b.quote.rate
+        || a.discountPoints - b.discountPoints
+        || a.investor.localeCompare(b.investor);
+    }
+
+    if (a.eligibility.eligible && b.eligibility.eligible) {
+      return a.quote.rate - b.quote.rate
+        || a.discountPoints - b.discountPoints
+        || a.investor.localeCompare(b.investor);
+    }
+
+    return a.investor.localeCompare(b.investor);
+  });
+}
+
 function getActiveResult(engine: PricingViewEngine, input: TesterInput, effectiveTargetPrice: number, effectiveManualRateOverride: number | undefined, tolerance: number, hasTargetPriceOverride: boolean): Stage1PricingEngineResult | null {
   if (engine === 'BestX') return null;
   if (engine === 'Button') {
@@ -150,7 +216,13 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
     ? roundToThree(defaultBackendTargetPrice + (100 - displayTargetPrice))
     : defaultBackendTargetPrice;
   const effectiveManualRateOverride = request.manualRateOverride?.trim() ? (Number.isFinite(Number(request.manualRateOverride)) ? Number(request.manualRateOverride) : undefined) : undefined;
-  const activeResult = getActiveResult(engine, input, effectiveTargetPrice, effectiveManualRateOverride, tolerance, hasTargetPriceOverride);
+  const rawActiveResult = getActiveResult(engine, input, effectiveTargetPrice, effectiveManualRateOverride, tolerance, hasTargetPriceOverride);
+  const activeResult = rawActiveResult
+    ? {
+        ...rawActiveResult,
+        eligibility: applyAvmOverlay(rawActiveResult.eligibility, rawActiveResult.quote.engine, input),
+      }
+    : null;
 
   const selectedLoanAmount = Number(input.desiredLoanAmount || 0);
   const bestExProduct = input.bestExProduct ?? 'HELOC';
@@ -159,8 +231,8 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
   const bestExLockPeriodDays = input.bestExLockPeriodDays ?? 30;
   const bestExDocType = input.bestExDocType ?? 'Full Doc';
   const actualLockPeriodDays = bestExLockPeriodDays + 30;
-  const makeSummary = (eligibility: Stage1Eligibility, quote: Stage1ExecutionQuote, maxPrice: number, requestedRates: number[], getQuoteForRate: (rateOverride?: number) => Stage1ExecutionQuote): InvestorSummary => { const selectionTarget = getBestXSelectionTarget(effectiveTargetPrice, maxPrice, hasTargetPriceOverride); const bestExWindowLowerBound = roundToThree(selectionTarget - BEST_EX_WINDOW_FLOOR); const bestExWindowUpperBound = roundToThree(selectionTarget + BEST_EX_WINDOW_CEILING); const rawDiscountPoints = effectiveTargetPrice - quote.purchasePrice; const discountPoints = roundBorrowerPoints(rawDiscountPoints); const buyPrice = 0; const deltaFromTarget = roundToThree(quote.purchasePrice - effectiveTargetPrice); const respectsMaxPrice = maxPrice <= 0 || quote.purchasePrice <= maxPrice + 0.0001; const windowMatched = eligibility.eligible && respectsMaxPrice && quote.purchasePrice >= bestExWindowLowerBound && quote.purchasePrice <= bestExWindowUpperBound; return { investor: quote.engine, eligibility, quote, discountPoints, buyPrice, windowMatched, deltaFromTarget, targetPrice: displayTargetPrice, maxPrice, priceLadder: buildTargetPriceLadder(requestedRates, getQuoteForRate, quote, effectiveTargetPrice, displayTargetPrice, maxPrice) }; };
-  const makeIneligible = (investor: Stage1ExecutionQuote['engine'], program: string, product: string, reason: string, maxPrice = 0): InvestorSummary => ({ investor, eligibility: { eligible: false, reasons: [reason], maxAvailable: 0, resultingCltv: 0 }, quote: { engine: investor, program, product, maxAvailable: 0, rate: 0, noteRate: 0, monthlyPayment: 0, maxLtv: 0, purchasePrice: 0, basePrice: 0, llpaAdjustment: 0, adjustments: [] }, discountPoints: 0, buyPrice: 0, windowMatched: false, deltaFromTarget: 0, targetPrice: defaultBackendTargetPrice, maxPrice, priceLadder: [] });
+  const makeSummary = (eligibility: Stage1Eligibility, quote: Stage1ExecutionQuote, maxPrice: number, requestedRates: number[], getQuoteForRate: (rateOverride?: number) => Stage1ExecutionQuote): InvestorSummary => { const overlaidEligibility = applyAvmOverlay(eligibility, quote.engine, input); const selectionTarget = getBestXSelectionTarget(effectiveTargetPrice, maxPrice, hasTargetPriceOverride); const bestExWindowLowerBound = roundToThree(selectionTarget - BEST_EX_WINDOW_FLOOR); const bestExWindowUpperBound = roundToThree(selectionTarget + BEST_EX_WINDOW_CEILING); const rawDiscountPoints = effectiveTargetPrice - quote.purchasePrice; const discountPoints = roundBorrowerPoints(rawDiscountPoints); const buyPrice = 0; const deltaFromTarget = roundToThree(quote.purchasePrice - effectiveTargetPrice); const respectsMaxPrice = maxPrice <= 0 || quote.purchasePrice <= maxPrice + 0.0001; const windowMatched = overlaidEligibility.eligible && respectsMaxPrice && quote.purchasePrice >= bestExWindowLowerBound && quote.purchasePrice <= bestExWindowUpperBound; return { investor: quote.engine, eligibility: overlaidEligibility, quote, discountPoints, buyPrice, windowMatched, deltaFromTarget, targetPrice: displayTargetPrice, maxPrice, priceLadder: buildTargetPriceLadder(requestedRates, getQuoteForRate, quote, effectiveTargetPrice, displayTargetPrice, maxPrice) }; };
+  const makeIneligible = (investor: Stage1ExecutionQuote['engine'], program: string, product: string, reason: string, maxPrice = 0): InvestorSummary => ({ investor, eligibility: applyAvmOverlay({ eligible: false, reasons: [reason], maxAvailable: 0, resultingCltv: 0, avmEvaluation: null }, investor, input), quote: { engine: investor, program, product, maxAvailable: 0, rate: 0, noteRate: 0, monthlyPayment: 0, maxLtv: 0, purchasePrice: 0, basePrice: 0, llpaAdjustment: 0, adjustments: [] }, discountPoints: 0, buyPrice: 0, windowMatched: false, deltaFromTarget: 0, targetPrice: defaultBackendTargetPrice, maxPrice, priceLadder: [] });
   const chooseBestXSummary = (eligibility: Stage1Eligibility, fallbackQuote: Stage1ExecutionQuote, requestedRates: number[], getQuote: (rateOverride?: number) => Stage1ExecutionQuote, maxPrice: number): InvestorSummary => {
     if (!eligibility.eligible) return makeSummary(eligibility, fallbackQuote, maxPrice, requestedRates, getQuote);
     const respectsMax = (summary: InvestorSummary) => summary.maxPrice <= 0 || summary.quote.purchasePrice <= summary.maxPrice + 0.0001;
@@ -246,30 +318,6 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
     else { const deephavenLockPeriodDays = (actualLockPeriodDays === 45 ? 15 : 30) as 15 | 30; const deephavenInput = { ...input, deephavenProduct, deephavenDocType, deephavenLockPeriodDays }; const eligibility = evaluateDeephavenStage1Eligibility(deephavenInput, selectedLoanAmount); const baseQuote = calculateDeephavenStage1Quote(deephavenInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); const maxPrice = solveDeephavenStage1TargetRate(deephavenInput, { targetPrice: 999, tolerance, selectedLoanAmount }).purchasePrice; results.push(chooseBestXSummary(eligibility, toQuote('Deephaven', baseQuote), standardRequestedRates, rateOverride => toQuote('Deephaven', calculateDeephavenStage1Quote(deephavenInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })), maxPrice)); }
   }
 
-  results.sort((a, b) => {
-    const eligibilityOrder = (a.eligibility.eligible === b.eligibility.eligible ? 0 : a.eligibility.eligible ? -1 : 1);
-    if (eligibilityOrder !== 0) return eligibilityOrder;
-
-    if (effectiveManualRateOverride !== undefined && a.eligibility.eligible && b.eligibility.eligible) {
-      return b.buyPrice - a.buyPrice || b.quote.purchasePrice - a.quote.purchasePrice || a.investor.localeCompare(b.investor);
-    }
-
-    const windowOrder = (a.windowMatched === b.windowMatched ? 0 : a.windowMatched ? -1 : 1);
-    if (windowOrder !== 0) return windowOrder;
-
-    if (a.windowMatched && b.windowMatched) {
-      return a.quote.rate - b.quote.rate
-        || a.discountPoints - b.discountPoints
-        || a.investor.localeCompare(b.investor);
-    }
-
-    if (a.eligibility.eligible && b.eligibility.eligible) {
-      return a.quote.rate - b.quote.rate
-        || a.discountPoints - b.discountPoints
-        || a.investor.localeCompare(b.investor);
-    }
-
-    return a.investor.localeCompare(b.investor);
-  });
+  sortResults(results, effectiveManualRateOverride);
   return { defaultBackendTargetPrice, effectiveTargetPrice, activeResult, results };
 }
