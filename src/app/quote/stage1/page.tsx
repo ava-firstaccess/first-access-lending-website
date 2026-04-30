@@ -504,6 +504,17 @@ export default function Stage1() {
       case 'creditScore': {
         const scoreValue = data.creditScore ?? 720;
         const scoreDisplay = data._creditScoreInput !== undefined ? data._creditScoreInput : String(scoreValue);
+        const sliderScore = (() => {
+          const parsed = parseInt(scoreDisplay, 10);
+          return !isNaN(parsed) && parsed >= 580 && parsed <= 850 ? parsed : scoreValue;
+        })();
+        const commitSliderScore = (rawValue: string) => {
+          const v = parseInt(rawValue, 10);
+          if (!isNaN(v) && v >= 580 && v <= 850) {
+            updateData('creditScore', v);
+            updateData('_creditScoreInput', String(v));
+          }
+        };
         return (
           <QuestionCard
             title="Your credit score?"
@@ -520,12 +531,13 @@ export default function Stage1() {
                 min="580"
                 max="850"
                 step="5"
-                value={scoreValue}
+                value={sliderScore}
                 onChange={(e) => {
-                  const v = parseInt(e.target.value);
-                  updateData('creditScore', v);
-                  updateData('_creditScoreInput', String(v));
+                  updateData('_creditScoreInput', e.target.value);
                 }}
+                onMouseUp={(e) => commitSliderScore((e.target as HTMLInputElement).value)}
+                onTouchEnd={(e) => commitSliderScore((e.target as HTMLInputElement).value)}
+                onKeyUp={(e) => commitSliderScore((e.target as HTMLInputElement).value)}
                 className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               />
               <div className="text-center">
