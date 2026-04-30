@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { identifier } = await req.json();
-    const user = findLoanOfficerPortalUser(String(identifier || ''));
+    const user = await findLoanOfficerPortalUser(String(identifier || ''));
     if (!user) {
       return NextResponse.json({ error: 'Unknown loan officer login.' }, { status: 404 });
     }

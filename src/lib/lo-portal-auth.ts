@@ -1,10 +1,12 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '@/lib/supabase';
 
 export const LO_PORTAL_SESSION_COOKIE = 'lo_portal_session';
 const DEFAULT_SESSION_TTL_MINUTES = 12 * 60;
 const DEFAULT_EMAIL_DOMAIN = 'firstaccesslending.com';
+const LO_PORTAL_USERS_TABLE = 'loan_officer_portal_users';
 
 export type LoanOfficerPortalUser = {
   prefix: string;
@@ -69,46 +71,39 @@ export function getRequestHost(req: NextRequest) {
   return (req.headers.get('x-forwarded-host') || req.headers.get('host') || '').split(':')[0].toLowerCase();
 }
 
-function getUsersJson() {
-  return process.env.LO_PORTAL_USERS_JSON || process.env.LO_PORTAL_USERS || '[]';
-}
-
-export function getLoanOfficerPortalUsers(): LoanOfficerPortalUser[] {
-  const raw = getUsersJson();
+function normalizeLoanOfficerPortalUser(record: Record<string, unknown>): LoanOfficerPortalUser | null {
   const emailDomain = String(process.env.LO_PORTAL_EMAIL_DOMAIN || DEFAULT_EMAIL_DOMAIN).trim().toLowerCase();
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error('LO_PORTAL_USERS_JSON must be valid JSON.');
-  }
-
-  const entries = Array.isArray(parsed)
-    ? parsed
-    : parsed && typeof parsed === 'object'
-      ? Object.entries(parsed as Record<string, unknown>).map(([prefix, value]) => ({ prefix, ...(typeof value === 'object' && value ? value as Record<string, unknown> : {}) }))
-      : [];
-
-  const users: LoanOfficerPortalUser[] = [];
-
-  for (const entry of entries) {
-    const record = entry as Record<string, unknown>;
-    const prefix = normalizePrefix(String(record.prefix || record.username || record.emailPrefix || ''));
-    const email = String(record.email || (prefix ? `${prefix}@${emailDomain}` : '')).trim().toLowerCase();
-    const phone = String(record.phone || '').trim();
-    const name = typeof record.name === 'string' ? record.name.trim() : undefined;
-    if (!prefix || !email || !phone) continue;
-    users.push({ prefix, email, phone, name });
-  }
-
-  return users;
+  const prefix = normalizePrefix(String(record.prefix || record.username || record.emailPrefix || ''));
+  const email = String(record.email || (prefix ? `${prefix}@${emailDomain}` : '')).trim().toLowerCase();
+  const phone = String(record.phone || '').trim();
+  const name = typeof record.name === 'string' ? record.name.trim() : undefined;
+  if (!prefix || !email || !phone) return null;
+  return { prefix, email, phone, name };
 }
 
-export function findLoanOfficerPortalUser(identifier: string) {
+export async function findLoanOfficerPortalUser(identifier: string): Promise<LoanOfficerPortalUser | null> {
   const normalized = String(identifier || '').trim().toLowerCase();
   const prefix = normalizePrefix(normalized.includes('@') ? normalized.split('@')[0] : normalized);
-  const users = getLoanOfficerPortalUsers();
-  return users.find((user) => user.prefix === prefix || user.email === normalized) || null;
+  if (!prefix && !normalized) return null;
+
+  const supabase = getSupabaseAdmin();
+  const query = supabase
+    .from(LO_PORTAL_USERS_TABLE)
+    .select('prefix, email, phone, name')
+    .eq('active', true)
+    .limit(1);
+
+  const { data, error } = normalized.includes('@')
+    ? await query.eq('email', normalized).maybeSingle()
+    : await query.eq('prefix', prefix).maybeSingle();
+
+  if (error) {
+    console.error('LO portal user lookup error:', error);
+    return null;
+  }
+
+  if (!data) return null;
+  return normalizeLoanOfficerPortalUser(data as Record<string, unknown>);
 }
 
 export function createLoanOfficerPortalSession(user: LoanOfficerPortalUser): string {

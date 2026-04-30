@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { identifier, code } = await req.json();
-    const user = findLoanOfficerPortalUser(String(identifier || ''));
+    const user = await findLoanOfficerPortalUser(String(identifier || ''));
     if (!user || !code) {
       return NextResponse.json({ error: 'Login and code required.' }, { status: 400 });
     }
