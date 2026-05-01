@@ -187,23 +187,35 @@ What this means:
 - NewRez pricing data is largely workbook-backed
 - some business restrictions and fallbacks still live in code on purpose
 
-## 8. OSB has code-side rate-display and payment logic
+## 8. OSB, completed in this pass
 
-File:
+Files:
 - `src/lib/rates/osb.ts`
 
-What is hardcoded:
+What moved off hardcode:
+- product key lookup now resolves from workbook-backed JSON product metadata instead of a code-side switch
+- lock-period label lookup now resolves from workbook-backed JSON lock-adjustment labels instead of a fixed string builder
+- HELOC draw-term label lookup now resolves from workbook-backed JSON draw-term labels instead of a fixed code-side mapping
+- loan-amount bucket matching now resolves from workbook-backed JSON loan-amount row labels instead of fixed code-side amount ladders
+- DTI bucket matching now resolves from workbook-backed JSON DTI row labels instead of fixed code-side DTI label selection
+- monthly payment math now uses shared helpers for HELOC interest-only and fixed-term amortizing payments
+- max-available math now uses the shared helper instead of OSB-local formula code
+- fixed-term years now derive from the product label instead of a hardcoded fixed-product year switch
+
+What is still hardcoded:
 - HELOC displayed rate = Prime + workbook margin logic
 - reverse conversion from displayed rate back to workbook margin
-- payment formulas
-  - HELOC interest-only approximation
-  - CES amortization by term
 - target-price clamping behavior using workbook constraints
-- helper logic to interpret credit-score labels / CLTV labels / documentation adjustments
+- tier-1 state allowlist (`NV`, `LA`, `FL`, `GA`, `SC`, `CO`, `AZ`, `NC`)
+- occupancy normalization and mapping to workbook loan-type rows
+- property-type normalization and mapping to workbook property rows
+- alt-doc rejection behavior (`OSB does not support alt-doc pricing`)
+- credit-score label parsing and CLTV label parsing helpers
+- OSB-specific quote-picking and eligibility orchestration
 
 What this means:
-- OSB workbook data is used heavily
-- but rate presentation logic and loan math are still code-side
+- OSB is now less dependent on code-side label ladders for loan amount, DTI, draw term, lock labels, and product keys
+- the remaining hardcoded pieces are mostly rate presentation, normalization, state policy, and engine behavior
 
 ## 9. Deephaven has code-side support and lock logic
 

@@ -1,6 +1,11 @@
 import ratesheet from './osb-ratesheet.json';
 import { getTargetPurchasePriceForLoanAmount, type ButtonStage1Input } from './button';
 import type { SharedDocType } from '@/lib/stage1-pricing/types';
+import {
+  calculateAmortizingMonthlyPayment,
+  calculateInterestOnlyMonthlyPayment,
+  calculateMaxAvailableFromMaxLtv,
+} from './shared';
 
 export type OsbProgram = '2nd Liens' | 'HELOC';
 export type OsbSecondLienProduct = 'Fixed 10' | 'Fixed 15' | 'Fixed 20' | 'Fixed 30';
@@ -363,7 +368,7 @@ function buildCltvAdjustment(program: JsonProgram, creditScore: number, cltv: nu
 }
 
 function calculateMaxAvailable(input: OsbPricingInput): number {
-  return Math.max(0, input.propertyValue * calculateMaxLtv(input) - input.loanBalance);
+  return calculateMaxAvailableFromMaxLtv(input.propertyValue, input.loanBalance, calculateMaxLtv(input));
 }
 
 function calculateMaxLtv(input: OsbPricingInput): number {
@@ -436,11 +441,8 @@ function toWorkbookRate(input: OsbPricingInput, displayedRate: number): number {
 
 function calculateMonthlyPayment(input: OsbPricingInput, loanAmount: number, noteRate: number): number {
   if (loanAmount <= 0) return 0;
-  const monthlyRate = noteRate / 100 / 12;
-  if (input.program === 'HELOC') return Math.round(loanAmount * monthlyRate);
-  const years = input.product === 'Fixed 10' ? 10 : input.product === 'Fixed 15' ? 15 : input.product === 'Fixed 20' ? 20 : 30;
-  const payments = years * 12;
-  return Math.round(loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, payments)) / (Math.pow(1 + monthlyRate, payments) - 1));
+  if (input.program === 'HELOC') return Math.round(calculateInterestOnlyMonthlyPayment(loanAmount, noteRate));
+  return Math.round(calculateAmortizingMonthlyPayment(loanAmount, noteRate, getFixedTermYears(input.product)));
 }
 
 function clampTargetPrice(program: JsonProgram, product: OsbProduct, targetPrice: number): number {
@@ -492,22 +494,13 @@ function adjustmentBucketValue(row: JsonBucketRow, bucketIndex: number): number 
 }
 
 function loanAmountLabel(program: OsbProgram, amount: number): string {
-  if (program === 'HELOC') {
-    if (amount <= 50000) return '$20,000 - $50,000';
-    if (amount <= 100000) return '$50,001 - $100,000';
-    if (amount <= 200000) return '$100,001 - $200,000';
-    if (amount <= 300000) return '$200,001 - $300,000';
-    return '>$300,000';
-  }
-  if (amount <= 100000) return '$50,000 - $100,000 (UPB)';
-  if (amount <= 150000) return '$100,001 - $150,000 (UPB)';
-  if (amount <= 250000) return '$150,001 - $250,000 (UPB)';
-  if (amount <= 350000) return '$250,001 - $350,000 (UPB)';
-  return '$350,001 - $500,000 (UPB)';
+  const labels = getProgramData(program).adjustments.loanAmount.map(row => String(row.label ?? ''));
+  return labels.find(label => amountMatchesLabel(amount, label)) ?? labels.at(-1) ?? '';
 }
 
 function drawTermLabel(years: 3 | 5 | 10): string {
-  return years === 10 ? '10 Year Draw' : years === 5 ? '5 Year Draw' : '3 Year Draw';
+  const labels = PROGRAMS.heloc.adjustments.drawTerm.map(row => String(row.label ?? ''));
+  return labels.find(label => label.includes(String(years))) ?? `${years} Year Draw`;
 }
 
 function occupancyLoanTypeLabel(input: OsbPricingInput): string {
@@ -518,10 +511,9 @@ function occupancyLoanTypeLabel(input: OsbPricingInput): string {
 
 function dtiLoanTypeLabel(input: OsbPricingInput): string {
   const dti = input.dti ?? 0;
-  if (input.program === 'HELOC') return dti > 43 ? 'DTI > 43%' : '';
-  if (dti <= 35) return '<=35.0% DTI';
-  if (dti <= 45) return '35.01 - 45.0% DTI';
-  return '45.01 - 50.0% DTI';
+  const labels = getProgramData(input.program).adjustments.loanType.map(row => String(row.label ?? ''));
+  if (input.program === 'HELOC') return labels.find(label => label.includes('DTI') && valueMatchesLabel(dti, label)) ?? '';
+  return labels.find(label => label.includes('DTI') && valueMatchesLabel(dti, label)) ?? '';
 }
 
 function isOsbDtiSupported(input: OsbPricingInput): boolean {
@@ -535,18 +527,15 @@ function propertyLabel(input: OsbPricingInput): string {
 }
 
 function productKey(product: OsbProduct): string {
-  switch (product) {
-    case 'Fixed 10': return 'fixed10';
-    case 'Fixed 15': return 'fixed15';
-    case 'Fixed 20': return 'fixed20';
-    case 'Fixed 30': return 'fixed30';
-    case '20 Year Maturity': return 'heloc20';
-    default: return 'heloc30';
-  }
+  return PROGRAMS.secondLiens.pricing.products.find(item => item.label === product)?.key
+    ?? PROGRAMS.heloc.pricing.products.find(item => item.label === product)?.key
+    ?? '';
 }
 
 function lockPeriodLabel(days: OsbLockPeriod): string {
-  return `${days} day`;
+  const label = PROGRAMS.secondLiens.lockAdjustments.find(item => String(item.label).includes(String(days)))?.label
+    ?? PROGRAMS.heloc.lockAdjustments.find(item => String(item.label).includes(String(days)))?.label;
+  return label ?? `${days} day`;
 }
 
 function normalizeProgram(program?: OsbProgram, product?: string): OsbProgram {
@@ -588,6 +577,33 @@ function matchesCreditScoreLabel(label: string, creditScore: number): boolean {
 function upperBoundForCltvLabel(label: string): number {
   const right = label.split('-')[1] ?? label;
   return Number(String(right).replace('%', '').trim());
+}
+
+function amountMatchesLabel(amount: number, label: string): boolean {
+  const text = label.replace(/,/g, '').trim();
+  const gtMatch = text.match(/^>\$?(\d+(?:\.\d+)?)/);
+  if (gtMatch) return amount > Number(gtMatch[1]);
+  const rangeMatch = text.match(/^\$?(\d+(?:\.\d+)?)\s*-\s*\$?(\d+(?:\.\d+)?)/);
+  if (rangeMatch) return amount >= Number(rangeMatch[1]) && amount <= Number(rangeMatch[2]);
+  return false;
+}
+
+function valueMatchesLabel(value: number, label: string): boolean {
+  const text = label.replace(/%/g, '').trim();
+  const lteMatch = text.match(/^<=\s*(\d+(?:\.\d+)?)/);
+  if (lteMatch) return value <= Number(lteMatch[1]);
+  const gteMatch = text.match(/^>=\s*(\d+(?:\.\d+)?)/);
+  if (gteMatch) return value >= Number(gteMatch[1]);
+  const gtMatch = text.match(/^>\s*(\d+(?:\.\d+)?)/);
+  if (gtMatch) return value > Number(gtMatch[1]);
+  const rangeMatch = text.match(/(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)/);
+  if (rangeMatch) return value > Number(rangeMatch[1]) && value <= Number(rangeMatch[2]);
+  return false;
+}
+
+function getFixedTermYears(product: OsbProduct): number {
+  const match = String(product).match(/(\d+)/);
+  return match ? Number(match[1]) : 30;
 }
 
 function roundToThree(value: number): number {
