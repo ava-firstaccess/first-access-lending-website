@@ -26,6 +26,18 @@ def matrix(ws, row_start: int, row_end: int, col_start: int = 7, col_end: int = 
     ]
 
 
+def extract_labeled_matrix(ws, row_start: int, row_end: int, label_col: int = 6, value_col_start: int = 7, value_col_end: int = 13):
+    rows = []
+    values = []
+    for r in range(row_start, row_end + 1):
+        label = ws.cell(r, label_col).value
+        if label is None:
+            continue
+        rows.append(label)
+        values.append([ws.cell(r, c).value for c in range(value_col_start, value_col_end + 1)])
+    return rows, values
+
+
 def main() -> None:
     wb = load_workbook(WORKBOOK, data_only=False)
     ws = wb['Fully Delegated']
@@ -49,6 +61,13 @@ def main() -> None:
             },
         })
 
+    full_doc_fico_rows, full_doc_fico_values = extract_labeled_matrix(ws, 13, 21)
+    alt_doc_fico_rows, alt_doc_fico_values = extract_labeled_matrix(ws, 26, 34)
+    dti_rows, dti_values = extract_labeled_matrix(ws, 38, 40)
+    balance_rows, balance_values = extract_labeled_matrix(ws, 52, 58)
+    occupancy_rows, occupancy_values = extract_labeled_matrix(ws, 61, 63)
+    bank_statement_rows, bank_statement_values = extract_labeled_matrix(ws, 64, 65)
+
     data = {
         'sourceWorkbook': str(WORKBOOK),
         'sheet': 'Fully Delegated',
@@ -62,21 +81,23 @@ def main() -> None:
         'noteRates': note_rates,
         'tables': {
             'cltv': {
-                'rows': [ws.cell(r, 6).value for r in range(13, 22)],
-                'columns': [ws.cell(12, c).value for c in range(7, 14)],
+                'fullDocRows': full_doc_fico_rows,
+                'altDocRows': alt_doc_fico_rows,
+                'fullDocColumns': [ws.cell(12, c).value for c in range(7, 14)],
+                'altDocColumns': [ws.cell(25, c).value for c in range(7, 14)],
                 'fullDoc': matrix(ws, 13, 21),
                 'altDoc': matrix(ws, 26, 34),
             },
             'fico': {
                 'fullDoc': {
-                    'rows': [ws.cell(r, 6).value for r in range(13, 22)],
-                    'columns': [ws.cell(22, c).value for c in range(7, 14)],
-                    'values': matrix(ws, 13, 21),
+                    'rows': full_doc_fico_rows,
+                    'columns': [ws.cell(12, c).value for c in range(7, 14)],
+                    'values': full_doc_fico_values,
                 },
                 'altDoc': {
-                    'rows': [ws.cell(r, 6).value for r in range(26, 35)],
+                    'rows': alt_doc_fico_rows,
                     'columns': [ws.cell(25, c).value for c in range(7, 14)],
-                    'values': matrix(ws, 26, 34),
+                    'values': alt_doc_fico_values,
                 },
             },
             'cashOut': {
@@ -85,9 +106,9 @@ def main() -> None:
                 'values': matrix(ws, 37, 39),
             },
             'dti': {
-                'rows': [ws.cell(r, 6).value for r in range(38, 41)],
+                'rows': dti_rows,
                 'columns': [ws.cell(12, c).value for c in range(7, 14)],
-                'values': matrix(ws, 38, 40),
+                'values': dti_values,
             },
             'draw': {
                 'heloc': {
@@ -107,9 +128,9 @@ def main() -> None:
                 'values': matrix(ws, 48, 51),
             },
             'balance': {
-                'rows': [ws.cell(r, 6).value for r in range(52, 59)],
+                'rows': balance_rows,
                 'columns': [ws.cell(51, c).value for c in range(7, 14)],
-                'values': matrix(ws, 52, 58),
+                'values': balance_values,
             },
             'borrowerCount': {
                 'rows': [ws.cell(r, 1).value for r in range(59, 61)],
@@ -122,19 +143,19 @@ def main() -> None:
                 'values': matrix(ws, 59, 60),
             },
             'occupancy': {
-                'rows': [ws.cell(r, 6).value for r in range(61, 64)],
+                'rows': occupancy_rows,
                 'columns': [ws.cell(60, c).value for c in range(7, 14)],
-                'values': matrix(ws, 61, 63),
+                'values': occupancy_values,
             },
             'unitCount': {
-                'rows': [ws.cell(r, 6).value for r in range(61, 64)],
+                'rows': occupancy_rows,
                 'columns': [ws.cell(60, c).value for c in range(7, 14)],
-                'values': matrix(ws, 61, 63),
+                'values': occupancy_values,
             },
             'bankStatements': {
-                'rows': [ws.cell(r, 1).value for r in range(64, 66)],
-                'columns': [ws.cell(63, c).value for c in range(2, 4)],
-                'values': [[ws.cell(r, c).value for c in range(2, 4)] for r in range(64, 66)],
+                'rows': bank_statement_rows,
+                'columns': [ws.cell(12, c).value for c in range(7, 14)],
+                'values': bank_statement_values,
             },
         },
     }

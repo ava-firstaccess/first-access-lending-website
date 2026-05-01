@@ -40,3 +40,19 @@ export type Stage1PricingEngineResult = {
   quote: Stage1ExecutionQuote;
   targetQuote: Stage1TargetExecutionQuote;
 };
+
+export function calculateMaxAvailableFromMaxLtv(propertyValue: number, loanBalance: number, maxLtv: number): number {
+  return Math.max(0, propertyValue * maxLtv - loanBalance);
+}
+
+export function calculateInterestOnlyMonthlyPayment(loanAmount: number, annualRatePct: number): number {
+  if (loanAmount <= 0) return 0;
+  return loanAmount * (annualRatePct / 100 / 12);
+}
+
+export function calculateAmortizingMonthlyPayment(loanAmount: number, annualRatePct: number, termYears: number): number {
+  if (loanAmount <= 0) return 0;
+  const monthlyRate = annualRatePct / 100 / 12;
+  const periods = termYears * 12;
+  return loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, periods)) / (Math.pow(1 + monthlyRate, periods) - 1);
+}

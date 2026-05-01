@@ -29,9 +29,16 @@ def main() -> None:
     expect(data['noteRates'][0]['prices']['fullDoc']['HELOC'] == 108.375, 'first HELOC price mismatch')
     expect(data['noteRates'][0]['prices']['fullDoc']['CES'] == 108.75, 'first CES price mismatch')
 
-    cltv_rows = data['tables']['cltv']['rows']
-    expect(len(cltv_rows) == 9, f'expected 9 cltv rows, got {len(cltv_rows)}')
-    expect(cltv_rows[0] == 'FICO 620 - 639', 'unexpected first CLTV row label')
+    full_doc_cltv_rows = data['tables']['cltv']['fullDocRows']
+    alt_doc_cltv_rows = data['tables']['cltv']['altDocRows']
+    expect(len(full_doc_cltv_rows) == 9, f'expected 9 full-doc cltv rows, got {len(full_doc_cltv_rows)}')
+    expect(full_doc_cltv_rows[0] == 'FICO 620 - 639', 'unexpected first full-doc CLTV row label')
+    expect(alt_doc_cltv_rows[0] == 'FICO 620 - 639', 'unexpected first alt-doc CLTV row label')
+
+    full_doc_cltv_columns = data['tables']['cltv']['fullDocColumns']
+    alt_doc_cltv_columns = data['tables']['cltv']['altDocColumns']
+    expect(full_doc_cltv_columns[0] == '<= 60%', f'unexpected first full-doc CLTV column: {full_doc_cltv_columns[0]}')
+    expect(alt_doc_cltv_columns[0] == '<= 60%', f'unexpected first alt-doc CLTV column: {alt_doc_cltv_columns[0]}')
 
     dti_rows = data['tables']['dti']['rows']
     expect(len(dti_rows) == 3, f'expected 3 dti rows, got {len(dti_rows)}')
@@ -46,6 +53,10 @@ def main() -> None:
     balance_rows = data['tables']['balance']['rows']
     expect(balance_rows[3] == 'HELOAN 500k < Balance <= 750k', f'unexpected balance row 4: {balance_rows[3]}')
     expect(balance_rows[6] == 'HELOC 750k < Balance <= 1mm', f'unexpected balance row 7: {balance_rows[6]}')
+
+    bank_statement_rows = data['tables']['bankStatements']['rows']
+    expect(bank_statement_rows == ['Bank Statement (12 month)'], f'unexpected bank statement rows: {bank_statement_rows}')
+    expect(data['tables']['bankStatements']['values'][0][0] == -0.5, '12 month bank statement first CLTV hit mismatch')
 
     # Workbook spot checks so we know the source workbook stayed in sync with the generated snapshot.
     expect(ws['A13'].value == 12, 'workbook note-rate top row mismatch')
