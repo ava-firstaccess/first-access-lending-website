@@ -221,11 +221,31 @@ function parseVerusPricing(rows, startRow, endRow, rateCol, firstPriceCol, produ
   return out;
 }
 
+function parseVerusMatrix(rows, rowStart, rowEnd, labelCol, valueStartCol, valueEndCol) {
+  const parsed = parseMatrixRows(rows, rowStart, rowEnd, labelCol, valueStartCol, valueEndCol);
+  return {
+    rows: parsed.map(row => row.label),
+    columns: Array.from({ length: valueEndCol - valueStartCol + 1 }, (_, index) => String(cell(rows, rowStart - 1, valueStartCol + index) ?? '')),
+    values: parsed.map(row => row.values.map(value => value ?? 'NA')),
+  };
+}
+
+function parseVerusLockAdjustments(rows, rowStart, rowEnd, labelCol, valueCol) {
+  const out = {};
+  for (let row = rowStart; row <= rowEnd; row += 1) {
+    const label = String(cell(rows, row, labelCol) ?? '').trim();
+    const match = label.match(/(\d+)/);
+    if (!match) continue;
+    out[match[1]] = price(rawCell(rows, row, valueCol)) ?? 0;
+  }
+  return out;
+}
+
 function generateVerus() {
   const workbookPath = path.join(SOURCE_ROOT, 'getaccess', 'ratesheets', 'latest_verus.xlsx');
   const workbook = XLSX.readFile(workbookPath, { raw: true, cellDates: true });
-  const cesRows = XLSX.utils.sheet_to_json(workbook.Sheets.CES, { header: 1, raw: true, blankrows: false });
-  const helocRows = XLSX.utils.sheet_to_json(workbook.Sheets.HELOC, { header: 1, raw: true, blankrows: false });
+  const cesRows = XLSX.utils.sheet_to_json(workbook.Sheets.CES, { header: 1, raw: true, blankrows: true });
+  const helocRows = XLSX.utils.sheet_to_json(workbook.Sheets.HELOC, { header: 1, raw: true, blankrows: true });
   const cesProducts = ['10 YR FIX', '15 YR FIX', '20 YR FIX', '25 YR FIX', '30 YR FIX'];
   const helocProducts = ['15 YR', '20 YR', '25 YR', '30 YR'];
 
@@ -234,20 +254,41 @@ function generateVerus() {
     programs: {
       CES: {
         sheet: 'CES',
-        minPrice: price(rawCell(cesRows, 54, 2)),
-        maxPrice: price(rawCell(cesRows, 55, 2)),
+        minPrice: price(rawCell(cesRows, 55, 2)),
+        maxPrice: price(rawCell(cesRows, 56, 2)),
         pricing: {
-          standard: parseVerusPricing(cesRows, 7, 53, 1, 2, cesProducts),
-          alt: parseVerusPricing(cesRows, 7, 53, 8, 9, cesProducts),
+          standard: parseVerusPricing(cesRows, 7, 54, 1, 2, cesProducts),
+          alt: parseVerusPricing(cesRows, 7, 54, 8, 9, cesProducts),
         },
         products: cesProducts,
+        adjustments: {
+          docStandard2Year: parseVerusMatrix(cesRows, 59, 65, 3, 4, 11),
+          docAlt: parseVerusMatrix(cesRows, 67, 73, 3, 4, 11),
+          dti: parseVerusMatrix(cesRows, 80, 82, 2, 4, 12),
+          loanAmount: parseVerusMatrix(cesRows, 83, 88, 2, 4, 12),
+          occupancy: parseVerusMatrix(cesRows, 89, 90, 2, 4, 12),
+          propertyType: parseVerusMatrix(cesRows, 91, 92, 2, 4, 12),
+          state: parseVerusMatrix(cesRows, 93, 93, 2, 4, 12),
+          lockAdjustments: parseVerusLockAdjustments(cesRows, 98, 100, 2, 4),
+        },
       },
       HELOC: {
         sheet: 'HELOC',
-        primeRate: price(rawCell(helocRows, 4, 10)),
-        pricing: parseVerusPricing(helocRows, 7, 53, 1, 2, helocProducts).map(row => ({ margin: row.rate, prices: row.prices })),
+        primeRate: price(rawCell(helocRows, 5, 10)),
+        pricing: parseVerusPricing(helocRows, 7, 54, 1, 2, helocProducts).map(row => ({ margin: row.rate, prices: row.prices })),
         products: helocProducts,
         drawPeriodsYears: [2, 3, 5],
+        adjustments: {
+          docStandard2Year: parseVerusMatrix(helocRows, 59, 64, 3, 4, 11),
+          docAlt: parseVerusMatrix(helocRows, 66, 71, 3, 4, 11),
+          drawTerm: parseVerusMatrix(helocRows, 75, 77, 2, 4, 12),
+          dti: parseVerusMatrix(helocRows, 78, 80, 2, 4, 12),
+          loanAmount: parseVerusMatrix(helocRows, 81, 84, 2, 4, 12),
+          occupancy: parseVerusMatrix(helocRows, 85, 86, 2, 4, 12),
+          propertyType: parseVerusMatrix(helocRows, 87, 88, 2, 4, 12),
+          state: parseVerusMatrix(helocRows, 89, 89, 2, 4, 12),
+          lockAdjustments: parseVerusLockAdjustments(helocRows, 92, 94, 2, 4),
+        },
       },
     },
   });

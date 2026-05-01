@@ -111,22 +111,24 @@ What this means:
 - Arc Home matrix values mostly come from JSON
 - product metadata, formula behavior, and lookup interpretation still live in code
 
-## 6. Verus contains the biggest remaining hardcoded pricing tables
+## 6. Verus, completed in this pass
 
-File:
+Files:
 - `src/lib/rates/verus.ts`
+- `src/lib/rates/verus-ratesheet.json`
+- `scripts/refresh-ratesheet-data.mjs`
 
-What is hardcoded:
-- CES loan amount matrix
+What moved off hardcode:
+- CES standard-doc FICO/CLTV matrix
+- CES alt-doc FICO/CLTV matrix
 - CES DTI matrix
-- CES standard doc pricing matrix
-- CES alt-doc pricing matrix
+- CES loan amount matrix
 - CES occupancy matrix
 - CES property-type matrix
 - CES state matrix
 - CES lock adjustments
-- HELOC standard doc pricing matrix
-- HELOC alt-doc pricing matrix
+- HELOC standard-doc FICO/CLTV matrix
+- HELOC alt-doc FICO/CLTV matrix
 - HELOC draw-term matrix
 - HELOC DTI matrix
 - HELOC loan amount matrix
@@ -134,12 +136,25 @@ What is hardcoded:
 - HELOC property-type matrix
 - HELOC state matrix
 - HELOC lock adjustments
-- HELOC max buy price fallback
-- special state bucket list: `CT, IL, NJ, NY`
+- FICO row labels now come from workbook-backed JSON
+- CLTV column labels/bands now come from workbook-backed JSON
+- state bucket membership now comes from the workbook-backed state row label instead of a code-side set
+- HELOC max-price clamp now uses workbook-backed guide max instead of a separate hardcoded fallback constant
+- HELOC interest-only and CES amortizing payment math now use shared helpers instead of Verus-local formula code
+- max-available math now uses the shared helper instead of Verus-local formula code
+
+What is still hardcoded:
+- product normalization and term mapping
+- occupancy normalization (`Primary` / `Second Home` / `Investment`)
+- property-type interpretation (`Condo`, `2-4 Unit`)
+- borrower target-price schedule from `getTargetPurchasePriceForLoanAmount()`
+- quote-picking / target-solver behavior
+- general parsing logic that interprets workbook labels into buckets
+- Verus-supported draw-period choices exposed by the app (`2`, `3`, `5` years)
 
 What this means:
-- Verus is **not** fully workbook/JSON-driven today
-- this is the largest remaining pricing engine where major LLPA content is still embedded directly in code
+- Verus pricing content is now materially more workbook-driven
+- the remaining code-side pieces are mostly orchestration, normalization, or generic formula behavior rather than embedded LLPA tables
 
 ## 7. NewRez has a few intentional hardcoded business rules
 
