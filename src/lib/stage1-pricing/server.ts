@@ -341,6 +341,7 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
       const buttonMaxPrice = solveButtonStage1TargetRate(buttonInput as ButtonStage1Input, { targetPrice: 999, tolerance, selectedLoanAmount, helocDrawTermYears: bestExDrawPeriodYears, lockPeriodDays: actualLockPeriodDays }).purchasePrice;
       results.push(chooseBestXSummary(buttonEligibility, toQuote('Button', { ...buttonBaseQuote, program: 'Button', product: 'HELOC' }), standardRequestedRates, rateOverride => toQuote('Button', { ...calculateButtonStage1Quote(buttonInput as ButtonStage1Input, { selectedLoanAmount, helocDrawTermYears: bestExDrawPeriodYears, rateOverride, lockPeriodDays: actualLockPeriodDays }), program: 'Button', product: 'HELOC' }), buttonMaxPrice));
     }
+    results.push(makeIneligible('Arc Home', 'CES Only', 'HELOC', 'Arc Home only supports CES pricing in Best Ex.'));
     results.push(makeIneligible('Vista', 'CES Only', 'HELOC', 'Vista only supports CES pricing in Best Ex.'));
     results.push(makeIneligible('NewRez', 'CES Only', 'HELOC', 'NewRez only supports CES pricing in Best Ex.'));
     results.push(makeIneligible('Deephaven', 'CES Only', 'HELOC', 'Deephaven only supports CES pricing in Best Ex.'));
@@ -362,6 +363,18 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
       const buttonBaseQuote = calculateButtonStage1Quote(buttonInput as ButtonStage1Input, { selectedLoanAmount, cesTermYears: bestExTermYears, lockPeriodDays: actualLockPeriodDays });
       const buttonMaxPrice = solveButtonStage1TargetRate(buttonInput as ButtonStage1Input, { targetPrice: 999, tolerance, selectedLoanAmount, cesTermYears: bestExTermYears, lockPeriodDays: actualLockPeriodDays }).purchasePrice;
       results.push(chooseBestXSummary(buttonEligibility, toQuote('Button', { ...buttonBaseQuote, program: 'Button', product: 'CES' }), standardRequestedRates, rateOverride => toQuote('Button', { ...calculateButtonStage1Quote(buttonInput as ButtonStage1Input, { selectedLoanAmount, cesTermYears: bestExTermYears, rateOverride, lockPeriodDays: actualLockPeriodDays }), program: 'Button', product: 'CES' }), buttonMaxPrice));
+    }
+    const arcHomeProducts: Partial<Record<BestExTermYears, TesterInput['arcHomeProduct']>> = { 10: '10 Year Maturity', 15: '15 Year Maturity', 20: '20 Year Maturity', 30: '30 Year Maturity' };
+    const arcHomeProduct = arcHomeProducts[bestExTermYears];
+    if (!arcHomeProduct) results.push(makeIneligible('Arc Home', 'Arc Home', `${bestExTermYears} Year`, `Arc Home does not support ${bestExTermYears}-year CES pricing.`));
+    else if (bestExDocType !== 'Full Doc') results.push(makeIneligible('Arc Home', 'Arc Home', arcHomeProduct, `Arc Home does not support ${bestExDocType} pricing in Best Ex.`));
+    else {
+      const arcHomeInput = { ...input, arcHomeProduct, arcHomeLockPeriodDays: actualLockPeriodDays as 45 | 60 | 75 };
+      const eligibility = evaluateArcHomeStage1Eligibility(arcHomeInput, selectedLoanAmount);
+      const baseQuote = calculateArcHomeStage1Quote(arcHomeInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice });
+      const maxPrice = solveArcHomeStage1TargetRate(arcHomeInput, { targetPrice: 999, tolerance, selectedLoanAmount }).purchasePrice;
+      const arcHomeRequestedRates = buildRequestedRates(7.25, 9.375);
+      results.push(chooseBestXSummary(eligibility, toQuote('Arc Home', baseQuote), arcHomeRequestedRates, rateOverride => toQuote('Arc Home', calculateArcHomeStage1Quote(arcHomeInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })), maxPrice));
     }
     const vistaProducts: Partial<Record<BestExTermYears, TesterInput['vistaProduct']>> = { 10: '10yr Fixed', 15: '15yr Fixed', 20: '20yr Fixed', 30: '30yr Fixed' };
     const vistaProduct = vistaProducts[bestExTermYears];
