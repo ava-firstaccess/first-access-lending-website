@@ -333,7 +333,6 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">Property address</h2>
-                  <p className="mt-2 text-sm text-slate-600">City, state, and zip are still parsed behind the scenes from Google Places, but removed from the visible form.</p>
                 </div>
                 <button
                   type="button"
@@ -403,9 +402,9 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">AVM provider chart</h2>
-                  <p className="mt-1 text-sm text-slate-600">Providers stay visible for every investor. Cached rows repopulate the grid without re-ordering the AVM when the address already exists in the 90-day window.</p>
+                  <p className="mt-1 text-sm text-slate-600">Providers stay visible for every investor. Cached results from the last 90 days repopulate the grid by provider without re-ordering the AVM.</p>
                 </div>
-                <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">Cache window: reuse winner under 90 days old</div>
+                <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">Cache window: reuse provider results under 90 days old</div>
               </div>
 
               <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
