@@ -107,7 +107,7 @@ def main() -> None:
                 'values': matrix(ws, 48, 51),
             },
             'balance': {
-                'rows': [ws.cell(r, 1).value for r in range(52, 59)],
+                'rows': [ws.cell(r, 6).value for r in range(52, 59)],
                 'columns': [ws.cell(51, c).value for c in range(7, 14)],
                 'values': matrix(ws, 52, 58),
             },

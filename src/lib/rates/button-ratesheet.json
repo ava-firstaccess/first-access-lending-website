@@ -1150,13 +1150,13 @@
     },
     "balance": {
       "rows": [
-        7.125,
-        7,
-        6.875,
-        6.75,
-        6.625,
-        6.5,
-        6.375
+        "Balance <= 100k",
+        " 100k < Balance <= 250k",
+        " 250k < Balance <= 500k",
+        "HELOAN 500k < Balance <= 750k",
+        "HELOAN 750k < Balance <= 1mm",
+        "HELOC 500k < Balance <= 750k",
+        "HELOC 750k < Balance <= 1mm"
       ],
       "columns": [
         -0.25,

@@ -99,6 +99,7 @@ const DTI_TABLE = ratesheet.tables.dti as { rows: string[]; columns: Array<strin
 const OCCUPANCY_TABLE = ratesheet.tables.occupancy as { rows: string[]; columns: Array<string | number | null>; values: Matrix };
 const UNIT_COUNT_TABLE = ratesheet.tables.unitCount as { rows: string[]; columns: Array<string | number | null>; values: Matrix };
 const MATURITY_TABLE = ratesheet.tables.maturity as { rows: string[]; columns: Array<string | number | null>; values: Matrix };
+const BALANCE_TABLE = ratesheet.tables.balance as { rows: string[]; columns: Array<string | number | null>; values: Matrix };
 const DRAW_TABLE = ratesheet.tables.draw as {
   heloc: { rows: string[]; columns: Array<string | number | null>; values: Matrix };
   nonHeloc: { rows: string[]; columns: Array<string | number | null>; values: Matrix };
@@ -558,36 +559,34 @@ function getLoanAmountAdjustment(
   selectedLoanAmount: number,
   cltvIndex: number
 ): Stage1AdjustmentLine | null {
-  const bucket = getButtonLoanAmountBucket(selectedLoanAmount);
+  const bucket = getButtonLoanAmountBucket(product, selectedLoanAmount);
   if (!bucket) return null;
 
-  const valuesByProduct: Record<ButtonProduct, Record<'500k-750k' | '750k-1mm', number[]>> = {
-    CES: {
-      '500k-750k': [-0.5, -0.625, -0.875, -1.0, -1.5, 0, 0],
-      '750k-1mm': [-1.0, -1.125, -1.375, -1.5, -2.0, 0, 0],
-    },
-    HELOC: {
-      '500k-750k': [-1.0, -1.25, -1.5, -2.0, -2.5, 0, 0],
-      '750k-1mm': [-1.5, -1.75, -2.0, -2.5, -3.0, 0, 0],
-    },
-  };
-
-  const value = valuesByProduct[product][bucket.key]?.[cltvIndex] ?? 0;
+  const value = getLookupValue(BALANCE_TABLE, bucket.sourceLabel, cltvIndex);
   if (value === 0) return null;
 
   return {
-    label: `Loan Amount: ${bucket.label}`,
+    label: `Loan Amount: ${bucket.displayLabel}`,
     value: roundToThree(value),
   };
 }
 
-function getButtonLoanAmountBucket(selectedLoanAmount: number): { key: '500k-750k' | '750k-1mm'; label: string } | null {
+function getButtonLoanAmountBucket(
+  product: ButtonProduct,
+  selectedLoanAmount: number
+): { sourceLabel: string; displayLabel: string } | null {
   if (selectedLoanAmount > 500000 && selectedLoanAmount <= 750000) {
-    return { key: '500k-750k', label: '500k < Balance <= 750k' };
+    return {
+      sourceLabel: `${product === 'CES' ? 'HELOAN' : 'HELOC'} 500k < Balance <= 750k`,
+      displayLabel: '500k < Balance <= 750k',
+    };
   }
 
   if (selectedLoanAmount > 750000 && selectedLoanAmount <= 1000000) {
-    return { key: '750k-1mm', label: '750k < Balance <= 1mm' };
+    return {
+      sourceLabel: `${product === 'CES' ? 'HELOAN' : 'HELOC'} 750k < Balance <= 1mm`,
+      displayLabel: '750k < Balance <= 1mm',
+    };
   }
 
   return null;
