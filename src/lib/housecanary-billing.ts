@@ -26,19 +26,34 @@ const FREE_AGILE_INSIGHTS_PER_CYCLE = 40;
 
 const KNOWN_BILLING_CYCLES: HouseCanaryBillingCycle[] = [
   {
+    cycleStart: '2025-10-25',
+    cycleEnd: '2025-11-25',
+    label: '2025-10-25 to 2025-11-25',
+  },
+  {
+    cycleStart: '2025-11-25',
+    cycleEnd: '2025-12-25',
+    label: '2025-11-25 to 2025-12-25',
+  },
+  {
+    cycleStart: '2026-01-27',
+    cycleEnd: '2026-02-26',
+    label: '2026-01-27 to 2026-02-26',
+  },
+  {
     cycleStart: '2026-02-26',
-    cycleEnd: '2026-03-26',
-    label: '2026-02-26 to 2026-03-26',
+    cycleEnd: '2026-03-25',
+    label: '2026-02-26 to 2026-03-25',
   },
   {
-    cycleStart: '2026-03-27',
-    cycleEnd: '2026-04-26',
-    label: '2026-03-27 to 2026-04-26',
+    cycleStart: '2026-03-26',
+    cycleEnd: '2026-04-25',
+    label: '2026-03-26 to 2026-04-25',
   },
   {
-    cycleStart: '2026-04-27',
-    cycleEnd: '2026-05-27',
-    label: '2026-04-27 to 2026-05-27',
+    cycleStart: '2026-04-26',
+    cycleEnd: '2026-05-25',
+    label: '2026-04-26 to 2026-05-25',
   },
 ];
 
@@ -70,7 +85,7 @@ function containsDate(cycle: HouseCanaryBillingCycle, target: Date): boolean {
 }
 
 function buildCycle(startDate: Date): HouseCanaryBillingCycle {
-  const endDate = addUtcMonths(startDate, 1);
+  const endDate = addUtcDays(addUtcMonths(startDate, 1), -1);
   const cycleStart = formatUtcDate(startDate);
   const cycleEnd = formatUtcDate(endDate);
   return {
@@ -88,11 +103,11 @@ export function getHouseCanaryBillingCycle(targetDate: Date = new Date()): House
   }
 
   const latestKnownCycle = KNOWN_BILLING_CYCLES[KNOWN_BILLING_CYCLES.length - 1];
-  let cursorStart = addUtcDays(parseUtcDate(latestKnownCycle.cycleEnd), 1);
+  let cursorStart = parseUtcDate(latestKnownCycle.cycleEnd);
   let cursorCycle = buildCycle(cursorStart);
 
   while (normalizedTarget.getTime() > parseUtcDate(cursorCycle.cycleEnd).getTime()) {
-    cursorStart = addUtcDays(parseUtcDate(cursorCycle.cycleEnd), 1);
+    cursorStart = parseUtcDate(cursorCycle.cycleEnd);
     cursorCycle = buildCycle(cursorStart);
   }
 

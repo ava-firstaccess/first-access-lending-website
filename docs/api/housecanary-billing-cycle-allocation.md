@@ -12,20 +12,23 @@ When a HouseCanary order is placed from the LO AVM workflow:
 
 Known cycles captured from billing statements / user confirmation:
 
-- `2026-02-26` to `2026-03-26`
-- `2026-03-27` to `2026-04-26`
-- `2026-04-27` to `2026-05-27`
+- `2025-10-25` to `2025-11-25`
+- `2025-11-25` to `2025-12-25`
+- `2026-01-27` to `2026-02-26`
+- `2026-02-26` to `2026-03-25`
+- `2026-03-26` to `2026-04-25`
+- `2026-04-26` to `2026-05-25`
 
 Future cycles continue from the latest known cycle using:
 
-- next start = previous end + 1 day
-- next end = next start + 1 calendar month
+- next start = previous cycle end date
+- next end = one calendar month minus one day from that start
 
-That means the next projected cycle after `2026-04-27` to `2026-05-27` is:
+That means the next projected cycle after `2026-04-26` to `2026-05-25` is:
 
-- `2026-05-28` to `2026-06-28`
+- `2026-05-25` to `2026-06-24`
 
-Yes, it is weird. We are preserving the billing reality instead of pretending it is a neat month boundary.
+Yes, it is a little odd. We are preserving the billing reality instead of pretending it is a neat month boundary.
 
 ## Routing rule
 
