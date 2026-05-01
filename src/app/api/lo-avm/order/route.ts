@@ -176,6 +176,15 @@ async function insertLoanOfficerAvmOrder(supabase: ReturnType<typeof getSupabase
   throw lastError;
 }
 
+async function recordFailedLoanOfficerAvmOrder(supabase: ReturnType<typeof getSupabaseAdmin>, payload: Record<string, any>) {
+  try {
+    return await insertLoanOfficerAvmOrder(supabase, payload);
+  } catch (error) {
+    console.error('Failed to record LO AVM failed attempt:', error);
+    return null;
+  }
+}
+
 function readHouseCanaryBasicAuth() {
   const key = process.env.HOUSECANARY_API_KEY;
   const secret = process.env.HOUSECANARY_API_SECRET;
@@ -908,10 +917,65 @@ export async function POST(req: NextRequest) {
 
       if (allocation.selectedProduct === 'property_explorer') {
         const requestedMaxFsd = hcRule.maxFsdAllowed ?? null;
-        const [pexp, hcValue] = await Promise.all([
-          getHouseCanaryPropertyExplorerStaticLink(address, zipcode),
-          getHouseCanaryValueWithFsd(address, zipcode),
-        ]);
+        const baseInsertPayload = {
+          order_run_id: orderRunId,
+          address_id: addressId,
+          loan_officer_prefix: session.prefix,
+          loan_officer_email: session.email,
+          loan_number: loanNumber || null,
+          investor: investorLabel,
+          engine,
+          program,
+          product,
+          provider: 'housecanary',
+          provider_product: 'pexp_static_link',
+          external_order_id: null,
+          external_item_id: null,
+          external_tracking_id: loanNumber || null,
+          address,
+          city: city || null,
+          state: state || null,
+          zipcode,
+          ordered_at: orderedAt,
+          request_payload: {
+            address,
+            zipcode,
+            investor: investorLabel,
+            customer_order_id: loanNumber || null,
+            requestedMaxFsd,
+          },
+          requested_max_fsd: requestedMaxFsd,
+          notes: `Property Explorer order ${allocation.overallSequenceNumber} in ${allocation.cycle.label}`,
+          housecanary_billing_cycle_start: allocation.cycle.cycleStart,
+          housecanary_billing_cycle_end: allocation.cycle.cycleEnd,
+          housecanary_order_product: allocation.selectedProduct,
+          housecanary_product_sequence_number: allocation.productSequenceNumber,
+          housecanary_overall_sequence_number: allocation.overallSequenceNumber,
+          housecanary_free_tier_applied: allocation.isFreeTier,
+        };
+
+        let pexp: any;
+        let hcValue: any;
+        try {
+          [pexp, hcValue] = await Promise.all([
+            getHouseCanaryPropertyExplorerStaticLink(address, zipcode),
+            getHouseCanaryValueWithFsd(address, zipcode),
+          ]);
+        } catch (providerError: any) {
+          await recordFailedLoanOfficerAvmOrder(supabase, {
+            ...baseInsertPayload,
+            order_status: 'failed',
+            response_payload: {
+              errorMessage: providerError?.message || 'HouseCanary Property Explorer order failed.',
+              requestedMaxFsd,
+              housecanaryOrderProduct: allocation.selectedProduct,
+            },
+            fsd_threshold_status: 'pending',
+            fsd_threshold_passed: null,
+          });
+          throw providerError;
+        }
+
         const fsdThresholdStatus = requestedMaxFsd !== null && hcValue.fsd !== null
           ? (hcValue.fsd <= requestedMaxFsd + 0.0001 ? 'passed' : 'failed')
           : null;
@@ -929,45 +993,12 @@ export async function POST(req: NextRequest) {
         };
 
         const insertPayload = {
-          order_run_id: orderRunId,
-          address_id: addressId,
-          loan_officer_prefix: session.prefix,
-          loan_officer_email: session.email,
-          loan_number: loanNumber || null,
-          investor: investorLabel,
-          engine,
-          program,
-          product,
-          provider: 'housecanary',
-          provider_product: 'pexp_static_link',
-          external_order_id: null,
-          external_item_id: null,
-          external_tracking_id: loanNumber || null,
+          ...baseInsertPayload,
           order_status: 'completed',
-          address,
-          city: city || null,
-          state: state || null,
-          zipcode,
-          ordered_at: orderedAt,
           completed_at: orderedAt,
-          request_payload: {
-            address,
-            zipcode,
-            investor: investorLabel,
-            customer_order_id: loanNumber || null,
-            requestedMaxFsd,
-          },
           response_payload: responsePayload,
-          requested_max_fsd: requestedMaxFsd,
           fsd_threshold_status: fsdThresholdStatus,
           fsd_threshold_passed: fsdThresholdStatus === 'passed' ? true : fsdThresholdStatus === 'failed' ? false : null,
-          notes: `Property Explorer order ${allocation.overallSequenceNumber} in ${allocation.cycle.label}`,
-          housecanary_billing_cycle_start: allocation.cycle.cycleStart,
-          housecanary_billing_cycle_end: allocation.cycle.cycleEnd,
-          housecanary_order_product: allocation.selectedProduct,
-          housecanary_product_sequence_number: allocation.productSequenceNumber,
-          housecanary_overall_sequence_number: allocation.overallSequenceNumber,
-          housecanary_free_tier_applied: allocation.isFreeTier,
         };
 
         try {
@@ -989,14 +1020,66 @@ export async function POST(req: NextRequest) {
         const requestedMaxFsd = hcRule.maxFsdAllowed ?? null;
         const customerOrderId = loanNumber || orderRunId;
         const customerItemId = randomUUID();
-        const agile = await createHouseCanaryAgileInsightsOrder({
-          address,
-          city: city || undefined,
-          state: state || undefined,
-          zipcode,
-          customerOrderId,
-          customerItemId,
-        });
+        let agile: any;
+        try {
+          agile = await createHouseCanaryAgileInsightsOrder({
+            address,
+            city: city || undefined,
+            state: state || undefined,
+            zipcode,
+            customerOrderId,
+            customerItemId,
+          });
+        } catch (providerError: any) {
+          await recordFailedLoanOfficerAvmOrder(supabase, {
+            order_run_id: orderRunId,
+            address_id: addressId,
+            loan_officer_prefix: session.prefix,
+            loan_officer_email: session.email,
+            loan_number: loanNumber || null,
+            investor: investorLabel,
+            engine,
+            program,
+            product,
+            provider: 'housecanary',
+            provider_product: 'agile_insights',
+            external_order_id: null,
+            external_item_id: null,
+            external_tracking_id: customerOrderId,
+            order_status: 'failed',
+            address,
+            city: city || null,
+            state: state || null,
+            zipcode,
+            ordered_at: orderedAt,
+            request_payload: {
+              address,
+              zipcode,
+              city: city || null,
+              state: state || null,
+              customer_order_id: customerOrderId,
+              customer_item_id: customerItemId,
+              requestedMaxFsd,
+            },
+            response_payload: {
+              errorMessage: providerError?.message || 'Agile Insights order failed.',
+              requestedMaxFsd,
+              fsdThresholdStatus: 'pending',
+              housecanaryOrderProduct: allocation.selectedProduct,
+            },
+            requested_max_fsd: requestedMaxFsd,
+            fsd_threshold_status: 'pending',
+            fsd_threshold_passed: null,
+            notes: `Agile Insights order ${allocation.overallSequenceNumber} in ${allocation.cycle.label}`,
+            housecanary_billing_cycle_start: allocation.cycle.cycleStart,
+            housecanary_billing_cycle_end: allocation.cycle.cycleEnd,
+            housecanary_order_product: allocation.selectedProduct,
+            housecanary_product_sequence_number: allocation.productSequenceNumber,
+            housecanary_overall_sequence_number: allocation.overallSequenceNumber,
+            housecanary_free_tier_applied: allocation.isFreeTier,
+          });
+          throw providerError;
+        }
 
         const insertPayload = {
           order_run_id: orderRunId,
@@ -1059,14 +1142,66 @@ export async function POST(req: NextRequest) {
       }
 
       const requestedMaxFsd = Number((ccRule.maxFsdAllowed ?? 0.3).toFixed(2));
-      const clearCapital = await createClearCapitalOrder({
-        address,
-        city,
-        state,
-        zipcode,
-        trackingId: loanNumber || orderRunId,
-        maxFsd: requestedMaxFsd,
-      });
+      const trackingId = loanNumber || orderRunId;
+      let clearCapital: any;
+      try {
+        clearCapital = await createClearCapitalOrder({
+          address,
+          city,
+          state,
+          zipcode,
+          trackingId,
+          maxFsd: requestedMaxFsd,
+        });
+      } catch (providerError: any) {
+        await recordFailedLoanOfficerAvmOrder(supabase, {
+          order_run_id: orderRunId,
+          address_id: addressId,
+          loan_officer_prefix: session.prefix,
+          loan_officer_email: session.email,
+          loan_number: loanNumber || null,
+          investor: investorLabel,
+          engine,
+          program,
+          product,
+          provider: 'clearcapital',
+          provider_product: 'clearavm',
+          external_order_id: null,
+          external_item_id: null,
+          external_tracking_id: trackingId,
+          order_status: 'failed',
+          address,
+          city,
+          state,
+          zipcode,
+          ordered_at: orderedAt,
+          request_payload: {
+            address,
+            city,
+            state,
+            zipcode,
+            trackingIds: [trackingId],
+            clearAvm: {
+              include: true,
+              required: false,
+              request: {
+                maxFSD: requestedMaxFsd,
+                exactEffectiveDate: false,
+              },
+            },
+          },
+          response_payload: {
+            errorMessage: providerError?.message || 'Clear Capital order failed.',
+            requestedMaxFsd,
+            fsdThresholdStatus: 'pending',
+          },
+          requested_max_fsd: requestedMaxFsd,
+          fsd_threshold_status: 'pending',
+          fsd_threshold_passed: null,
+          notes: `Clear Capital fallback ordered with maxFSD ${requestedMaxFsd.toFixed(2)}`,
+        });
+        throw providerError;
+      }
 
       const insertPayload = {
         order_run_id: orderRunId,
