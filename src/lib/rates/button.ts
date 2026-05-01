@@ -491,6 +491,7 @@ function buildAdjustmentLines(
   input: ButtonPricingInput,
   cltvIndex: number,
   options?: {
+    selectedLoanAmount?: number;
     helocDrawTermYears?: number;
     helocTotalTermYears?: number;
     cesTermYears?: number;
@@ -502,6 +503,7 @@ function buildAdjustmentLines(
   const occupancy = normalizeOccupancy(input.occupancy);
   const normalizedStructure = normalizeStructureType(input.structureType);
   const lockPeriodDays = Math.max(0, Math.round(options?.lockPeriodDays ?? 60));
+  const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? 0);
 
   adjustments.push({ label: `Doc Type: ${input.docType}`, value: 0 });
   if (cltvAdj !== undefined) {
@@ -543,7 +545,52 @@ function buildAdjustmentLines(
     adjustments.push(termAdjustment);
   }
 
+  const loanAmountAdjustment = getLoanAmountAdjustment(input.product, selectedLoanAmount, cltvIndex);
+  if (loanAmountAdjustment) {
+    adjustments.push(loanAmountAdjustment);
+  }
+
   return adjustments.filter(row => row.value !== 0);
+}
+
+function getLoanAmountAdjustment(
+  product: ButtonProduct,
+  selectedLoanAmount: number,
+  cltvIndex: number
+): Stage1AdjustmentLine | null {
+  const bucket = getButtonLoanAmountBucket(selectedLoanAmount);
+  if (!bucket) return null;
+
+  const valuesByProduct: Record<ButtonProduct, Record<'500k-750k' | '750k-1mm', number[]>> = {
+    CES: {
+      '500k-750k': [-0.5, -0.625, -0.875, -1.0, -1.5, 0, 0],
+      '750k-1mm': [-1.0, -1.125, -1.375, -1.5, -2.0, 0, 0],
+    },
+    HELOC: {
+      '500k-750k': [-1.0, -1.25, -1.5, -2.0, -2.5, 0, 0],
+      '750k-1mm': [-1.5, -1.75, -2.0, -2.5, -3.0, 0, 0],
+    },
+  };
+
+  const value = valuesByProduct[product][bucket.key]?.[cltvIndex] ?? 0;
+  if (value === 0) return null;
+
+  return {
+    label: `Loan Amount: ${bucket.label}`,
+    value: roundToThree(value),
+  };
+}
+
+function getButtonLoanAmountBucket(selectedLoanAmount: number): { key: '500k-750k' | '750k-1mm'; label: string } | null {
+  if (selectedLoanAmount > 500000 && selectedLoanAmount <= 750000) {
+    return { key: '500k-750k', label: '500k < Balance <= 750k' };
+  }
+
+  if (selectedLoanAmount > 750000 && selectedLoanAmount <= 1000000) {
+    return { key: '750k-1mm', label: '750k < Balance <= 1mm' };
+  }
+
+  return null;
 }
 
 function getAltDocAdjustment(
