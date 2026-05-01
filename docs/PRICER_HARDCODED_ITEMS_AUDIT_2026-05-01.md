@@ -230,21 +230,35 @@ What this means:
 - OSB is now less dependent on code-side label ladders for loan amount, DTI, draw term, lock labels, and product keys
 - the remaining hardcoded pieces are mostly rate presentation, normalization, state policy, and engine behavior
 
-## 9. Deephaven has code-side support and lock logic
+## 9. Deephaven, completed in this pass
 
 File:
 - `src/lib/rates/deephaven.ts`
 
-What is hardcoded:
+What moved off hardcode:
+- max-available math now uses the shared helper instead of Deephaven-local formula code
+- amortizing payment math now uses the shared helper instead of Deephaven-local formula code
+- max-price fallback in target clamping now now defers to the workbook-backed guide-max helper instead of a separate local `103` default
+- term-adjustment label matching now derives from workbook-backed term labels by numeric year instead of a fixed product-to-label switch
+- DTI row matching now uses a more generic numeric label parser instead of a Deephaven-specific `DTI > X` regex assumption
+- loan-amount band matching now uses generic `<` / `>` numeric parsing instead of a narrower ad hoc string cleanup
+
+What is still hardcoded:
 - doc-type support routing across Deephaven programs
-- lock-period requirement messaging / gating
+- lock-period requirement messaging / gating, including the `+30 day` pad from 15/30 requested locks into 45/60 actual locks
 - quote-picking / target solver behavior
 - max-available aggregation across programs
 - workbook-selection logic by program and product
+- program normalization (`Equity Advantage` vs `Equity Advantage Elite`)
+- product normalization and the current `20Y Fixed` handling against pricing rows that only expose `15Y Fixed` and `30Y Fixed`
+- occupancy normalization and property-type normalization
+- credit-band parsing helper
+- FL/TX state adjustment trigger
+- code-side lock adjustment table (`45: -0.15`, `60: -0.3`)
 
 What this means:
-- Deephaven pricing values come from workbook-backed data where available
-- but support logic and orchestration remain in code
+- Deephaven is a little less dependent on local formula and label assumptions
+- the remaining hardcoded surface is still mostly orchestration, program/doc routing, normalization, and lock behavior rather than the core workbook matrices
 
 ## 10. UI / session defaults are hardcoded
 

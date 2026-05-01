@@ -1,6 +1,10 @@
 import ratesheet from './deephaven-ratesheet.json';
 import { getTargetPurchasePriceForLoanAmount, type ButtonStage1Input } from './button';
-import type { Stage1AdjustmentLine } from './shared';
+import {
+  calculateAmortizingMonthlyPayment,
+  calculateMaxAvailableFromMaxLtv,
+  type Stage1AdjustmentLine,
+} from './shared';
 
 export type DeephavenProgram = 'Equity Advantage' | 'Equity Advantage Elite';
 export type DeephavenProduct = '15Y Fixed' | '20Y Fixed' | '30Y Fixed';
@@ -299,7 +303,7 @@ function calculateMaxAvailable(input: DeephavenPricingInput): number {
 }
 
 function calculateMaxAvailableForProgram(input: DeephavenPricingInput, program: DeephavenProgram): number {
-  return Math.max(0, input.propertyValue * calculateMaxLtvForProgram(input, program) - input.loanBalance);
+  return calculateMaxAvailableFromMaxLtv(input.propertyValue, input.loanBalance, calculateMaxLtvForProgram(input, program));
 }
 
 function calculateMaxLtvForProgram(input: DeephavenPricingInput, program: DeephavenProgram): number {
@@ -332,7 +336,7 @@ function minCreditScore(program: DeephavenProgram): number {
 
 function clampTargetPrice(input: DeephavenPricingInput, targetPrice: number, selectedLoanAmount: number, program = input.program): number {
   const programData = DATA.programs[sourceProgram(program)];
-  let maxPrice = programData.maxPriceTiers[programData.maxPriceTiers.length - 1]?.maxPrice ?? 103;
+  let maxPrice = programData.maxPriceTiers[programData.maxPriceTiers.length - 1]?.maxPrice ?? getDeephavenGuideMaxPrice(program, selectedLoanAmount);
   for (const tier of programData.maxPriceTiers) {
     if (selectedLoanAmount <= tier.upToLoanAmount) {
       maxPrice = tier.maxPrice;
@@ -465,9 +469,9 @@ function matchesCreditBand(label: string, creditScore: number): boolean {
 }
 
 function termAdjustmentLabel(product: DeephavenProduct): string {
-  if (product === '15Y Fixed') return '15Yr Fixed';
-  if (product === '20Y Fixed') return '20Yr Fixed';
-  return product === '30Y Fixed' ? '30Yr Fixed' : '';
+  const targetYears = termYears(product);
+  const labels = Object.values(DATA.programs).flatMap(program => program.adjustments.term.map(row => row.label));
+  return labels.find(label => Number(label.match(/(\d+)/)?.[1] ?? 0) === targetYears) ?? '';
 }
 
 function findLoanAmountRow(rows: AdjustmentRow[], selectedLoanAmount: number): AdjustmentRow | undefined {
@@ -478,7 +482,7 @@ function findMatchingDtiRow(rows: AdjustmentRow[], dti: number | null | undefine
   if (!Number.isFinite(dti)) return undefined;
   const thresholds = rows
     .map(row => {
-      const match = row.label.match(/DTI\s*>\s*(\d+(?:\.\d+)?)/i);
+      const match = row.label.match(/(\d+(?:\.\d+)?)/);
       return match ? { row, threshold: Number(match[1]) } : null;
     })
     .filter((value): value is { row: AdjustmentRow; threshold: number } => value !== null)
@@ -489,16 +493,16 @@ function findMatchingDtiRow(rows: AdjustmentRow[], dti: number | null | undefine
 
 function matchesLoanAmountBand(label: string, selectedLoanAmount: number): boolean {
   const text = label.replace(/,/g, '').trim();
-  if (text.startsWith('<')) return selectedLoanAmount < Number(text.replace(/[^\d.]/g, ''));
-  if (text.startsWith('>')) return selectedLoanAmount > Number(text.replace(/[^\d.]/g, ''));
+  const lt = text.match(/^<\s*(\d+(?:\.\d+)?)/);
+  if (lt) return selectedLoanAmount < Number(lt[1]);
+  const gt = text.match(/^>\s*(\d+(?:\.\d+)?)/);
+  if (gt) return selectedLoanAmount > Number(gt[1]);
   return false;
 }
 
 function amortizedPayment(balance: number, rate: number, years: number): number {
   if (balance <= 0) return 0;
-  const monthlyRate = rate / 100 / 12;
-  const n = years * 12;
-  return roundToNearestDollar(balance * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
+  return roundToNearestDollar(calculateAmortizingMonthlyPayment(balance, rate, years));
 }
 
 function roundToThree(value: number): number {
