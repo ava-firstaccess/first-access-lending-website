@@ -244,9 +244,16 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
         }),
       });
 
-      const data = await response.json();
+      const rawText = await response.text();
+      let data: any = null;
+      try {
+        data = rawText ? JSON.parse(rawText) : null;
+      } catch {
+        data = null;
+      }
+
       if (!response.ok) {
-        setOrderError(data?.error || 'Failed to order AVM.');
+        setOrderError(data?.error || rawText || 'Failed to order AVM.');
         return;
       }
 

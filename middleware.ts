@@ -7,6 +7,7 @@ const LO_ALLOWED_PREFIXES = [
   '/pricer',
   '/avm',
   '/api/lo-auth',
+  '/api/lo-avm',
   '/api/pricer-stage1-pricing',
   '/_next',
   '/favicon.ico',
