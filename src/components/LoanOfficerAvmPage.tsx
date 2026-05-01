@@ -35,6 +35,7 @@ type StoredScenario = {
   maxAvailable: number;
   desiredLoanAmount: number;
   combinedLtv: number;
+  loanNumber?: string;
   rate?: number;
   noteRate?: number;
   monthlyPayment?: number;
@@ -89,6 +90,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
   const [parsedCity, setParsedCity] = useState('');
   const [parsedState, setParsedState] = useState('');
   const [parsedZipcode, setParsedZipcode] = useState('');
+  const [loanNumber, setLoanNumber] = useState('');
 
   useEffect(() => {
     try {
@@ -97,6 +99,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
       const parsed = JSON.parse(raw) as StoredScenario;
       setScenario(parsed);
       setSelectedInvestor(parsed.investor || parsed.bestXResults?.[0]?.investor || '');
+      setLoanNumber(parsed.loanNumber || '');
     } catch {
       setScenario(null);
     }
@@ -156,6 +159,17 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
 
   const selectedProviderRow = providerRows.find((row) => row.provider === selectedProvider) || null;
   const winnerRow = selectedProviderRow && providerEligibleForInvestor(selectedProviderRow) ? selectedProviderRow : null;
+
+  useEffect(() => {
+    setScenario((prev) => {
+      if (!prev) return prev;
+      const nextLoanNumber = loanNumber.trim() || undefined;
+      if (prev.loanNumber === nextLoanNumber) return prev;
+      const nextScenario = { ...prev, loanNumber: nextLoanNumber };
+      window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(nextScenario));
+      return nextScenario;
+    });
+  }, [loanNumber]);
 
   const displayedMaxLoanAmount = useMemo(() => {
     if (!selectedSidebarInvestor) return null;
@@ -246,9 +260,22 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-slate-900">Property address</h2>
               <p className="mt-2 text-sm text-slate-600">City, state, and zip are still parsed behind the scenes from Google Places, but removed from the visible form.</p>
-              <div className="mt-4 text-sm">
-                <div className="mb-1 font-medium text-slate-700">Street address</div>
-                <AddressAutocomplete value={address} onChange={handleAddressChange} placeholder="Start typing a property address" />
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <label className="text-sm md:col-span-2">
+                  <div className="mb-1 font-medium text-slate-700">Street address</div>
+                  <AddressAutocomplete value={address} onChange={handleAddressChange} placeholder="Start typing a property address" />
+                </label>
+                <label className="text-sm">
+                  <div className="mb-1 font-medium text-slate-700">Loan number</div>
+                  <input
+                    type="text"
+                    value={loanNumber}
+                    onChange={e => setLoanNumber(e.target.value)}
+                    placeholder="Enter loan number"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                  />
+                  <div className="mt-1 text-xs text-slate-500">This will be sent as HouseCanary customer_order_id and Clear Capital trackingIds[0].</div>
+                </label>
               </div>
               {(parsedCity || parsedState || parsedZipcode) ? <div className="mt-3 text-xs text-slate-500">Parsed: {[parsedCity, parsedState, parsedZipcode].filter(Boolean).join(', ')}</div> : null}
               <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -314,6 +341,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                   <Metric label="Target loan amount" value={currency(scenario.desiredLoanAmount)} />
                   <Metric label="Original balance" value={currency(scenario.loanBalance)} />
                   <Metric label="Combined CLTV" value={`${scenario.combinedLtv.toFixed(2)}%`} />
+                  <Metric label="Loan number" value={scenario.loanNumber || 'Not set'} />
                   <Metric label="BestX rate" value={scenario.rate ? `${scenario.rate.toFixed(3)}%` : 'N/A'} />
                   <Metric label="Property state" value={scenario.propertyState || 'N/A'} />
                   <Metric label="Loan officer email" value={scenario.officerEmail} />

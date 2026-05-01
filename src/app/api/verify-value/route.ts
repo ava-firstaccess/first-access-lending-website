@@ -391,6 +391,7 @@ async function runClearCapitalCandidate({
   maxLtv,
   desired,
   triggerReason,
+  loanNumber,
 }: {
   supabase: any;
   applicationId: string;
@@ -402,9 +403,10 @@ async function runClearCapitalCandidate({
   maxLtv: number;
   desired: number;
   triggerReason: string;
+  loanNumber?: string;
 }): Promise<ClearCapitalCandidate | null> {
   const clearCapitalRunId = randomUUID();
-  const clearCapitalTrackingId = applicationId || clearCapitalRunId;
+  const clearCapitalTrackingId = String(loanNumber || '').trim() || applicationId || clearCapitalRunId;
   const clearCapitalConfig = getClearCapitalPaaConfig();
 
   if (!clearCapitalConfig) {
@@ -540,6 +542,7 @@ async function tryClearCapitalFallback({
   fsd,
   triggerReason,
   quotedInvestor,
+  loanNumber,
 }: {
   supabase: any;
   applicationId: string;
@@ -556,6 +559,7 @@ async function tryClearCapitalFallback({
   fsd: number | null;
   triggerReason: string;
   quotedInvestor: QuotedInvestorContext;
+  loanNumber?: string;
 }) {
   const candidate = await runClearCapitalCandidate({
     supabase,
@@ -568,6 +572,7 @@ async function tryClearCapitalFallback({
     maxLtv,
     desired,
     triggerReason,
+    loanNumber,
   });
 
   if (!candidate) return null;
@@ -774,6 +779,7 @@ export async function POST(req: NextRequest) {
       creditScore,
       propertyType,
       desiredLoanAmount,
+      loanNumber,
     } = body;
 
     if (!address) {
@@ -874,6 +880,7 @@ export async function POST(req: NextRequest) {
         fsd: null,
         triggerReason: 'housecanary_estimate_failure',
         quotedInvestor,
+        loanNumber: String(loanNumber || '').trim() || undefined,
       });
 
       if (ccFallback) {
@@ -927,6 +934,7 @@ export async function POST(req: NextRequest) {
         fsd: null,
         triggerReason: 'housecanary_estimate_no_data',
         quotedInvestor,
+        loanNumber: String(loanNumber || '').trim() || undefined,
       });
 
       if (ccFallback) {
@@ -1045,6 +1053,7 @@ export async function POST(req: NextRequest) {
         maxLtv,
         desired,
         triggerReason: 'housecanary_estimate_mid_band_skip_full_avm',
+        loanNumber: String(loanNumber || '').trim() || undefined,
       });
 
       clearCapitalInvestorEvaluation = evaluateQuotedInvestorProvider(
@@ -1174,6 +1183,7 @@ export async function POST(req: NextRequest) {
             fsd: null,
             triggerReason: 'housecanary_full_avm_failure',
             quotedInvestor,
+            loanNumber: String(loanNumber || '').trim() || undefined,
           });
 
       if (ccFallback) {
@@ -1369,6 +1379,7 @@ export async function POST(req: NextRequest) {
           fsd: fsdData.fsd,
           triggerReason: `housecanary_low_confidence_fsd_${fsdData.fsd}`,
           quotedInvestor,
+          loanNumber: String(loanNumber || '').trim() || undefined,
         });
 
     if (ccFallback) {
