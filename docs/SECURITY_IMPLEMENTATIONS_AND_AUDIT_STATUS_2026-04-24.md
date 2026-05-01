@@ -2,7 +2,7 @@
 
 **Project:** `first-access-lending-website`  
 **Original audit date:** 2026-04-24  
-**Updated through:** 2026-04-27  
+**Updated through:** 2026-05-01  
 **Purpose:** Comprehensive handoff of website security controls currently in place, including both the original 2026-04-24 hardening pass and the follow-up production/security cleanup completed through 2026-04-27.
 
 ---
@@ -13,7 +13,7 @@ The website now has a materially stronger security baseline than it had before t
 
 The most important controls now in place are:
 - preview-site gating on Vercel-hosted environments
-- pricer host/path gating and password protection
+- loan-officer host gating for pricer and AVM
 - OTP-based application authentication
 - server-side authenticated application lookups
 - trusted-browser / origin checks on sensitive routes
@@ -57,25 +57,29 @@ The main remaining substantive security/workflow item after this update is:
 - this is useful for limiting accidental public exposure of preview deployments
 - token implementation is simple, cookie value equals configured password, so this is more of a controlled preview gate than a high-assurance auth system
 
-## 1.2 Pricer host gating and password wall
+## 1.2 Loan Officer portal gating for pricer and AVM
 
 **Files:**
 - `middleware.ts`
-- `src/lib/pricer-auth.ts`
-- `src/app/api/pricer-auth/route.ts`
+- `src/lib/lo-portal-auth.ts`
+- `src/app/login/page.tsx`
+- `src/app/pricer/page.tsx`
+- `src/app/avm/page.tsx`
+- `src/app/api/lo-auth/bootstrap-session/route.ts`
+- `src/app/api/pricer-stage1-pricing/route.ts`
+- `src/app/api/lo-avm/order/route.ts`
 
 **What it does:**
-- isolates `pricer.firstaccesslending.com`
-- allows only pricer-related paths on the pricer host
-- blocks unrelated API discovery on the pricer host with `404`
-- requires password-based unlock for pricer access
-- uses `httpOnly` cookie for pricer auth
-- signs the cookie using HMAC via `PRICER_AUTH_SECRET` or service-role fallback
-- uses timing-safe comparison for pricer password and cookie validation
+- constrains the loan-officer surface to `lo.firstaccesslending.com`
+- allows only approved loan-officer paths on that host
+- blocks unrelated API discovery on the LO host with `404`
+- requires loan-officer session auth before `/pricer`, `/avm`, and related APIs can be used
+- supports trusted-browser bootstrap for smoother re-entry
+- keeps pricer and AVM functionality behind the same LO portal boundary
 
 **Notes:**
-- this was already a meaningful security boundary for the pricer surface
-- FUTURE_WORK still calls for moving from password-wall to full authenticated login + 2FA
+- the old standalone `pricer.firstaccesslending.com` password wall has been retired
+- the active security boundary is now the LO portal host plus route-level session enforcement
 
 ## 1.3 OTP application auth flow
 
@@ -409,10 +413,10 @@ This section combines pre-existing and newly hardened controls into the current 
 - blocked preview API access returns `404`
 - preview unlock uses `httpOnly` cookie
 
-### Pricer host isolation
-- `pricer.firstaccesslending.com` is path-constrained in middleware
-- non-pricer API discovery on that host is blocked
-- root path redirects to `/pricer`
+### Loan Officer host isolation
+- `lo.firstaccesslending.com` is path-constrained in middleware
+- non-LO API discovery on that host is blocked
+- the pricer and AVM routes are only intended to run behind the LO portal host
 
 ## 3.2 Authentication and session controls
 

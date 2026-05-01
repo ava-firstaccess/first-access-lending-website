@@ -42,10 +42,6 @@
 - Supabase + Upstash + Twilio OTP flow
 - Server-side session storage (replace localStorage)
 - Save/resume application across devices
-- Add a hard password wall to `/pricer` before any pricer UI or API data is exposed
-- Put `/pricer` behind authenticated user login
-- Require 2FA for `/pricer` access
-- Remove public exposure of investor names from `/pricer` and its API responses
 - Public quote endpoints and results pages should return/display rate-only data, not investor or program names. Keep investor selection server-side only.
 - If the current Supabase-backed OTP rate limiting becomes too heavy or too chatty, move rate limiting to **Upstash Redis** as the preferred dedicated managed rate-limit layer for `send-otp` and `verify-otp` across all app instances.
 

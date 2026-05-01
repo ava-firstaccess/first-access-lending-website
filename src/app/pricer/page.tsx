@@ -1,10 +1,8 @@
 import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { Stage1PricingPage } from '@/components/Stage1PricingPage';
-import { PricerPasswordGate } from '@/components/PricerPasswordGate';
 import { LoanOfficerPortalGate } from '@/components/LoanOfficerPortalGate';
 import { getLoanOfficerPortalSession, hasTrustedLoanOfficerBrowser, isLoanOfficerPortalHost } from '@/lib/lo-portal-auth';
-import { hasPricerAccess, isPricerConfigured } from '@/lib/pricer-auth';
 
 export default async function Page() {
   const headerStore = await headers();
@@ -21,8 +19,5 @@ export default async function Page() {
     return <Stage1PricingPage mode="pricer" portalSession={session} />;
   }
 
-  if (!isPricerConfigured() || !(await hasPricerAccess())) {
-    return <PricerPasswordGate />;
-  }
-  return <Stage1PricingPage mode="pricer" />;
+  notFound();
 }

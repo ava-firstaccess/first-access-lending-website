@@ -2,18 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { computeStage1Pricing } from '@/lib/stage1-pricing/server';
 import type { Stage1PricingRequest } from '@/lib/stage1-pricing/types';
 import { getLoanOfficerPortalSessionFromRequest, getRequestHost, isLoanOfficerPortalHost } from '@/lib/lo-portal-auth';
-import { hasPricerAccess } from '@/lib/pricer-auth';
 
 export async function POST(request: NextRequest) {
   try {
     const isLoanOfficerRequest = isLoanOfficerPortalHost(getRequestHost(request));
-    const loanOfficerSession = getLoanOfficerPortalSessionFromRequest(request);
+    if (!isLoanOfficerRequest) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
 
-    if (isLoanOfficerRequest) {
-      if (!loanOfficerSession) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-    } else if (!(await hasPricerAccess())) {
+    const loanOfficerSession = getLoanOfficerPortalSessionFromRequest(request);
+    if (!loanOfficerSession) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
