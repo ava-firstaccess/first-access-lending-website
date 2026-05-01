@@ -95,12 +95,7 @@ function readHouseCanaryBasicAuth() {
 }
 
 function readHouseCanaryOrderManagerAuth() {
-  const key = process.env.HOUSECANARY_ORDER_MANAGER_API_KEY;
-  const secret = process.env.HOUSECANARY_ORDER_MANAGER_API_SECRET;
-  if (!key || !secret) {
-    throw new Error('HouseCanary Agile Insights credentials are not configured. Property Explorer is available, but Agile Insights still needs separate Order Manager credentials.');
-  }
-  return `Basic ${Buffer.from(`${key}:${secret}`).toString('base64')}`;
+  return readHouseCanaryBasicAuth();
 }
 
 function getClearCapitalConfig() {
@@ -334,6 +329,39 @@ async function loadRecentOrders(supabase: ReturnType<typeof getSupabaseAdmin>, a
   return Array.isArray(data) ? data : [];
 }
 
+async function loadRecentAvmCache(supabase: ReturnType<typeof getSupabaseAdmin>, {
+  address,
+  city,
+  state,
+  zipcode,
+}: {
+  address: string;
+  city?: string;
+  state?: string;
+  zipcode: string;
+}) {
+  const cutoffIso = new Date(Date.now() - LO_AVM_CACHE_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from('avm_cache')
+    .select('created_at, address, city, state, zipcode, final_provider, final_value, final_fsd, final_new_max_loan, response_payload')
+    .eq('zipcode', zipcode)
+    .gte('created_at', cutoffIso)
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  if (error) throw new Error(`avm_cache lookup failed: ${error.message}`);
+
+  const targetAddress = normalizeText(address);
+  const targetCity = normalizeText(city);
+  const targetState = normalizeText(state);
+
+  return (data || []).find((row: any) => {
+    return normalizeText(row.address) === targetAddress
+      && normalizeText(row.city) === targetCity
+      && normalizeText(row.state) === targetState;
+  }) || null;
+}
+
 async function countHouseCanaryCycleUsage(supabase: ReturnType<typeof getSupabaseAdmin>, cycleStart: string, cycleEnd: string) {
   const { data, error } = await supabase
     .from('loan_officer_avm_orders')
@@ -380,6 +408,17 @@ function parseOrderLink(order: any) {
   return typeof payload?.reportLink === 'string' ? payload.reportLink : null;
 }
 
+function mapCachedProviderToRuleProvider(value: string | null | undefined): AvmProviderName | null {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized === 'housecanary' || normalized === 'housecanary_estimate') return 'HouseCanary';
+  if (normalized === 'clearcapital') return 'Clear Capital';
+  if (normalized === 'veros') return 'Veros';
+  if (normalized === 'ca value' || normalized === 'cavalue') return 'CA Value';
+  if (normalized === 'black knight (valusure)' || normalized === 'blackknight') return 'Black Knight (Valusure)';
+  return null;
+}
+
 function buildProviderRowsFromOrders(orders: any[], investor: InvestorName | null, source: 'cache' | 'fresh'): ProviderRow[] {
   const latestByProvider = new Map<string, any>();
   for (const order of orders) {
@@ -408,6 +447,45 @@ function buildProviderRowsFromOrders(orders: any[], investor: InvestorName | nul
       orderStatus: order?.order_status || null,
       orderRunId: order?.order_run_id || null,
       providerProduct: order?.provider_product || null,
+    };
+  });
+}
+
+function buildProviderRowsFromAvmCache(cached: any, investor: InvestorName | null): ProviderRow[] {
+  const provider = mapCachedProviderToRuleProvider(cached?.final_provider || cached?.response_payload?.valuationProvider);
+  const value = typeof cached?.final_value === 'number'
+    ? cached.final_value
+    : typeof cached?.response_payload?.hcValue === 'number'
+      ? cached.response_payload.hcValue
+      : null;
+  const fsd = typeof cached?.final_fsd === 'number'
+    ? cached.final_fsd
+    : typeof cached?.response_payload?.fsd === 'number'
+      ? cached.response_payload.fsd
+      : typeof cached?.response_payload?.clearCapitalForecastStdDev === 'number'
+        ? cached.response_payload.clearCapitalForecastStdDev
+        : null;
+  const reportLink = typeof cached?.response_payload?.reportLink === 'string'
+    ? cached.response_payload.reportLink
+    : typeof cached?.response_payload?.['property/pexp_static_link']?.result?.link === 'string'
+      ? cached.response_payload['property/pexp_static_link'].result.link
+      : null;
+
+  return KNOWN_PROVIDERS.map((rowProvider) => {
+    const rule = investor ? getInvestorAvmRule(investor, rowProvider) : null;
+    const isMatch = provider === rowProvider;
+    return {
+      provider: rowProvider,
+      supported: Boolean(rule?.supported),
+      maxFsdAllowed: rule?.maxFsdAllowed ?? null,
+      date: isMatch ? formatDisplayDate(cached?.created_at) : null,
+      fsd: isMatch ? fsd : null,
+      value: isMatch ? value : null,
+      reportLink: isMatch ? reportLink : null,
+      source: isMatch ? 'cache' : null,
+      orderStatus: isMatch ? 'completed' : null,
+      orderRunId: null,
+      providerProduct: isMatch ? String(cached?.response_payload?.valuationProvider || cached?.final_provider || '').trim() || null : null,
     };
   });
 }
@@ -456,6 +534,21 @@ export async function POST(req: NextRequest) {
         winnerProvider: chooseWinnerProvider(providerRows),
         latestOrderedAt: cachedOrders[0]?.ordered_at || cachedOrders[0]?.created_at || null,
         message: 'Loaded cached AVM order results. No new vendor order was placed.',
+      });
+    }
+
+    const cachedAvm = await loadRecentAvmCache(supabase, { address, city, state, zipcode });
+    if (cachedAvm) {
+      const providerRows = buildProviderRowsFromAvmCache(cachedAvm, investor);
+      return NextResponse.json({
+        cacheHit: true,
+        addressId,
+        cacheWindowDays: LO_AVM_CACHE_WINDOW_DAYS,
+        investor: investorLabel,
+        providerRows,
+        winnerProvider: chooseWinnerProvider(providerRows),
+        latestOrderedAt: cachedAvm?.created_at || null,
+        message: 'Loaded cached AVM result from avm_cache. No new vendor order was placed.',
       });
     }
 

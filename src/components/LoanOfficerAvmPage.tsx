@@ -365,6 +365,18 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                 <Metric label="Winner" value={winnerRow ? getAvmProviderLabel(winnerRow.provider) : 'No winner yet'} muted={!winnerRow} />
                 <Metric label="Winner FSD" value={winnerRow?.fsd !== null && winnerRow?.fsd !== undefined ? winnerRow.fsd.toFixed(2) : 'No winner yet'} muted={!winnerRow} />
               </div>
+              {selectedProviderRow?.value !== null && selectedProviderRow?.value !== undefined ? (
+                <div className={`mt-4 rounded-2xl border p-4 ${providerEligibleForInvestor(selectedProviderRow) ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+                  <div className="mb-3 text-sm font-semibold text-slate-900">Selected AVM result</div>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <Metric label="Provider" value={getAvmProviderLabel(selectedProviderRow.provider)} />
+                    <Metric label="Value" value={currency(selectedProviderRow.value)} />
+                    <Metric label="FSD" value={selectedProviderRow.fsd !== null && selectedProviderRow.fsd !== undefined ? selectedProviderRow.fsd.toFixed(2) : '—'} />
+                    <Metric label="Max loan" value={currency(displayedMaxLoanAmount)} />
+                  </div>
+                  <div className={`mt-3 text-sm ${providerEligibleForInvestor(selectedProviderRow) ? 'text-emerald-800' : 'text-amber-800'}`}>{getProviderInvestorStatusMessage(selectedProviderRow)}</div>
+                </div>
+              ) : null}
               {winnerRow?.reportLink ? (
                 <div className="mt-4">
                   <a href={winnerRow.reportLink} target="_blank" rel="noreferrer" className="inline-flex rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700">
@@ -403,15 +415,15 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                         </div>
                         <div>
                           <div className="font-semibold">{getAvmProviderLabel(row.provider)}</div>
-                          <div className="mt-1 text-xs text-slate-500">{row.maxFsdAllowed !== null ? `Investor max FSD ${row.maxFsdAllowed.toFixed(2)}` : row.value !== null ? 'Cached result exists, but this investor does not support it.' : 'Not allowed for this investor'}</div>
+                          <div className="mt-1 text-xs text-slate-500">{getProviderRowSubtext(row)}</div>
                           {row.reportLink ? <a href={row.reportLink} target="_blank" rel="noreferrer" className="mt-1 block text-xs font-medium text-sky-700 hover:text-sky-900">Open report</a> : null}
                         </div>
                         <div>{row.date || '—'}</div>
                         <div className={row.supported && !rowEligible ? 'font-semibold text-rose-700' : ''}>{row.fsd !== null ? row.fsd.toFixed(2) : '—'}</div>
                         <div>{row.value !== null ? currency(row.value) : '—'}</div>
                         <div>
-                          <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${!row.supported && row.value === null ? 'bg-slate-200 text-slate-500' : !rowEligible && row.supported ? 'bg-rose-100 text-rose-700' : checked ? 'bg-sky-100 text-sky-800' : row.value !== null ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
-                            {!row.supported && row.value === null ? 'Ruled out' : !rowEligible && row.supported ? 'Ineligible' : checked ? 'Selected' : row.value !== null ? (row.source === 'cache' ? 'Cached' : 'Ordered') : 'Allowed'}
+                          <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${!row.supported && row.value === null ? 'bg-slate-200 text-slate-500' : !rowEligible && row.supported ? 'bg-amber-100 text-amber-800' : checked ? 'bg-sky-100 text-sky-800' : row.value !== null ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                            {!row.supported && row.value === null ? 'Ruled out' : !rowEligible && row.supported ? 'FSD above max' : checked ? 'Selected' : row.value !== null ? (row.source === 'cache' ? 'Cached' : 'Ordered') : 'Allowed'}
                           </span>
                         </div>
                       </div>
@@ -451,6 +463,31 @@ function providerEligibleForInvestor(row: ProviderDisplayRow) {
   if (!row.supported) return false;
   if (row.fsd === null || row.maxFsdAllowed === null) return true;
   return row.fsd <= row.maxFsdAllowed + 0.0001;
+}
+
+function getProviderRowSubtext(row: ProviderDisplayRow) {
+  if (!row.supported) {
+    return row.value !== null
+      ? 'AVM result exists, but this investor does not allow that provider.'
+      : 'Not allowed for this investor';
+  }
+  if (row.fsd !== null && row.maxFsdAllowed !== null && row.fsd > row.maxFsdAllowed + 0.0001) {
+    return `FSD above max for this investor: ${row.fsd.toFixed(2)} > ${row.maxFsdAllowed.toFixed(2)}. A different investor may still allow it.`;
+  }
+  if (row.maxFsdAllowed !== null) {
+    return `Investor max FSD ${row.maxFsdAllowed.toFixed(2)}`;
+  }
+  return 'Allowed for this investor';
+}
+
+function getProviderInvestorStatusMessage(row: ProviderDisplayRow) {
+  if (!row.supported) {
+    return 'This investor does not allow this AVM provider, even though an AVM result exists.';
+  }
+  if (row.fsd !== null && row.maxFsdAllowed !== null && row.fsd > row.maxFsdAllowed + 0.0001) {
+    return `This result is above the current investor max FSD, ${row.maxFsdAllowed.toFixed(2)}. Keep the AVM visible, but try another investor that allows a higher FSD.`;
+  }
+  return 'This AVM result is within the current investor FSD rule.';
 }
 
 function Metric({ label, value, muted = false }: { label: string; value: string; muted?: boolean }) {
