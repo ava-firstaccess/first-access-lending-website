@@ -195,7 +195,7 @@ COMMENT ON COLUMN loan_officer_avm_orders.housecanary_billing_cycle_end IS 'Incl
 COMMENT ON COLUMN loan_officer_avm_orders.housecanary_order_product IS 'Chosen HouseCanary order product for this cycle allocation: property_explorer first, agile_insights after the first 40 property explorers.';
 COMMENT ON COLUMN loan_officer_avm_orders.housecanary_product_sequence_number IS '1-based sequence within the selected HouseCanary product bucket for the billing cycle.';
 COMMENT ON COLUMN loan_officer_avm_orders.housecanary_overall_sequence_number IS '1-based sequence across all HouseCanary LO AVM orders in the billing cycle.';
-COMMENT ON COLUMN loan_officer_avm_orders.housecanary_free_tier_applied IS 'True when the selected HouseCanary order still falls inside that product\'s free monthly allocation.';
+COMMENT ON COLUMN loan_officer_avm_orders.housecanary_free_tier_applied IS 'True when the selected HouseCanary order still falls inside that product''s free monthly allocation.';
 COMMENT ON COLUMN loan_officer_avm_orders.requested_max_fsd IS 'Investor-specific FSD threshold that was in force when this AVM order attempt was made.';
 COMMENT ON COLUMN loan_officer_avm_orders.fsd_threshold_status IS 'Whether the order passed, failed, or is still pending against the requested_max_fsd threshold.';
 COMMENT ON COLUMN loan_officer_avm_orders.fsd_threshold_passed IS 'Boolean mirror of the threshold result when known; null while pending.';
