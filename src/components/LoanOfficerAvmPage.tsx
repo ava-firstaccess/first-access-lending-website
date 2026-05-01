@@ -291,7 +291,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                   <h2 className="text-lg font-semibold text-slate-900">AVM provider chart</h2>
                   <p className="mt-1 text-sm text-slate-600">Providers stay visible for every investor. Unsupported providers are greyed out. Once FSDs populate, rows with FSD above the investor max will turn red and status will flip to ineligible.</p>
                 </div>
-                <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">Cache window: reuse winner under 30 days old</div>
+                <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">Cache window: reuse winner under 90 days old</div>
               </div>
 
               <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
