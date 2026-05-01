@@ -1,0 +1,690 @@
+import { randomUUID } from 'crypto';
+import { NextRequest, NextResponse } from 'next/server';
+import { buildLoanOfficerPortalUnauthorizedResponse, getLoanOfficerPortalSessionFromRequest } from '@/lib/lo-portal-auth';
+import { chooseHouseCanaryOrderProduct } from '@/lib/housecanary-billing';
+import { getInvestorAvmRule, getInvestorAvmRules, type AvmProviderName, type InvestorName } from '@/lib/rates/investor-confidence-rules';
+import { getSupabaseAdmin } from '@/lib/supabase';
+
+const LO_AVM_CACHE_WINDOW_DAYS = 90;
+const HOUSECANARY_API_BASE = 'https://api.housecanary.com';
+const HOUSECANARY_ORDER_MANAGER_BASE = 'https://order-manager-api.housecanary.com/client-api/v1';
+
+const KNOWN_PROVIDERS: AvmProviderName[] = [
+  'HouseCanary',
+  'Clear Capital',
+  'Veros',
+  'CA Value',
+  'Black Knight (Valusure)',
+  'CoreLogic',
+  'Red Bell',
+  'Home Genius',
+];
+
+type LoanOfficerAvmRequestBody = {
+  address?: string;
+  city?: string;
+  state?: string;
+  zipcode?: string;
+  loanNumber?: string;
+  investor?: string;
+  engine?: string;
+  program?: string;
+  product?: string;
+};
+
+type HouseCanaryValueResult = {
+  value: number;
+  fsd: number | null;
+  lowValue: number | null;
+  highValue: number | null;
+};
+
+type ProviderRow = {
+  provider: AvmProviderName;
+  supported: boolean;
+  maxFsdAllowed: number | null;
+  date: string | null;
+  fsd: number | null;
+  value: number | null;
+  reportLink: string | null;
+  source: 'cache' | 'fresh' | null;
+  orderStatus: string | null;
+  orderRunId: string | null;
+  providerProduct: string | null;
+};
+
+function mapInvestorLabelToRuleInvestor(investorLabel: string | null | undefined): InvestorName | null {
+  if (!investorLabel) return null;
+  if (investorLabel === 'OSB' || investorLabel === 'Onslow') return 'Onslow';
+  if (investorLabel === 'Arc Home' || investorLabel === 'Arc') return 'Arc';
+  if (investorLabel === 'Deephaven' || investorLabel === 'DeepHaven') return 'DeepHaven';
+  if (investorLabel === 'Button' || investorLabel === 'Vista' || investorLabel === 'NewRez' || investorLabel === 'Verus' || investorLabel === 'SG Capital' || investorLabel === 'NQM Capital') return investorLabel;
+  return null;
+}
+
+function normalizeText(value: string | undefined | null) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildAddressId(address: string, city?: string, state?: string, zipcode?: string) {
+  return [address, city, state, zipcode].map(normalizeText).join('|');
+}
+
+function toIsoDate(value: string | null | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
+function formatDisplayDate(value: string | null | undefined) {
+  const iso = toIsoDate(value);
+  return iso ? iso.slice(0, 10) : null;
+}
+
+function readHouseCanaryBasicAuth() {
+  const key = process.env.HOUSECANARY_API_KEY;
+  const secret = process.env.HOUSECANARY_API_SECRET;
+  if (!key || !secret) throw new Error('HouseCanary Property Explorer credentials are not configured.');
+  return `Basic ${Buffer.from(`${key}:${secret}`).toString('base64')}`;
+}
+
+function readHouseCanaryOrderManagerAuth() {
+  const key = process.env.HOUSECANARY_ORDER_MANAGER_API_KEY;
+  const secret = process.env.HOUSECANARY_ORDER_MANAGER_API_SECRET;
+  if (!key || !secret) {
+    throw new Error('HouseCanary Agile Insights credentials are not configured. Property Explorer is available, but Agile Insights still needs separate Order Manager credentials.');
+  }
+  return `Basic ${Buffer.from(`${key}:${secret}`).toString('base64')}`;
+}
+
+function getClearCapitalConfig() {
+  const apiKey = process.env.CLEARCAPITAL_PAA_API_KEY;
+  const baseUrl = process.env.CLEARCAPITAL_PAA_BASE_URL || 'https://api.clearcapital.com/property-analytics-api';
+  if (!apiKey) throw new Error('Clear Capital Property Analytics credentials are not configured.');
+  return { apiKey, baseUrl };
+}
+
+async function getHouseCanaryPropertyExplorerStaticLink(address: string, zipcode: string) {
+  const params = new URLSearchParams({
+    address,
+    zipcode,
+    allowLimitedReports: 'false',
+    enforceStrictGeoPrecision: 'true',
+  });
+
+  const res = await fetch(`${HOUSECANARY_API_BASE}/v3/property/pexp_static_link?${params.toString()}`, {
+    headers: { Authorization: readHouseCanaryBasicAuth() },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`HouseCanary Property Explorer failed (${res.status})`);
+  }
+
+  const data = await res.json();
+  const link = data?.['property/pexp_static_link']?.result?.link || data?.property?.pexp_static_link?.result?.link || null;
+  if (!link) throw new Error('HouseCanary Property Explorer returned no report link.');
+  return { link, raw: data };
+}
+
+async function getHouseCanaryValueWithFsd(address: string, zipcode: string): Promise<HouseCanaryValueResult> {
+  const url = `${HOUSECANARY_API_BASE}/v2/property/value?address=${encodeURIComponent(address)}&zipcode=${encodeURIComponent(zipcode)}`;
+  const res = await fetch(url, {
+    headers: { Authorization: readHouseCanaryBasicAuth() },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`HouseCanary value lookup failed (${res.status})`);
+  }
+
+  const data = await res.json();
+  const result = Array.isArray(data) ? data[0] : data;
+  const valueData = result?.['property/value']?.result?.value;
+  if (!valueData?.price_mean) throw new Error('HouseCanary value lookup returned no value.');
+
+  return {
+    value: Math.round(Number(valueData.price_mean || 0)),
+    fsd: typeof valueData.fsd === 'number' ? valueData.fsd : null,
+    lowValue: typeof valueData.price_lwr === 'number' ? Math.round(valueData.price_lwr) : null,
+    highValue: typeof valueData.price_upr === 'number' ? Math.round(valueData.price_upr) : null,
+  };
+}
+
+async function createHouseCanaryAgileInsightsOrder({
+  address,
+  city,
+  state,
+  zipcode,
+  customerOrderId,
+  customerItemId,
+}: {
+  address: string;
+  city?: string;
+  state?: string;
+  zipcode: string;
+  customerOrderId: string;
+  customerItemId: string;
+}) {
+  const res = await fetch(`${process.env.HOUSECANARY_ORDER_MANAGER_BASE_URL || HOUSECANARY_ORDER_MANAGER_BASE}/orders/json/`, {
+    method: 'POST',
+    headers: {
+      Authorization: readHouseCanaryOrderManagerAuth(),
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({
+      order_type: 'valueReport',
+      name: `LO AVM ${address}`,
+      customer_order_id: customerOrderId,
+      items: [
+        {
+          customer_item_id: customerItemId,
+          address,
+          zipcode,
+          ...(city ? { city } : {}),
+          ...(state ? { state } : {}),
+        },
+      ],
+    }),
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`HouseCanary Agile Insights order failed (${res.status})`);
+  }
+
+  const data = await res.json();
+  const externalOrderId = data?.id || data?.order_id || data?.order?.id || null;
+  const externalItemId = data?.items?.[0]?.id || data?.order_items?.[0]?.id || null;
+  return { raw: data, externalOrderId, externalItemId };
+}
+
+async function createClearCapitalOrder({
+  address,
+  city,
+  state,
+  zipcode,
+  trackingId,
+  maxFsd,
+}: {
+  address: string;
+  city: string;
+  state: string;
+  zipcode: string;
+  trackingId: string;
+  maxFsd: number;
+}) {
+  const config = getClearCapitalConfig();
+  const payload = {
+    address,
+    city,
+    state,
+    zip: zipcode,
+    signResponse: true,
+    trackingIds: [trackingId],
+    clearAvm: {
+      include: true,
+      required: false,
+      request: {
+        maxFSD: Number(maxFsd.toFixed(2)),
+        exactEffectiveDate: false,
+      },
+    },
+  };
+
+  const res = await fetch(`${config.baseUrl}/orders`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'Content-Type': 'application/json',
+      'x-api-key': config.apiKey,
+    },
+    body: JSON.stringify(payload),
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`Clear Capital Property Analytics failed (${res.status})`);
+  }
+
+  const data = await res.json();
+  const result = data?.clearAvm?.result;
+  if (!result?.marketValue) throw new Error('Clear Capital returned no market value.');
+
+  return {
+    raw: data,
+    trackingId,
+    value: Math.round(Number(result.marketValue || 0)),
+    fsd: typeof result.forecastStdDev === 'number' ? result.forecastStdDev : null,
+    lowValue: typeof result.lowValue === 'number' ? Math.round(result.lowValue) : null,
+    highValue: typeof result.highValue === 'number' ? Math.round(result.highValue) : null,
+    externalOrderId: data?.id || null,
+    effectiveDate: typeof data?.effectiveDate === 'string' ? data.effectiveDate : null,
+    confidenceScore: result?.confidenceScore || null,
+    confidenceScoreAlt: result?.confidenceScoreAlt || null,
+    estimatedError: typeof result?.estimatedError === 'number' ? result.estimatedError : null,
+    runDate: result?.runDate || null,
+  };
+}
+
+async function sendLoanOfficerReportEmail({
+  to,
+  subject,
+  html,
+}: {
+  to: string;
+  subject: string;
+  html: string;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error('RESEND_API_KEY is not configured.');
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: 'First Access Lending <noreply@firstaccesslending.com>',
+      to: [to],
+      subject,
+      html,
+    }),
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`Report email failed (${res.status})`);
+  }
+
+  return res.json();
+}
+
+function buildHouseCanaryEmailHtml({ address, investor, link }: { address: string; investor: string; link: string }) {
+  return `
+    <div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.5;">
+      <h2 style="margin:0 0 12px;">HouseCanary Property Explorer report ready</h2>
+      <p style="margin:0 0 10px;">Your AVM order is ready for <strong>${address}</strong>.</p>
+      <p style="margin:0 0 10px;">Investor: <strong>${investor}</strong></p>
+      <p style="margin:0 0 18px;"><a href="${link}" style="display:inline-block;background:#0f172a;color:#fff;padding:10px 14px;border-radius:8px;text-decoration:none;">Open report</a></p>
+      <p style="margin:0;color:#475569;font-size:12px;">This link was generated from the Loan Officer AVM workspace.</p>
+    </div>
+  `;
+}
+
+async function loadRecentOrders(supabase: ReturnType<typeof getSupabaseAdmin>, addressId: string) {
+  const cutoffIso = new Date(Date.now() - LO_AVM_CACHE_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from('loan_officer_avm_orders')
+    .select('*')
+    .eq('address_id', addressId)
+    .gte('created_at', cutoffIso)
+    .in('order_status', ['submitted', 'processing', 'completed'])
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(`Recent order lookup failed: ${error.message}`);
+  return Array.isArray(data) ? data : [];
+}
+
+async function countHouseCanaryCycleUsage(supabase: ReturnType<typeof getSupabaseAdmin>, cycleStart: string, cycleEnd: string) {
+  const { data, error } = await supabase
+    .from('loan_officer_avm_orders')
+    .select('housecanary_order_product')
+    .eq('provider', 'housecanary')
+    .eq('housecanary_billing_cycle_start', cycleStart)
+    .eq('housecanary_billing_cycle_end', cycleEnd)
+    .in('order_status', ['submitted', 'processing', 'completed']);
+
+  if (error) throw new Error(`HouseCanary cycle usage lookup failed: ${error.message}`);
+
+  let propertyExplorerOrders = 0;
+  let agileInsightsOrders = 0;
+  for (const row of data || []) {
+    if (row.housecanary_order_product === 'property_explorer') propertyExplorerOrders += 1;
+    if (row.housecanary_order_product === 'agile_insights') agileInsightsOrders += 1;
+  }
+
+  return { propertyExplorerOrders, agileInsightsOrders };
+}
+
+function parseOrderValue(order: any) {
+  const payload = order?.response_payload || {};
+  return typeof payload?.value === 'number'
+    ? payload.value
+    : typeof payload?.hcValue === 'number'
+      ? payload.hcValue
+      : typeof payload?.marketValue === 'number'
+        ? payload.marketValue
+        : null;
+}
+
+function parseOrderFsd(order: any) {
+  const payload = order?.response_payload || {};
+  return typeof payload?.fsd === 'number'
+    ? payload.fsd
+    : typeof payload?.forecastStdDev === 'number'
+      ? payload.forecastStdDev
+      : null;
+}
+
+function parseOrderLink(order: any) {
+  const payload = order?.response_payload || {};
+  return typeof payload?.reportLink === 'string' ? payload.reportLink : null;
+}
+
+function buildProviderRowsFromOrders(orders: any[], investor: InvestorName | null, source: 'cache' | 'fresh'): ProviderRow[] {
+  const latestByProvider = new Map<string, any>();
+  for (const order of orders) {
+    const providerName = order?.provider === 'housecanary'
+      ? 'HouseCanary'
+      : order?.provider === 'clearcapital'
+        ? 'Clear Capital'
+        : null;
+    if (!providerName || latestByProvider.has(providerName)) continue;
+    latestByProvider.set(providerName, order);
+  }
+
+  return KNOWN_PROVIDERS.map((provider) => {
+    const rule = investor ? getInvestorAvmRule(investor, provider) : null;
+    const order = latestByProvider.get(provider) || null;
+
+    return {
+      provider,
+      supported: Boolean(rule?.supported),
+      maxFsdAllowed: rule?.maxFsdAllowed ?? null,
+      date: order ? formatDisplayDate(order.ordered_at || order.created_at) : null,
+      fsd: order ? parseOrderFsd(order) : null,
+      value: order ? parseOrderValue(order) : null,
+      reportLink: order ? parseOrderLink(order) : null,
+      source: order ? source : null,
+      orderStatus: order?.order_status || null,
+      orderRunId: order?.order_run_id || null,
+      providerProduct: order?.provider_product || null,
+    };
+  });
+}
+
+function chooseWinnerProvider(rows: ProviderRow[]) {
+  return rows.find((row) => row.supported && row.value !== null)?.provider || rows.find((row) => row.value !== null)?.provider || null;
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const session = getLoanOfficerPortalSessionFromRequest(req);
+    if (!session) return buildLoanOfficerPortalUnauthorizedResponse();
+
+    const body = await req.json() as LoanOfficerAvmRequestBody;
+    const address = String(body.address || '').trim();
+    const city = String(body.city || '').trim();
+    const state = String(body.state || '').trim().toUpperCase();
+    const zipcode = String(body.zipcode || '').trim();
+    const loanNumber = String(body.loanNumber || '').trim();
+    const investorLabel = String(body.investor || '').trim();
+    const engine = String(body.engine || '').trim() || null;
+    const program = String(body.program || '').trim() || null;
+    const product = String(body.product || '').trim() || null;
+
+    if (!address || !zipcode || !investorLabel) {
+      return NextResponse.json({ error: 'Address, zipcode, and investor are required.' }, { status: 400 });
+    }
+
+    const investor = mapInvestorLabelToRuleInvestor(investorLabel);
+    if (!investor) {
+      return NextResponse.json({ error: `Unsupported investor for AVM ordering: ${investorLabel}` }, { status: 400 });
+    }
+
+    const supabase = getSupabaseAdmin();
+    const addressId = buildAddressId(address, city, state, zipcode);
+    const cachedOrders = await loadRecentOrders(supabase, addressId);
+
+    if (cachedOrders.length > 0) {
+      const providerRows = buildProviderRowsFromOrders(cachedOrders, investor, 'cache');
+      return NextResponse.json({
+        cacheHit: true,
+        addressId,
+        cacheWindowDays: LO_AVM_CACHE_WINDOW_DAYS,
+        investor: investorLabel,
+        providerRows,
+        winnerProvider: chooseWinnerProvider(providerRows),
+        latestOrderedAt: cachedOrders[0]?.ordered_at || cachedOrders[0]?.created_at || null,
+        message: 'Loaded cached AVM order results. No new vendor order was placed.',
+      });
+    }
+
+    const hcRule = getInvestorAvmRule(investor, 'HouseCanary');
+    const ccRule = getInvestorAvmRule(investor, 'Clear Capital');
+    const orderRunId = randomUUID();
+    const orderedAt = new Date().toISOString();
+
+    let insertedOrder: any = null;
+
+    if (hcRule?.supported) {
+      const emptyUsage = { propertyExplorerOrders: 0, agileInsightsOrders: 0 };
+      const initialAllocation = chooseHouseCanaryOrderProduct(emptyUsage, new Date(orderedAt));
+      const usage = await countHouseCanaryCycleUsage(supabase, initialAllocation.cycle.cycleStart, initialAllocation.cycle.cycleEnd);
+      const allocation = chooseHouseCanaryOrderProduct(usage, new Date(orderedAt));
+
+      if (allocation.selectedProduct === 'property_explorer') {
+        const [pexp, hcValue] = await Promise.all([
+          getHouseCanaryPropertyExplorerStaticLink(address, zipcode),
+          getHouseCanaryValueWithFsd(address, zipcode),
+        ]);
+
+        const responsePayload = {
+          reportLink: pexp.link,
+          value: hcValue.value,
+          fsd: hcValue.fsd,
+          lowValue: hcValue.lowValue,
+          highValue: hcValue.highValue,
+          housecanaryOrderProduct: allocation.selectedProduct,
+          housecanaryPropertyExplorerResponse: pexp.raw,
+        };
+
+        const insertPayload = {
+          order_run_id: orderRunId,
+          address_id: addressId,
+          loan_officer_prefix: session.prefix,
+          loan_officer_email: session.email,
+          loan_number: loanNumber || null,
+          investor: investorLabel,
+          engine,
+          program,
+          product,
+          provider: 'housecanary',
+          provider_product: 'pexp_static_link',
+          external_order_id: null,
+          external_item_id: null,
+          external_tracking_id: loanNumber || null,
+          order_status: 'completed',
+          address,
+          city: city || null,
+          state: state || null,
+          zipcode,
+          ordered_at: orderedAt,
+          completed_at: orderedAt,
+          request_payload: {
+            address,
+            zipcode,
+            investor: investorLabel,
+            customer_order_id: loanNumber || null,
+          },
+          response_payload: responsePayload,
+          notes: `Property Explorer order ${allocation.overallSequenceNumber} in ${allocation.cycle.label}`,
+          housecanary_billing_cycle_start: allocation.cycle.cycleStart,
+          housecanary_billing_cycle_end: allocation.cycle.cycleEnd,
+          housecanary_order_product: allocation.selectedProduct,
+          housecanary_product_sequence_number: allocation.productSequenceNumber,
+          housecanary_overall_sequence_number: allocation.overallSequenceNumber,
+          housecanary_free_tier_applied: allocation.isFreeTier,
+        };
+
+        const { data, error } = await supabase.from('loan_officer_avm_orders').insert(insertPayload).select('*').single();
+        if (error) throw new Error(`Failed to save HouseCanary order: ${error.message}`);
+        insertedOrder = data;
+
+        try {
+          await sendLoanOfficerReportEmail({
+            to: session.email,
+            subject: `HouseCanary report ready for ${address}`,
+            html: buildHouseCanaryEmailHtml({ address, investor: investorLabel, link: pexp.link }),
+          });
+        } catch (emailError) {
+          console.error('LO AVM report email failed:', emailError);
+        }
+      } else {
+        const customerOrderId = loanNumber || orderRunId;
+        const customerItemId = randomUUID();
+        const agile = await createHouseCanaryAgileInsightsOrder({
+          address,
+          city: city || undefined,
+          state: state || undefined,
+          zipcode,
+          customerOrderId,
+          customerItemId,
+        });
+
+        const insertPayload = {
+          order_run_id: orderRunId,
+          address_id: addressId,
+          loan_officer_prefix: session.prefix,
+          loan_officer_email: session.email,
+          loan_number: loanNumber || null,
+          investor: investorLabel,
+          engine,
+          program,
+          product,
+          provider: 'housecanary',
+          provider_product: 'agile_insights',
+          external_order_id: agile.externalOrderId,
+          external_item_id: agile.externalItemId,
+          external_tracking_id: customerOrderId,
+          order_status: 'submitted',
+          address,
+          city: city || null,
+          state: state || null,
+          zipcode,
+          ordered_at: orderedAt,
+          request_payload: {
+            address,
+            zipcode,
+            city: city || null,
+            state: state || null,
+            customer_order_id: customerOrderId,
+            customer_item_id: customerItemId,
+          },
+          response_payload: {
+            housecanaryOrderProduct: allocation.selectedProduct,
+            agileInsightsResponse: agile.raw,
+          },
+          notes: `Agile Insights order ${allocation.overallSequenceNumber} in ${allocation.cycle.label}`,
+          housecanary_billing_cycle_start: allocation.cycle.cycleStart,
+          housecanary_billing_cycle_end: allocation.cycle.cycleEnd,
+          housecanary_order_product: allocation.selectedProduct,
+          housecanary_product_sequence_number: allocation.productSequenceNumber,
+          housecanary_overall_sequence_number: allocation.overallSequenceNumber,
+          housecanary_free_tier_applied: allocation.isFreeTier,
+        };
+
+        const { data, error } = await supabase.from('loan_officer_avm_orders').insert(insertPayload).select('*').single();
+        if (error) throw new Error(`Failed to save Agile Insights order: ${error.message}`);
+        insertedOrder = data;
+      }
+    } else if (ccRule?.supported) {
+      if (!city || !state) {
+        return NextResponse.json({ error: 'City and state are required for Clear Capital fallback ordering.' }, { status: 400 });
+      }
+
+      const clearCapital = await createClearCapitalOrder({
+        address,
+        city,
+        state,
+        zipcode,
+        trackingId: loanNumber || orderRunId,
+        maxFsd: ccRule.maxFsdAllowed ?? 0.3,
+      });
+
+      const insertPayload = {
+        order_run_id: orderRunId,
+        address_id: addressId,
+        loan_officer_prefix: session.prefix,
+        loan_officer_email: session.email,
+        loan_number: loanNumber || null,
+        investor: investorLabel,
+        engine,
+        program,
+        product,
+        provider: 'clearcapital',
+        provider_product: 'clearavm',
+        external_order_id: clearCapital.externalOrderId,
+        external_item_id: null,
+        external_tracking_id: clearCapital.trackingId,
+        order_status: 'completed',
+        address,
+        city,
+        state,
+        zipcode,
+        ordered_at: orderedAt,
+        completed_at: orderedAt,
+        request_payload: {
+          address,
+          city,
+          state,
+          zipcode,
+          trackingIds: [clearCapital.trackingId],
+          clearAvm: {
+            include: true,
+            required: false,
+            request: {
+              maxFSD: Number((ccRule.maxFsdAllowed ?? 0.3).toFixed(2)),
+              exactEffectiveDate: false,
+            },
+          },
+        },
+        response_payload: {
+          value: clearCapital.value,
+          fsd: clearCapital.fsd,
+          lowValue: clearCapital.lowValue,
+          highValue: clearCapital.highValue,
+          effectiveDate: clearCapital.effectiveDate,
+          confidenceScore: clearCapital.confidenceScore,
+          confidenceScoreAlt: clearCapital.confidenceScoreAlt,
+          estimatedError: clearCapital.estimatedError,
+          runDate: clearCapital.runDate,
+          clearCapitalResponse: clearCapital.raw,
+        },
+        notes: `Clear Capital fallback ordered with maxFSD ${(ccRule.maxFsdAllowed ?? 0.3).toFixed(2)}`,
+      };
+
+      const { data, error } = await supabase.from('loan_officer_avm_orders').insert(insertPayload).select('*').single();
+      if (error) throw new Error(`Failed to save Clear Capital order: ${error.message}`);
+      insertedOrder = data;
+    } else {
+      return NextResponse.json({ error: `${investorLabel} does not currently support HouseCanary or Clear Capital ordering in the AVM rules.` }, { status: 400 });
+    }
+
+    const freshOrders = insertedOrder ? [insertedOrder] : [];
+    const providerRows = buildProviderRowsFromOrders(freshOrders, investor, 'fresh');
+
+    return NextResponse.json({
+      cacheHit: false,
+      addressId,
+      cacheWindowDays: LO_AVM_CACHE_WINDOW_DAYS,
+      investor: investorLabel,
+      providerRows,
+      winnerProvider: chooseWinnerProvider(providerRows),
+      latestOrderedAt: insertedOrder?.ordered_at || insertedOrder?.created_at || null,
+      message: 'Vendor order placed successfully.',
+    });
+  } catch (error) {
+    console.error('LO AVM order failed:', error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to order AVM.' }, { status: 500 });
+  }
+}

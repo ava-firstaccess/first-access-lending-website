@@ -57,6 +57,22 @@ type ProviderDisplayRow = {
   date: string | null;
   fsd: number | null;
   value: number | null;
+  reportLink?: string | null;
+  source?: 'cache' | 'fresh' | null;
+  orderStatus?: string | null;
+  orderRunId?: string | null;
+  providerProduct?: string | null;
+};
+
+type LiveOrderResult = {
+  cacheHit: boolean;
+  addressId: string;
+  cacheWindowDays: number;
+  investor: string;
+  providerRows: ProviderDisplayRow[];
+  winnerProvider: AvmProviderName | null;
+  latestOrderedAt: string | null;
+  message: string;
 };
 
 const STORAGE_KEY = 'fal-lo-avm-scenario';
@@ -91,6 +107,9 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
   const [parsedState, setParsedState] = useState('');
   const [parsedZipcode, setParsedZipcode] = useState('');
   const [loanNumber, setLoanNumber] = useState('');
+  const [liveOrderResult, setLiveOrderResult] = useState<LiveOrderResult | null>(null);
+  const [orderError, setOrderError] = useState('');
+  const [ordering, setOrdering] = useState(false);
 
   useEffect(() => {
     try {
@@ -131,7 +150,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
     return selectedSidebarInvestor ? INVESTOR_NAME_MAP[selectedSidebarInvestor.investor] || null : null;
   }, [selectedSidebarInvestor]);
 
-  const providerRows = useMemo<ProviderDisplayRow[]>(() => {
+  const baseProviderRows = useMemo<ProviderDisplayRow[]>(() => {
     if (!selectedInvestorRuleName) {
       return KNOWN_PROVIDERS.map((provider) => ({ provider, supported: false, maxFsdAllowed: null, date: null, fsd: null, value: null }));
     }
@@ -149,16 +168,18 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
     });
   }, [selectedInvestorRuleName]);
 
-  useEffect(() => {
-    const current = providerRows.find((row) => row.provider === selectedProvider && row.supported);
-    if (!current) {
-      const fallback = providerRows.find((row) => row.supported) || null;
-      setSelectedProvider(fallback?.provider || null);
-    }
-  }, [providerRows, selectedProvider]);
+  const providerRows = useMemo<ProviderDisplayRow[]>(() => {
+    const liveRows = new Map((liveOrderResult?.providerRows || []).map((row) => [row.provider, row]));
+    return baseProviderRows.map((row) => ({ ...row, ...(liveRows.get(row.provider) || {}) }));
+  }, [baseProviderRows, liveOrderResult]);
 
-  const selectedProviderRow = providerRows.find((row) => row.provider === selectedProvider) || null;
-  const winnerRow = selectedProviderRow && providerEligibleForInvestor(selectedProviderRow) ? selectedProviderRow : null;
+  useEffect(() => {
+    const current = providerRows.find((row) => row.provider === selectedProvider && (row.supported || row.value !== null));
+    if (current) return;
+    const winner = liveOrderResult?.winnerProvider ? providerRows.find((row) => row.provider === liveOrderResult.winnerProvider) : null;
+    const fallback = winner || providerRows.find((row) => row.supported) || providerRows.find((row) => row.value !== null) || null;
+    setSelectedProvider(fallback?.provider || null);
+  }, [providerRows, selectedProvider, liveOrderResult]);
 
   useEffect(() => {
     setScenario((prev) => {
@@ -170,6 +191,9 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
       return nextScenario;
     });
   }, [loanNumber]);
+
+  const selectedProviderRow = providerRows.find((row) => row.provider === selectedProvider) || null;
+  const winnerRow = providerRows.find((row) => row.provider === (liveOrderResult?.winnerProvider || selectedProvider || '')) || selectedProviderRow;
 
   const displayedMaxLoanAmount = useMemo(() => {
     if (!selectedSidebarInvestor) return null;
@@ -185,6 +209,49 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
     setParsedCity(nextCity || '');
     setParsedState(nextState || '');
     setParsedZipcode(nextZipcode || '');
+    setLiveOrderResult(null);
+    setOrderError('');
+  }
+
+  async function handleOrderAvm() {
+    if (!selectedSidebarInvestor || !address.trim() || !parsedZipcode.trim()) {
+      setOrderError('Select an investor and a full property address before ordering the AVM.');
+      return;
+    }
+
+    setOrdering(true);
+    setOrderError('');
+
+    try {
+      const response = await fetch('/api/lo-avm/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address: address.trim(),
+          city: parsedCity.trim(),
+          state: parsedState.trim(),
+          zipcode: parsedZipcode.trim(),
+          loanNumber: loanNumber.trim(),
+          investor: selectedSidebarInvestor.investor,
+          engine: scenario?.engine,
+          program: selectedSidebarInvestor.program,
+          product: selectedSidebarInvestor.product,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setOrderError(data?.error || 'Failed to order AVM.');
+        return;
+      }
+
+      setLiveOrderResult(data as LiveOrderResult);
+      setSelectedProvider((data as LiveOrderResult).winnerProvider || selectedProvider || null);
+    } catch {
+      setOrderError('Failed to order AVM.');
+    } finally {
+      setOrdering(false);
+    }
   }
 
   return (
@@ -258,8 +325,21 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
 
           <div className="space-y-6">
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900">Property address</h2>
-              <p className="mt-2 text-sm text-slate-600">City, state, and zip are still parsed behind the scenes from Google Places, but removed from the visible form.</p>
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">Property address</h2>
+                  <p className="mt-2 text-sm text-slate-600">City, state, and zip are still parsed behind the scenes from Google Places, but removed from the visible form.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOrderAvm}
+                  disabled={ordering || !selectedSidebarInvestor || !address.trim()}
+                  className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {ordering ? 'Ordering…' : 'Order AVM'}
+                </button>
+              </div>
+
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <label className="text-sm md:col-span-2">
                   <div className="mb-1 font-medium text-slate-700">Street address</div>
@@ -278,18 +358,27 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                 </label>
               </div>
               {(parsedCity || parsedState || parsedZipcode) ? <div className="mt-3 text-xs text-slate-500">Parsed: {[parsedCity, parsedState, parsedZipcode].filter(Boolean).join(', ')}</div> : null}
+              {liveOrderResult ? <div className={`mt-3 rounded-2xl border px-4 py-3 text-sm ${liveOrderResult.cacheHit ? 'border-sky-200 bg-sky-50 text-sky-900' : 'border-emerald-200 bg-emerald-50 text-emerald-900'}`}>{liveOrderResult.message}</div> : null}
+              {orderError ? <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{orderError}</div> : null}
               <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <Metric label="Address ID" value="Pending cache / run wiring" muted />
+                <Metric label="Address ID" value={liveOrderResult?.addressId || 'Pending cache / run wiring'} muted={!liveOrderResult} />
                 <Metric label="Winner" value={winnerRow ? getAvmProviderLabel(winnerRow.provider) : 'No winner yet'} muted={!winnerRow} />
                 <Metric label="Winner FSD" value={winnerRow?.fsd !== null && winnerRow?.fsd !== undefined ? winnerRow.fsd.toFixed(2) : 'No winner yet'} muted={!winnerRow} />
               </div>
+              {winnerRow?.reportLink ? (
+                <div className="mt-4">
+                  <a href={winnerRow.reportLink} target="_blank" rel="noreferrer" className="inline-flex rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700">
+                    Open latest report
+                  </a>
+                </div>
+              ) : null}
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">AVM provider chart</h2>
-                  <p className="mt-1 text-sm text-slate-600">Providers stay visible for every investor. Unsupported providers are greyed out. Once FSDs populate, rows with FSD above the investor max will turn red and status will flip to ineligible.</p>
+                  <p className="mt-1 text-sm text-slate-600">Providers stay visible for every investor. Cached rows repopulate the grid without re-ordering the AVM when the address already exists in the 90-day window.</p>
                 </div>
                 <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">Cache window: reuse winner under 90 days old</div>
               </div>
@@ -308,20 +397,21 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                     const rowEligible = providerEligibleForInvestor(row);
                     const checked = row.provider === selectedProvider;
                     return (
-                      <div key={row.provider} className={`grid grid-cols-[0.55fr,1.35fr,0.9fr,0.8fr,0.9fr,0.85fr] gap-0 px-4 py-3 text-sm ${row.supported ? 'text-slate-900' : 'bg-slate-50 text-slate-400'} ${row.supported && !rowEligible ? 'bg-rose-50' : ''}`}>
+                      <div key={row.provider} className={`grid grid-cols-[0.55fr,1.35fr,0.9fr,0.8fr,0.9fr,0.85fr] gap-0 px-4 py-3 text-sm ${row.supported ? 'text-slate-900' : row.value !== null ? 'bg-amber-50 text-amber-900' : 'bg-slate-50 text-slate-400'} ${row.supported && !rowEligible ? 'bg-rose-50' : ''}`}>
                         <div className="flex items-center">
-                          <input type="radio" checked={checked} disabled={!row.supported} onChange={() => setSelectedProvider(row.provider)} />
+                          <input type="radio" checked={checked} disabled={!row.supported && row.value === null} onChange={() => setSelectedProvider(row.provider)} />
                         </div>
                         <div>
                           <div className="font-semibold">{getAvmProviderLabel(row.provider)}</div>
-                          <div className="mt-1 text-xs text-slate-500">{row.maxFsdAllowed !== null ? `Investor max FSD ${row.maxFsdAllowed.toFixed(2)}` : 'Not allowed for this investor'}</div>
+                          <div className="mt-1 text-xs text-slate-500">{row.maxFsdAllowed !== null ? `Investor max FSD ${row.maxFsdAllowed.toFixed(2)}` : row.value !== null ? 'Cached result exists, but this investor does not support it.' : 'Not allowed for this investor'}</div>
+                          {row.reportLink ? <a href={row.reportLink} target="_blank" rel="noreferrer" className="mt-1 block text-xs font-medium text-sky-700 hover:text-sky-900">Open report</a> : null}
                         </div>
                         <div>{row.date || '—'}</div>
                         <div className={row.supported && !rowEligible ? 'font-semibold text-rose-700' : ''}>{row.fsd !== null ? row.fsd.toFixed(2) : '—'}</div>
                         <div>{row.value !== null ? currency(row.value) : '—'}</div>
                         <div>
-                          <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${!row.supported ? 'bg-slate-200 text-slate-500' : !rowEligible ? 'bg-rose-100 text-rose-700' : checked ? 'bg-sky-100 text-sky-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                            {!row.supported ? 'Ruled out' : !rowEligible ? 'Ineligible' : checked ? 'Selected' : 'Allowed'}
+                          <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${!row.supported && row.value === null ? 'bg-slate-200 text-slate-500' : !rowEligible && row.supported ? 'bg-rose-100 text-rose-700' : checked ? 'bg-sky-100 text-sky-800' : row.value !== null ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                            {!row.supported && row.value === null ? 'Ruled out' : !rowEligible && row.supported ? 'Ineligible' : checked ? 'Selected' : row.value !== null ? (row.source === 'cache' ? 'Cached' : 'Ordered') : 'Allowed'}
                           </span>
                         </div>
                       </div>
@@ -349,11 +439,6 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
               ) : (
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">No pricing scenario has been handed off yet. Open <span className="font-semibold">/pricer</span>, price a scenario, then click <span className="font-semibold">Pull AVM</span> on the investor you want.</div>
               )}
-            </div>
-
-            <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950 shadow-sm">
-              <div className="font-semibold">Still no auto-run right now</div>
-              <p className="mt-2 text-amber-900">This page still does not call any AVM provider automatically. We’re only staging the investor toggle UX, provider selection behavior, and cache/result display slots before wiring the submit button and real cascade.</p>
             </div>
           </div>
         </div>
