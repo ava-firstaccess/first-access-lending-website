@@ -171,21 +171,34 @@ What this means:
 - Verus pricing content is now materially more workbook-driven
 - the remaining code-side pieces are mostly orchestration, normalization, or generic formula behavior rather than embedded LLPA tables
 
-## 7. NewRez has a few intentional hardcoded business rules
+## 7. NewRez, completed in this pass
 
 File:
 - `src/lib/rates/newrez.ts`
 
-What is hardcoded:
+What moved off hardcode:
+- supported product detection now resolves from workbook-backed JSON pricing keys instead of a fixed product whitelist
+- term years now derive from the product label instead of a hardcoded product-to-years map
+- monthly payment math now uses the shared amortizing-payment helper instead of NewRez-local formula code
+- max-available math now uses the shared helper instead of NewRez-local formula code
+- execution-column selection now derives from workbook-backed pricing columns with a lock-to-end-seconds transform instead of a fixed lock-column switch map
+- lock support validation now checks workbook-backed pricing columns instead of a fixed code-side lock whitelist
+- loan-amount bucket matching is now generalized from the workbook row labels instead of a narrow hand-coded string ladder
+
+What is still hardcoded:
 - default end-seconds fallback (`BE45`)
 - hard block to 1-unit properties only
-- lock-period whitelist (15 / 30 / 45 / 60)
 - code-side statement that alt-doc is not supported in the current Home Equity workbook integration
 - guide max fallback default if JSON is missing
+- occupancy normalization / occupancy-to-label mapping
+- condo detection
+- credit-score label parsing and CLTV label parsing helpers
+- the lock-to-end-seconds transform still assumes a `+30 day` pad even though the actual available end-seconds columns are workbook-backed
+- NewRez quote-picking / interpolation behavior
 
 What this means:
-- NewRez pricing data is largely workbook-backed
-- some business restrictions and fallbacks still live in code on purpose
+- NewRez is now less dependent on fixed product, term, loan-amount, and lock-support ladders in code
+- the remaining hardcoded pieces are mostly explicit business restrictions, fallback behavior, and engine orchestration
 
 ## 8. OSB, completed in this pass
 

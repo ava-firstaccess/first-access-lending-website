@@ -1,5 +1,6 @@
 import ratesheet from './newrez-ratesheet.json';
 import { getTargetPurchasePriceForLoanAmount, type ButtonStage1Input } from './button';
+import { calculateAmortizingMonthlyPayment, calculateMaxAvailableFromMaxLtv } from './shared';
 
 export type NewRezProduct = '15 Year Fixed' | '20 Year Fixed' | '30 Year Fixed';
 export type NewRezEndSeconds = 'BE15' | 'BE30' | 'BE45' | 'BE60' | 'BE75' | 'BE90';
@@ -89,6 +90,7 @@ function normalizeDisplayedNoteRate(noteRate: number): number {
 
 const DATA = ratesheet as JsonRatesheet;
 const DEFAULT_NEWREZ_END_SECONDS: NewRezEndSeconds = 'BE45';
+const SUPPORTED_NEWREZ_PRODUCTS = Object.keys(DATA.pricing) as NewRezProduct[];
 
 /**
  * Hard-coded guide overlay:
@@ -105,7 +107,7 @@ export function getNewRezGuideMaxPrice(): number {
 
 export function getNewRezRateBounds(product: NewRezProduct, lockPeriodDays: 15 | 30 | 45 | 60): { minRate: number; maxRate: number } | null {
   const sheet = DATA.pricing[product];
-  const executionColumn = NEWREZ_LOCK_COLUMN_MAP[normalizeNewRezLockPeriodDays(lockPeriodDays)];
+  const executionColumn = getExecutionColumnForLockPeriod(sheet, normalizeNewRezLockPeriodDays(lockPeriodDays));
   if (!sheet.columns.includes(executionColumn)) return null;
 
   const rates = sheet.rows
@@ -214,7 +216,7 @@ export function evaluateNewRezEligibility(input: NewRezPricingInput, selectedLoa
   if (findCltvBucketIndex(matrix.cltvBuckets, input.resultingCltv) === null) reasons.push('Resulting CLTV is outside the NewRez matrix.');
   if (findLoanAmountRow(requested) === null) reasons.push('Desired loan amount is outside the NewRez loan amount table.');
   if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
-  if (input.lockPeriodDays !== 15 && input.lockPeriodDays !== 30 && input.lockPeriodDays !== 45 && input.lockPeriodDays !== 60) reasons.push('NewRez only supports 15, 30, 45, and 60 day lock options.');
+  if (!supportsLockPeriod(input.product, input.lockPeriodDays)) reasons.push('NewRez does not support this lock option in the current workbook-backed pricing columns.');
 
   return {
     eligible: reasons.length === 0,
@@ -264,7 +266,7 @@ function getCltvMatrix(product: NewRezProduct): JsonMatrix {
 }
 
 function calculateMaxAvailable(input: NewRezPricingInput): number {
-  return Math.max(0, input.propertyValue * calculateMaxLtv(input) - input.loanBalance);
+  return calculateMaxAvailableFromMaxLtv(input.propertyValue, input.loanBalance, calculateMaxLtv(input));
 }
 
 function calculateMaxLtv(input: NewRezPricingInput): number {
@@ -320,15 +322,18 @@ function buildAdjustmentLines(input: NewRezPricingInput, selectedLoanAmount: num
   return adjustments.filter(row => Number.isFinite(row.value));
 }
 
-const NEWREZ_LOCK_COLUMN_MAP: Record<15 | 30 | 45 | 60, NewRezEndSeconds> = { 15: 'BE45', 30: 'BE60', 45: 'BE75', 60: 'BE90' };
-
 function normalizeNewRezLockPeriodDays(lockPeriodDays?: 15 | 30 | 45 | 60): 15 | 30 | 45 | 60 {
   return lockPeriodDays === 15 || lockPeriodDays === 30 || lockPeriodDays === 45 || lockPeriodDays === 60 ? lockPeriodDays : 30;
 }
 
+function getExecutionColumnForLockPeriod(sheet: JsonProductSheet, lockPeriodDays: 15 | 30 | 45 | 60): NewRezEndSeconds {
+  const target = `BE${lockPeriodDays + 30}` as NewRezEndSeconds;
+  return sheet.columns.includes(target) ? target : sheet.columns.includes(DEFAULT_NEWREZ_END_SECONDS) ? DEFAULT_NEWREZ_END_SECONDS : sheet.columns[0];
+}
+
 function pickExecution(product: NewRezProduct, lockPeriodDays: 15 | 30 | 45 | 60, llpaAdjustment: number, targetPrice: number, tolerance?: number, rateOverride?: number): SelectedExecution {
   const sheet = DATA.pricing[product];
-  const executionColumn = NEWREZ_LOCK_COLUMN_MAP[lockPeriodDays];
+  const executionColumn = getExecutionColumnForLockPeriod(sheet, lockPeriodDays);
   if (!sheet.columns.includes(executionColumn)) {
     return { noteRate: 0, endSeconds: executionColumn, basePrice: 0, purchasePrice: 0, deltaFromTarget: roundToThree(targetPrice), withinTolerance: false };
   }
@@ -439,6 +444,11 @@ function findLoanAmountRow(loanAmount: number): JsonBucketRow | null {
   return DATA.loanAmount.rows.find(row => matchesLoanAmountLabel(row.label, loanAmount)) ?? null;
 }
 
+function supportsLockPeriod(product: NewRezProduct, lockPeriodDays: 15 | 30 | 45 | 60): boolean {
+  const sheet = DATA.pricing[product];
+  return sheet.columns.includes(`BE${lockPeriodDays + 30}` as NewRezEndSeconds);
+}
+
 function matchesCreditScoreLabel(label: string, score: number): boolean {
   const clean = label.replace(/\s+/g, '');
   if (clean.startsWith('>=')) return score >= Number(clean.slice(2));
@@ -461,25 +471,24 @@ function upperBoundForCltvLabel(label: string): number {
 }
 
 function matchesLoanAmountLabel(label: string, amount: number): boolean {
-  const normalized = label.replace(/\s+/g, '');
-  if (normalized === '50000') return amount <= 50000;
-  if (normalized.includes('>$250,000')) return amount > 250000;
-  if (normalized.includes('>$100,000<=$250,000')) return amount > 100000 && amount <= 250000;
-  if (normalized.includes('>$50,000<=$100,000')) return amount > 50000 && amount <= 100000;
+  const normalized = label.replace(/\s+/g, '').replace(/,/g, '');
+  if (/^50000$/.test(normalized)) return amount <= 50000;
+  const gtLte = normalized.match(/^>(\$?\d+(?:\.\d+)?)<=(\$?\d+(?:\.\d+)?)$/);
+  if (gtLte) return amount > Number(gtLte[1].replace('$', '')) && amount <= Number(gtLte[2].replace('$', ''));
+  const gtOnly = normalized.match(/^>(\$?\d+(?:\.\d+)?)$/);
+  if (gtOnly) return amount > Number(gtOnly[1].replace('$', ''));
   return false;
 }
 
 function calculateMonthlyPayment(loanAmount: number, noteRate: number, years: number): number {
-  const monthlyRate = noteRate / 100 / 12;
-  const payments = years * 12;
-  if (monthlyRate === 0) return loanAmount / Math.max(payments, 1);
-  const factor = Math.pow(1 + monthlyRate, payments);
-  return loanAmount * ((monthlyRate * factor) / (factor - 1));
+  if (noteRate === 0) return loanAmount / Math.max(years * 12, 1);
+  return calculateAmortizingMonthlyPayment(loanAmount, noteRate, years);
 }
 
 function normalizeProduct(product?: string): NewRezProduct {
-  if (product === '15 Year Fixed' || product === '20 Year Fixed' || product === '30 Year Fixed') return product;
-  return '30 Year Fixed';
+  return SUPPORTED_NEWREZ_PRODUCTS.includes(product as NewRezProduct)
+    ? (product as NewRezProduct)
+    : (SUPPORTED_NEWREZ_PRODUCTS.includes('30 Year Fixed') ? '30 Year Fixed' : SUPPORTED_NEWREZ_PRODUCTS[0]);
 }
 
 function normalizeOccupancy(value?: string): string {
@@ -502,9 +511,8 @@ function isCondo(structureType: string): boolean {
 }
 
 function termYears(product: NewRezProduct): number {
-  if (product === '15 Year Fixed') return 15;
-  if (product === '20 Year Fixed') return 20;
-  return 30;
+  const match = String(product).match(/(\d+)/);
+  return match ? Number(match[1]) : 30;
 }
 
 function roundToThree(value: number): number {
