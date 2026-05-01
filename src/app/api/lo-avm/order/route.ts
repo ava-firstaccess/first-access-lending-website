@@ -223,6 +223,184 @@ async function createHouseCanaryAgileInsightsOrder({
   return { raw: data, externalOrderId, externalItemId };
 }
 
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function firstNumber(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const normalized = value.replace(/[$,%\s,]/g, '').trim();
+      if (!normalized) continue;
+      const parsed = Number(normalized);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return null;
+}
+
+function firstString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+async function getHouseCanaryOrder(orderId: string) {
+  const res = await fetch(`${process.env.HOUSECANARY_ORDER_MANAGER_BASE_URL || HOUSECANARY_ORDER_MANAGER_BASE}/orders/${orderId}/`, {
+    headers: {
+      Authorization: readHouseCanaryOrderManagerAuth(),
+      Accept: 'application/json',
+    },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`HouseCanary Agile Insights get order failed (${res.status})`);
+  }
+
+  return res.json();
+}
+
+async function listHouseCanaryOrderItems(orderId: string) {
+  const res = await fetch(`${process.env.HOUSECANARY_ORDER_MANAGER_BASE_URL || HOUSECANARY_ORDER_MANAGER_BASE}/orders/${orderId}/items/`, {
+    headers: {
+      Authorization: readHouseCanaryOrderManagerAuth(),
+      Accept: 'application/json',
+    },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`HouseCanary Agile Insights list order items failed (${res.status})`);
+  }
+
+  const data = await res.json();
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.results)) return data.results;
+  if (Array.isArray(data?.items)) return data.items;
+  return [];
+}
+
+function getHouseCanaryItemStatus(status: string | null | undefined) {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (normalized === 'complete') return 'completed';
+  if (normalized === 'cancelled') return 'failed';
+  if (normalized === 'reportpending' || normalized === 'accepted' || normalized === 'new') return 'processing';
+  return 'submitted';
+}
+
+async function fetchHouseCanaryAgileInsightsSnapshot(orderId: string, externalItemId?: string | null) {
+  const [order, items] = await Promise.all([
+    getHouseCanaryOrder(orderId),
+    listHouseCanaryOrderItems(orderId),
+  ]);
+
+  const selectedItem = items.find((item: any) => String(item?.id || '') === String(externalItemId || '')) || items[0] || null;
+  const estimatedValue = firstNumber(
+    selectedItem?.estimated_value,
+    selectedItem?.estimatedValue,
+    selectedItem?.result?.estimated_value,
+    selectedItem?.result?.estimatedValue,
+    order?.estimated_value,
+    order?.estimatedValue,
+    order?.result?.estimated_value,
+    order?.result?.estimatedValue,
+  );
+  const fsd = firstNumber(
+    selectedItem?.fsd,
+    selectedItem?.forecast_std_dev,
+    selectedItem?.forecastStdDev,
+    selectedItem?.result?.fsd,
+    selectedItem?.result?.forecast_std_dev,
+    selectedItem?.result?.forecastStdDev,
+    order?.fsd,
+    order?.forecast_std_dev,
+    order?.forecastStdDev,
+  );
+  const valueRange = firstString(
+    selectedItem?.value_range,
+    selectedItem?.valueRange,
+    selectedItem?.result?.value_range,
+    selectedItem?.result?.valueRange,
+    order?.value_range,
+    order?.valueRange,
+    order?.result?.value_range,
+    order?.result?.valueRange,
+  );
+  const pdfType = selectedItem?.available_downloadables?.[0]?.key || null;
+
+  return {
+    order,
+    items,
+    externalItemId: selectedItem?.id || externalItemId || null,
+    status: firstString(selectedItem?.status, order?.status),
+    value: estimatedValue !== null ? Math.round(estimatedValue) : null,
+    fsd,
+    valueRange,
+    completedAt: firstString(selectedItem?.completion_date, order?.actual_delivery_date),
+    pdfType,
+    fsdThreshold: firstNumber(order?.fsd_threshold, selectedItem?.fsd_threshold),
+  };
+}
+
+async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof getSupabaseAdmin>, order: any) {
+  if (order?.provider !== 'housecanary' || order?.provider_product !== 'agile_insights' || !order?.external_order_id) {
+    return order;
+  }
+
+  const snapshot = await fetchHouseCanaryAgileInsightsSnapshot(String(order.external_order_id), order.external_item_id || null);
+  const requestedMaxFsd = typeof order?.requested_max_fsd === 'number' ? order.requested_max_fsd : null;
+  const fsdThresholdStatus = requestedMaxFsd !== null && snapshot.fsd !== null
+    ? (snapshot.fsd <= requestedMaxFsd + 0.0001 ? 'passed' : 'failed')
+    : order?.fsd_threshold_status || null;
+  const nextOrderStatus = getHouseCanaryItemStatus(snapshot.status);
+  const nextPayload = {
+    ...(order?.response_payload || {}),
+    value: snapshot.value,
+    fsd: snapshot.fsd,
+    valueRange: snapshot.valueRange,
+    pdfType: snapshot.pdfType,
+    fsdThresholdEcho: snapshot.fsdThreshold,
+    agileInsightsOrderResponse: snapshot.order,
+    agileInsightsItemsResponse: snapshot.items,
+  };
+
+  const updatePayload = {
+    external_item_id: snapshot.externalItemId,
+    order_status: nextOrderStatus,
+    completed_at: nextOrderStatus === 'completed' ? (toIsoDate(snapshot.completedAt) || new Date().toISOString()) : null,
+    response_payload: nextPayload,
+    fsd_threshold_status: fsdThresholdStatus,
+    fsd_threshold_passed: fsdThresholdStatus === 'passed' ? true : fsdThresholdStatus === 'failed' ? false : null,
+  };
+
+  const { data, error } = await supabase
+    .from('loan_officer_avm_orders')
+    .update(updatePayload)
+    .eq('id', order.id)
+    .select('*')
+    .single();
+
+  if (error) throw new Error(`Failed to refresh Agile Insights order: ${error.message}`);
+  return data;
+}
+
+async function pollHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof getSupabaseAdmin>, order: any, attempts = 4, delayMs = 1500) {
+  let current = order;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    current = await refreshHouseCanaryAgileInsightsOrder(supabase, current);
+    if (current?.order_status === 'completed' || current?.order_status === 'failed') {
+      return current;
+    }
+    if (attempt < attempts - 1) {
+      await delay(delayMs);
+    }
+  }
+  return current;
+}
+
 async function createClearCapitalOrder({
   address,
   city,
@@ -574,8 +752,8 @@ export async function POST(req: NextRequest) {
     const program = String(body.program || '').trim() || null;
     const product = String(body.product || '').trim() || null;
 
-    if (!address || !zipcode || !investorLabel) {
-      return NextResponse.json({ error: 'Address, zipcode, and investor are required.' }, { status: 400 });
+    if (!address || !zipcode || !investorLabel || !loanNumber) {
+      return NextResponse.json({ error: 'Address, zipcode, investor, and loan number or phone number are required.' }, { status: 400 });
     }
 
     const investor = mapInvestorLabelToRuleInvestor(investorLabel);
@@ -588,7 +766,17 @@ export async function POST(req: NextRequest) {
     const cachedOrders = await loadRecentOrders(supabase, addressId);
 
     if (cachedOrders.length > 0) {
-      const providerRows = buildProviderRowsFromOrders(cachedOrders, investor, 'cache');
+      const refreshedCachedOrders = await Promise.all(cachedOrders.map(async (order) => {
+        if (order?.provider === 'housecanary' && order?.provider_product === 'agile_insights' && order?.external_order_id && order?.order_status !== 'completed' && order?.order_status !== 'failed') {
+          try {
+            return await refreshHouseCanaryAgileInsightsOrder(supabase, order);
+          } catch (refreshError) {
+            console.error('Agile Insights cache refresh failed:', refreshError);
+          }
+        }
+        return order;
+      }));
+      const providerRows = buildProviderRowsFromOrders(refreshedCachedOrders, investor, 'cache');
       return NextResponse.json({
         cacheHit: true,
         addressId,
@@ -596,7 +784,7 @@ export async function POST(req: NextRequest) {
         investor: investorLabel,
         providerRows,
         winnerProvider: chooseWinnerProvider(providerRows),
-        latestOrderedAt: cachedOrders[0]?.ordered_at || cachedOrders[0]?.created_at || null,
+        latestOrderedAt: refreshedCachedOrders[0]?.ordered_at || refreshedCachedOrders[0]?.created_at || null,
         message: 'Loaded cached AVM order results. No new vendor order was placed.',
       });
     }
@@ -769,7 +957,7 @@ export async function POST(req: NextRequest) {
 
         const { data, error } = await supabase.from('loan_officer_avm_orders').insert(insertPayload).select('*').single();
         if (error) throw new Error(`Failed to save Agile Insights order: ${error.message}`);
-        insertedOrder = data;
+        insertedOrder = await pollHouseCanaryAgileInsightsOrder(supabase, data);
       }
     } else if (ccRule?.supported) {
       if (!city || !state) {
@@ -857,6 +1045,12 @@ export async function POST(req: NextRequest) {
     const freshOrders = insertedOrder ? [insertedOrder] : [];
     const providerRows = buildProviderRowsFromOrders(freshOrders, investor, 'fresh');
 
+    const successMessage = insertedOrder?.provider === 'housecanary' && insertedOrder?.provider_product === 'agile_insights'
+      ? insertedOrder?.order_status === 'completed'
+        ? 'Agile Insights order completed and the latest value was captured.'
+        : 'Agile Insights order placed. Polling ran, but HouseCanary has not returned a completed result yet.'
+      : 'Vendor order placed successfully.';
+
     return NextResponse.json({
       cacheHit: false,
       addressId,
@@ -865,7 +1059,7 @@ export async function POST(req: NextRequest) {
       providerRows,
       winnerProvider: chooseWinnerProvider(providerRows),
       latestOrderedAt: insertedOrder?.ordered_at || insertedOrder?.created_at || null,
-      message: 'Vendor order placed successfully.',
+      message: successMessage,
     });
   } catch (error) {
     console.error('LO AVM order failed:', error);

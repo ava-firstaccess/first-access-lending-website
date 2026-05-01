@@ -219,8 +219,8 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
   }
 
   async function handleOrderAvm() {
-    if (!selectedSidebarInvestor || !address.trim() || !parsedZipcode.trim()) {
-      setOrderError('Select an investor and a full property address before ordering the AVM.');
+    if (!selectedSidebarInvestor || !address.trim() || !parsedZipcode.trim() || !loanNumber.trim()) {
+      setOrderError('Select an investor, a full property address, and a loan number or phone number before ordering the AVM.');
       return;
     }
 
@@ -337,7 +337,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                 <button
                   type="button"
                   onClick={handleOrderAvm}
-                  disabled={ordering || !selectedSidebarInvestor || !address.trim()}
+                  disabled={ordering || !selectedSidebarInvestor || !address.trim() || !loanNumber.trim()}
                   className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {ordering ? 'Ordering…' : 'Order AVM'}
@@ -350,15 +350,16 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                   <AddressAutocomplete value={address} onChange={handleAddressChange} placeholder="Start typing a property address" />
                 </label>
                 <label className="text-sm">
-                  <div className="mb-1 font-medium text-slate-700">Loan number</div>
+                  <div className="mb-1 font-medium text-slate-700">Loan number <span className="text-rose-600">*</span></div>
                   <input
                     type="text"
                     value={loanNumber}
                     onChange={e => setLoanNumber(e.target.value)}
-                    placeholder="Enter loan number"
+                    placeholder="Enter loan number or phone number"
+                    required
                     className="w-full rounded-lg border border-slate-300 px-3 py-2"
                   />
-                  <div className="mt-1 text-xs text-slate-500">This will be sent as HouseCanary customer_order_id and Clear Capital trackingIds[0].</div>
+                  <div className="mt-1 text-xs text-slate-500">Required. Enter the loan number, or the borrower phone number if the loan number is not known yet. This will be sent as HouseCanary customer_order_id and Clear Capital trackingIds[0].</div>
                 </label>
               </div>
               {(parsedCity || parsedState || parsedZipcode) ? <div className="mt-3 text-xs text-slate-500">Parsed: {[parsedCity, parsedState, parsedZipcode].filter(Boolean).join(', ')}</div> : null}
