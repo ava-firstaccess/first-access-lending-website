@@ -87,13 +87,13 @@ type JsonProgram = {
   adjustments: Record<string, JsonBucketRow[]>;
   documentationAdjustments?: Array<{ label: string; value: number | null }>;
   lockAdjustments: Array<{ label: string; value: number | null }>;
+  tier1States?: string[];
   armFeatures?: {
     'Index-PRIME'?: number;
   };
 };
 
 const PROGRAMS = (ratesheet as { programs: Record<JsonProgramKey, JsonProgram> }).programs;
-const TIER_1_STATES = new Set(['NV', 'LA', 'FL', 'GA', 'SC', 'CO', 'AZ', 'NC']);
 
 export function getOsbGuideMaxPrice(program: OsbProgram, product: OsbProduct): number {
   const source = program === 'HELOC' ? PROGRAMS.heloc : PROGRAMS.secondLiens;
@@ -308,7 +308,7 @@ export function evaluateOsbEligibility(input: OsbPricingInput, selectedLoanAmoun
   if (property && cltvBucketIndex !== null && adjustmentBucketValue(property, cltvBucketIndex) === null) reasons.push(`Property type ${property.label} is not eligible at this CLTV in the workbook.`);
 
   const state = findAdjustment(program.adjustments.property, 'Tier 2 States: Other*');
-  if (state && !TIER_1_STATES.has(input.propertyState) && cltvBucketIndex !== null && adjustmentBucketValue(state, cltvBucketIndex) === null) reasons.push('Tier 2 state pricing is not eligible at this CLTV in the workbook.');
+  if (state && isTier2State(input) && cltvBucketIndex !== null && adjustmentBucketValue(state, cltvBucketIndex) === null) reasons.push('Tier 2 state pricing is not eligible at this CLTV in the workbook.');
 
   if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
 
@@ -349,7 +349,7 @@ function buildAdjustmentLines(input: OsbPricingInput, selectedLoanAmount: number
   if (property) adjustments.push({ label: `Property: ${property.label}`, value: lookupAdjustmentValue(property, program.cltvBuckets, input.resultingCltv) });
 
   const state = findAdjustment(program.adjustments.property, 'Tier 2 States: Other*');
-  if (state && !TIER_1_STATES.has(input.propertyState)) {
+  if (state && isTier2State(input)) {
     adjustments.push({ label: 'State: Tier 2 States: Other*', value: lookupAdjustmentValue(state, program.cltvBuckets, input.resultingCltv) });
   }
 
@@ -453,6 +453,11 @@ function clampTargetPrice(program: JsonProgram, product: OsbProduct, targetPrice
 
 function getProgramData(program: OsbProgram): JsonProgram {
   return PROGRAMS[program === 'HELOC' ? 'heloc' : 'secondLiens'];
+}
+
+function isTier2State(input: OsbPricingInput): boolean {
+  const tier1States = new Set(getProgramData(input.program).tier1States ?? []);
+  return !tier1States.has(input.propertyState);
 }
 
 function findMatrixRow(rows: JsonBucketRow[], creditScore: number): JsonBucketRow | null {

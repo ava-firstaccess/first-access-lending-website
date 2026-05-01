@@ -41,6 +41,37 @@ def normalize_lock_adjustments(sheet, row_start, row_end, label_col, value_col):
     ]
 
 
+STATE_NAME_TO_CODE = {
+    'NEVADA': 'NV',
+    'LOUISIANA': 'LA',
+    'FLORIDA': 'FL',
+    'GEORGIA': 'GA',
+    'SOUTH CAROLINA': 'SC',
+    'COLORADO': 'CO',
+    'ARIZONA': 'AZ',
+    'NORTH CAROLINA': 'NC',
+}
+
+
+def parse_tier1_states(note):
+    text = normalize(note)
+    if not text:
+        return []
+    prefix = 'tier 1 states:'
+    lowered = text.lower()
+    idx = lowered.find(prefix)
+    if idx == -1:
+        return []
+    states_text = text[idx + len(prefix):].strip(' *')
+    out = []
+    for state in states_text.split(','):
+        normalized_state = state.strip().upper()
+        if not normalized_state:
+            continue
+        out.append(STATE_NAME_TO_CODE.get(normalized_state, normalized_state))
+    return out
+
+
 wb = load_workbook(WORKBOOK, data_only=True)
 
 second = wb['2nd Liens']
@@ -105,6 +136,7 @@ data = {
                 ],
             },
             'lockAdjustments': normalize_lock_adjustments(second, 19, 21, 24, 25),
+            'tier1States': parse_tier1_states(second.cell(41, 10).value),
         },
         'heloc': {
             'sheet': 'HELOC',
@@ -162,6 +194,7 @@ data = {
                 ],
             },
             'lockAdjustments': normalize_lock_adjustments(heloc, 21, 23, 22, 23),
+            'tier1States': parse_tier1_states(heloc.cell(40, 8).value),
             'armFeatures': {
                 str(heloc.cell(row, 19).value): normalize(heloc.cell(row, 20).value)
                 for row in range(21, 26)

@@ -1032,6 +1032,16 @@
           "label": "60 day",
           "value": -0.3
         }
+      ],
+      "tier1States": [
+        "NV",
+        "LA",
+        "FL",
+        "GA",
+        "SC",
+        "CO",
+        "AZ",
+        "NC"
       ]
     },
     "heloc": {
@@ -1873,6 +1883,16 @@
           "label": "60 day",
           "value": -0.3
         }
+      ],
+      "tier1States": [
+        "NV",
+        "LA",
+        "FL",
+        "GA",
+        "SC",
+        "CO",
+        "AZ",
+        "NC"
       ],
       "armFeatures": {
         "Index-PRIME": 0.0675,
