@@ -3,7 +3,7 @@
   "sheet": "Corr - Del Non-Agency",
   "section": "All Arc Closed End Second Lien - Base Pricing",
   "title": "Correspondent Delegated Non-Agency Rates",
-  "priceCode": "20260430A",
+  "priceCode": "20260501A",
   "program": "Arc Home",
   "products": [
     "10 Year Maturity",
@@ -506,20 +506,5 @@
         }
       ]
     }
-  },
-  "guideMaxPrice": {
-    "allElse": {
-      "10 Year Maturity": 106.5,
-      "15 Year Maturity": 106.5,
-      "20 Year Maturity": 106.5,
-      "30 Year Maturity": 106.5
-    },
-    "withCondition": {
-      "10 Year Maturity": 107.5,
-      "15 Year Maturity": 107.5,
-      "20 Year Maturity": 107.5,
-      "30 Year Maturity": 107.5
-    },
-    "assumption": "withCondition ignored for stage-1 because first lien rate is unknown"
   }
 }

@@ -663,10 +663,6 @@
             ]
           }
         ]
-      },
-      "guideMaxPrice": {
-        "default": 105,
-        "over500k": 104
       }
     },
     "Non-Prime": {
@@ -1192,9 +1188,6 @@
             ]
           }
         ]
-      },
-      "guideMaxPrice": {
-        "default": 105
       }
     }
   }
