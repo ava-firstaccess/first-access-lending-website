@@ -20,6 +20,21 @@ const KNOWN_PROVIDERS: AvmProviderName[] = [
   'Home Genius',
 ];
 
+const HOUSECANARY_CYCLE_FIELDS = [
+  'housecanary_billing_cycle_start',
+  'housecanary_billing_cycle_end',
+  'housecanary_order_product',
+  'housecanary_product_sequence_number',
+  'housecanary_overall_sequence_number',
+  'housecanary_free_tier_applied',
+] as const;
+
+const FSD_THRESHOLD_FIELDS = [
+  'requested_max_fsd',
+  'fsd_threshold_status',
+  'fsd_threshold_passed',
+] as const;
+
 type LoanOfficerAvmRequestBody = {
   address?: string;
   city?: string;
@@ -107,6 +122,58 @@ function toIsoDate(value: string | null | undefined) {
 function formatDisplayDate(value: string | null | undefined) {
   const iso = toIsoDate(value);
   return iso ? iso.slice(0, 10) : null;
+}
+
+function getSupabaseErrorText(error: any) {
+  return [error?.message, error?.details, error?.hint, error?.code]
+    .filter(Boolean)
+    .join(' | ')
+    .toLowerCase();
+}
+
+function isMissingColumnError(error: any, columns: readonly string[]) {
+  const text = getSupabaseErrorText(error);
+  if (!text) return false;
+  return columns.some((column) => text.includes(column.toLowerCase()))
+    || text.includes('could not find the')
+    || text.includes('schema cache')
+    || text.includes('does not exist');
+}
+
+function omitFields<T extends Record<string, any>>(payload: T, fields: readonly string[]) {
+  const next = { ...payload };
+  for (const field of fields) {
+    delete next[field];
+  }
+  return next;
+}
+
+async function insertLoanOfficerAvmOrder(supabase: ReturnType<typeof getSupabaseAdmin>, payload: Record<string, any>) {
+  const candidates = [
+    payload,
+    omitFields(payload, HOUSECANARY_CYCLE_FIELDS),
+    omitFields(payload, FSD_THRESHOLD_FIELDS),
+    omitFields(omitFields(payload, HOUSECANARY_CYCLE_FIELDS), FSD_THRESHOLD_FIELDS),
+  ];
+
+  let lastError: any = null;
+  const attempted = new Set<string>();
+
+  for (const candidate of candidates) {
+    const signature = JSON.stringify(Object.keys(candidate).sort());
+    if (attempted.has(signature)) continue;
+    attempted.add(signature);
+
+    const { data, error } = await supabase.from('loan_officer_avm_orders').insert(candidate).select('*').single();
+    if (!error) return data;
+
+    lastError = error;
+    const maybeMissingOptionalColumns = isMissingColumnError(error, HOUSECANARY_CYCLE_FIELDS)
+      || isMissingColumnError(error, FSD_THRESHOLD_FIELDS);
+    if (!maybeMissingOptionalColumns) break;
+  }
+
+  throw lastError;
 }
 
 function readHouseCanaryBasicAuth() {
@@ -376,15 +443,32 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
     fsd_threshold_passed: fsdThresholdStatus === 'passed' ? true : fsdThresholdStatus === 'failed' ? false : null,
   };
 
-  const { data, error } = await supabase
-    .from('loan_officer_avm_orders')
-    .update(updatePayload)
-    .eq('id', order.id)
-    .select('*')
-    .single();
+  const candidates = [
+    updatePayload,
+    omitFields(updatePayload, FSD_THRESHOLD_FIELDS),
+  ];
 
-  if (error) throw new Error(`Failed to refresh Agile Insights order: ${error.message}`);
-  return data;
+  let lastError: any = null;
+  const attempted = new Set<string>();
+
+  for (const candidate of candidates) {
+    const signature = JSON.stringify(Object.keys(candidate).sort());
+    if (attempted.has(signature)) continue;
+    attempted.add(signature);
+
+    const { data, error } = await supabase
+      .from('loan_officer_avm_orders')
+      .update(candidate)
+      .eq('id', order.id)
+      .select('*')
+      .single();
+
+    if (!error) return data;
+    lastError = error;
+    if (!isMissingColumnError(error, FSD_THRESHOLD_FIELDS)) break;
+  }
+
+  throw new Error(`Failed to refresh Agile Insights order: ${lastError?.message || 'unknown error'}`);
 }
 
 async function pollHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof getSupabaseAdmin>, order: any, attempts = 4, delayMs = 1500) {
@@ -595,7 +679,12 @@ async function countHouseCanaryCycleUsage(supabase: ReturnType<typeof getSupabas
     .eq('housecanary_billing_cycle_end', cycleEnd)
     .in('order_status', ['submitted', 'processing', 'completed']);
 
-  if (error) throw new Error(`HouseCanary cycle usage lookup failed: ${error.message}`);
+  if (error) {
+    if (isMissingColumnError(error, HOUSECANARY_CYCLE_FIELDS)) {
+      return { propertyExplorerOrders: 0, agileInsightsOrders: 0 };
+    }
+    throw new Error(`HouseCanary cycle usage lookup failed: ${error.message}`);
+  }
 
   let propertyExplorerOrders = 0;
   let agileInsightsOrders = 0;
@@ -881,9 +970,11 @@ export async function POST(req: NextRequest) {
           housecanary_free_tier_applied: allocation.isFreeTier,
         };
 
-        const { data, error } = await supabase.from('loan_officer_avm_orders').insert(insertPayload).select('*').single();
-        if (error) throw new Error(`Failed to save HouseCanary order: ${error.message}`);
-        insertedOrder = data;
+        try {
+          insertedOrder = await insertLoanOfficerAvmOrder(supabase, insertPayload);
+        } catch (error: any) {
+          throw new Error(`Failed to save HouseCanary order: ${error?.message || 'unknown error'}`);
+        }
 
         try {
           await sendLoanOfficerReportEmail({
@@ -955,9 +1046,12 @@ export async function POST(req: NextRequest) {
           housecanary_free_tier_applied: allocation.isFreeTier,
         };
 
-        const { data, error } = await supabase.from('loan_officer_avm_orders').insert(insertPayload).select('*').single();
-        if (error) throw new Error(`Failed to save Agile Insights order: ${error.message}`);
-        insertedOrder = await pollHouseCanaryAgileInsightsOrder(supabase, data);
+        try {
+          insertedOrder = await insertLoanOfficerAvmOrder(supabase, insertPayload);
+        } catch (error: any) {
+          throw new Error(`Failed to save Agile Insights order: ${error?.message || 'unknown error'}`);
+        }
+        insertedOrder = await pollHouseCanaryAgileInsightsOrder(supabase, insertedOrder);
       }
     } else if (ccRule?.supported) {
       if (!city || !state) {
@@ -1035,9 +1129,11 @@ export async function POST(req: NextRequest) {
           : `Clear Capital fallback ordered with maxFSD ${requestedMaxFsd.toFixed(2)}`,
       };
 
-      const { data, error } = await supabase.from('loan_officer_avm_orders').insert(insertPayload).select('*').single();
-      if (error) throw new Error(`Failed to save Clear Capital order: ${error.message}`);
-      insertedOrder = data;
+      try {
+        insertedOrder = await insertLoanOfficerAvmOrder(supabase, insertPayload);
+      } catch (error: any) {
+        throw new Error(`Failed to save Clear Capital order: ${error?.message || 'unknown error'}`);
+      }
     } else {
       return NextResponse.json({ error: `${investorLabel} does not currently support HouseCanary or Clear Capital ordering in the AVM rules.` }, { status: 400 });
     }
