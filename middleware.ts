@@ -1,22 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buildSiteAccessToken, isSiteAccessConfigured, SITE_ACCESS_COOKIE } from '@/lib/site-access';
 
-const PRICER_HOST = 'pricer.firstaccesslending.com';
 const LO_ALLOWED_PREFIXES = [
   '/login',
   '/pricer',
   '/avm',
   '/api/lo-auth',
   '/api/lo-avm',
-  '/api/pricer-stage1-pricing',
-  '/_next',
-  '/favicon.ico',
-  '/robots.txt',
-  '/sitemap.xml',
-];
-const PRICER_ALLOWED_PREFIXES = [
-  '/pricer',
-  '/api/pricer-auth',
   '/api/pricer-stage1-pricing',
   '/_next',
   '/favicon.ico',
@@ -38,10 +28,6 @@ const SITE_GATE_ALLOWED_PREFIXES = [
 
 function normalizeHost(host: string) {
   return host.split(':')[0].toLowerCase();
-}
-
-function isPricerHost(host: string) {
-  return normalizeHost(host) === PRICER_HOST;
 }
 
 function isLoanOfficerHost(host: string) {
@@ -94,26 +80,6 @@ export function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.search = '';
-    return NextResponse.redirect(url);
-  }
-
-  if (isPricerHost(host)) {
-    if (pathname === '/') {
-      const url = request.nextUrl.clone();
-      url.pathname = '/pricer';
-      return NextResponse.redirect(url);
-    }
-
-    if (isAllowedPath(pathname, PRICER_ALLOWED_PREFIXES)) {
-      return NextResponse.next();
-    }
-
-    if (pathname.startsWith('/api/')) {
-      return new NextResponse('Not Found', { status: 404 });
-    }
-
-    const url = request.nextUrl.clone();
-    url.pathname = '/pricer';
     return NextResponse.redirect(url);
   }
 

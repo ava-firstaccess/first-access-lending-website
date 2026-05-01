@@ -26,7 +26,6 @@ function isAllowedOriginHost(originHost: string, requestHost: string) {
     process.env.NEXT_PUBLIC_APP_URL,
     process.env.NEXT_PUBLIC_SITE_URL,
     'https://first-access-lending-website.vercel.app',
-    'https://pricer.firstaccesslending.com',
   ].filter(Boolean);
 
   return allowedOrigins.some((origin) => {

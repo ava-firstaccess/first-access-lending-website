@@ -15,6 +15,7 @@
 - HouseCanary vs CoreLogic vs Quantarium (vendor selection pending)
 - Auto-populate property value from AVM, show confidence score
 - Allow override with stated value
+- Agile Insights follow-up: solve for durable FSD logging. Current testing proved `List Order Items` returns `estimated_value` and `value_range`, while the exported Agile Insights PDF contains `FSD`, but export jobs are still coming back with `exclude_json: true`. Future work is to find the best supported way to capture/store Agile FSD without relying on a fragile manual workflow.
 
 ### Credit API
 - Birchwood credit API (docs requested, awaiting response)
@@ -42,7 +43,6 @@
 - Server-side session storage (replace localStorage)
 - Save/resume application across devices
 - Add a hard password wall to `/pricer` before any pricer UI or API data is exposed
-- When `/pricer` moves to `getaccess.firstaccesslending.com` (name pending), update all host/domain-specific security rules and routing to include the new hostname. At minimum, review middleware host gating, authenticated-origin allowlists, any pricer-only allowed path lists, env/docs that mention `pricer.firstaccesslending.com`, and any share links or canonical URLs.
 - Put `/pricer` behind authenticated user login
 - Require 2FA for `/pricer` access
 - Remove public exposure of investor names from `/pricer` and its API responses
