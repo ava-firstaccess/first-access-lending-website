@@ -49,6 +49,7 @@ type PointsAndFeesAlert = {
 
 const TESTER_GATE_STORAGE_KEY = 'fal-stage1-tester-unlocked';
 const LO_AVM_SCENARIO_STORAGE_KEY = 'fal-lo-avm-scenario';
+const LO_PRICER_STATE_STORAGE_KEY = 'fal-lo-pricer-last-state';
 const STATE_POINTS_AND_FEES_CAPS: Partial<Record<string, number>> = {
   FL: 4,
   MD: 4,
@@ -123,6 +124,7 @@ export function Stage1PricingPage({ mode, portalSession }: { mode: Mode; portalS
   const [loading, setLoading] = useState(false);
   const [expandedBestX, setExpandedBestX] = useState<Record<string, boolean>>({});
   const [unlockingTester, setUnlockingTester] = useState(false);
+  const [pricerStateLoaded, setPricerStateLoaded] = useState(mode !== 'pricer');
   const isLoanOfficerPortal = mode === 'pricer' && Boolean(portalSession?.email);
 
   useEffect(() => {
@@ -131,6 +133,39 @@ export function Stage1PricingPage({ mode, portalSession }: { mode: Mode; portalS
     setIsUnlocked(unlocked);
     setGateChecked(true);
   }, [mode]);
+
+  useEffect(() => {
+    if (mode !== 'pricer') return;
+    try {
+      const raw = window.localStorage.getItem(LO_PRICER_STATE_STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (saved?.engine) setEngine(saved.engine);
+      if (saved?.input) setInput({ ...defaultInput, ...saved.input });
+      if (saved?.draft) setDraft(saved.draft);
+      if (saved?.lastEditedAmount === 'desiredLoanAmount' || saved?.lastEditedAmount === 'combinedLtv') {
+        setLastEditedAmount(saved.lastEditedAmount);
+      }
+    } catch (error) {
+      console.error('Failed to restore LO pricer state:', error);
+    } finally {
+      setPricerStateLoaded(true);
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode !== 'pricer' || !pricerStateLoaded) return;
+    try {
+      window.localStorage.setItem(LO_PRICER_STATE_STORAGE_KEY, JSON.stringify({
+        engine,
+        input,
+        draft,
+        lastEditedAmount,
+      }));
+    } catch (error) {
+      console.error('Failed to persist LO pricer state:', error);
+    }
+  }, [mode, pricerStateLoaded, engine, input, draft, lastEditedAmount]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
