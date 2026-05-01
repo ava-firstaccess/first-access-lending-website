@@ -310,6 +310,7 @@ function generateArcHome() {
     priceCode: String(rawCell(rows, 1126, 13) ?? '').replace(/^Price Code:\s*/i, ''),
     program: 'Arc Home',
     products: ['10 Year Maturity', '15 Year Maturity', '20 Year Maturity', '30 Year Maturity'],
+    lockPeriods: lockColumns.map(label => Number.parseInt(label, 10)),
     pricing: { rows: noteRates },
     adjustments: {
       term: parseRows(rows, 1131, 1134, 13, 14, 14).map(row => ({ label: String(row.label), value: price(row.values[0]) })),

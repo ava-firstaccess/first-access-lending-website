@@ -94,22 +94,37 @@ What this means:
 - Button pricing matrices update from JSON
 - Button orchestration, formulas, bucket interpretation, and fallback behavior still live in code
 
-## 5. Arc Home is mostly JSON-backed for pricing, but still has hardcoded structure / formulas
+## 5. Arc Home, completed in this pass
 
-File:
+Files:
 - `src/lib/rates/arc-home.ts`
+- `src/lib/rates/arc-home-ratesheet.json`
+- `scripts/refresh-ratesheet-data.mjs`
 
-What is hardcoded:
-- lock-period column map
-- list of supported products
-- term-to-years mapping
-- CLTV bucket boundaries used to index workbook values
-- payment / amortization formulas
-- target-price clamping and quote-selection behavior
+What moved off hardcode:
+- supported lock periods are now carried in workbook-backed JSON
+- supported product list now comes from workbook-backed JSON
+- CLTV max is now derived from workbook-backed CLTV bucket labels
+- CLTV bucket boundaries used for matrix indexing are now interpreted from workbook-backed CLTV labels instead of a fixed code-side boundary array
+- FICO bucket matching now resolves from workbook-backed FICO row labels instead of a fixed code-side score ladder
+- loan-amount bucket matching now resolves from workbook-backed loan-amount row labels instead of a fixed code-side amount ladder
+- DTI label matching now resolves from workbook-backed DTI row labels instead of a fixed code-side label
+- max available now derives from workbook-backed CLTV and workbook-backed top loan-amount bucket instead of fixed `80%` and `500000` constants
+- term-years for payment math now derive from the product label instead of a hardcoded term map
+- monthly payment and max-available math now use shared helpers instead of Arc-local formula code where possible
+
+What is still hardcoded:
+- lock-period column name map (`15 Day`, `30 Day`, `45 Day`, `60 Day`, `75 Day`, `90 Day`) still lives in code even though supported lock periods now come from JSON
+- occupancy normalization (`Primary`, `Second Home`, `Investment`)
+- property-type normalization (`Single Family`, `2-4 Units`, `PUD`, `Condo`)
+- borrower target-price schedule from `getTargetPurchasePriceForLoanAmount()`
+- target-price clamping behavior and quote-selection strategy
+- the 45-day benchmark assumption used for lock-period display adjustment
+- Arc Home-specific eligibility messaging and orchestration
 
 What this means:
-- Arc Home matrix values mostly come from JSON
-- product metadata, formula behavior, and lookup interpretation still live in code
+- Arc Home is now more workbook-driven for bucket interpretation and range limits
+- the remaining code-side pieces are mostly normalization and engine behavior, not the main pricing matrices themselves
 
 ## 6. Verus, completed in this pass
 

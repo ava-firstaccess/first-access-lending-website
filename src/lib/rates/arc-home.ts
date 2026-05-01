@@ -1,6 +1,10 @@
 import ratesheet from './arc-home-ratesheet.json';
 import { getTargetPurchasePriceForLoanAmount } from './button';
-import type { Stage1AdjustmentLine } from './shared';
+import {
+  calculateAmortizingMonthlyPayment,
+  calculateMaxAvailableFromMaxLtv,
+  type Stage1AdjustmentLine,
+} from './shared';
 
 export type ArcHomeProduct = '10 Year Maturity' | '15 Year Maturity' | '20 Year Maturity' | '30 Year Maturity';
 export type ArcHomeLockPeriod = 15 | 30 | 45 | 60 | 75 | 90;
@@ -61,6 +65,7 @@ type ArcHomeData = {
   section?: string;
   priceCode: string;
   products: ArcHomeProduct[];
+  lockPeriods: ArcHomeLockPeriod[];
   pricing: { rows: PriceRow[] };
   adjustments: {
     term: Array<{ label: string; value: number | null }>;
@@ -83,7 +88,6 @@ const LOCK_PERIOD_COLUMNS: Record<ArcHomeLockPeriod, keyof PriceRow['prices']> =
   75: '75 Day',
   90: '90 Day',
 };
-const ARC_HOME_PRODUCTS: ArcHomeProduct[] = ['10 Year Maturity', '15 Year Maturity', '20 Year Maturity', '30 Year Maturity'];
 
 export function getArcHomeGuideMaxPrice(product: ArcHomeProduct): number {
   const row = DATA.adjustments.maxPrice.rows.find(entry => entry.term === product);
@@ -161,7 +165,7 @@ export function calculateArcHomeStage1Quote(
       program: 'Arc Home',
       product: input.product,
       maxAvailable,
-      maxLtv: 0.8,
+      maxLtv: getArcHomeMaxLtv(),
       rate: 0,
       noteRate: 0,
       rateType: 'Fixed',
@@ -187,7 +191,7 @@ export function calculateArcHomeStage1Quote(
     program: 'Arc Home',
     product: input.product,
     maxAvailable,
-    maxLtv: 0.8,
+    maxLtv: getArcHomeMaxLtv(),
     rate: selected.noteRate,
     noteRate: selected.noteRate,
     rateType: 'Fixed',
@@ -220,14 +224,14 @@ export function evaluateArcHomeStage1Eligibility(
   const reasons: string[] = [];
   const maxAvailable = calculateMaxAvailable(input);
 
-  if (!ARC_HOME_PRODUCTS.includes(input.product)) {
+  if (!DATA.products.includes(input.product)) {
     reasons.push('Arc Home product selection is not supported by the current workbook-backed engine.');
   }
   if (input.creditScore < 640) {
     reasons.push('Credit score is below the current supported Arc Home pricing range.');
   }
-  if (input.resultingCltv > 0.8) {
-    reasons.push('Resulting CLTV exceeds the current Arc Home max of 80%.');
+  if (input.resultingCltv > getArcHomeMaxLtv()) {
+    reasons.push(`Resulting CLTV exceeds the current Arc Home max of ${(getArcHomeMaxLtv() * 100).toFixed(0)}%.`);
   }
   if (input.dti !== null && input.dti > 50) {
     reasons.push('DTI exceeds the current supported Arc Home pricing range.');
@@ -378,6 +382,7 @@ function getPricingRows(): PriceRow[] {
 }
 
 function getPricingRow(lockPeriodDays: ArcHomeLockPeriod): PriceRow | null {
+  if (!DATA.lockPeriods.includes(lockPeriodDays)) return null;
   const rows = getPricingRows();
   return rows.length > 0 ? rows[0] : null;
 }
@@ -404,16 +409,15 @@ function getMaxPriceCap(product: ArcHomeProduct): number {
 }
 
 function calculateMaxAvailable(input: ArcHomePricingInput): number {
-  const byCltv = Math.max(0, (input.propertyValue * 0.8) - input.loanBalance);
-  return Math.min(500000, roundToThree(byCltv));
+  const byCltv = calculateMaxAvailableFromMaxLtv(input.propertyValue, input.loanBalance, getArcHomeMaxLtv());
+  return Math.min(getArcHomeMaxLoanAmount(), roundToThree(byCltv));
 }
 
 function calculateMonthlyPayment(loanAmount: number, noteRate: number, product: ArcHomeProduct): number {
   if (loanAmount <= 0) return 0;
-  const monthlyRate = noteRate / 100 / 12;
-  const n = TERM_TO_YEARS[product] * 12;
-  if (monthlyRate === 0) return roundToNearestDollar(loanAmount / n);
-  return roundToNearestDollar(loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1));
+  const termYears = getProductTermYears(product);
+  if (noteRate === 0) return roundToNearestDollar(loanAmount / (termYears * 12));
+  return roundToNearestDollar(calculateAmortizingMonthlyPayment(loanAmount, noteRate, termYears));
 }
 
 function roundToThree(value: number) {
@@ -428,49 +432,39 @@ function clampTargetPrice(targetPrice: number) {
   return Math.min(targetPrice, Math.max(...DATA.adjustments.maxPrice.rows.map(row => Number(row.allElse ?? 0))));
 }
 
+function getArcHomeMaxLtv(): number {
+  const lastBucket = DATA.adjustments.cltvBuckets.at(-1);
+  return getUpperBoundFromLabel(lastBucket) / 100;
+}
+
+function getArcHomeMaxLoanAmount(): number {
+  return Math.max(...DATA.adjustments.loanAmount.map(row => getUpperBoundFromLabel(row.label)));
+}
+
 function getCltvBucketIndex(cltv: number) {
   if (!Number.isFinite(cltv) || cltv <= 0) return -1;
-  if (cltv <= 0.55) return 0;
-  if (cltv <= 0.60) return 1;
-  if (cltv <= 0.65) return 2;
-  if (cltv <= 0.70) return 3;
-  if (cltv <= 0.75) return 4;
-  if (cltv <= 0.80) return 5;
-  return -1;
+  const cltvPct = cltv * 100;
+  return DATA.adjustments.cltvBuckets.findIndex(label => cltvPct <= getUpperBoundFromLabel(label));
 }
 
 function getFicoBucketIndex(creditScore: number) {
-  if (creditScore >= 760) return 0;
-  if (creditScore >= 740) return 1;
-  if (creditScore >= 720) return 2;
-  if (creditScore >= 700) return 3;
-  if (creditScore >= 680) return 4;
-  if (creditScore >= 660) return 5;
-  if (creditScore >= 640) return 6;
-  return -1;
+  return DATA.adjustments.fico.findIndex(row => isScoreInLabel(creditScore, row.label));
 }
 
 function getFicoLabel(creditScore: number) {
-  const index = getFicoBucketIndex(creditScore);
-  return DATA.adjustments.fico[index]?.label ?? 'Unknown';
+  return DATA.adjustments.fico.find(row => isScoreInLabel(creditScore, row.label))?.label ?? 'Unknown';
 }
 
 function getDtiLabel(dti: number) {
-  if (dti <= 50) return '>45.00 to 50.00';
-  return '>45.00 to 50.00';
+  return DATA.adjustments.dti.find(row => isValueInLabel(dti, row.label))?.label ?? DATA.adjustments.dti[0]?.label ?? 'Unknown';
 }
 
 function getLoanAmountLabel(loanAmount: number) {
-  if (loanAmount <= 50000) return '<= 50,000';
-  if (loanAmount <= 100000) return '>50,000 to 100,000';
-  if (loanAmount <= 200000) return '>100,000 to 200,000';
-  if (loanAmount <= 300000) return '>200,000 to 300,000';
-  if (loanAmount <= 400000) return '>300,000 to 400,000';
-  return '>400,000 to 500,000';
+  return DATA.adjustments.loanAmount.find(row => isValueInLabel(loanAmount, row.label))?.label ?? DATA.adjustments.loanAmount.at(-1)?.label ?? 'Unknown';
 }
 
 function normalizeProduct(product?: ArcHomeProduct) {
-  return product ?? '30 Year Maturity';
+  return (product && DATA.products.includes(product)) ? product : (DATA.products.includes('30 Year Maturity') ? '30 Year Maturity' : DATA.products[0]);
 }
 
 function normalizeOccupancy(value?: string) {
@@ -491,6 +485,40 @@ function normalizePropertyType(value?: string, unitCount = 1) {
 function getTermAdjustment(product: ArcHomeProduct) {
   const row = DATA.adjustments.term.find(entry => entry.label === product);
   return Number(row?.value ?? 0);
+}
+
+function getProductTermYears(product: ArcHomeProduct): number {
+  const match = String(product).match(/(\d+)/);
+  return match ? Number(match[1]) : 30;
+}
+
+function getUpperBoundFromLabel(label?: string): number {
+  const normalized = String(label ?? '').replace(/,/g, '').trim();
+  const lteMatch = normalized.match(/^<=\s*(\d+(?:\.\d+)?)/);
+  if (lteMatch) return Number(lteMatch[1]);
+  const rangeMatch = normalized.match(/to\s*(\d+(?:\.\d+)?)/i);
+  if (rangeMatch) return Number(rangeMatch[1]);
+  const plusMatch = normalized.match(/(\d+(?:\.\d+)?)\+$/);
+  if (plusMatch) return Number.POSITIVE_INFINITY;
+  return Number.POSITIVE_INFINITY;
+}
+
+function isScoreInLabel(score: number, label?: string): boolean {
+  const normalized = String(label ?? '').trim();
+  const plusMatch = normalized.match(/^(\d+)\+$/);
+  if (plusMatch) return score >= Number(plusMatch[1]);
+  const rangeMatch = normalized.match(/^(\d+)\s*-\s*(\d+)$/);
+  if (rangeMatch) return score >= Number(rangeMatch[1]) && score <= Number(rangeMatch[2]);
+  return false;
+}
+
+function isValueInLabel(value: number, label?: string): boolean {
+  const normalized = String(label ?? '').replace(/,/g, '').trim();
+  const lteMatch = normalized.match(/^<=\s*(\d+(?:\.\d+)?)/);
+  if (lteMatch) return value <= Number(lteMatch[1]);
+  const gtRangeMatch = normalized.match(/^>(\d+(?:\.\d+)?)\s*to\s*(\d+(?:\.\d+)?)/i);
+  if (gtRangeMatch) return value > Number(gtRangeMatch[1]) && value <= Number(gtRangeMatch[2]);
+  return false;
 }
 
 function getAdjustmentValue(rows: AdjustmentRow[], label: string, cltvIndex: number) {
