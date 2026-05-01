@@ -260,7 +260,36 @@ What this means:
 - Deephaven is a little less dependent on local formula and label assumptions
 - the remaining hardcoded surface is still mostly orchestration, program/doc routing, normalization, and lock behavior rather than the core workbook matrices
 
-## 10. UI / session defaults are hardcoded
+## 10. Vista, completed in this pass
+
+File:
+- `src/lib/rates/vista.ts`
+
+What moved off hardcode:
+- supported fixed-product list now derives from workbook-backed term-adjustment labels instead of a fixed code-side product array
+- max-available math now uses the shared helper instead of Vista-local formula code
+- amortizing payment math now uses the shared helper instead of Vista-local formula code
+- term years now derive from the product label instead of a fixed product-to-years ladder
+- DTI label matching now resolves from workbook-backed DTI labels instead of a fixed DTI-band ladder
+- loan-amount label matching now resolves from workbook-backed loan-amount labels instead of a large hardcoded loan-amount ladder
+
+What is still hardcoded:
+- program routing between owner-occupied and non-owner-occupied
+- doc-type routing across `Doc01` through `Doc05`
+- target-price clamping behavior
+- rate-picking / target solver behavior
+- occupancy normalization and occupancy-to-adjustment mapping
+- property-type normalization and property-type-to-adjustment mapping
+- credit-score label parsing helper
+- CLTV label parsing helper
+- lock-period normalization and lock label mapping
+- current pricing path still assumes the 30-day base price sheet with separate lock-term adjustments
+
+What this means:
+- Vista is less dependent on large code-side ladders for product, DTI, loan amount, and payment/max-available formulas
+- the remaining hardcoded surface is still mostly orchestration, doc routing, normalization, and pricing-engine behavior
+
+## 11. UI / session defaults are hardcoded
 
 Files:
 - `src/lib/stage1-pricing/types.ts`

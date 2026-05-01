@@ -1,5 +1,6 @@
 import ratesheet from './vista-ratesheet.json';
 import { getTargetPurchasePriceForLoanAmount, type ButtonStage1Input } from './button';
+import { calculateAmortizingMonthlyPayment, calculateMaxAvailableFromMaxLtv } from './shared';
 
 export type VistaProgram = 'Second OO' | 'Second NOO';
 export type VistaProduct = '10yr Fixed' | '15yr Fixed' | '20yr Fixed' | '30yr Fixed';
@@ -101,8 +102,8 @@ type JsonProgram = {
   };
 };
 
-const VISTA_PRODUCTS: VistaProduct[] = ['10yr Fixed', '15yr Fixed', '20yr Fixed', '30yr Fixed'];
 const PROGRAMS = (ratesheet as unknown as { programs: Record<ProgramKey, JsonProgram> }).programs;
+const VISTA_PRODUCTS = Array.from(new Set(Object.values(PROGRAMS).flatMap(program => program.sections.adjustments.term.items.map(item => item.label).filter(label => /yr Fixed$/i.test(label))))) as VistaProduct[];
 
 export function getVistaGuideMaxPrice(occupancy: string): number {
   const program = occupancy === 'Investment' ? PROGRAMS.secondNOO : PROGRAMS.secondOO;
@@ -294,7 +295,7 @@ function getProgramKey(input: VistaPricingInput): ProgramKey {
 }
 
 function calculateMaxAvailable(input: VistaPricingInput): number {
-  return Math.max(0, input.propertyValue * calculateMaxLtv(input) - input.loanBalance);
+  return calculateMaxAvailableFromMaxLtv(input.propertyValue, input.loanBalance, calculateMaxLtv(input));
 }
 
 function calculateMaxLtv(input: VistaPricingInput): number {
@@ -457,10 +458,7 @@ function pickRateAtOrBelowTarget(
 
 function calculateMonthlyPayment(product: VistaProduct, noteRate: number, loanAmount: number): number {
   if (loanAmount <= 0) return 0;
-  const monthlyRate = noteRate / 100 / 12;
-  const amortYears = product === '10yr Fixed' ? 10 : product === '15yr Fixed' ? 15 : product === '20yr Fixed' ? 20 : 30;
-  const payments = amortYears * 12;
-  return roundToNearestDollar(loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, payments)) / (Math.pow(1 + monthlyRate, payments) - 1));
+  return roundToNearestDollar(calculateAmortizingMonthlyPayment(loanAmount, noteRate, termYears(product)));
 }
 
 function occupancyAdjustmentLabel(occupancy: string): string {
@@ -480,34 +478,14 @@ function propertyTypeLabel(input: VistaPricingInput): string {
 }
 
 function dtiLabel(dti: number | null): string {
-  if (dti === null || dti <= 43) return '00.01-43';
-  if (dti <= 45) return '43.01-45';
-  if (dti <= 50) return '45.01-50';
-  return '50.01-55';
+  const labels = PROGRAMS.secondOO.sections.adjustments.dti.items.map(item => item.label).filter(label => label !== '00.00-00');
+  if (dti === null) return labels[0] ?? '00.01-43';
+  return labels.find(label => valueMatchesRangeLabel(dti, label)) ?? labels.at(-1) ?? '50.01-55';
 }
 
 function loanAmountLabel(amount: number): string {
-  if (amount <= 50000) return '000,000-050k';
-  if (amount <= 75000) return '050,001-075k';
-  if (amount <= 100000) return '075,001-100k';
-  if (amount <= 125000) return '100,001-125k';
-  if (amount <= 150000) return '125,001-150k';
-  if (amount <= 175000) return '150,001-175k';
-  if (amount <= 200000) return '175,001-200k';
-  if (amount <= 300000) return '200,001-300k';
-  if (amount <= 400000) return '300,001-400k';
-  if (amount <= 600000) return '400,001-600k';
-  if (amount <= 750000) return '600,001-750k';
-  if (amount <= 1000000) return '750,001-850k';
-  if (amount <= 1500000) return '1,000,001-1.5m';
-  if (amount <= 2000000) return '1,500,001-2.0m';
-  if (amount <= 2500000) return '2,000,001-2.5m';
-  if (amount <= 3000000) return '2,500,001-3.0m';
-  if (amount <= 3500000) return '3,000,001-3.5m';
-  if (amount <= 4000000) return '3,500,001-4.0m';
-  if (amount <= 4500000) return '4,000,001-4.5m';
-  if (amount <= 5000000) return '4,500,001-5.0m';
-  return '5,000,001+';
+  const labels = Array.from(new Set(Object.values(PROGRAMS).flatMap(program => program.sections.adjustments.loanAmount.items.map(item => item.label))));
+  return labels.find(label => amountMatchesVistaLoanLabel(amount, label)) ?? labels.at(-1) ?? '5,000,001+';
 }
 
 function matchesCreditScoreLabel(label: string, creditScore: number): boolean {
@@ -535,7 +513,7 @@ function vistaLockPeriodLabel(lockPeriodDays: 30 | 45 | 60): string {
 
 function normalizeVistaProduct(product?: string): VistaProduct {
   if (VISTA_PRODUCTS.includes(product as VistaProduct)) return product as VistaProduct;
-  return '30yr Fixed';
+  return (VISTA_PRODUCTS.includes('30yr Fixed') ? '30yr Fixed' : VISTA_PRODUCTS[0]) as VistaProduct;
 }
 
 function normalizeVistaDocType(docType?: string): VistaDocType {
@@ -562,6 +540,38 @@ function normalizeStructureType(structureType?: string): string {
   if (value.includes('pud')) return 'PUD';
   if (value.includes('multi')) return '2-4 Unit';
   return 'SFR';
+}
+
+function termYears(product: VistaProduct): number {
+  const match = String(product).match(/(\d+)/);
+  return match ? Number(match[1]) : 30;
+}
+
+function valueMatchesRangeLabel(value: number, label: string): boolean {
+  const normalized = label.trim();
+  const range = normalized.match(/(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)/);
+  if (!range) return false;
+  return value >= Number(range[1]) && value <= Number(range[2]);
+}
+
+function amountMatchesVistaLoanLabel(amount: number, label: string): boolean {
+  const normalized = label.toLowerCase().trim();
+  if (normalized.endsWith('+')) {
+    const min = normalized.match(/([\d,]+(?:\.\d+)?)([km])?/);
+    return min ? amount >= scaleVistaAmountToken(min[1], min[2] ?? '') : false;
+  }
+  const range = normalized.match(/([\d,]+(?:\.\d+)?)\s*-\s*([\d,]+(?:\.\d+)?)([km])?/);
+  if (!range) return false;
+  const left = scaleVistaAmountToken(range[1], '');
+  const right = scaleVistaAmountToken(range[2], range[3] ?? '');
+  return amount >= left && amount <= right;
+}
+
+function scaleVistaAmountToken(token: string, suffix = ''): number {
+  const value = Number(token.replace(/,/g, ''));
+  if (suffix === 'm') return value * 1_000_000;
+  if (suffix === 'k') return value * 1_000;
+  return value;
 }
 
 function roundToThree(value: number): number {
