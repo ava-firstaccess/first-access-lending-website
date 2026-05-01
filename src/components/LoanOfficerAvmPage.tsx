@@ -56,12 +56,14 @@ type ProviderDisplayRow = {
   maxFsdAllowed: number | null;
   date: string | null;
   fsd: number | null;
+  fsdLabel?: string | null;
   value: number | null;
   reportLink?: string | null;
   source?: 'cache' | 'fresh' | null;
   orderStatus?: string | null;
   orderRunId?: string | null;
   providerProduct?: string | null;
+  failureMessage?: string | null;
 };
 
 type LiveOrderResult = {
@@ -371,7 +373,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <Metric label="Provider" value={getAvmProviderLabel(selectedProviderRow.provider)} />
                     <Metric label="Value" value={currency(selectedProviderRow.value)} />
-                    <Metric label="FSD" value={selectedProviderRow.fsd !== null && selectedProviderRow.fsd !== undefined ? selectedProviderRow.fsd.toFixed(2) : '—'} />
+                    <Metric label="FSD" value={selectedProviderRow.fsdLabel || (selectedProviderRow.fsd !== null && selectedProviderRow.fsd !== undefined ? selectedProviderRow.fsd.toFixed(2) : '—')} />
                     <Metric label="Max loan" value={currency(displayedMaxLoanAmount)} />
                   </div>
                   <div className={`mt-3 text-sm ${providerEligibleForInvestor(selectedProviderRow) ? 'text-emerald-800' : 'text-amber-800'}`}>{getProviderInvestorStatusMessage(selectedProviderRow)}</div>
@@ -419,7 +421,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                           {row.reportLink ? <a href={row.reportLink} target="_blank" rel="noreferrer" className="mt-1 block text-xs font-medium text-sky-700 hover:text-sky-900">Open report</a> : null}
                         </div>
                         <div>{row.date || '—'}</div>
-                        <div className={row.supported && !rowEligible ? 'font-semibold text-rose-700' : ''}>{row.fsd !== null ? row.fsd.toFixed(2) : '—'}</div>
+                        <div className={row.supported && !rowEligible ? 'font-semibold text-rose-700' : ''}>{row.fsdLabel || (row.fsd !== null ? row.fsd.toFixed(2) : '—')}</div>
                         <div>{row.value !== null ? currency(row.value) : '—'}</div>
                         <div>
                           <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${!row.supported && row.value === null ? 'bg-slate-200 text-slate-500' : !rowEligible && row.supported ? 'bg-amber-100 text-amber-800' : checked ? 'bg-sky-100 text-sky-800' : row.value !== null ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
@@ -471,8 +473,8 @@ function getProviderRowSubtext(row: ProviderDisplayRow) {
       ? 'AVM result exists, but this investor does not allow that provider.'
       : 'Not allowed for this investor';
   }
-  if (row.fsd !== null && row.maxFsdAllowed !== null && row.fsd > row.maxFsdAllowed + 0.0001) {
-    return `FSD above max for this investor: ${row.fsd.toFixed(2)} > ${row.maxFsdAllowed.toFixed(2)}. A different investor may still allow it.`;
+  if ((row.fsd !== null && row.maxFsdAllowed !== null && row.fsd > row.maxFsdAllowed + 0.0001) || row.fsdLabel) {
+    return `FSD above max for this investor: ${row.fsdLabel || `${row.fsd?.toFixed(2)} > ${row.maxFsdAllowed?.toFixed(2)}`}. A different investor may still allow it.`;
   }
   if (row.maxFsdAllowed !== null) {
     return `Investor max FSD ${row.maxFsdAllowed.toFixed(2)}`;
@@ -484,8 +486,8 @@ function getProviderInvestorStatusMessage(row: ProviderDisplayRow) {
   if (!row.supported) {
     return 'This investor does not allow this AVM provider, even though an AVM result exists.';
   }
-  if (row.fsd !== null && row.maxFsdAllowed !== null && row.fsd > row.maxFsdAllowed + 0.0001) {
-    return `This result is above the current investor max FSD, ${row.maxFsdAllowed.toFixed(2)}. Keep the AVM visible, but try another investor that allows a higher FSD.`;
+  if ((row.fsd !== null && row.maxFsdAllowed !== null && row.fsd > row.maxFsdAllowed + 0.0001) || row.fsdLabel) {
+    return `This result is above the current investor max FSD, ${row.maxFsdAllowed?.toFixed(2) ?? 'n/a'}. Keep the AVM visible, but try another investor that allows a higher FSD.`;
   }
   return 'This AVM result is within the current investor FSD rule.';
 }

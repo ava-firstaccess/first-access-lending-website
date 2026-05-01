@@ -45,12 +45,31 @@ type ProviderRow = {
   maxFsdAllowed: number | null;
   date: string | null;
   fsd: number | null;
+  fsdLabel?: string | null;
   value: number | null;
   reportLink: string | null;
   source: 'cache' | 'fresh' | null;
   orderStatus: string | null;
   orderRunId: string | null;
   providerProduct: string | null;
+  failureMessage?: string | null;
+};
+
+type ClearCapitalOrderResult = {
+  raw: any;
+  trackingId: string;
+  value: number | null;
+  fsd: number | null;
+  lowValue: number | null;
+  highValue: number | null;
+  externalOrderId: string | null;
+  effectiveDate: string | null;
+  confidenceScore: string | null;
+  confidenceScoreAlt: string | null;
+  estimatedError: number | null;
+  runDate: string | null;
+  thresholdFailure?: boolean;
+  errorMessage?: string | null;
 };
 
 function mapInvestorLabelToRuleInvestor(investorLabel: string | null | undefined): InvestorName | null {
@@ -215,7 +234,7 @@ async function createClearCapitalOrder({
   zipcode: string;
   trackingId: string;
   maxFsd: number;
-}) {
+}): Promise<ClearCapitalOrderResult> {
   const config = getClearCapitalConfig();
   const payload = {
     address,
@@ -245,13 +264,35 @@ async function createClearCapitalOrder({
     cache: 'no-store',
   });
 
+  const data = await res.json().catch(() => ({}));
+
   if (!res.ok) {
     throw new Error(`Clear Capital Property Analytics failed (${res.status})`);
   }
 
-  const data = await res.json();
   const result = data?.clearAvm?.result;
-  if (!result?.marketValue) throw new Error('Clear Capital returned no market value.');
+  const errorMessage = typeof data?.errorMessage === 'string' ? data.errorMessage : null;
+  if (!result?.marketValue) {
+    if (errorMessage && errorMessage.toLowerCase().includes('supplied thresholds')) {
+      return {
+        raw: data,
+        trackingId,
+        value: null,
+        fsd: null,
+        lowValue: null,
+        highValue: null,
+        externalOrderId: data?.id || null,
+        effectiveDate: typeof data?.effectiveDate === 'string' ? data.effectiveDate : null,
+        confidenceScore: null,
+        confidenceScoreAlt: null,
+        estimatedError: null,
+        runDate: null,
+        thresholdFailure: true,
+        errorMessage,
+      };
+    }
+    throw new Error('Clear Capital returned no market value.');
+  }
 
   return {
     raw: data,
@@ -266,6 +307,8 @@ async function createClearCapitalOrder({
     confidenceScoreAlt: result?.confidenceScoreAlt || null,
     estimatedError: typeof result?.estimatedError === 'number' ? result.estimatedError : null,
     runDate: result?.runDate || null,
+    thresholdFailure: false,
+    errorMessage,
   };
 }
 
@@ -447,6 +490,8 @@ function buildProviderRowsFromOrders(orders: any[], investor: InvestorName | nul
       orderStatus: order?.order_status || null,
       orderRunId: order?.order_run_id || null,
       providerProduct: order?.provider_product || null,
+      fsdLabel: order?.response_payload?.fsdLabel || null,
+      failureMessage: order?.response_payload?.errorMessage || null,
     };
   });
 }
@@ -486,6 +531,8 @@ function buildProviderRowsFromAvmCache(cached: any, investor: InvestorName | nul
       orderStatus: isMatch ? 'completed' : null,
       orderRunId: null,
       providerProduct: isMatch ? String(cached?.response_payload?.valuationProvider || cached?.final_provider || '').trim() || null : null,
+      fsdLabel: null,
+      failureMessage: null,
     };
   });
 }
@@ -695,13 +742,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'City and state are required for Clear Capital fallback ordering.' }, { status: 400 });
       }
 
+      const requestedMaxFsd = Number((ccRule.maxFsdAllowed ?? 0.3).toFixed(2));
       const clearCapital = await createClearCapitalOrder({
         address,
         city,
         state,
         zipcode,
         trackingId: loanNumber || orderRunId,
-        maxFsd: ccRule.maxFsdAllowed ?? 0.3,
+        maxFsd: requestedMaxFsd,
       });
 
       const insertPayload = {
@@ -719,13 +767,13 @@ export async function POST(req: NextRequest) {
         external_order_id: clearCapital.externalOrderId,
         external_item_id: null,
         external_tracking_id: clearCapital.trackingId,
-        order_status: 'completed',
+        order_status: clearCapital.thresholdFailure ? 'failed' : 'completed',
         address,
         city,
         state,
         zipcode,
         ordered_at: orderedAt,
-        completed_at: orderedAt,
+        completed_at: clearCapital.thresholdFailure ? null : orderedAt,
         request_payload: {
           address,
           city,
@@ -736,7 +784,7 @@ export async function POST(req: NextRequest) {
             include: true,
             required: false,
             request: {
-              maxFSD: Number((ccRule.maxFsdAllowed ?? 0.3).toFixed(2)),
+              maxFSD: requestedMaxFsd,
               exactEffectiveDate: false,
             },
           },
@@ -744,6 +792,8 @@ export async function POST(req: NextRequest) {
         response_payload: {
           value: clearCapital.value,
           fsd: clearCapital.fsd,
+          fsdLabel: clearCapital.thresholdFailure ? `> ${requestedMaxFsd.toFixed(2)}` : null,
+          errorMessage: clearCapital.errorMessage,
           lowValue: clearCapital.lowValue,
           highValue: clearCapital.highValue,
           effectiveDate: clearCapital.effectiveDate,
@@ -753,7 +803,9 @@ export async function POST(req: NextRequest) {
           runDate: clearCapital.runDate,
           clearCapitalResponse: clearCapital.raw,
         },
-        notes: `Clear Capital fallback ordered with maxFSD ${(ccRule.maxFsdAllowed ?? 0.3).toFixed(2)}`,
+        notes: clearCapital.thresholdFailure
+          ? `Clear Capital returned threshold failure at maxFSD ${requestedMaxFsd.toFixed(2)}`
+          : `Clear Capital fallback ordered with maxFSD ${requestedMaxFsd.toFixed(2)}`,
       };
 
       const { data, error } = await supabase.from('loan_officer_avm_orders').insert(insertPayload).select('*').single();
