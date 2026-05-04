@@ -147,18 +147,9 @@ const ORIGINATION_FEE_SCHEDULE: Record<ClosingCostProgram, Record<string, readon
       { minLoanAmount: 350000, maxLoanAmount: null, feePct: 1 },
     ],
     'FL, MD': [
-      { minLoanAmount: 0, maxLoanAmount: 74599, feePct: 4 },
-      { minLoanAmount: 74600, maxLoanAmount: 124331, flatFeeAmount: 3750 },
-      { minLoanAmount: 124331, maxLoanAmount: 149331, feePct: 3 },
-      { minLoanAmount: 150000, maxLoanAmount: 174999, feePct: 2.75 },
-      { minLoanAmount: 175000, maxLoanAmount: 199999, feePct: 2.25 },
-      { minLoanAmount: 200000, maxLoanAmount: 224999, feePct: 1.75 },
-      { minLoanAmount: 225000, maxLoanAmount: 249999, feePct: 1.5 },
-      { minLoanAmount: 250000, maxLoanAmount: 274999, feePct: 1.25 },
-      { minLoanAmount: 275000, maxLoanAmount: 299999, feePct: 1 },
-      { minLoanAmount: 300000, maxLoanAmount: 324999, feePct: 1 },
-      { minLoanAmount: 325000, maxLoanAmount: 349999, feePct: 1 },
-      { minLoanAmount: 350000, maxLoanAmount: null, feePct: 1 },
+      { minLoanAmount: 0, maxLoanAmount: 102499, feePct: 4 },
+      { minLoanAmount: 102500, maxLoanAmount: 136666, flatFeeAmount: 4100 },
+      { minLoanAmount: 136667, maxLoanAmount: null, feePct: 3 },
     ],
     'NJ, PA': [
       { minLoanAmount: 0, maxLoanAmount: 124331, feePct: 3 },
@@ -223,9 +214,18 @@ function getCesQmCapPct(loanAmount: number): number {
   return 8;
 }
 
+function getFlMdCesCapPct(loanAmount: number): number {
+  if (loanAmount >= 136667) return 3;
+  if (loanAmount >= 102500) return Number(((4100 / loanAmount) * 100).toFixed(3));
+  return 4;
+}
+
 function getPointsAndFeesCapPct(program: ClosingCostProgram | null, state: string | null, loanAmount: number): number | null {
   const stateCapPct = state ? POINTS_AND_FEES_STATE_CAPS[state] ?? null : null;
-  if (program === 'CES') return getCesQmCapPct(loanAmount);
+  if (program === 'CES') {
+    if (state === 'FL' || state === 'MD') return getFlMdCesCapPct(loanAmount);
+    return getCesQmCapPct(loanAmount);
+  }
   if (program === 'HELOC') return stateCapPct ?? 5;
   return null;
 }
