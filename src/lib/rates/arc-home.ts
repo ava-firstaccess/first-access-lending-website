@@ -497,6 +497,8 @@ function getUpperBoundFromLabel(label?: string): number {
   const normalized = String(label ?? '').replace(/,/g, '').trim();
   const lteMatch = normalized.match(/^<=\s*(\d+(?:\.\d+)?)/);
   if (lteMatch) return Number(lteMatch[1]);
+  const hyphenRangeMatch = normalized.match(/-\s*(\d+(?:\.\d+)?)/);
+  if (hyphenRangeMatch) return Number(hyphenRangeMatch[1]);
   const rangeMatch = normalized.match(/to\s*(\d+(?:\.\d+)?)/i);
   if (rangeMatch) return Number(rangeMatch[1]);
   const plusMatch = normalized.match(/(\d+(?:\.\d+)?)\+$/);
