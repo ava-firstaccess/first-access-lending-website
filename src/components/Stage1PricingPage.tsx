@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ArcHomeLockPeriodDays, ArcHomeProduct, BestExDocType, BestExDrawPeriodYears, BestExLockPeriodDays, BestExProduct, BestExTermYears, ButtonDocType, DeephavenDocType, DeephavenLockPeriodDays, DeephavenProduct, InvestorSummary, NewRezProduct, OsbLockPeriod, OsbProduct, OsbProgram, PricingViewEngine, Stage1PricingResponse, TesterInput, VerusDocType, VerusDrawPeriodYears, VerusLockPeriodDays, VerusProduct, VerusProgram, VistaDocType, VistaProduct } from '@/lib/stage1-pricing/types';
+import { POINTS_AND_FEES_STATE_CAPS } from '@/lib/stage1-pricing/config';
 import { defaultInput } from '@/lib/stage1-pricing/types';
 
 type Mode = 'pricer' | 'tester';
@@ -50,11 +51,6 @@ type PointsAndFeesAlert = {
 const TESTER_GATE_STORAGE_KEY = 'fal-stage1-tester-unlocked';
 const LO_AVM_SCENARIO_STORAGE_KEY = 'fal-lo-avm-scenario';
 const LO_PRICER_STATE_STORAGE_KEY = 'fal-lo-pricer-last-state';
-const STATE_POINTS_AND_FEES_CAPS: Partial<Record<string, number>> = {
-  FL: 4,
-  MD: 4,
-};
-
 function roundToThree(value: number) { return Number(value.toFixed(3)); }
 function formatActualConfidence(fsd: number | undefined) {
   if (typeof fsd !== 'number' || !Number.isFinite(fsd)) return null;
@@ -74,7 +70,7 @@ function getPointsAndFeesAlert(propertyState: string | undefined, program: strin
   const normalizedState = String(propertyState || '').trim().toUpperCase();
   const normalizedPointsLabel = pointsLabel.toUpperCase();
   const normalizedProgram = getPointsAndFeesProgram(program, product);
-  const stateCapPct = normalizedState ? STATE_POINTS_AND_FEES_CAPS[normalizedState] ?? null : null;
+  const stateCapPct = normalizedState ? POINTS_AND_FEES_STATE_CAPS[normalizedState] ?? null : null;
   const totalUpfrontCostPct = normalizedPointsLabel === 'DISCOUNT POINTS' ? pointsValue : 0;
   const capPct = normalizedProgram === 'CES'
     ? (stateCapPct === null ? 3 : Math.min(3, stateCapPct))
