@@ -368,8 +368,9 @@ function buildAdjustmentLines(input: ArcHomePricingInput, selectedLoanAmount: nu
   const occupancyAdj = getAdjustmentValue(DATA.adjustments.occupancy, normalizeOccupancy(input.occupancy), cltvIndex);
   if (occupancyAdj !== null) adjustments.push({ label: `Occupancy / CLTV: ${normalizeOccupancy(input.occupancy)} / ${DATA.adjustments.cltvBuckets[cltvIndex] ?? ''}`, value: occupancyAdj });
 
-  const dtiAdj = input.dti !== null ? getAdjustmentValue(DATA.adjustments.dti, getDtiLabel(input.dti), cltvIndex) : null;
-  if (dtiAdj !== null) adjustments.push({ label: `DTI / CLTV: ${getDtiLabel(input.dti ?? 0)} / ${DATA.adjustments.cltvBuckets[cltvIndex] ?? ''}`, value: dtiAdj });
+  const dtiLabel = input.dti !== null ? getDtiLabel(input.dti) : null;
+  const dtiAdj = dtiLabel ? getAdjustmentValue(DATA.adjustments.dti, dtiLabel, cltvIndex) : null;
+  if (dtiLabel && dtiAdj !== null) adjustments.push({ label: `DTI / CLTV: ${dtiLabel} / ${DATA.adjustments.cltvBuckets[cltvIndex] ?? ''}`, value: dtiAdj });
 
   const propertyAdj = getAdjustmentValue(DATA.adjustments.propertyType, normalizePropertyType(input.structureType, input.unitCount), cltvIndex);
   if (propertyAdj !== null) adjustments.push({ label: `Property / CLTV: ${normalizePropertyType(input.structureType, input.unitCount)} / ${DATA.adjustments.cltvBuckets[cltvIndex] ?? ''}`, value: propertyAdj });
@@ -456,7 +457,7 @@ function getFicoLabel(creditScore: number) {
 }
 
 function getDtiLabel(dti: number) {
-  return DATA.adjustments.dti.find(row => isValueInLabel(dti, row.label))?.label ?? DATA.adjustments.dti[0]?.label ?? 'Unknown';
+  return DATA.adjustments.dti.find(row => isValueInLabel(dti, row.label))?.label ?? null;
 }
 
 function getLoanAmountLabel(loanAmount: number) {
