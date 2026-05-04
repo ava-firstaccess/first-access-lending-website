@@ -29,6 +29,9 @@ type FeeComputation = {
 export const POINTS_AND_FEES_STATE_CAPS: Partial<Record<string, number>> = {
   FL: 4,
   MD: 4,
+  NJ: 3,
+  PA: 3,
+  OH: 2,
 };
 
 const STATE_FEE_GROUPS: readonly StateFeeGroup[] = [
@@ -215,8 +218,8 @@ export function getClosingCostStateGroup(state: string | undefined): StateFeeGro
 
 function getPointsAndFeesCapPct(program: ClosingCostProgram | null, state: string | null): number | null {
   const stateCapPct = state ? POINTS_AND_FEES_STATE_CAPS[state] ?? null : null;
-  if (program === 'CES') return stateCapPct === null ? 3 : Math.min(3, stateCapPct);
-  if (program === 'HELOC') return stateCapPct;
+  if (program === 'CES') return stateCapPct ?? 3;
+  if (program === 'HELOC') return stateCapPct ?? 5;
   return null;
 }
 
