@@ -149,7 +149,16 @@ const ORIGINATION_FEE_SCHEDULE: Record<ClosingCostProgram, Record<string, readon
     'FL, MD': [
       { minLoanAmount: 0, maxLoanAmount: 102499, feePct: 4 },
       { minLoanAmount: 102500, maxLoanAmount: 136666, flatFeeAmount: 4100 },
-      { minLoanAmount: 136667, maxLoanAmount: null, feePct: 3 },
+      { minLoanAmount: 136667, maxLoanAmount: 149331, feePct: 3 },
+      { minLoanAmount: 150000, maxLoanAmount: 174999, feePct: 2.75 },
+      { minLoanAmount: 175000, maxLoanAmount: 199999, feePct: 2.25 },
+      { minLoanAmount: 200000, maxLoanAmount: 224999, feePct: 1.75 },
+      { minLoanAmount: 225000, maxLoanAmount: 249999, feePct: 1.5 },
+      { minLoanAmount: 250000, maxLoanAmount: 274999, feePct: 1.25 },
+      { minLoanAmount: 275000, maxLoanAmount: 299999, feePct: 1 },
+      { minLoanAmount: 300000, maxLoanAmount: 324999, feePct: 1 },
+      { minLoanAmount: 325000, maxLoanAmount: 349999, feePct: 1 },
+      { minLoanAmount: 350000, maxLoanAmount: null, feePct: 1 },
     ],
     'NJ, PA': [
       { minLoanAmount: 0, maxLoanAmount: 124331, feePct: 3 },
