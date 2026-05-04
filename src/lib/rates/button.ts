@@ -565,9 +565,12 @@ function getButtonLoanAmountBucketLabel(product: ButtonProduct, selectedLoanAmou
   const prefix = product === 'CES' ? 'HELOAN' : 'HELOC';
   const match = BALANCE_TABLE.rows.find(row => {
     const label = String(row).trim();
-    if (!label.startsWith(prefix)) return false;
+    const productMatch = label.match(/^(HELOAN|HELOC)\s+/i);
+    if (productMatch && productMatch[1].toUpperCase() !== prefix) return false;
     const range = parseBalanceRange(label);
-    return range ? selectedLoanAmount > range.minExclusive && selectedLoanAmount <= range.maxInclusive : false;
+    if (!range) return false;
+    if (range.maxOnly) return selectedLoanAmount <= range.maxInclusive;
+    return selectedLoanAmount > range.minExclusive && selectedLoanAmount <= range.maxInclusive;
   });
   return match ? String(match).trim() : null;
 }
@@ -697,13 +700,22 @@ function matchesDtiLabel(label: string, dti: number): boolean {
   return false;
 }
 
-function parseBalanceRange(label: string): { minExclusive: number; maxInclusive: number } | null {
+function parseBalanceRange(label: string): { minExclusive: number; maxInclusive: number; maxOnly: boolean } | null {
   const normalized = String(label).replace(/,/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
-  const match = normalized.match(/(\d+(?:\.\d+)?)(k|mm)?\s*<\s*balance\s*<=\s*(\d+(?:\.\d+)?)(k|mm)/i);
-  if (!match) return null;
+  const maxOnly = normalized.match(/^balance\s*<=\s*(\d+(?:\.\d+)?)(k|mm)?$/i);
+  if (maxOnly) {
+    return {
+      minExclusive: 0,
+      maxInclusive: normalizeMagnitude(Number(maxOnly[1]), maxOnly[2] ?? ''),
+      maxOnly: true,
+    };
+  }
+  const range = normalized.match(/(\d+(?:\.\d+)?)(k|mm)?\s*<\s*balance\s*<=\s*(\d+(?:\.\d+)?)(k|mm)?/i);
+  if (!range) return null;
   return {
-    minExclusive: normalizeMagnitude(Number(match[1]), match[2] ?? ''),
-    maxInclusive: normalizeMagnitude(Number(match[3]), match[4] ?? ''),
+    minExclusive: normalizeMagnitude(Number(range[1]), range[2] ?? ''),
+    maxInclusive: normalizeMagnitude(Number(range[3]), range[4] ?? ''),
+    maxOnly: false,
   };
 }
 
