@@ -8,10 +8,7 @@ export const BEST_EX_WINDOW = {
 
 export const BEST_EX_LOCK_PADDING_DAYS = 30;
 
-export const POINTS_AND_FEES_STATE_CAPS: Partial<Record<string, number>> = {
-  FL: 4,
-  MD: 4,
-};
+export { POINTS_AND_FEES_STATE_CAPS } from '../closing-costs';
 
 const BEST_EX_DOC_TYPE_MAP = {
   Button: {

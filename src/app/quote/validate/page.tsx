@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { SSNField } from '@/components/quote/FormField';
 import QuoteBuilder from '@/components/quote/QuoteBuilder';
+import { getOriginationFeeDetails } from '@/lib/closing-costs';
 import {
   getRepresentativeMeridianLinkScore,
   isMortgageLiability,
@@ -631,6 +632,26 @@ export default function ValidatePage() {
   const maxPayoff = displayedMaxAvailable - payoffTotal;
   const liveRate = scoreAdjustedQuote?.rate || 0;
   const cashBackAmount = appliedSelectedLoanAmount - payoffTotal;
+  const originationFee = getOriginationFeeDetails({
+    propertyState,
+    program: product,
+    product,
+    loanAmount: appliedSelectedLoanAmount,
+  });
+  const prepaidInterest = Math.round(((appliedSelectedLoanAmount * liveRate / 100) / 365) * 15);
+  const estimatedCostRows = [
+    { desc: `Origination Fee (${originationFee.originationFeePct.toFixed(3)}%)`, amount: originationFee.originationFeeAmount },
+    { desc: 'Appraisal Fee', amount: 500 },
+    { desc: 'Credit Report', amount: 75 },
+    { desc: 'Flood Certification', amount: 15 },
+    { desc: 'Title Search', amount: 250 },
+    { desc: 'Title Insurance (Lender)', amount: 350 },
+    { desc: 'Settlement/Closing Fee', amount: 495 },
+    { desc: 'Recording Fees', amount: 150 },
+    { desc: 'Prepaid Interest (15 days)', amount: prepaidInterest },
+    { desc: 'Homeowners Insurance (2 mo)', amount: 300 },
+  ];
+  const estimatedClosingCostsTotal = estimatedCostRows.reduce((sum, item) => sum + item.amount, 0);
   const sidebarProgress = currentStep === 'credit' ? 68 : currentStep === 'score-adjustment' ? 76 : currentStep === 'mortgages' ? 84 : 92;
 
   useEffect(() => {
@@ -1650,36 +1671,23 @@ export default function ValidatePage() {
                 <span>Amount</span>
               </div>
               <div className="px-5 py-2 bg-blue-50 text-sm font-semibold text-blue-700">Loan Costs</div>
-              {[
-                { desc: 'Origination Fee (1%)', amount: Math.round(appliedSelectedLoanAmount * 0.01) },
-                { desc: 'Appraisal Fee', amount: 500 },
-                { desc: 'Credit Report', amount: 75 },
-                { desc: 'Flood Certification', amount: 15 },
-                { desc: 'Title Search', amount: 250 },
-                { desc: 'Title Insurance (Lender)', amount: 350 },
-                { desc: 'Settlement/Closing Fee', amount: 495 },
-                { desc: 'Recording Fees', amount: 150 },
-                { desc: 'Prepaid Interest (15 days)', amount: Math.round(((appliedSelectedLoanAmount * liveRate / 100) / 365) * 15) },
-                { desc: 'Homeowners Insurance (2 mo)', amount: 300 },
-              ].map((item, i) => (
+              {estimatedCostRows.map((item, i) => (
                 <div key={i} className="flex justify-between px-5 py-2.5 text-sm border-t border-gray-100">
                   <span className="text-gray-700">{item.desc}</span>
                   <span className="font-medium text-gray-900">${item.amount.toLocaleString()}</span>
                 </div>
               ))}
+              <div className="border-t border-blue-100 bg-blue-50 px-5 py-3 text-xs text-blue-700">
+                State fee schedule: {originationFee.stateGroupName || 'All Others'} {originationFee.program ? `• ${originationFee.program}` : ''}
+              </div>
               <div className="flex justify-between px-5 py-4 bg-gray-900 text-white font-bold text-lg">
                 <span>Estimated Total</span>
-                <span>${(
-                  Math.round(appliedSelectedLoanAmount * 0.01) +
-                  500 + 75 + 15 + 250 + 350 + 495 + 150 +
-                  Math.round(((appliedSelectedLoanAmount * liveRate / 100) / 365) * 15) +
-                  300
-                ).toLocaleString()}</span>
+                <span>${estimatedClosingCostsTotal.toLocaleString()}</span>
               </div>
             </div>
 
             <p className="text-xs text-gray-500 text-center mb-6">
-              These are estimates only. Actual closing costs may vary. Your loan officer will provide a detailed Loan Estimate.
+              These are estimates only. Origination fee is pulled from the state and loan-amount fee schedule. Actual closing costs may vary. Your loan officer will provide a detailed Loan Estimate.
             </p>
 
             <button
