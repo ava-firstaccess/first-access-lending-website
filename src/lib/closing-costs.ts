@@ -1,3 +1,5 @@
+import closingCostsConfig from './closing-costs-config.json';
+
 type ClosingCostProgram = 'HELOC' | 'CES';
 
 type FeeScheduleTier = {
@@ -26,178 +28,19 @@ type FeeComputation = {
   remainingCapacityPct: number | null;
 };
 
-export const POINTS_AND_FEES_STATE_CAPS: Partial<Record<string, number>> = {
-  FL: 4,
-  MD: 4,
-  NJ: 3,
-  PA: 3,
-  OH: 2,
+type ClosingCostsConfig = {
+  stateCaps: Record<string, number>;
+  stateFeeGroups: StateFeeGroup[];
+  defaultStateFeeGroup: string;
+  originationFeeSchedule: Record<ClosingCostProgram, Record<string, FeeScheduleTier[]>>;
 };
 
-const STATE_FEE_GROUPS: readonly StateFeeGroup[] = [
-  { name: 'FL, MD', states: ['FL', 'MD'] },
-  { name: 'NJ, PA', states: ['NJ', 'PA'] },
-  { name: 'KY', states: ['KY'] },
-  { name: 'OH', states: ['OH'] },
-];
+const CONFIG = closingCostsConfig as ClosingCostsConfig;
 
-const DEFAULT_STATE_FEE_GROUP = 'All Others';
-
-const ORIGINATION_FEE_SCHEDULE: Record<ClosingCostProgram, Record<string, readonly FeeScheduleTier[]>> = {
-  HELOC: {
-    'All Others': [
-      { minLoanAmount: 0, maxLoanAmount: 24999, feePct: 5 },
-      { minLoanAmount: 25000, maxLoanAmount: 49999, feePct: 5 },
-      { minLoanAmount: 50000, maxLoanAmount: 74999, feePct: 5 },
-      { minLoanAmount: 75000, maxLoanAmount: 99999, feePct: 5 },
-      { minLoanAmount: 100000, maxLoanAmount: 124999, feePct: 4.5 },
-      { minLoanAmount: 125000, maxLoanAmount: 149999, feePct: 3.5 },
-      { minLoanAmount: 150000, maxLoanAmount: 174999, feePct: 2.75 },
-      { minLoanAmount: 175000, maxLoanAmount: 199999, feePct: 2.25 },
-      { minLoanAmount: 200000, maxLoanAmount: 224999, feePct: 1.75 },
-      { minLoanAmount: 225000, maxLoanAmount: 249999, feePct: 1.5 },
-      { minLoanAmount: 250000, maxLoanAmount: 274999, feePct: 1.25 },
-      { minLoanAmount: 275000, maxLoanAmount: 299999, feePct: 1 },
-      { minLoanAmount: 300000, maxLoanAmount: 324999, feePct: 1 },
-      { minLoanAmount: 325000, maxLoanAmount: 349999, feePct: 1 },
-      { minLoanAmount: 350000, maxLoanAmount: null, feePct: 1 },
-    ],
-    'FL, MD': [
-      { minLoanAmount: 0, maxLoanAmount: 24999, feePct: 4 },
-      { minLoanAmount: 25000, maxLoanAmount: 49999, feePct: 4 },
-      { minLoanAmount: 50000, maxLoanAmount: 74999, feePct: 4 },
-      { minLoanAmount: 75000, maxLoanAmount: 99999, feePct: 4 },
-      { minLoanAmount: 100000, maxLoanAmount: 124999, feePct: 4 },
-      { minLoanAmount: 125000, maxLoanAmount: 149999, feePct: 3.5 },
-      { minLoanAmount: 150000, maxLoanAmount: 174999, feePct: 2.75 },
-      { minLoanAmount: 175000, maxLoanAmount: 199999, feePct: 2.25 },
-      { minLoanAmount: 200000, maxLoanAmount: 224999, feePct: 1.75 },
-      { minLoanAmount: 225000, maxLoanAmount: 249999, feePct: 1.5 },
-      { minLoanAmount: 250000, maxLoanAmount: 274999, feePct: 1.25 },
-      { minLoanAmount: 275000, maxLoanAmount: 299999, feePct: 1 },
-      { minLoanAmount: 300000, maxLoanAmount: 324999, feePct: 1 },
-      { minLoanAmount: 325000, maxLoanAmount: 349999, feePct: 1 },
-      { minLoanAmount: 350000, maxLoanAmount: null, feePct: 1 },
-    ],
-    'NJ, PA': [
-      { minLoanAmount: 0, maxLoanAmount: 24999, feePct: 3 },
-      { minLoanAmount: 25000, maxLoanAmount: 49999, feePct: 3 },
-      { minLoanAmount: 50000, maxLoanAmount: 74999, feePct: 3 },
-      { minLoanAmount: 75000, maxLoanAmount: 99999, feePct: 3 },
-      { minLoanAmount: 100000, maxLoanAmount: 124999, feePct: 3 },
-      { minLoanAmount: 125000, maxLoanAmount: 149999, feePct: 3 },
-      { minLoanAmount: 150000, maxLoanAmount: 174999, feePct: 2.75 },
-      { minLoanAmount: 175000, maxLoanAmount: 199999, feePct: 2.25 },
-      { minLoanAmount: 200000, maxLoanAmount: 224999, feePct: 1.75 },
-      { minLoanAmount: 225000, maxLoanAmount: 249999, feePct: 1.5 },
-      { minLoanAmount: 250000, maxLoanAmount: 274999, feePct: 1.25 },
-      { minLoanAmount: 275000, maxLoanAmount: 299999, feePct: 1 },
-      { minLoanAmount: 300000, maxLoanAmount: 324999, feePct: 1 },
-      { minLoanAmount: 325000, maxLoanAmount: 349999, feePct: 1 },
-      { minLoanAmount: 350000, maxLoanAmount: null, feePct: 1 },
-    ],
-    KY: [
-      { minLoanAmount: 0, maxLoanAmount: 24999, feePct: 2.5 },
-      { minLoanAmount: 25000, maxLoanAmount: 49999, feePct: 2.5 },
-      { minLoanAmount: 50000, maxLoanAmount: 74999, feePct: 2.5 },
-      { minLoanAmount: 75000, maxLoanAmount: 99999, feePct: 2.5 },
-      { minLoanAmount: 100000, maxLoanAmount: 124999, feePct: 2.5 },
-      { minLoanAmount: 125000, maxLoanAmount: 149999, feePct: 2.5 },
-      { minLoanAmount: 150000, maxLoanAmount: 174999, feePct: 2.5 },
-      { minLoanAmount: 175000, maxLoanAmount: 199999, feePct: 2.25 },
-      { minLoanAmount: 200000, maxLoanAmount: 224999, feePct: 1.75 },
-      { minLoanAmount: 225000, maxLoanAmount: 249999, feePct: 1.5 },
-      { minLoanAmount: 250000, maxLoanAmount: 274999, feePct: 1.25 },
-      { minLoanAmount: 275000, maxLoanAmount: 299999, feePct: 1 },
-      { minLoanAmount: 300000, maxLoanAmount: 324999, feePct: 1 },
-      { minLoanAmount: 325000, maxLoanAmount: 349999, feePct: 1 },
-      { minLoanAmount: 350000, maxLoanAmount: null, feePct: 1 },
-    ],
-    OH: [
-      { minLoanAmount: 0, maxLoanAmount: 24999, feePct: 2 },
-      { minLoanAmount: 25000, maxLoanAmount: 49999, feePct: 2 },
-      { minLoanAmount: 50000, maxLoanAmount: 74999, feePct: 2 },
-      { minLoanAmount: 75000, maxLoanAmount: 99999, feePct: 2 },
-      { minLoanAmount: 100000, maxLoanAmount: 124999, feePct: 2 },
-      { minLoanAmount: 125000, maxLoanAmount: 149999, feePct: 2 },
-      { minLoanAmount: 150000, maxLoanAmount: 174999, feePct: 2 },
-      { minLoanAmount: 175000, maxLoanAmount: 199999, feePct: 2 },
-      { minLoanAmount: 200000, maxLoanAmount: 224999, feePct: 1.75 },
-      { minLoanAmount: 225000, maxLoanAmount: 249999, feePct: 1.5 },
-      { minLoanAmount: 250000, maxLoanAmount: 274999, feePct: 1.25 },
-      { minLoanAmount: 275000, maxLoanAmount: 299999, feePct: 1 },
-      { minLoanAmount: 300000, maxLoanAmount: 324999, feePct: 1 },
-      { minLoanAmount: 325000, maxLoanAmount: 349999, feePct: 1 },
-      { minLoanAmount: 350000, maxLoanAmount: null, feePct: 1 },
-    ],
-  },
-  CES: {
-    'All Others': [
-      { minLoanAmount: 0, maxLoanAmount: 74599, feePct: 5 },
-      { minLoanAmount: 74600, maxLoanAmount: 124331, flatFeeAmount: 3750 },
-      { minLoanAmount: 124331, maxLoanAmount: 149331, feePct: 3 },
-      { minLoanAmount: 150000, maxLoanAmount: 174999, feePct: 2.75 },
-      { minLoanAmount: 175000, maxLoanAmount: 199999, feePct: 2.25 },
-      { minLoanAmount: 200000, maxLoanAmount: 224999, feePct: 1.75 },
-      { minLoanAmount: 225000, maxLoanAmount: 249999, feePct: 1.5 },
-      { minLoanAmount: 250000, maxLoanAmount: 274999, feePct: 1.25 },
-      { minLoanAmount: 275000, maxLoanAmount: 299999, feePct: 1 },
-      { minLoanAmount: 300000, maxLoanAmount: 324999, feePct: 1 },
-      { minLoanAmount: 325000, maxLoanAmount: 349999, feePct: 1 },
-      { minLoanAmount: 350000, maxLoanAmount: null, feePct: 1 },
-    ],
-    'FL, MD': [
-      { minLoanAmount: 0, maxLoanAmount: 102499, feePct: 4 },
-      { minLoanAmount: 102500, maxLoanAmount: 136666, flatFeeAmount: 4100 },
-      { minLoanAmount: 136667, maxLoanAmount: 149331, feePct: 3 },
-      { minLoanAmount: 150000, maxLoanAmount: 174999, feePct: 2.75 },
-      { minLoanAmount: 175000, maxLoanAmount: 199999, feePct: 2.25 },
-      { minLoanAmount: 200000, maxLoanAmount: 224999, feePct: 1.75 },
-      { minLoanAmount: 225000, maxLoanAmount: 249999, feePct: 1.5 },
-      { minLoanAmount: 250000, maxLoanAmount: 274999, feePct: 1.25 },
-      { minLoanAmount: 275000, maxLoanAmount: 299999, feePct: 1 },
-      { minLoanAmount: 300000, maxLoanAmount: 324999, feePct: 1 },
-      { minLoanAmount: 325000, maxLoanAmount: 349999, feePct: 1 },
-      { minLoanAmount: 350000, maxLoanAmount: null, feePct: 1 },
-    ],
-    'NJ, PA': [
-      { minLoanAmount: 0, maxLoanAmount: 124331, feePct: 3 },
-      { minLoanAmount: 124331, maxLoanAmount: 149331, feePct: 3 },
-      { minLoanAmount: 150000, maxLoanAmount: 174999, feePct: 2.75 },
-      { minLoanAmount: 175000, maxLoanAmount: 199999, feePct: 2.25 },
-      { minLoanAmount: 200000, maxLoanAmount: 224999, feePct: 1.75 },
-      { minLoanAmount: 225000, maxLoanAmount: 249999, feePct: 1.5 },
-      { minLoanAmount: 250000, maxLoanAmount: 274999, feePct: 1.25 },
-      { minLoanAmount: 275000, maxLoanAmount: 299999, feePct: 1 },
-      { minLoanAmount: 300000, maxLoanAmount: 324999, feePct: 1 },
-      { minLoanAmount: 325000, maxLoanAmount: 349999, feePct: 1 },
-      { minLoanAmount: 350000, maxLoanAmount: null, feePct: 1 },
-    ],
-    KY: [
-      { minLoanAmount: 0, maxLoanAmount: 149331, feePct: 2.5 },
-      { minLoanAmount: 150000, maxLoanAmount: 174999, feePct: 2.5 },
-      { minLoanAmount: 175000, maxLoanAmount: 199999, feePct: 2.25 },
-      { minLoanAmount: 200000, maxLoanAmount: 224999, feePct: 1.75 },
-      { minLoanAmount: 225000, maxLoanAmount: 249999, feePct: 1.5 },
-      { minLoanAmount: 250000, maxLoanAmount: 274999, feePct: 1.25 },
-      { minLoanAmount: 275000, maxLoanAmount: 299999, feePct: 1 },
-      { minLoanAmount: 300000, maxLoanAmount: 324999, feePct: 1 },
-      { minLoanAmount: 325000, maxLoanAmount: 349999, feePct: 1 },
-      { minLoanAmount: 350000, maxLoanAmount: null, feePct: 1 },
-    ],
-    OH: [
-      { minLoanAmount: 0, maxLoanAmount: 174999, feePct: 2 },
-      { minLoanAmount: 175000, maxLoanAmount: 199999, feePct: 2 },
-      { minLoanAmount: 200000, maxLoanAmount: 224999, feePct: 1.75 },
-      { minLoanAmount: 225000, maxLoanAmount: 249999, feePct: 1.5 },
-      { minLoanAmount: 250000, maxLoanAmount: 274999, feePct: 1.25 },
-      { minLoanAmount: 275000, maxLoanAmount: 299999, feePct: 1 },
-      { minLoanAmount: 300000, maxLoanAmount: 324999, feePct: 1 },
-      { minLoanAmount: 325000, maxLoanAmount: 349999, feePct: 1 },
-      { minLoanAmount: 350000, maxLoanAmount: null, feePct: 1 },
-    ],
-  },
-};
+export const POINTS_AND_FEES_STATE_CAPS: Partial<Record<string, number>> = CONFIG.stateCaps;
+const STATE_FEE_GROUPS: readonly StateFeeGroup[] = CONFIG.stateFeeGroups;
+const DEFAULT_STATE_FEE_GROUP = CONFIG.defaultStateFeeGroup;
+const ORIGINATION_FEE_SCHEDULE: Record<ClosingCostProgram, Record<string, readonly FeeScheduleTier[]>> = CONFIG.originationFeeSchedule;
 
 function normalizeState(state: string | undefined): string | null {
   const normalized = String(state || '').trim().toUpperCase();
