@@ -536,7 +536,7 @@ function buildAdjustmentLines(
     adjustments.push(termAdjustment);
   }
 
-  const loanAmountAdjustment = getLoanAmountAdjustment(input.product, selectedLoanAmount, cltvIndex);
+  const loanAmountAdjustment = getLoanAmountAdjustment(input.product, Math.max(0, input.loanBalance + selectedLoanAmount), cltvIndex);
   if (loanAmountAdjustment) {
     adjustments.push(loanAmountAdjustment);
   }
@@ -546,10 +546,10 @@ function buildAdjustmentLines(
 
 function getLoanAmountAdjustment(
   product: ButtonProduct,
-  selectedLoanAmount: number,
+  resultingBalance: number,
   cltvIndex: number
 ): Stage1AdjustmentLine | null {
-  const bucketLabel = getButtonLoanAmountBucketLabel(product, selectedLoanAmount);
+  const bucketLabel = getButtonLoanAmountBucketLabel(product, resultingBalance);
   if (!bucketLabel) return null;
 
   const value = getLookupValue(BALANCE_TABLE, bucketLabel, cltvIndex);
