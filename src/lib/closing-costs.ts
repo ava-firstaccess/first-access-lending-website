@@ -216,9 +216,16 @@ export function getClosingCostStateGroup(state: string | undefined): StateFeeGro
   return STATE_FEE_GROUPS.find(group => normalizedState !== null && group.states.includes(normalizedState)) ?? { name: DEFAULT_STATE_FEE_GROUP, states: [] };
 }
 
-function getPointsAndFeesCapPct(program: ClosingCostProgram | null, state: string | null): number | null {
+function getCesQmCapPct(loanAmount: number): number {
+  if (loanAmount >= 137958) return 3;
+  if (loanAmount >= 82775) return Number(((4139 / loanAmount) * 100).toFixed(3));
+  if (loanAmount >= 27592) return 5;
+  return 8;
+}
+
+function getPointsAndFeesCapPct(program: ClosingCostProgram | null, state: string | null, loanAmount: number): number | null {
   const stateCapPct = state ? POINTS_AND_FEES_STATE_CAPS[state] ?? null : null;
-  if (program === 'CES') return stateCapPct ?? 3;
+  if (program === 'CES') return getCesQmCapPct(loanAmount);
   if (program === 'HELOC') return stateCapPct ?? 5;
   return null;
 }
@@ -268,7 +275,7 @@ export function getOriginationFeeDetails({
     }
   }
 
-  const capPct = getPointsAndFeesCapPct(normalizedProgram, normalizedState);
+  const capPct = getPointsAndFeesCapPct(normalizedProgram, normalizedState, safeLoanAmount);
   const maxDiscountPointsPct = capPct === null ? null : Number(Math.max(0, capPct - originationFeePct).toFixed(3));
 
   return {
