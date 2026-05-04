@@ -27,8 +27,10 @@ export interface DeephavenPricingInput {
   propertyState: string;
 }
 
+export const DEEPHAVEN_COMBINED_PROGRAM_LABEL = 'Equity Advantage / Elite' as const;
+
 export interface DeephavenQuote {
-  program: DeephavenProgram;
+  program: DeephavenProgram | typeof DEEPHAVEN_COMBINED_PROGRAM_LABEL;
   product: DeephavenProduct;
   maxAvailable: number;
   maxLtv: number;
@@ -87,7 +89,10 @@ const DEEPHAVEN_PROGRAM_MAP: Record<DeephavenProgram, 'Expanded Prime' | 'Non-Pr
 };
 const DEEPHAVEN_PROGRAMS: DeephavenProgram[] = ['Equity Advantage', 'Equity Advantage Elite'];
 
-export function getDeephavenGuideMaxPrice(program: DeephavenProgram, desiredLoanAmount: number): number {
+export function getDeephavenGuideMaxPrice(program: DeephavenProgram | typeof DEEPHAVEN_COMBINED_PROGRAM_LABEL, desiredLoanAmount: number): number {
+  if (program === DEEPHAVEN_COMBINED_PROGRAM_LABEL) {
+    return Math.max(...DEEPHAVEN_PROGRAMS.map(candidate => getDeephavenGuideMaxPrice(candidate, desiredLoanAmount)));
+  }
   const source = DATA.programs[sourceProgram(program)];
   let maxPrice = source.maxPriceTiers[source.maxPriceTiers.length - 1]?.maxPrice ?? 0;
   for (const tier of source.maxPriceTiers) {
@@ -154,6 +159,11 @@ export function calculateDeephavenStage1Quote(
     return [{ program, maxAvailable, maxLtv, llpaAdjustment, selected }];
   });
 
+  const summaryPrograms = getSummaryProgramsForDocType(input.docType);
+  const summaryProgramLabel = summaryPrograms.length > 1 ? DEEPHAVEN_COMBINED_PROGRAM_LABEL : (summaryPrograms[0] ?? input.program);
+  const summaryMaxLtv = Math.max(...summaryPrograms.map(program => calculateMaxLtvForProgram({ ...input, program }, program)));
+  const summaryMaxAvailable = Math.max(...summaryPrograms.map(program => calculateMaxAvailableForProgram({ ...input, program }, program)));
+
   const preferredCandidates = candidates.filter(candidate => candidate.program === 'Equity Advantage Elite');
   const selectionPool = preferredCandidates.length > 0 ? preferredCandidates : candidates;
 
@@ -165,15 +175,11 @@ export function calculateDeephavenStage1Quote(
   }, null);
 
   if (!best) {
-    const docCompatiblePrograms = DEEPHAVEN_PROGRAMS.filter(program => programSupportsDocType(program, input.docType));
-    const summaryPrograms = docCompatiblePrograms.length > 0 ? docCompatiblePrograms : DEEPHAVEN_PROGRAMS;
-    const maxLtv = Math.max(...summaryPrograms.map(program => calculateMaxLtvForProgram({ ...input, program }, program)));
-    const maxAvailable = Math.max(...summaryPrograms.map(program => calculateMaxAvailableForProgram({ ...input, program }, program)));
     return {
-      program: summaryPrograms[0] ?? input.program,
+      program: summaryProgramLabel,
       product: input.product,
-      maxAvailable,
-      maxLtv,
+      maxAvailable: summaryMaxAvailable,
+      maxLtv: summaryMaxLtv,
       rate: 0,
       noteRate: 0,
       rateType: 'Fixed',
@@ -186,10 +192,10 @@ export function calculateDeephavenStage1Quote(
   }
 
   return {
-    program: best.program,
+    program: summaryProgramLabel,
     product: input.product,
-    maxAvailable: best.maxAvailable,
-    maxLtv: best.maxLtv,
+    maxAvailable: summaryMaxAvailable,
+    maxLtv: summaryMaxLtv,
     rate: best.selected.rate,
     noteRate: best.selected.rate,
     rateType: 'Fixed',
@@ -377,6 +383,11 @@ function programSupportsDocType(program: DeephavenProgram, docType: DeephavenDoc
   if (docType === 'Full Doc') return true;
   if (docType === 'Bank Statement') return (programData.documentationAdjustments?.bankStatement ?? []).length > 0;
   return (programData.documentationAdjustments?.pnlOnly ?? []).length > 0;
+}
+
+function getSummaryProgramsForDocType(docType: DeephavenDocType): DeephavenProgram[] {
+  const docCompatiblePrograms = DEEPHAVEN_PROGRAMS.filter(program => programSupportsDocType(program, docType));
+  return docCompatiblePrograms.length > 0 ? docCompatiblePrograms : DEEPHAVEN_PROGRAMS;
 }
 
 function normalizeOccupancy(value?: string): string {
