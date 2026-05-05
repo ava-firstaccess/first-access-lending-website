@@ -200,6 +200,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
 
   const selectedProviderRow = providerRows.find((row) => row.provider === selectedProvider) || null;
   const winnerRow = providerRows.find((row) => row.provider === (liveOrderResult?.winnerProvider || selectedProvider || '')) || selectedProviderRow;
+  const displayedAvmValue = winnerRow?.value ?? null;
 
   const displayedMaxLoanAmount = useMemo(() => {
     if (!selectedSidebarInvestor) return null;
@@ -316,7 +317,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                         <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
                           <MiniMetric label="BestX rate" value={item.rate ? `${item.rate.toFixed(3)}%` : '—'} />
                           <MiniMetric label="Discount points" value={formatPoints(item.discountPoints)} />
-                          <MiniMetric label="Max loan" value={currency(item.maxAvailable)} />
+                          <MiniMetric label={displayedAvmValue !== null ? 'AVM value' : 'Max loan'} value={displayedAvmValue !== null ? currency(displayedAvmValue) : currency(item.maxAvailable)} />
                         </div>
                         {!item.eligible && item.reasons.length > 0 ? <div className="mt-2 text-xs text-slate-500">{item.reasons[0]}</div> : null}
                       </button>

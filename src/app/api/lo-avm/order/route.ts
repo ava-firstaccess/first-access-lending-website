@@ -1003,7 +1003,22 @@ function providerRowIsInFlightForSelectedInvestor(row: ProviderRow | null | unde
 }
 
 function chooseWinnerProvider(rows: ProviderRow[]) {
-  return rows.find((row) => row.supported && row.value !== null)?.provider || rows.find((row) => row.value !== null)?.provider || null;
+  const eligible = rows.filter((row) => providerRowSatisfiesSelectedInvestor(row) && row.value !== null);
+  if (eligible.length > 0) {
+    return eligible.reduce((best, row) => ((row.value || 0) > (best.value || 0) ? row : best)).provider;
+  }
+
+  const supportedWithValue = rows.filter((row) => row.supported && row.orderStatus === 'completed' && row.value !== null);
+  if (supportedWithValue.length > 0) {
+    return supportedWithValue.reduce((best, row) => ((row.value || 0) > (best.value || 0) ? row : best)).provider;
+  }
+
+  const anyWithValue = rows.filter((row) => row.value !== null);
+  if (anyWithValue.length > 0) {
+    return anyWithValue.reduce((best, row) => ((row.value || 0) > (best.value || 0) ? row : best)).provider;
+  }
+
+  return null;
 }
 
 export async function POST(req: NextRequest) {
