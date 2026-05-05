@@ -108,8 +108,29 @@ function normalizeText(value: string | undefined | null) {
     .trim();
 }
 
+function normalizeStreetAddress(value: string | undefined | null) {
+  return normalizeText(value)
+    .replace(/\bstreet\b/g, 'st')
+    .replace(/\bavenue\b/g, 'ave')
+    .replace(/\broad\b/g, 'rd')
+    .replace(/\bdrive\b/g, 'dr')
+    .replace(/\bboulevard\b/g, 'blvd')
+    .replace(/\blane\b/g, 'ln')
+    .replace(/\bcourt\b/g, 'ct')
+    .replace(/\bplace\b/g, 'pl')
+    .replace(/\bterrace\b/g, 'ter')
+    .replace(/\bparkway\b/g, 'pkwy')
+    .replace(/\bhighway\b/g, 'hwy')
+    .replace(/\bnorth\b/g, 'n')
+    .replace(/\bsouth\b/g, 's')
+    .replace(/\beast\b/g, 'e')
+    .replace(/\bwest\b/g, 'w')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function buildAddressId(address: string, city?: string, state?: string, zipcode?: string) {
-  return [address, city, state, zipcode].map(normalizeText).join('|');
+  return [normalizeStreetAddress(address), city, state, zipcode].map(normalizeText).join('|');
 }
 
 function toIsoDate(value: string | null | undefined) {
@@ -668,12 +689,16 @@ async function loadRecentAvmCache(supabase: ReturnType<typeof getSupabaseAdmin>,
 
   if (error) throw new Error(`avm_cache lookup failed: ${error.message}`);
 
-  const targetAddress = normalizeText(address);
+  const targetAddress = normalizeStreetAddress(address);
   const targetCity = normalizeText(city);
   const targetState = normalizeText(state);
 
   return (data || []).find((row: any) => {
-    return normalizeText(row.address) === targetAddress
+    const rowAddress = normalizeStreetAddress(row.address);
+    const addressMatches = rowAddress === targetAddress
+      || rowAddress.startsWith(targetAddress)
+      || targetAddress.startsWith(rowAddress);
+    return addressMatches
       && normalizeText(row.city) === targetCity
       && normalizeText(row.state) === targetState;
   }) || null;
