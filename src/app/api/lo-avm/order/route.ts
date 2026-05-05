@@ -412,6 +412,14 @@ function buildLoanOfficerAgileReportLink(orderId: string | number | null | undef
   return `/api/lo-avm/report?${params.toString()}`;
 }
 
+function buildLoanOfficerAgileExportReportLink(exportedDataUrl: string | null | undefined, pdfFilename: string | null | undefined) {
+  const exportedData = firstString(exportedDataUrl);
+  const filename = firstString(pdfFilename);
+  if (!exportedData || !filename) return null;
+  const params = new URLSearchParams({ exportedDataUrl: exportedData, pdfFilename: filename });
+  return `/api/lo-avm/report?${params.toString()}`;
+}
+
 function extractHouseCanaryExportZipData(buffer: Buffer) {
   const zip = new AdmZip(buffer);
   const entries = zip.getEntries().filter((entry: AdmZip.IZipEntry) => !entry.isDirectory);
@@ -555,20 +563,30 @@ async function getHouseCanaryOrderExportJob(orderId: string, exportJobId: string
 }
 
 async function createHouseCanaryOrderExportJob(orderId: string) {
-  const res = await fetch(`${process.env.HOUSECANARY_ORDER_MANAGER_BASE_URL || HOUSECANARY_ORDER_MANAGER_BASE}/orders/${orderId}/export/zip?exclude_json=false`, {
-    method: 'POST',
-    headers: {
-      Authorization: readHouseCanaryOrderManagerAuth(),
-      Accept: 'application/json',
-    },
-    cache: 'no-store',
-  });
+  const base = process.env.HOUSECANARY_ORDER_MANAGER_BASE_URL || HOUSECANARY_ORDER_MANAGER_BASE;
+  const attempts = [
+    `${base}/orders/${orderId}/export/zip?exclude_json=False`,
+    `${base}/orders/${orderId}/export/zip?exclude_json=false`,
+  ];
+  let lastError: string | null = null;
 
-  if (!res.ok) {
-    throw new Error(`HouseCanary Agile Insights create export job failed (${res.status})`);
+  for (const url of attempts) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: readHouseCanaryOrderManagerAuth(),
+        Accept: 'application/json',
+      },
+      cache: 'no-store',
+    });
+
+    if (res.ok) {
+      return res.json();
+    }
+    lastError = `HouseCanary Agile Insights create export job failed (${res.status})`;
   }
 
-  return res.json();
+  throw new Error(lastError || 'HouseCanary Agile Insights create export job failed');
 }
 
 function normalizeHouseCanaryExportJob(job: any) {
@@ -585,9 +603,13 @@ function normalizeHouseCanaryExportJob(job: any) {
 }
 
 async function ensureHouseCanaryAgileInsightsExportJob(orderId: string, existingExportJobId?: string | number | null) {
+  const selectPreferredJob = (jobs: any[]) => {
+    const sortedJobs = [...jobs].sort((a: any, b: any) => Number(b?.id || 0) - Number(a?.id || 0));
+    return sortedJobs.find((job: any) => job?.exclude_json === false) || null;
+  };
+
   const jobs = await listHouseCanaryOrderExportJobs(orderId);
-  const sortedJobs = [...jobs].sort((a: any, b: any) => Number(b?.id || 0) - Number(a?.id || 0));
-  const preferredJob = sortedJobs.find((job: any) => job?.exclude_json === false) || null;
+  const preferredJob = selectPreferredJob(jobs);
   if (preferredJob) {
     return normalizeHouseCanaryExportJob(preferredJob);
   }
@@ -596,7 +618,14 @@ async function ensureHouseCanaryAgileInsightsExportJob(orderId: string, existing
     return normalizeHouseCanaryExportJob(await getHouseCanaryOrderExportJob(orderId, existingExportJobId));
   }
 
-  return normalizeHouseCanaryExportJob(await createHouseCanaryOrderExportJob(orderId));
+  try {
+    return normalizeHouseCanaryExportJob(await createHouseCanaryOrderExportJob(orderId));
+  } catch (error) {
+    const afterJobs = await listHouseCanaryOrderExportJobs(orderId);
+    const latePreferredJob = selectPreferredJob(afterJobs);
+    if (latePreferredJob) return normalizeHouseCanaryExportJob(latePreferredJob);
+    throw error;
+  }
 }
 
 function getHouseCanaryItemStatus(status: string | null | undefined) {
@@ -730,8 +759,12 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
           nextPayload.agileInsightsExportParsed = parsedExport;
           nextPayload.agileInsightsSummaryDataUrl = parsedExport.summaryDataUrl;
           nextPayload.agileInsightsPdfFilename = parsedExport.pdfFilename;
+          nextPayload.agileInsightsExportedDataUrl = exportJob.exportedData;
           nextPayload.agileInsightsPdfAvailable = Boolean(parsedExport.pdfFilename) || nextPayload.agileInsightsPdfAvailable === true;
-          nextPayload.reportLink = buildLoanOfficerAgileReportLink(
+          nextPayload.reportLink = buildLoanOfficerAgileExportReportLink(
+            exportJob.exportedData,
+            parsedExport.pdfFilename,
+          ) || buildLoanOfficerAgileReportLink(
             order.external_order_id,
             snapshot.externalItemId || order.external_item_id || null,
             snapshot.pdfType || parsedExport.pdfType,

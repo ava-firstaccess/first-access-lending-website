@@ -1,3 +1,4 @@
+import AdmZip from 'adm-zip';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildLoanOfficerPortalUnauthorizedResponse, getLoanOfficerPortalSessionFromRequest, getRequestHost, isLoanOfficerPortalHost } from '@/lib/lo-portal-auth';
 
@@ -19,9 +20,43 @@ export async function GET(req: NextRequest) {
     }
 
     const sourceUrl = req.nextUrl.searchParams.get('sourceUrl');
+    const exportedDataUrl = req.nextUrl.searchParams.get('exportedDataUrl');
+    const pdfFilename = req.nextUrl.searchParams.get('pdfFilename');
     const orderId = req.nextUrl.searchParams.get('orderId');
     const itemId = req.nextUrl.searchParams.get('itemId');
     const pdfType = req.nextUrl.searchParams.get('pdfType');
+
+    if (exportedDataUrl && pdfFilename) {
+      let parsed: URL;
+      try {
+        parsed = new URL(exportedDataUrl);
+      } catch {
+        return NextResponse.json({ error: 'Invalid exportedDataUrl.' }, { status: 400 });
+      }
+      if (!/^https:\/\//i.test(parsed.toString())) {
+        return NextResponse.json({ error: 'Unsupported export download URL.' }, { status: 400 });
+      }
+
+      const zipResponse = await fetch(parsed.toString(), { cache: 'no-store' });
+      if (!zipResponse.ok) {
+        return NextResponse.json({ error: `HouseCanary export ZIP download failed (${zipResponse.status}).` }, { status: zipResponse.status });
+      }
+      const zipBuffer = Buffer.from(await zipResponse.arrayBuffer());
+      const zip = new AdmZip(zipBuffer);
+      const pdfEntry = zip.getEntries().find((entry: AdmZip.IZipEntry) => !entry.isDirectory && entry.entryName.split('/').pop() === pdfFilename);
+      if (!pdfEntry) {
+        return NextResponse.json({ error: 'HouseCanary export ZIP did not contain the requested PDF.' }, { status: 404 });
+      }
+      const pdfBytes = new Uint8Array(pdfEntry.getData());
+      return new NextResponse(pdfBytes, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `inline; filename="${pdfFilename}"`,
+          'Cache-Control': 'private, no-store, max-age=0',
+        },
+      });
+    }
 
     let upstream: Response;
     if (sourceUrl) {
