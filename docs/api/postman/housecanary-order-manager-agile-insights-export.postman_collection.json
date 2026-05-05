@@ -1,0 +1,399 @@
+{
+  "info": {
+    "name": "HouseCanary Order Manager Agile Insights Export",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Postman collection for HouseCanary Order Manager Agile Insights order creation, polling, and export jobs. Explicitly sets exclude_json=false on export creation so the zip bundle should include JSON files when HouseCanary honors the documented query parameter."
+  },
+  "item": [
+    {
+      "name": "POST Create Agile Insights Order",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const stamp = Date.now();",
+              "pm.collectionVariables.set('customerOrderId', `fal-postman-${stamp}`);",
+              "pm.collectionVariables.set('customerItemId', `fal-postman-item-${stamp}`);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "",
+              "pm.test('order id exists', function () {",
+              "  pm.expect(body.id || body.order_id || body.order?.id).to.exist;",
+              "});",
+              "",
+              "const orderId = body.id || body.order_id || body.order?.id;",
+              "if (orderId) pm.collectionVariables.set('orderId', String(orderId));",
+              "const itemId = body.items?.[0]?.id || body.order_items?.[0]?.id;",
+              "if (itemId) pm.collectionVariables.set('itemId', String(itemId));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{houseCanaryBasicAuth}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"order_type\": \"valueReport\",\n  \"name\": \"LO AVM {{address}}\",\n  \"customer_order_id\": \"{{customerOrderId}}\",\n  \"fsd_threshold\": {{fsdThreshold}},\n  \"items\": [\n    {\n      \"customer_item_id\": \"{{customerItemId}}\",\n      \"address\": \"{{address}}\",\n      \"city\": \"{{city}}\",\n      \"state\": \"{{state}}\",\n      \"zipcode\": \"{{zipcode}}\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{houseCanaryOrderManagerBaseUrl}}/orders/json/",
+          "host": [
+            "{{houseCanaryOrderManagerBaseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "json",
+            ""
+          ]
+        },
+        "description": "Creates an Agile Insights order using the JSON order endpoint. Stores returned orderId and itemId into collection variables for later requests."
+      }
+    },
+    {
+      "name": "GET Order Details",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const body = pm.response.json();",
+              "pm.test('body contains order id', function () {",
+              "  pm.expect(body.id).to.exist;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{houseCanaryBasicAuth}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{houseCanaryOrderManagerBaseUrl}}/orders/{{orderId}}/",
+          "host": [
+            "{{houseCanaryOrderManagerBaseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "{{orderId}}",
+            ""
+          ]
+        },
+        "description": "Reads the order record. Docs show fsd_threshold here, but do not document a final returned FSD value."
+      }
+    },
+    {
+      "name": "GET Order Items",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const body = pm.response.json();",
+              "pm.test('body is array-ish', function () {",
+              "  pm.expect(Array.isArray(body) || Array.isArray(body.results) || Array.isArray(body.items)).to.equal(true);",
+              "});",
+              "const rows = Array.isArray(body) ? body : Array.isArray(body.results) ? body.results : Array.isArray(body.items) ? body.items : [];",
+              "if (rows[0]) {",
+              "  pm.collectionVariables.set('itemStatus', String(rows[0].status || ''));",
+              "  if (rows[0].estimated_value) pm.collectionVariables.set('estimatedValue', JSON.stringify(rows[0].estimated_value));",
+              "  if (rows[0].value_range) pm.collectionVariables.set('valueRange', JSON.stringify(rows[0].value_range));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{houseCanaryBasicAuth}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{houseCanaryOrderManagerBaseUrl}}/orders/{{orderId}}/items/",
+          "host": [
+            "{{houseCanaryOrderManagerBaseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "{{orderId}}",
+            "items",
+            ""
+          ]
+        },
+        "description": "Reads order items. Docs currently show estimated_value and value_range, but do not document fsd here."
+      }
+    },
+    {
+      "name": "POST Create Export Job (exclude_json=false)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "const body = pm.response.json();",
+              "pm.test('exclude_json is false when echoed', function () {",
+              "  if (Object.prototype.hasOwnProperty.call(body, 'exclude_json')) {",
+              "    pm.expect(body.exclude_json).to.equal(false);",
+              "  }",
+              "});",
+              "const exportRequestId = body.id;",
+              "if (exportRequestId) pm.collectionVariables.set('exportRequestId', String(exportRequestId));",
+              "if (body.check_status_url) pm.collectionVariables.set('exportCheckStatusUrl', body.check_status_url);",
+              "if (body.exported_data) pm.collectionVariables.set('exportedDataUrl', body.exported_data);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{houseCanaryBasicAuth}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{houseCanaryOrderManagerBaseUrl}}/orders/{{orderId}}/export/zip?exclude_json=false",
+          "host": [
+            "{{houseCanaryOrderManagerBaseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "{{orderId}}",
+            "export",
+            "zip"
+          ],
+          "query": [
+            {
+              "key": "exclude_json",
+              "value": "false"
+            }
+          ]
+        },
+        "description": "Creates an offline export job and explicitly requests JSON files in the zip bundle."
+      }
+    },
+    {
+      "name": "GET Export Jobs For Order",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{houseCanaryBasicAuth}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{houseCanaryOrderManagerBaseUrl}}/orders/{{orderId}}/export-requests/",
+          "host": [
+            "{{houseCanaryOrderManagerBaseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "{{orderId}}",
+            "export-requests",
+            ""
+          ]
+        },
+        "description": "Lists export jobs associated with the order."
+      }
+    },
+    {
+      "name": "GET Export Job Status",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const body = pm.response.json();",
+              "if (body.exported_data) pm.collectionVariables.set('exportedDataUrl', body.exported_data);",
+              "pm.test('status body exists', function () { pm.expect(body).to.exist; });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{houseCanaryBasicAuth}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{houseCanaryOrderManagerBaseUrl}}/orders/{{orderId}}/export-requests/{{exportRequestId}}",
+          "host": [
+            "{{houseCanaryOrderManagerBaseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "{{orderId}}",
+            "export-requests",
+            "{{exportRequestId}}"
+          ]
+        },
+        "description": "Poll this until status becomes complete. When complete, exported_data should contain the download URL."
+      }
+    },
+    {
+      "name": "GET Download Export ZIP",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{houseCanaryBasicAuth}}"
+          }
+        ],
+        "url": {
+          "raw": "{{exportedDataUrl}}",
+          "host": [
+            "{{exportedDataUrl}}"
+          ]
+        },
+        "description": "Downloads the completed export zip after GET Export Job Status returns exported_data."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "houseCanaryOrderManagerBaseUrl",
+      "value": "https://order-manager-api.housecanary.com/client-api/v1"
+    },
+    {
+      "key": "houseCanaryBasicAuth",
+      "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": ""
+    },
+    {
+      "key": "itemId",
+      "value": ""
+    },
+    {
+      "key": "exportRequestId",
+      "value": ""
+    },
+    {
+      "key": "exportCheckStatusUrl",
+      "value": ""
+    },
+    {
+      "key": "exportedDataUrl",
+      "value": ""
+    },
+    {
+      "key": "customerOrderId",
+      "value": "fal-lo-avm-test-001"
+    },
+    {
+      "key": "customerItemId",
+      "value": "fal-lo-avm-item-001"
+    },
+    {
+      "key": "fsdThreshold",
+      "value": "0.2"
+    },
+    {
+      "key": "address",
+      "value": "14333 Davos Dr"
+    },
+    {
+      "key": "city",
+      "value": "Truckee"
+    },
+    {
+      "key": "state",
+      "value": "CA"
+    },
+    {
+      "key": "zipcode",
+      "value": "96161"
+    },
+    {
+      "key": "itemStatus",
+      "value": ""
+    },
+    {
+      "key": "estimatedValue",
+      "value": ""
+    },
+    {
+      "key": "valueRange",
+      "value": ""
+    }
+  ]
+}
