@@ -109,7 +109,8 @@ function normalizeText(value: string | undefined | null) {
 }
 
 function normalizeStreetAddress(value: string | undefined | null) {
-  return normalizeText(value)
+  const streetLine = String(value || '').split(',')[0] || '';
+  return normalizeText(streetLine)
     .replace(/\bstreet\b/g, 'st')
     .replace(/\bavenue\b/g, 'ave')
     .replace(/\broad\b/g, 'rd')
