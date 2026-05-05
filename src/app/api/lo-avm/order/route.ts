@@ -292,6 +292,7 @@ async function createHouseCanaryAgileInsightsOrder({
   zipcode,
   customerOrderId,
   customerItemId,
+  fsdThreshold,
 }: {
   address: string;
   city?: string;
@@ -299,6 +300,7 @@ async function createHouseCanaryAgileInsightsOrder({
   zipcode: string;
   customerOrderId: string;
   customerItemId: string;
+  fsdThreshold?: number | null;
 }) {
   const res = await fetch(`${process.env.HOUSECANARY_ORDER_MANAGER_BASE_URL || HOUSECANARY_ORDER_MANAGER_BASE}/orders/json/`, {
     method: 'POST',
@@ -311,6 +313,7 @@ async function createHouseCanaryAgileInsightsOrder({
       order_type: 'valueReport',
       name: `LO AVM ${address}`,
       customer_order_id: customerOrderId,
+      ...(typeof fsdThreshold === 'number' ? { fsd_threshold: Number(fsdThreshold.toFixed(2)) } : {}),
       items: [
         {
           customer_item_id: customerItemId,
@@ -394,6 +397,85 @@ async function listHouseCanaryOrderItems(orderId: string) {
   return [];
 }
 
+async function listHouseCanaryOrderExportJobs(orderId: string) {
+  const res = await fetch(`${process.env.HOUSECANARY_ORDER_MANAGER_BASE_URL || HOUSECANARY_ORDER_MANAGER_BASE}/orders/${orderId}/export-requests/`, {
+    headers: {
+      Authorization: readHouseCanaryOrderManagerAuth(),
+      Accept: 'application/json',
+    },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`HouseCanary Agile Insights list export jobs failed (${res.status})`);
+  }
+
+  const data = await res.json();
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.results)) return data.results;
+  return [];
+}
+
+async function getHouseCanaryOrderExportJob(orderId: string, exportJobId: string | number) {
+  const res = await fetch(`${process.env.HOUSECANARY_ORDER_MANAGER_BASE_URL || HOUSECANARY_ORDER_MANAGER_BASE}/orders/${orderId}/export-requests/${exportJobId}/`, {
+    headers: {
+      Authorization: readHouseCanaryOrderManagerAuth(),
+      Accept: 'application/json',
+    },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`HouseCanary Agile Insights get export job failed (${res.status})`);
+  }
+
+  return res.json();
+}
+
+async function createHouseCanaryOrderExportJob(orderId: string) {
+  const res = await fetch(`${process.env.HOUSECANARY_ORDER_MANAGER_BASE_URL || HOUSECANARY_ORDER_MANAGER_BASE}/orders/${orderId}/export/zip?exclude_json=false`, {
+    method: 'POST',
+    headers: {
+      Authorization: readHouseCanaryOrderManagerAuth(),
+      Accept: 'application/json',
+    },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`HouseCanary Agile Insights create export job failed (${res.status})`);
+  }
+
+  return res.json();
+}
+
+function normalizeHouseCanaryExportJob(job: any) {
+  if (!job) return null;
+  return {
+    id: job.id ?? null,
+    status: firstString(job.status) || null,
+    checkStatusUrl: firstString(job.check_status_url) || null,
+    completedAt: firstString(job.completed_at) || null,
+    percentComplete: firstNumber(job.percent_complete),
+    exportedData: firstString(job.exported_data) || null,
+    excludeJson: typeof job.exclude_json === 'boolean' ? job.exclude_json : null,
+  };
+}
+
+async function ensureHouseCanaryAgileInsightsExportJob(orderId: string, existingExportJobId?: string | number | null) {
+  if (existingExportJobId !== null && existingExportJobId !== undefined && String(existingExportJobId).trim()) {
+    return normalizeHouseCanaryExportJob(await getHouseCanaryOrderExportJob(orderId, existingExportJobId));
+  }
+
+  const jobs = await listHouseCanaryOrderExportJobs(orderId);
+  const existingJob = jobs.find((job: any) => job?.exclude_json === false) || jobs[0] || null;
+  if (existingJob) {
+    return normalizeHouseCanaryExportJob(existingJob);
+  }
+
+  return normalizeHouseCanaryExportJob(await createHouseCanaryOrderExportJob(orderId));
+}
+
 function getHouseCanaryItemStatus(status: string | null | undefined) {
   const normalized = String(status || '').trim().toLowerCase();
   if (normalized === 'complete') return 'completed';
@@ -467,7 +549,7 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
     ? (snapshot.fsd <= requestedMaxFsd + 0.0001 ? 'passed' : 'failed')
     : order?.fsd_threshold_status || null;
   const nextOrderStatus = getHouseCanaryItemStatus(snapshot.status);
-  const nextPayload = {
+  const nextPayload: Record<string, any> = {
     ...(order?.response_payload || {}),
     value: snapshot.value,
     fsd: snapshot.fsd,
@@ -477,6 +559,20 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
     agileInsightsOrderResponse: snapshot.order,
     agileInsightsItemsResponse: snapshot.items,
   };
+
+  if (nextOrderStatus === 'completed' && snapshot.fsd === null) {
+    try {
+      const exportJob = await ensureHouseCanaryAgileInsightsExportJob(
+        String(order.external_order_id),
+        nextPayload?.agileInsightsExportJob?.id ?? null,
+      );
+      if (exportJob) {
+        nextPayload.agileInsightsExportJob = exportJob;
+      }
+    } catch (exportError: any) {
+      nextPayload.agileInsightsExportError = exportError?.message || 'Failed to create or load Agile Insights export job.';
+    }
+  }
 
   const updatePayload = {
     external_item_id: snapshot.externalItemId,
@@ -1242,6 +1338,7 @@ export async function POST(req: NextRequest) {
             zipcode,
             customerOrderId,
             customerItemId,
+            fsdThreshold: requestedMaxFsd,
           });
         } catch (providerError: any) {
           await recordFailedLoanOfficerAvmOrder(supabase, {
