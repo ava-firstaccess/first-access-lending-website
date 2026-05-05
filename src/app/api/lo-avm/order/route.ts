@@ -1716,7 +1716,12 @@ export async function POST(req: NextRequest) {
         } catch (error: any) {
           throw new Error(`Failed to save Agile Insights order: ${error?.message || 'unknown error'}`);
         }
-        insertedOrder = await pollHouseCanaryAgileInsightsOrder(supabase, insertedOrder);
+        insertedOrder = await pollHouseCanaryAgileInsightsOrder(
+          supabase,
+          insertedOrder,
+          isForcedHouseCanaryProduct ? 20 : 6,
+          isForcedHouseCanaryProduct ? 5000 : 2000,
+        );
         if (insertedOrder?.order_status === 'completed' && typeof insertedOrder?.response_payload?.reportLink === 'string') {
           try {
             await sendLoanOfficerReportEmail({
@@ -1907,7 +1912,7 @@ export async function POST(req: NextRequest) {
           ? 'Agile Insights test override completed and the latest value was captured.'
           : 'Agile Insights order completed and the latest value was captured.'
         : forcedHouseCanaryProductUsed
-          ? 'Agile Insights test override placed. Polling ran, but HouseCanary has not returned a completed result yet.'
+          ? 'Agile Insights test override is still waiting on HouseCanary report artifacts. Try Pull Cache again shortly if it does not complete in this run.'
           : 'Agile Insights order placed. Polling ran, but HouseCanary has not returned a completed result yet.'
       : forcedHouseCanaryProductUsed
         ? 'Manual HouseCanary test override placed successfully.'
