@@ -423,7 +423,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                     <Metric label="Value" value={currency(selectedProviderRow.value)} />
                     <Metric label="FSD" value={selectedProviderRow.fsdLabel || (selectedProviderRow.fsd !== null && selectedProviderRow.fsd !== undefined ? selectedProviderRow.fsd.toFixed(2) : '—')} />
                     <Metric label="Threshold used" value={selectedProviderRow.requestedMaxFsd !== null && selectedProviderRow.requestedMaxFsd !== undefined ? selectedProviderRow.requestedMaxFsd.toFixed(2) : '—'} />
-                    <Metric label="Threshold result" value={formatThresholdStatus(selectedProviderRow.fsdThresholdStatus)} />
+                    <Metric label="Threshold result" value={formatThresholdStatus(getDisplayThresholdStatus(selectedProviderRow))} />
                     <Metric label="Max loan" value={currency(displayedMaxLoanAmount)} />
                   </div>
                   <div className={`mt-3 text-sm ${providerEligibleForInvestor(selectedProviderRow) ? 'text-emerald-800' : 'text-amber-800'}`}>{getProviderInvestorStatusMessage(selectedProviderRow)}</div>
@@ -482,8 +482,8 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                         <div>{row.requestedMaxFsd !== null && row.requestedMaxFsd !== undefined ? row.requestedMaxFsd.toFixed(2) : '—'}</div>
                         <div>{row.value !== null ? currency(row.value) : '—'}</div>
                         <div>
-                          <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${!row.supported && row.value === null ? 'bg-slate-200 text-slate-500' : row.fsdThresholdStatus === 'failed' ? 'bg-rose-100 text-rose-800' : row.fsdThresholdStatus === 'pending' ? 'bg-violet-100 text-violet-800' : !rowEligible && row.supported ? 'bg-amber-100 text-amber-800' : isWinner ? 'bg-sky-100 text-sky-800' : row.value !== null ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
-                            {!row.supported && row.value === null ? 'Ruled out' : row.fsdThresholdStatus === 'failed' ? 'Threshold failed' : row.fsdThresholdStatus === 'pending' ? 'Threshold pending' : !rowEligible && row.supported ? 'FSD above max' : isWinner ? 'Winner' : row.value !== null ? (row.source === 'cache' ? 'Cached' : 'Ordered') : 'Allowed'}
+                          <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${!row.supported && row.value === null ? 'bg-slate-200 text-slate-500' : row.fsdThresholdStatus === 'failed' ? 'bg-rose-100 text-rose-800' : shouldShowPendingThreshold(row) ? 'bg-violet-100 text-violet-800' : !rowEligible && row.supported ? 'bg-amber-100 text-amber-800' : isWinner ? 'bg-sky-100 text-sky-800' : row.value !== null ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                            {!row.supported && row.value === null ? 'Ruled out' : row.fsdThresholdStatus === 'failed' ? 'Threshold failed' : shouldShowPendingThreshold(row) ? 'Threshold pending' : !rowEligible && row.supported ? 'FSD above max' : isWinner ? 'Winner' : row.value !== null ? (row.source === 'cache' ? 'Cached' : 'Ordered') : 'Allowed'}
                           </span>
                         </div>
                         <div>
@@ -537,14 +537,24 @@ function providerEligibleForInvestor(row: ProviderDisplayRow) {
   return row.fsd <= row.maxFsdAllowed + 0.0001;
 }
 
+function shouldShowPendingThreshold(row: ProviderDisplayRow) {
+  return row.fsdThresholdStatus === 'pending' && row.value !== null && row.fsd === null;
+}
+
+function getDisplayThresholdStatus(row: ProviderDisplayRow) {
+  if (row.fsdThresholdStatus === 'pending' && !shouldShowPendingThreshold(row)) return null;
+  return row.fsdThresholdStatus;
+}
+
 function getProviderRowSubtext(row: ProviderDisplayRow) {
   const sourceLabel = row.source === 'cache'
     ? (row.orderRunId ? 'Loan officer cache' : 'Webapp cache')
     : row.source === 'fresh'
       ? 'Fresh order'
       : null;
-  const thresholdLabel = row.requestedMaxFsd !== null && row.requestedMaxFsd !== undefined
-    ? `Threshold ${row.requestedMaxFsd.toFixed(2)} ${formatThresholdStatus(row.fsdThresholdStatus).toLowerCase()}`
+  const displayThresholdStatus = getDisplayThresholdStatus(row);
+  const thresholdLabel = row.requestedMaxFsd !== null && row.requestedMaxFsd !== undefined && displayThresholdStatus
+    ? `Threshold ${row.requestedMaxFsd.toFixed(2)} ${formatThresholdStatus(displayThresholdStatus).toLowerCase()}`
     : null;
   const runSourceLabel = row.runSource === 'manual' ? 'Manual run' : row.runSource === 'cascade' ? 'Cascade run' : null;
 
@@ -570,7 +580,7 @@ function getProviderInvestorStatusMessage(row: ProviderDisplayRow) {
   if ((row.fsd !== null && row.maxFsdAllowed !== null && row.fsd > row.maxFsdAllowed + 0.0001) || row.fsdLabel) {
     return `This result is above the current investor max FSD, ${row.maxFsdAllowed?.toFixed(2) ?? 'n/a'}. Keep the AVM visible, but try another investor that allows a higher FSD.`;
   }
-  if (row.fsdThresholdStatus === 'pending') {
+  if (shouldShowPendingThreshold(row)) {
     return 'This order recorded the investor threshold, but the provider result has not returned an FSD yet.';
   }
   return 'This AVM result is within the current investor FSD rule.';
