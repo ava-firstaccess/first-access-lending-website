@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'First Access Lending <noreply@firstaccesslending.com>',
+        from: 'First Access Lending <info@firstaccesslending.com>',
         to: [email],
         subject: 'Your First Access Lending portal verification code',
         html: `<div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a"><p>Your First Access Lending Loan Officer portal verification code is:</p><p style="font-size:32px;font-weight:700;letter-spacing:4px;margin:16px 0">${code}</p><p>This code expires in 10 minutes.</p></div>`,
