@@ -129,8 +129,8 @@ function normalizeStreetAddress(value: string | undefined | null) {
     .trim();
 }
 
-function buildAddressId(address: string, city?: string, state?: string, zipcode?: string) {
-  return [normalizeStreetAddress(address), city, state, zipcode].map(normalizeText).join('|');
+function buildAddressId(address: string, _city?: string, _state?: string, zipcode?: string) {
+  return [normalizeStreetAddress(address), normalizeText(zipcode)].filter(Boolean).join('|');
 }
 
 function toIsoDate(value: string | null | undefined) {
@@ -689,18 +689,11 @@ async function loadRecentAvmCache(supabase: ReturnType<typeof getSupabaseAdmin>,
 
   if (error) throw new Error(`avm_cache lookup failed: ${error.message}`);
 
-  const targetAddress = normalizeStreetAddress(address);
-  const targetCity = normalizeText(city);
-  const targetState = normalizeText(state);
+  const targetAddressId = buildAddressId(address, city, state, zipcode);
 
   return (data || []).find((row: any) => {
-    const rowAddress = normalizeStreetAddress(row.address);
-    const addressMatches = rowAddress === targetAddress
-      || rowAddress.startsWith(targetAddress)
-      || targetAddress.startsWith(rowAddress);
-    return addressMatches
-      && normalizeText(row.city) === targetCity
-      && normalizeText(row.state) === targetState;
+    const rowAddressId = buildAddressId(row.address, row.city, row.state, row.zipcode);
+    return rowAddressId === targetAddressId;
   }) || null;
 }
 
