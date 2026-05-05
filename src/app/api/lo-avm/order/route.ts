@@ -699,8 +699,14 @@ async function fetchHouseCanaryAgileInsightsSnapshot(orderId: string, externalIt
 
 function agileInsightsArtifactsReady(payload: any) {
   if (!payload || typeof payload !== 'object') return false;
-  if (typeof payload.reportLink === 'string' && payload.reportLink.trim()) return true;
-  if (payload.agileInsightsExportParsed) return true;
+
+  const reportLink = typeof payload.reportLink === 'string' ? payload.reportLink.trim() : '';
+  const hasExportParsed = Boolean(payload.agileInsightsExportParsed);
+  const hasExportPdfLink = reportLink.includes('exportedDataUrl=') && reportLink.includes('pdfFilename=');
+  const hasFsd = typeof payload.fsd === 'number' && Number.isFinite(payload.fsd);
+
+  if (hasExportParsed) return true;
+  if (hasExportPdfLink && hasFsd) return true;
   return false;
 }
 
@@ -822,6 +828,7 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
         && !(previousPayload?.agileInsightsReportEmailSentAt)
         && !(data?.response_payload?.agileInsightsReportEmailSentAt)
         && typeof data?.response_payload?.reportLink === 'string'
+        && data.response_payload.reportLink.includes('exportedDataUrl=')
         && typeof data?.loan_officer_email === 'string'
         && data.loan_officer_email.trim();
 
