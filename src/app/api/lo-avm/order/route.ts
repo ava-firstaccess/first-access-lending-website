@@ -830,6 +830,57 @@ function buildProviderRowsFromAvmCache(cached: any, investor: InvestorName | nul
   });
 }
 
+function providerRowHasData(row: ProviderRow | null | undefined) {
+  if (!row) return false;
+  return row.value !== null
+    || row.fsd !== null
+    || row.reportLink !== null
+    || row.orderStatus !== null
+    || row.failureMessage !== null
+    || row.source !== null;
+}
+
+function mergeProviderRows(...rowSets: ProviderRow[][]) {
+  return KNOWN_PROVIDERS.map((provider) => {
+    const candidates = rowSets
+      .map((rows) => rows.find((row) => row.provider === provider) || null)
+      .filter(Boolean) as ProviderRow[];
+
+    const preferred = candidates.find((row) => providerRowHasData(row)) || candidates[0];
+    return preferred || {
+      provider,
+      supported: false,
+      maxFsdAllowed: null,
+      date: null,
+      fsd: null,
+      value: null,
+      reportLink: null,
+      source: null,
+      orderStatus: null,
+      orderRunId: null,
+      providerProduct: null,
+      failureMessage: null,
+      requestedMaxFsd: null,
+      fsdThresholdStatus: null,
+      targetedInvestor: null,
+    };
+  });
+}
+
+function providerRowSatisfiesSelectedInvestor(row: ProviderRow | null | undefined) {
+  if (!row?.supported) return false;
+  if (row.orderStatus !== 'completed') return false;
+  if (row.value === null) return false;
+  if (row.fsdLabel) return false;
+  if (row.maxFsdAllowed !== null && row.fsd !== null && row.fsd > row.maxFsdAllowed + 0.0001) return false;
+  return true;
+}
+
+function providerRowIsInFlightForSelectedInvestor(row: ProviderRow | null | undefined) {
+  if (!row?.supported) return false;
+  return row.orderStatus === 'submitted' || row.orderStatus === 'processing';
+}
+
 function chooseWinnerProvider(rows: ProviderRow[]) {
   return rows.find((row) => row.supported && row.value !== null)?.provider || rows.find((row) => row.value !== null)?.provider || null;
 }
@@ -862,9 +913,8 @@ export async function POST(req: NextRequest) {
     const supabase = getSupabaseAdmin();
     const addressId = buildAddressId(address, city, state, zipcode);
     const cachedOrders = await loadRecentOrders(supabase, addressId);
-
-    if (cachedOrders.length > 0) {
-      const refreshedCachedOrders = await Promise.all(cachedOrders.map(async (order) => {
+    const refreshedCachedOrders = cachedOrders.length > 0
+      ? await Promise.all(cachedOrders.map(async (order) => {
         if (order?.provider === 'housecanary' && order?.provider_product === 'agile_insights' && order?.external_order_id && order?.order_status !== 'completed' && order?.order_status !== 'failed') {
           try {
             return await refreshHouseCanaryAgileInsightsOrder(supabase, order);
@@ -873,32 +923,30 @@ export async function POST(req: NextRequest) {
           }
         }
         return order;
-      }));
-      const providerRows = buildProviderRowsFromOrders(refreshedCachedOrders, investor, 'cache');
-      return NextResponse.json({
-        cacheHit: true,
-        addressId,
-        cacheWindowDays: LO_AVM_CACHE_WINDOW_DAYS,
-        investor: investorLabel,
-        providerRows,
-        winnerProvider: chooseWinnerProvider(providerRows),
-        latestOrderedAt: refreshedCachedOrders[0]?.ordered_at || refreshedCachedOrders[0]?.created_at || null,
-        message: 'Loaded cached AVM order results. No new vendor order was placed.',
-      });
-    }
+      }))
+      : [];
+    const cachedOrderRows = buildProviderRowsFromOrders(refreshedCachedOrders, investor, 'cache');
 
     const cachedAvm = await loadRecentAvmCache(supabase, { address, city, state, zipcode });
-    if (cachedAvm) {
-      const providerRows = buildProviderRowsFromAvmCache(cachedAvm, investor);
+    const cachedAvmRows = cachedAvm ? buildProviderRowsFromAvmCache(cachedAvm, investor) : buildProviderRowsFromAvmCache(null, investor);
+    const availableProviderRows = mergeProviderRows(cachedOrderRows, cachedAvmRows);
+    const selectedInvestorSatisfied = availableProviderRows.some((row) => providerRowSatisfiesSelectedInvestor(row));
+    const selectedInvestorInFlight = availableProviderRows.some((row) => providerRowIsInFlightForSelectedInvestor(row));
+
+    if (selectedInvestorSatisfied || selectedInvestorInFlight) {
+      const latestOrderedAt = refreshedCachedOrders[0]?.ordered_at || refreshedCachedOrders[0]?.created_at || cachedAvm?.created_at || null;
+      const message = selectedInvestorSatisfied
+        ? 'Loaded available cached AVMs. No new vendor order was placed because the selected investor already has a usable result.'
+        : 'Loaded available cached AVMs. No new vendor order was placed because a supported AVM order is already in progress for the selected investor.';
       return NextResponse.json({
         cacheHit: true,
         addressId,
         cacheWindowDays: LO_AVM_CACHE_WINDOW_DAYS,
         investor: investorLabel,
-        providerRows,
-        winnerProvider: chooseWinnerProvider(providerRows),
-        latestOrderedAt: cachedAvm?.created_at || null,
-        message: 'Loaded cached AVM result from avm_cache. No new vendor order was placed.',
+        providerRows: availableProviderRows,
+        winnerProvider: chooseWinnerProvider(availableProviderRows),
+        latestOrderedAt,
+        message,
       });
     }
 
@@ -1274,7 +1322,11 @@ export async function POST(req: NextRequest) {
     }
 
     const freshOrders = insertedOrder ? [insertedOrder] : [];
-    const providerRows = buildProviderRowsFromOrders(freshOrders, investor, 'fresh');
+    const providerRows = mergeProviderRows(
+      buildProviderRowsFromOrders(freshOrders, investor, 'fresh'),
+      cachedOrderRows,
+      cachedAvmRows,
+    );
 
     const successMessage = insertedOrder?.provider === 'housecanary' && insertedOrder?.provider_product === 'agile_insights'
       ? insertedOrder?.order_status === 'completed'
