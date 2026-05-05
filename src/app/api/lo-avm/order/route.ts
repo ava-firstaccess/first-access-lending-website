@@ -707,6 +707,16 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
   };
 
   if (nextOrderStatus === 'completed') {
+    const directReportLink = buildLoanOfficerAgileReportLink(
+      order.external_order_id,
+      snapshot.externalItemId || order.external_item_id || null,
+      snapshot.pdfType || null,
+    );
+    if (directReportLink) {
+      nextPayload.reportLink = directReportLink;
+      nextPayload.agileInsightsPdfAvailable = true;
+    }
+
     try {
       const exportJob = await ensureHouseCanaryAgileInsightsExportJob(
         String(order.external_order_id),
@@ -720,12 +730,12 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
           nextPayload.agileInsightsExportParsed = parsedExport;
           nextPayload.agileInsightsSummaryDataUrl = parsedExport.summaryDataUrl;
           nextPayload.agileInsightsPdfFilename = parsedExport.pdfFilename;
-          nextPayload.agileInsightsPdfAvailable = Boolean(parsedExport.pdfFilename);
+          nextPayload.agileInsightsPdfAvailable = Boolean(parsedExport.pdfFilename) || nextPayload.agileInsightsPdfAvailable === true;
           nextPayload.reportLink = buildLoanOfficerAgileReportLink(
             order.external_order_id,
             snapshot.externalItemId || order.external_item_id || null,
             snapshot.pdfType || parsedExport.pdfType,
-          );
+          ) || nextPayload.reportLink;
           nextPayload.value = parsedExport.value ?? nextPayload.value;
           nextPayload.fsd = parsedExport.fsd ?? nextPayload.fsd;
           nextPayload.lowValue = parsedExport.lowValue ?? nextPayload.lowValue;
