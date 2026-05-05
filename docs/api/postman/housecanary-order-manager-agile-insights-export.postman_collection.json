@@ -46,10 +46,6 @@
         "method": "POST",
         "header": [
           {
-            "key": "Authorization",
-            "value": "Basic {{houseCanaryBasicAuth}}"
-          },
-          {
             "key": "Accept",
             "value": "application/json"
           },
@@ -73,7 +69,22 @@
             ""
           ]
         },
-        "description": "Creates an Agile Insights order using the JSON order endpoint. Stores returned orderId and itemId into collection variables for later requests."
+        "description": "Creates an Agile Insights order using the JSON order endpoint. Stores returned orderId and itemId into collection variables for later requests.",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{houseCanaryApiKey}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{houseCanaryApiSecret}}",
+              "type": "string"
+            }
+          ]
+        }
       }
     },
     {
@@ -99,10 +110,6 @@
         "method": "GET",
         "header": [
           {
-            "key": "Authorization",
-            "value": "Basic {{houseCanaryBasicAuth}}"
-          },
-          {
             "key": "Accept",
             "value": "application/json"
           }
@@ -118,7 +125,22 @@
             ""
           ]
         },
-        "description": "Reads the order record. Docs show fsd_threshold here, but do not document a final returned FSD value."
+        "description": "Reads the order record. Docs show fsd_threshold here, but do not document a final returned FSD value.",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{houseCanaryApiKey}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{houseCanaryApiSecret}}",
+              "type": "string"
+            }
+          ]
+        }
       }
     },
     {
@@ -150,10 +172,6 @@
         "method": "GET",
         "header": [
           {
-            "key": "Authorization",
-            "value": "Basic {{houseCanaryBasicAuth}}"
-          },
-          {
             "key": "Accept",
             "value": "application/json"
           }
@@ -170,7 +188,22 @@
             ""
           ]
         },
-        "description": "Reads order items. Docs currently show estimated_value and value_range, but do not document fsd here."
+        "description": "Reads order items. Docs currently show estimated_value and value_range, but do not document fsd here.",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{houseCanaryApiKey}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{houseCanaryApiSecret}}",
+              "type": "string"
+            }
+          ]
+        }
       }
     },
     {
@@ -202,10 +235,6 @@
         "method": "POST",
         "header": [
           {
-            "key": "Authorization",
-            "value": "Basic {{houseCanaryBasicAuth}}"
-          },
-          {
             "key": "Accept",
             "value": "application/json"
           }
@@ -228,7 +257,22 @@
             }
           ]
         },
-        "description": "Creates an offline export job and explicitly requests JSON files in the zip bundle."
+        "description": "Creates an offline export job and explicitly requests JSON files in the zip bundle.",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{houseCanaryApiKey}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{houseCanaryApiSecret}}",
+              "type": "string"
+            }
+          ]
+        }
       }
     },
     {
@@ -236,10 +280,6 @@
       "request": {
         "method": "GET",
         "header": [
-          {
-            "key": "Authorization",
-            "value": "Basic {{houseCanaryBasicAuth}}"
-          },
           {
             "key": "Accept",
             "value": "application/json"
@@ -257,7 +297,22 @@
             ""
           ]
         },
-        "description": "Lists export jobs associated with the order."
+        "description": "Lists export jobs associated with the order.",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{houseCanaryApiKey}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{houseCanaryApiSecret}}",
+              "type": "string"
+            }
+          ]
+        }
       }
     },
     {
@@ -282,10 +337,6 @@
         "method": "GET",
         "header": [
           {
-            "key": "Authorization",
-            "value": "Basic {{houseCanaryBasicAuth}}"
-          },
-          {
             "key": "Accept",
             "value": "application/json"
           }
@@ -302,26 +353,51 @@
             "{{exportRequestId}}"
           ]
         },
-        "description": "Poll this until status becomes complete. When complete, exported_data should contain the download URL."
+        "description": "Poll this until status becomes complete. When complete, exported_data should contain the download URL.",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{houseCanaryApiKey}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{houseCanaryApiSecret}}",
+              "type": "string"
+            }
+          ]
+        }
       }
     },
     {
       "name": "GET Download Export ZIP",
       "request": {
         "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Basic {{houseCanaryBasicAuth}}"
-          }
-        ],
+        "header": [],
         "url": {
           "raw": "{{exportedDataUrl}}",
           "host": [
             "{{exportedDataUrl}}"
           ]
         },
-        "description": "Downloads the completed export zip after GET Export Job Status returns exported_data."
+        "description": "Downloads the completed export zip after GET Export Job Status returns exported_data.",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{houseCanaryApiKey}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{houseCanaryApiSecret}}",
+              "type": "string"
+            }
+          ]
+        }
       },
       "response": []
     }
