@@ -668,10 +668,26 @@ async function fetchHouseCanaryAgileInsightsSnapshot(orderId: string, externalIt
   };
 }
 
+function agileInsightsArtifactsReady(payload: any) {
+  if (!payload || typeof payload !== 'object') return false;
+  if (typeof payload.reportLink === 'string' && payload.reportLink.trim()) return true;
+  if (payload.agileInsightsExportParsed) return true;
+  return false;
+}
+
+function shouldRefreshAgileInsightsArtifacts(order: any) {
+  if (order?.provider !== 'housecanary' || order?.provider_product !== 'agile_insights' || !order?.external_order_id) return false;
+  if (order?.order_status === 'failed') return false;
+  if (order?.order_status !== 'completed') return true;
+  return !agileInsightsArtifactsReady(order?.response_payload);
+}
+
 async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof getSupabaseAdmin>, order: any) {
   if (order?.provider !== 'housecanary' || order?.provider_product !== 'agile_insights' || !order?.external_order_id) {
     return order;
   }
+
+  const previousPayload = order?.response_payload || {};
 
   const snapshot = await fetchHouseCanaryAgileInsightsSnapshot(String(order.external_order_id), order.external_item_id || null);
   const requestedMaxFsd = typeof order?.requested_max_fsd === 'number' ? order.requested_max_fsd : null;
@@ -726,6 +742,8 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
     }
   }
 
+  nextPayload.agileInsightsArtifactsReady = agileInsightsArtifactsReady(nextPayload);
+
   const updatePayload = {
     external_item_id: snapshot.externalItemId,
     order_status: nextOrderStatus,
@@ -755,7 +773,39 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
       .select('*')
       .single();
 
-    if (!error) return data;
+    if (!error) {
+      const shouldSendReportEmail = data?.order_status === 'completed'
+        && agileInsightsArtifactsReady(data?.response_payload)
+        && !(previousPayload?.agileInsightsReportEmailSentAt)
+        && !(data?.response_payload?.agileInsightsReportEmailSentAt)
+        && typeof data?.response_payload?.reportLink === 'string'
+        && typeof data?.loan_officer_email === 'string'
+        && data.loan_officer_email.trim();
+
+      if (shouldSendReportEmail) {
+        try {
+          await sendLoanOfficerReportEmail({
+            to: data.loan_officer_email,
+            subject: `HouseCanary report ready for ${data.address}`,
+            html: buildHouseCanaryEmailHtml({ address: data.address, investor: data.investor, link: data.response_payload.reportLink }),
+          });
+          const emailedPayload = {
+            ...(data.response_payload || {}),
+            agileInsightsReportEmailSentAt: new Date().toISOString(),
+          };
+          const { data: emailedData, error: emailedError } = await supabase
+            .from('loan_officer_avm_orders')
+            .update({ response_payload: emailedPayload })
+            .eq('id', data.id)
+            .select('*')
+            .single();
+          if (!emailedError && emailedData) return emailedData;
+        } catch (emailError) {
+          console.error('LO AVM Agile report email failed during refresh:', emailError);
+        }
+      }
+      return data;
+    }
     lastError = error;
     if (!isMissingColumnError(error, FSD_THRESHOLD_FIELDS)) break;
   }
@@ -763,11 +813,15 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
   throw new Error(`Failed to refresh Agile Insights order: ${lastError?.message || 'unknown error'}`);
 }
 
-async function pollHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof getSupabaseAdmin>, order: any, attempts = 4, delayMs = 1500) {
+async function pollHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof getSupabaseAdmin>, order: any, attempts = 6, delayMs = 2000) {
   let current = order;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     current = await refreshHouseCanaryAgileInsightsOrder(supabase, current);
-    if (current?.order_status === 'completed' || current?.order_status === 'failed') {
+    const artifactsReady = agileInsightsArtifactsReady(current?.response_payload);
+    if (current?.order_status === 'failed') {
+      return current;
+    }
+    if (current?.order_status === 'completed' && artifactsReady) {
       return current;
     }
     if (attempt < attempts - 1) {
@@ -1305,7 +1359,7 @@ export async function POST(req: NextRequest) {
     const cachedOrders = await loadRecentOrders(supabase, addressId);
     const refreshedCachedOrders = cachedOrders.length > 0
       ? await Promise.all(cachedOrders.map(async (order) => {
-        if (order?.provider === 'housecanary' && order?.provider_product === 'agile_insights' && order?.external_order_id && order?.order_status !== 'completed' && order?.order_status !== 'failed') {
+        if (shouldRefreshAgileInsightsArtifacts(order)) {
           try {
             return await refreshHouseCanaryAgileInsightsOrder(supabase, order);
           } catch (refreshError) {
