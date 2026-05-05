@@ -380,7 +380,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
               </div>
               {selectedProviderRow?.value !== null && selectedProviderRow?.value !== undefined ? (
                 <div className={`mt-4 rounded-2xl border p-4 ${providerEligibleForInvestor(selectedProviderRow) ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
-                  <div className="mb-3 text-sm font-semibold text-slate-900">Active AVM result</div>
+                  <div className="mb-3 text-sm font-semibold text-slate-900">Current AVM result</div>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
                     <Metric label="Provider" value={getAvmProviderLabel(selectedProviderRow.provider)} />
                     <Metric label="Value" value={currency(selectedProviderRow.value)} />
@@ -410,14 +410,14 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">AVM provider chart</h2>
-                  <p className="mt-1 text-sm text-slate-600">Providers stay visible for every investor, but the system chooses which AVM is active for the selected investor. Cached results from the last 90 days repopulate the grid by provider without re-ordering the AVM.</p>
+                  <p className="mt-1 text-sm text-slate-600">Providers stay visible for every investor, and the system marks a winner only after it has determined one for the selected investor. Cached results from the last 90 days repopulate the grid by provider without re-ordering the AVM.</p>
                 </div>
                 <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">Cache window: reuse provider results under 90 days old</div>
               </div>
 
               <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
                 <div className="grid grid-cols-[0.55fr,1.25fr,0.8fr,0.8fr,0.9fr,0.95fr,0.85fr] gap-0 bg-slate-100 px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  <div>Active</div>
+                  <div>Winner</div>
                   <div>Provider</div>
                   <div>Date</div>
                   <div>FSD</div>
@@ -429,10 +429,11 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                   {providerRows.map((row) => {
                     const rowEligible = providerEligibleForInvestor(row);
                     const checked = row.provider === selectedProvider;
+                    const isWinner = liveOrderResult?.winnerProvider === row.provider;
                     return (
                       <div key={row.provider} className={`grid grid-cols-[0.55fr,1.25fr,0.8fr,0.8fr,0.9fr,0.95fr,0.85fr] gap-0 px-4 py-3 text-sm ${row.supported ? 'text-slate-900' : row.value !== null ? 'bg-amber-50 text-amber-900' : 'bg-slate-50 text-slate-400'} ${row.supported && !rowEligible ? 'bg-rose-50' : ''}`}>
                         <div className="flex items-center">
-                          <span className={`inline-flex min-w-[52px] justify-center rounded-full px-2 py-1 text-[11px] font-semibold ${checked ? 'bg-sky-100 text-sky-800' : row.value !== null ? 'bg-slate-100 text-slate-600' : 'bg-slate-50 text-slate-400'}`}>{checked ? 'Active' : row.value !== null ? 'Shown' : '—'}</span>
+                          <span className={`inline-flex min-w-[52px] justify-center rounded-full px-2 py-1 text-[11px] font-semibold ${isWinner ? 'bg-sky-100 text-sky-800' : row.value !== null ? 'bg-slate-100 text-slate-600' : 'bg-slate-50 text-slate-400'}`}>{isWinner ? 'Winner' : row.value !== null ? 'Shown' : '—'}</span>
                         </div>
                         <div>
                           <div className="font-semibold">{getAvmProviderLabel(row.provider)}</div>
@@ -444,8 +445,8 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                         <div>{row.requestedMaxFsd !== null && row.requestedMaxFsd !== undefined ? row.requestedMaxFsd.toFixed(2) : '—'}</div>
                         <div>{row.value !== null ? currency(row.value) : '—'}</div>
                         <div>
-                          <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${!row.supported && row.value === null ? 'bg-slate-200 text-slate-500' : row.fsdThresholdStatus === 'failed' ? 'bg-rose-100 text-rose-800' : row.fsdThresholdStatus === 'pending' ? 'bg-violet-100 text-violet-800' : !rowEligible && row.supported ? 'bg-amber-100 text-amber-800' : checked ? 'bg-sky-100 text-sky-800' : row.value !== null ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
-                            {!row.supported && row.value === null ? 'Ruled out' : row.fsdThresholdStatus === 'failed' ? 'Threshold failed' : row.fsdThresholdStatus === 'pending' ? 'Threshold pending' : !rowEligible && row.supported ? 'FSD above max' : checked ? 'Active' : row.value !== null ? (row.source === 'cache' ? 'Cached' : 'Ordered') : 'Allowed'}
+                          <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${!row.supported && row.value === null ? 'bg-slate-200 text-slate-500' : row.fsdThresholdStatus === 'failed' ? 'bg-rose-100 text-rose-800' : row.fsdThresholdStatus === 'pending' ? 'bg-violet-100 text-violet-800' : !rowEligible && row.supported ? 'bg-amber-100 text-amber-800' : isWinner ? 'bg-sky-100 text-sky-800' : checked ? 'bg-slate-100 text-slate-700' : row.value !== null ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                            {!row.supported && row.value === null ? 'Ruled out' : row.fsdThresholdStatus === 'failed' ? 'Threshold failed' : row.fsdThresholdStatus === 'pending' ? 'Threshold pending' : !rowEligible && row.supported ? 'FSD above max' : isWinner ? 'Winner' : checked ? 'Current' : row.value !== null ? (row.source === 'cache' ? 'Cached' : 'Ordered') : 'Allowed'}
                           </span>
                         </div>
                       </div>
