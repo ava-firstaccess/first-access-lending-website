@@ -52,7 +52,6 @@ type LoanOfficerAvmRequestBody = {
   product?: string;
   runSource?: 'manual' | 'cascade';
   manualProvider?: 'HouseCanary' | 'Clear Capital' | null;
-  forceHouseCanaryProduct?: 'property_explorer' | 'agile_insights' | null;
   cacheOnly?: boolean;
 };
 
@@ -406,25 +405,6 @@ function buildLoanOfficerPropertyExplorerReportLink(sourceUrl: string | null | u
   if (!value) return null;
   const params = new URLSearchParams({ sourceUrl: value });
   return `/api/lo-avm/report?${params.toString()}`;
-}
-
-function buildForcedHouseCanaryAllocation(
-  usage: { propertyExplorerOrders: number; agileInsightsOrders: number },
-  orderedAt: string,
-  selectedProduct: 'property_explorer' | 'agile_insights',
-) {
-  const baseline = chooseHouseCanaryOrderProduct(usage, new Date(orderedAt));
-  return {
-    cycle: baseline.cycle,
-    selectedProduct,
-    productSequenceNumber: selectedProduct === 'property_explorer' ? usage.propertyExplorerOrders + 1 : usage.agileInsightsOrders + 1,
-    overallSequenceNumber: usage.propertyExplorerOrders + usage.agileInsightsOrders + 1,
-    isFreeTier: selectedProduct === 'property_explorer'
-      ? usage.propertyExplorerOrders + 1 <= 40
-      : usage.agileInsightsOrders + 1 <= 40,
-    freePropertyExplorerRemaining: Math.max(0, 40 - (selectedProduct === 'property_explorer' ? usage.propertyExplorerOrders + 1 : usage.propertyExplorerOrders)),
-    freeAgileInsightsRemaining: Math.max(0, 40 - (selectedProduct === 'agile_insights' ? usage.agileInsightsOrders + 1 : usage.agileInsightsOrders)),
-  };
 }
 
 function buildLoanOfficerAgileReportLink(orderId: string | number | null | undefined, itemId: string | number | null | undefined, pdfType: string | null | undefined) {
@@ -1445,9 +1425,6 @@ export async function POST(req: NextRequest) {
     const product = String(body.product || '').trim() || null;
     const runSource = body.runSource === 'manual' ? 'manual' : 'cascade';
     const manualProvider = body.manualProvider === 'HouseCanary' || body.manualProvider === 'Clear Capital' ? body.manualProvider : null;
-    const forceHouseCanaryProduct = body.forceHouseCanaryProduct === 'agile_insights' || body.forceHouseCanaryProduct === 'property_explorer'
-      ? body.forceHouseCanaryProduct
-      : null;
     const cacheOnly = body.cacheOnly === true;
 
     if (!address || !zipcode || !investorLabel || !loanNumber) {
@@ -1534,10 +1511,7 @@ export async function POST(req: NextRequest) {
       const emptyUsage = { propertyExplorerOrders: 0, agileInsightsOrders: 0 };
       const initialAllocation = chooseHouseCanaryOrderProduct(emptyUsage, new Date(orderedAt));
       const usage = await countHouseCanaryCycleUsage(supabase, initialAllocation.cycle.cycleStart, initialAllocation.cycle.cycleEnd);
-      const allocation = runSource === 'manual' && forcedProvider === 'HouseCanary' && forceHouseCanaryProduct
-        ? buildForcedHouseCanaryAllocation(usage, orderedAt, forceHouseCanaryProduct)
-        : chooseHouseCanaryOrderProduct(usage, new Date(orderedAt));
-      const isForcedHouseCanaryProduct = runSource === 'manual' && forcedProvider === 'HouseCanary' && forceHouseCanaryProduct === allocation.selectedProduct;
+      const allocation = chooseHouseCanaryOrderProduct(usage, new Date(orderedAt));
 
       if (allocation.selectedProduct === 'property_explorer') {
         const requestedMaxFsd = hcRule?.maxFsdAllowed ?? null;
@@ -1567,11 +1541,10 @@ export async function POST(req: NextRequest) {
             investor: investorLabel,
             customer_order_id: loanNumber || null,
             requestedMaxFsd,
-            forceHouseCanaryProduct: isForcedHouseCanaryProduct ? allocation.selectedProduct : null,
           },
           requested_max_fsd: requestedMaxFsd,
           run_source: runSource,
-          notes: `${runSource === 'manual' ? 'Manual' : 'Cascade'} Property Explorer order ${allocation.overallSequenceNumber} in ${allocation.cycle.label}${isForcedHouseCanaryProduct ? ' (forced product override)' : ''}`,
+          notes: `${runSource === 'manual' ? 'Manual' : 'Cascade'} Property Explorer order ${allocation.overallSequenceNumber} in ${allocation.cycle.label}`,
           housecanary_billing_cycle_start: allocation.cycle.cycleStart,
           housecanary_billing_cycle_end: allocation.cycle.cycleEnd,
           housecanary_order_product: allocation.selectedProduct,
@@ -1595,7 +1568,6 @@ export async function POST(req: NextRequest) {
               errorMessage: providerError?.message || 'HouseCanary Property Explorer order failed.',
               requestedMaxFsd,
               housecanaryOrderProduct: allocation.selectedProduct,
-              forcedHouseCanaryProduct: isForcedHouseCanaryProduct ? allocation.selectedProduct : null,
             },
             fsd_threshold_status: 'pending',
             fsd_threshold_passed: null,
@@ -1619,7 +1591,6 @@ export async function POST(req: NextRequest) {
           requestedMaxFsd,
           fsdThresholdStatus,
           housecanaryOrderProduct: allocation.selectedProduct,
-          forcedHouseCanaryProduct: isForcedHouseCanaryProduct ? allocation.selectedProduct : null,
           housecanaryPropertyExplorerResponse: pexp.raw,
         };
 
@@ -1698,13 +1669,12 @@ export async function POST(req: NextRequest) {
               requestedMaxFsd,
               fsdThresholdStatus: 'pending',
               housecanaryOrderProduct: allocation.selectedProduct,
-              forcedHouseCanaryProduct: isForcedHouseCanaryProduct ? allocation.selectedProduct : null,
             },
             requested_max_fsd: requestedMaxFsd,
             run_source: runSource,
             fsd_threshold_status: 'pending',
             fsd_threshold_passed: null,
-            notes: `${runSource === 'manual' ? 'Manual' : 'Cascade'} Agile Insights order ${allocation.overallSequenceNumber} in ${allocation.cycle.label}${isForcedHouseCanaryProduct ? ' (forced product override)' : ''}`,
+            notes: `${runSource === 'manual' ? 'Manual' : 'Cascade'} Agile Insights order ${allocation.overallSequenceNumber} in ${allocation.cycle.label}`,
             housecanary_billing_cycle_start: allocation.cycle.cycleStart,
             housecanary_billing_cycle_end: allocation.cycle.cycleEnd,
             housecanary_order_product: allocation.selectedProduct,
@@ -1744,20 +1714,18 @@ export async function POST(req: NextRequest) {
             customer_order_id: customerOrderId,
             customer_item_id: customerItemId,
             requestedMaxFsd,
-            forceHouseCanaryProduct: isForcedHouseCanaryProduct ? allocation.selectedProduct : null,
           },
           response_payload: {
             requestedMaxFsd,
             fsdThresholdStatus: 'pending',
             housecanaryOrderProduct: allocation.selectedProduct,
-            forcedHouseCanaryProduct: isForcedHouseCanaryProduct ? allocation.selectedProduct : null,
-            agileInsightsResponse: agile.raw,
+              agileInsightsResponse: agile.raw,
           },
           requested_max_fsd: requestedMaxFsd,
           run_source: runSource,
           fsd_threshold_status: 'pending',
           fsd_threshold_passed: null,
-          notes: `${runSource === 'manual' ? 'Manual' : 'Cascade'} Agile Insights order ${allocation.overallSequenceNumber} in ${allocation.cycle.label}${isForcedHouseCanaryProduct ? ' (forced product override)' : ''}`,
+          notes: `${runSource === 'manual' ? 'Manual' : 'Cascade'} Agile Insights order ${allocation.overallSequenceNumber} in ${allocation.cycle.label}`,
           housecanary_billing_cycle_start: allocation.cycle.cycleStart,
           housecanary_billing_cycle_end: allocation.cycle.cycleEnd,
           housecanary_order_product: allocation.selectedProduct,
@@ -1774,8 +1742,8 @@ export async function POST(req: NextRequest) {
         insertedOrder = await pollHouseCanaryAgileInsightsOrder(
           supabase,
           insertedOrder,
-          isForcedHouseCanaryProduct ? 20 : 6,
-          isForcedHouseCanaryProduct ? 5000 : 2000,
+          6,
+          2000,
         );
         if (insertedOrder?.order_status === 'completed' && typeof insertedOrder?.response_payload?.reportLink === 'string') {
           try {
@@ -1980,20 +1948,11 @@ export async function POST(req: NextRequest) {
       cachedAvmRows,
     );
 
-    const forcedHouseCanaryProductUsed = insertedOrder?.provider === 'housecanary'
-      && insertedOrder?.response_payload?.forcedHouseCanaryProduct
-      && insertedOrder?.run_source === 'manual';
     const successMessage = insertedOrder?.provider === 'housecanary' && insertedOrder?.provider_product === 'agile_insights'
       ? insertedOrder?.order_status === 'completed'
-        ? forcedHouseCanaryProductUsed
-          ? 'Agile Insights test override completed and the latest value was captured.'
-          : 'Agile Insights order completed and the latest value was captured.'
-        : forcedHouseCanaryProductUsed
-          ? 'Agile Insights test override is still waiting on HouseCanary report artifacts. Try Pull Cache again shortly if it does not complete in this run.'
-          : 'Agile Insights order placed. Polling ran, but HouseCanary has not returned a completed result yet.'
-      : forcedHouseCanaryProductUsed
-        ? 'Manual HouseCanary test override placed successfully.'
-        : runSource === 'manual' ? 'Manual vendor order placed successfully.' : 'Vendor order placed successfully.';
+        ? 'Agile Insights order completed and the latest value was captured.'
+        : 'Agile Insights order placed. Polling ran, but HouseCanary has not returned a completed result yet.'
+      : runSource === 'manual' ? 'Manual vendor order placed successfully.' : 'Vendor order placed successfully.';
 
     return NextResponse.json({
       cacheHit: false,
