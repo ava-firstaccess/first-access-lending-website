@@ -219,13 +219,13 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
     setOrderError('');
   }
 
-  async function handleOrderAvm(runSource: 'manual' | 'cascade' = 'cascade', manualProvider?: AvmProviderName) {
+  async function handleOrderAvm(runSource: 'manual' | 'cascade' = 'cascade', manualProvider?: AvmProviderName, cacheOnly = false) {
     if (!selectedSidebarInvestor || !address.trim() || !parsedZipcode.trim() || !loanNumber.trim()) {
       setOrderError('Select an investor, a full property address, and a loan number or phone number before ordering the AVM.');
       return;
     }
 
-    if (runSource === 'manual' && manualProvider && manualProvider !== 'HouseCanary' && manualProvider !== 'Clear Capital') {
+    if (!cacheOnly && runSource === 'manual' && manualProvider && manualProvider !== 'HouseCanary' && manualProvider !== 'Clear Capital') {
       setOrderError('Manual run is only available for HouseCanary and Clear Capital right now.');
       return;
     }
@@ -249,6 +249,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
           product: selectedSidebarInvestor.product,
           runSource,
           manualProvider: runSource === 'manual' ? manualProvider : null,
+          cacheOnly,
         }),
       });
 
@@ -349,14 +350,24 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">Property address</h2>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleOrderAvm('cascade')}
-                  disabled={ordering || !selectedSidebarInvestor || !address.trim() || !parsedZipcode.trim() || !loanNumber.trim()}
-                  className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {ordering ? 'Running…' : 'Run Cascade'}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOrderAvm('cascade', undefined, true)}
+                    disabled={ordering || !selectedSidebarInvestor || !address.trim() || !parsedZipcode.trim() || !loanNumber.trim()}
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {ordering ? 'Running…' : 'Pull Cache'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOrderAvm('cascade')}
+                    disabled={ordering || !selectedSidebarInvestor || !address.trim() || !parsedZipcode.trim() || !loanNumber.trim()}
+                    className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {ordering ? 'Running…' : 'Run Cascade'}
+                  </button>
+                </div>
               </div>
 
               <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -418,13 +429,13 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">AVM provider chart</h2>
-                  <p className="mt-1 text-sm text-slate-600">Providers stay visible for every investor, and the system marks a winner only after it has determined one for the selected investor. Use Run Cascade for the normal flow, or Manual Run on HouseCanary / Clear Capital to force a provider-specific rerun.</p>
+                  <p className="mt-1 text-sm text-slate-600">Pull Cache loads existing AVMs without placing any order. Run Cascade uses the normal decisioning flow. Manual Run forces a provider-specific rerun for HouseCanary or Clear Capital.</p>
                 </div>
                 <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">Cache window: reuse provider results under 90 days old</div>
               </div>
 
               <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
-                <div className="grid grid-cols-[0.55fr,1.25fr,0.8fr,0.8fr,0.9fr,0.95fr,0.85fr] gap-0 bg-slate-100 px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <div className="grid grid-cols-[0.55fr,1.15fr,0.8fr,0.8fr,0.9fr,0.95fr,0.85fr,0.9fr] gap-0 bg-slate-100 px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   <div>Winner</div>
                   <div>Provider</div>
                   <div>Date</div>
@@ -432,32 +443,21 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                   <div>Threshold</div>
                   <div>Value</div>
                   <div>Status</div>
+                  <div>Manual Run</div>
                 </div>
                 <div className="divide-y divide-slate-200 bg-white">
                   {providerRows.map((row) => {
                     const rowEligible = providerEligibleForInvestor(row);
                     const isWinner = liveOrderResult?.winnerProvider === row.provider;
                     return (
-                      <div key={row.provider} className={`grid grid-cols-[0.55fr,1.25fr,0.8fr,0.8fr,0.9fr,0.95fr,0.85fr] gap-0 px-4 py-3 text-sm ${row.supported ? 'text-slate-900' : row.value !== null ? 'bg-amber-50 text-amber-900' : 'bg-slate-50 text-slate-400'} ${row.supported && !rowEligible ? 'bg-rose-50' : ''}`}>
+                      <div key={row.provider} className={`grid grid-cols-[0.55fr,1.15fr,0.8fr,0.8fr,0.9fr,0.95fr,0.85fr,0.9fr] gap-0 px-4 py-3 text-sm ${row.supported ? 'text-slate-900' : row.value !== null ? 'bg-amber-50 text-amber-900' : 'bg-slate-50 text-slate-400'} ${row.supported && !rowEligible ? 'bg-rose-50' : ''}`}>
                         <div className="flex items-center">
                           <span className={`inline-flex min-w-[52px] justify-center rounded-full px-2 py-1 text-[11px] font-semibold ${isWinner ? 'bg-sky-100 text-sky-800' : row.value !== null ? 'bg-slate-100 text-slate-600' : 'bg-slate-50 text-slate-400'}`}>{isWinner ? 'Winner' : row.value !== null ? 'Shown' : '—'}</span>
                         </div>
                         <div>
                           <div className="font-semibold">{getAvmProviderLabel(row.provider)}</div>
                           <div className="mt-1 text-xs text-slate-500">{getProviderRowSubtext(row)}</div>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {row.reportLink ? <a href={row.reportLink} target="_blank" rel="noreferrer" className="text-xs font-medium text-sky-700 hover:text-sky-900">Download Report</a> : null}
-                            {(row.provider === 'HouseCanary' || row.provider === 'Clear Capital') ? (
-                              <button
-                                type="button"
-                                onClick={() => handleOrderAvm('manual', row.provider)}
-                                disabled={ordering || !selectedSidebarInvestor || !address.trim() || !parsedZipcode.trim() || !loanNumber.trim() || !row.supported}
-                                className="rounded-full border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                Manual Run
-                              </button>
-                            ) : null}
-                          </div>
+                          {row.reportLink ? <a href={row.reportLink} target="_blank" rel="noreferrer" className="mt-2 block text-xs font-medium text-sky-700 hover:text-sky-900">Download Report</a> : null}
                         </div>
                         <div>{row.date || '—'}</div>
                         <div className={row.supported && !rowEligible ? 'font-semibold text-rose-700' : ''}>{row.fsdLabel || (row.fsd !== null ? row.fsd.toFixed(2) : '—')}</div>
@@ -467,6 +467,18 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                           <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${!row.supported && row.value === null ? 'bg-slate-200 text-slate-500' : row.fsdThresholdStatus === 'failed' ? 'bg-rose-100 text-rose-800' : row.fsdThresholdStatus === 'pending' ? 'bg-violet-100 text-violet-800' : !rowEligible && row.supported ? 'bg-amber-100 text-amber-800' : isWinner ? 'bg-sky-100 text-sky-800' : row.value !== null ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
                             {!row.supported && row.value === null ? 'Ruled out' : row.fsdThresholdStatus === 'failed' ? 'Threshold failed' : row.fsdThresholdStatus === 'pending' ? 'Threshold pending' : !rowEligible && row.supported ? 'FSD above max' : isWinner ? 'Winner' : row.value !== null ? (row.source === 'cache' ? 'Cached' : 'Ordered') : 'Allowed'}
                           </span>
+                        </div>
+                        <div>
+                          {(row.provider === 'HouseCanary' || row.provider === 'Clear Capital') ? (
+                            <button
+                              type="button"
+                              onClick={() => handleOrderAvm('manual', row.provider)}
+                              disabled={ordering || !selectedSidebarInvestor || !address.trim() || !parsedZipcode.trim() || !loanNumber.trim() || !row.supported}
+                              className="rounded-full border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Manual Run
+                            </button>
+                          ) : <span className="text-slate-400">—</span>}
                         </div>
                       </div>
                     );

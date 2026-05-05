@@ -51,6 +51,7 @@ type LoanOfficerAvmRequestBody = {
   product?: string;
   runSource?: 'manual' | 'cascade';
   manualProvider?: 'HouseCanary' | 'Clear Capital' | null;
+  cacheOnly?: boolean;
 };
 
 type HouseCanaryValueResult = {
@@ -1022,6 +1023,7 @@ export async function POST(req: NextRequest) {
     const product = String(body.product || '').trim() || null;
     const runSource = body.runSource === 'manual' ? 'manual' : 'cascade';
     const manualProvider = body.manualProvider === 'HouseCanary' || body.manualProvider === 'Clear Capital' ? body.manualProvider : null;
+    const cacheOnly = body.cacheOnly === true;
 
     if (!address || !zipcode || !investorLabel || !loanNumber) {
       return NextResponse.json({ error: 'Address, zipcode, investor, and loan number or phone number are required.' }, { status: 400 });
@@ -1054,6 +1056,20 @@ export async function POST(req: NextRequest) {
     const availableProviderRows = mergeProviderRows(cachedOrderRows, cachedAvmRows);
     const selectedInvestorSatisfied = availableProviderRows.some((row) => providerRowSatisfiesSelectedInvestor(row));
     const selectedInvestorInFlight = availableProviderRows.some((row) => providerRowIsInFlightForSelectedInvestor(row));
+
+    if (cacheOnly) {
+      const latestOrderedAt = refreshedCachedOrders[0]?.ordered_at || refreshedCachedOrders[0]?.created_at || cachedAvm?.created_at || null;
+      return NextResponse.json({
+        cacheHit: true,
+        addressId,
+        cacheWindowDays: LO_AVM_CACHE_WINDOW_DAYS,
+        investor: investorLabel,
+        providerRows: availableProviderRows,
+        winnerProvider: chooseWinnerProvider(availableProviderRows),
+        latestOrderedAt,
+        message: 'Loaded available cached AVMs only. No vendor order was placed.',
+      });
+    }
 
     if (runSource === 'cascade' && (selectedInvestorSatisfied || selectedInvestorInFlight)) {
       const latestOrderedAt = refreshedCachedOrders[0]?.ordered_at || refreshedCachedOrders[0]?.created_at || cachedAvm?.created_at || null;
