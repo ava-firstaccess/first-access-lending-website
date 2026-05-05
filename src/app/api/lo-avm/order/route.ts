@@ -368,6 +368,32 @@ function formatCurrencyRange(low: number | null, high: number | null) {
   return `$${Math.round(low).toLocaleString()} - $${Math.round(high).toLocaleString()}`;
 }
 
+function computeFsdThresholdStatus({
+  requestedMaxFsd,
+  fsd,
+  value,
+  fallback = null,
+}: {
+  requestedMaxFsd: number | null;
+  fsd: number | null;
+  value: number | null;
+  fallback?: 'pending' | 'passed' | 'failed' | null;
+}) {
+  if (requestedMaxFsd !== null && fsd !== null) {
+    return fsd <= requestedMaxFsd + 0.0001 ? 'passed' : 'failed';
+  }
+  if (requestedMaxFsd !== null && value !== null && fsd === null) {
+    return 'pending';
+  }
+  return fallback;
+}
+
+function toAbsoluteLoanOfficerLink(link: string) {
+  if (/^https?:\/\//i.test(link)) return link;
+  const host = String(process.env.LO_PORTAL_HOST || 'lo.firstaccesslending.com').trim().replace(/^https?:\/\//i, '');
+  return `https://${host}${link.startsWith('/') ? link : `/${link}`}`;
+}
+
 function derivePdfTypeFromFilename(filename: string | null | undefined) {
   const value = firstString(filename);
   if (!value) return null;
@@ -795,9 +821,6 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
 
   const snapshot = await fetchHouseCanaryAgileInsightsSnapshot(String(order.external_order_id), order.external_item_id || null);
   const requestedMaxFsd = typeof order?.requested_max_fsd === 'number' ? order.requested_max_fsd : null;
-  const fsdThresholdStatus = requestedMaxFsd !== null && snapshot.fsd !== null
-    ? (snapshot.fsd <= requestedMaxFsd + 0.0001 ? 'passed' : 'failed')
-    : order?.fsd_threshold_status || null;
   const nextOrderStatus = getHouseCanaryItemStatus(snapshot.status);
   const nextPayload: Record<string, any> = {
     ...(order?.response_payload || {}),
@@ -872,6 +895,14 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
 
   nextPayload.agileInsightsArtifactsReady = agileInsightsArtifactsReady(nextPayload);
 
+  const fsdThresholdStatus = computeFsdThresholdStatus({
+    requestedMaxFsd,
+    fsd: typeof nextPayload.fsd === 'number' ? nextPayload.fsd : null,
+    value: typeof nextPayload.value === 'number' ? nextPayload.value : null,
+    fallback: order?.fsd_threshold_status || null,
+  });
+  nextPayload.fsdThresholdStatus = fsdThresholdStatus;
+
   const updatePayload = {
     external_item_id: snapshot.externalItemId,
     order_status: nextOrderStatus,
@@ -917,11 +948,12 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
           await sendLoanOfficerReportEmail({
             to: data.loan_officer_email,
             subject: `HouseCanary report ready for ${data.address}`,
-            html: buildHouseCanaryEmailHtml({ address: data.address, investor: data.investor, link: data.response_payload.reportLink }),
+            html: buildHouseCanaryEmailHtml({ address: data.address, investor: data.investor, link: toAbsoluteLoanOfficerLink(data.response_payload.reportLink) }),
           });
           const emailedPayload = {
             ...(data.response_payload || {}),
             agileInsightsReportEmailSentAt: new Date().toISOString(),
+            agileInsightsReportEmailError: null,
           };
           const { data: emailedData, error: emailedError } = await supabase
             .from('loan_officer_avm_orders')
@@ -930,8 +962,18 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
             .select('*')
             .single();
           if (!emailedError && emailedData) return emailedData;
-        } catch (emailError) {
+        } catch (emailError: any) {
           console.error('LO AVM Agile report email failed during refresh:', emailError);
+          await supabase
+            .from('loan_officer_avm_orders')
+            .update({
+              response_payload: {
+                ...(data.response_payload || {}),
+                agileInsightsReportEmailError: emailError?.message || 'Unknown report email error',
+              },
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', data.id);
         }
       }
       return data;
@@ -1807,10 +1849,32 @@ export async function POST(req: NextRequest) {
             await sendLoanOfficerReportEmail({
               to: session.email,
               subject: `HouseCanary report ready for ${address}`,
-              html: buildHouseCanaryEmailHtml({ address, investor: investorLabel, link: insertedOrder.response_payload.reportLink }),
+              html: buildHouseCanaryEmailHtml({ address, investor: investorLabel, link: toAbsoluteLoanOfficerLink(insertedOrder.response_payload.reportLink) }),
             });
-          } catch (emailError) {
+            const emailedPayload = {
+              ...(insertedOrder.response_payload || {}),
+              agileInsightsReportEmailSentAt: new Date().toISOString(),
+              agileInsightsReportEmailError: null,
+            };
+            const { data: emailedData } = await supabase
+              .from('loan_officer_avm_orders')
+              .update({ response_payload: emailedPayload, updated_at: new Date().toISOString() })
+              .eq('id', insertedOrder.id)
+              .select('*')
+              .single();
+            if (emailedData) insertedOrder = emailedData;
+          } catch (emailError: any) {
             console.error('LO AVM Agile report email failed:', emailError);
+            await supabase
+              .from('loan_officer_avm_orders')
+              .update({
+                response_payload: {
+                  ...(insertedOrder.response_payload || {}),
+                  agileInsightsReportEmailError: emailError?.message || 'Unknown report email error',
+                },
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', insertedOrder.id);
           }
         }
       }
