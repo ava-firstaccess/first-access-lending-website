@@ -879,6 +879,7 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
     response_payload: nextPayload,
     fsd_threshold_status: fsdThresholdStatus,
     fsd_threshold_passed: fsdThresholdStatus === 'passed' ? true : fsdThresholdStatus === 'failed' ? false : null,
+    updated_at: new Date().toISOString(),
   };
 
   const candidates = [
