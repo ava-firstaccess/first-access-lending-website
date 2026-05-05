@@ -527,7 +527,17 @@ async function listHouseCanaryOrderItems(orderId: string) {
   return [];
 }
 
-async function listHouseCanaryOrderExportJobs(orderId: string) {
+async function readResponseJsonOrText(res: Response) {
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+async function listHouseCanaryOrderExportJobsDetailed(orderId: string) {
   const res = await fetch(`${process.env.HOUSECANARY_ORDER_MANAGER_BASE_URL || HOUSECANARY_ORDER_MANAGER_BASE}/orders/${orderId}/export-requests/`, {
     headers: {
       Authorization: readHouseCanaryOrderManagerAuth(),
@@ -536,17 +546,29 @@ async function listHouseCanaryOrderExportJobs(orderId: string) {
     cache: 'no-store',
   });
 
+  const body = await readResponseJsonOrText(res);
   if (!res.ok) {
-    throw new Error(`HouseCanary Agile Insights list export jobs failed (${res.status})`);
+    throw Object.assign(new Error(`HouseCanary Agile Insights list export jobs failed (${res.status})`), {
+      status: res.status,
+      body,
+    });
   }
 
-  const data = await res.json();
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.results)) return data.results;
-  return [];
+  const jobs = Array.isArray(body)
+    ? body
+    : Array.isArray((body as any)?.results)
+      ? (body as any).results
+      : [];
+
+  return { status: res.status, body, jobs };
 }
 
-async function getHouseCanaryOrderExportJob(orderId: string, exportJobId: string | number) {
+async function listHouseCanaryOrderExportJobs(orderId: string) {
+  const result = await listHouseCanaryOrderExportJobsDetailed(orderId);
+  return result.jobs;
+}
+
+async function getHouseCanaryOrderExportJobDetailed(orderId: string, exportJobId: string | number) {
   const res = await fetch(`${process.env.HOUSECANARY_ORDER_MANAGER_BASE_URL || HOUSECANARY_ORDER_MANAGER_BASE}/orders/${orderId}/export-requests/${exportJobId}/`, {
     headers: {
       Authorization: readHouseCanaryOrderManagerAuth(),
@@ -555,20 +577,29 @@ async function getHouseCanaryOrderExportJob(orderId: string, exportJobId: string
     cache: 'no-store',
   });
 
+  const body = await readResponseJsonOrText(res);
   if (!res.ok) {
-    throw new Error(`HouseCanary Agile Insights get export job failed (${res.status})`);
+    throw Object.assign(new Error(`HouseCanary Agile Insights get export job failed (${res.status})`), {
+      status: res.status,
+      body,
+    });
   }
 
-  return res.json();
+  return { status: res.status, body };
 }
 
-async function createHouseCanaryOrderExportJob(orderId: string) {
+async function getHouseCanaryOrderExportJob(orderId: string, exportJobId: string | number) {
+  const result = await getHouseCanaryOrderExportJobDetailed(orderId, exportJobId);
+  return result.body;
+}
+
+async function createHouseCanaryOrderExportJobDetailed(orderId: string) {
   const base = process.env.HOUSECANARY_ORDER_MANAGER_BASE_URL || HOUSECANARY_ORDER_MANAGER_BASE;
   const attempts = [
     `${base}/orders/${orderId}/export/zip?exclude_json=False`,
     `${base}/orders/${orderId}/export/zip?exclude_json=false`,
   ];
-  let lastError: string | null = null;
+  const diagnostics: any[] = [];
 
   for (const url of attempts) {
     const res = await fetch(url, {
@@ -580,13 +611,25 @@ async function createHouseCanaryOrderExportJob(orderId: string) {
       cache: 'no-store',
     });
 
+    const body = await readResponseJsonOrText(res);
+    diagnostics.push({ url, status: res.status, body });
+
     if (res.ok) {
-      return res.json();
+      return { status: res.status, body, diagnostics };
     }
-    lastError = `HouseCanary Agile Insights create export job failed (${res.status})`;
   }
 
-  throw new Error(lastError || 'HouseCanary Agile Insights create export job failed');
+  const last = diagnostics[diagnostics.length - 1] || null;
+  throw Object.assign(new Error(last ? `HouseCanary Agile Insights create export job failed (${last.status})` : 'HouseCanary Agile Insights create export job failed'), {
+    status: last?.status ?? null,
+    body: last?.body ?? null,
+    diagnostics,
+  });
+}
+
+async function createHouseCanaryOrderExportJob(orderId: string) {
+  const result = await createHouseCanaryOrderExportJobDetailed(orderId);
+  return result.body;
 }
 
 function normalizeHouseCanaryExportJob(job: any) {
@@ -608,23 +651,49 @@ async function ensureHouseCanaryAgileInsightsExportJob(orderId: string, existing
     return sortedJobs.find((job: any) => job?.exclude_json === false) || null;
   };
 
-  const jobs = await listHouseCanaryOrderExportJobs(orderId);
-  const preferredJob = selectPreferredJob(jobs);
+  const diagnostics: Record<string, any> = {};
+
+  const before = await listHouseCanaryOrderExportJobsDetailed(orderId);
+  diagnostics.beforeList = {
+    status: before.status,
+    count: before.jobs.length,
+    body: before.body,
+  };
+  const preferredJob = selectPreferredJob(before.jobs);
   if (preferredJob) {
-    return normalizeHouseCanaryExportJob(preferredJob);
+    diagnostics.selectedFrom = 'beforeList';
+    return { job: normalizeHouseCanaryExportJob(preferredJob), diagnostics };
   }
 
   if (existingExportJobId !== null && existingExportJobId !== undefined && String(existingExportJobId).trim()) {
-    return normalizeHouseCanaryExportJob(await getHouseCanaryOrderExportJob(orderId, existingExportJobId));
+    const existing = await getHouseCanaryOrderExportJobDetailed(orderId, existingExportJobId);
+    diagnostics.existingJob = { status: existing.status, body: existing.body };
+    return { job: normalizeHouseCanaryExportJob(existing.body), diagnostics };
   }
 
   try {
-    return normalizeHouseCanaryExportJob(await createHouseCanaryOrderExportJob(orderId));
-  } catch (error) {
-    const afterJobs = await listHouseCanaryOrderExportJobs(orderId);
-    const latePreferredJob = selectPreferredJob(afterJobs);
-    if (latePreferredJob) return normalizeHouseCanaryExportJob(latePreferredJob);
-    throw error;
+    const created = await createHouseCanaryOrderExportJobDetailed(orderId);
+    diagnostics.createAttempt = {
+      status: created.status,
+      body: created.body,
+      attempts: created.diagnostics,
+    };
+    return { job: normalizeHouseCanaryExportJob(created.body), diagnostics };
+  } catch (error: any) {
+    diagnostics.createAttempt = {
+      status: error?.status ?? null,
+      body: error?.body ?? null,
+      attempts: error?.diagnostics ?? null,
+    };
+    const after = await listHouseCanaryOrderExportJobsDetailed(orderId);
+    diagnostics.afterList = {
+      status: after.status,
+      count: after.jobs.length,
+      body: after.body,
+    };
+    const latePreferredJob = selectPreferredJob(after.jobs);
+    if (latePreferredJob) return { job: normalizeHouseCanaryExportJob(latePreferredJob), diagnostics };
+    throw Object.assign(error instanceof Error ? error : new Error('HouseCanary Agile Insights export flow failed'), { diagnostics });
   }
 }
 
@@ -753,10 +822,14 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
     }
 
     try {
-      const exportJob = await ensureHouseCanaryAgileInsightsExportJob(
+      const exportResult = await ensureHouseCanaryAgileInsightsExportJob(
         String(order.external_order_id),
         nextPayload?.agileInsightsExportJob?.id ?? null,
       );
+      if (exportResult?.diagnostics) {
+        nextPayload.agileInsightsExportDiagnostics = exportResult.diagnostics;
+      }
+      const exportJob = exportResult?.job || null;
       if (exportJob) {
         nextPayload.agileInsightsExportJob = exportJob;
 
@@ -788,6 +861,12 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
       }
     } catch (exportError: any) {
       nextPayload.agileInsightsExportError = exportError?.message || 'Failed to create or load Agile Insights export job.';
+      if (exportError?.diagnostics) {
+        nextPayload.agileInsightsExportDiagnostics = exportError.diagnostics;
+      }
+      if (exportError?.body) {
+        nextPayload.agileInsightsExportErrorBody = exportError.body;
+      }
     }
   }
 
