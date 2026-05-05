@@ -68,6 +68,7 @@ type ProviderDisplayRow = {
   fsdThresholdStatus?: 'pending' | 'passed' | 'failed' | null;
   targetedInvestor?: string | null;
   runSource?: 'manual' | 'cascade' | null;
+  forceHouseCanaryProduct?: 'agile_insights' | 'property_explorer' | null;
 };
 
 type LiveOrderResult = {
@@ -116,6 +117,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
   const [liveOrderResult, setLiveOrderResult] = useState<LiveOrderResult | null>(null);
   const [orderError, setOrderError] = useState('');
   const [ordering, setOrdering] = useState(false);
+  const [forceManualHouseCanaryAgile, setForceManualHouseCanaryAgile] = useState(false);
 
   useEffect(() => {
     try {
@@ -250,6 +252,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
           product: selectedSidebarInvestor.product,
           runSource,
           manualProvider: runSource === 'manual' ? manualProvider : null,
+          forceHouseCanaryProduct: runSource === 'manual' && manualProvider === 'HouseCanary' && forceManualHouseCanaryAgile ? 'agile_insights' : null,
           cacheOnly,
         }),
       });
@@ -389,6 +392,15 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                   <div className="mt-1 text-xs text-slate-500">Required. Enter the loan number, or the borrower phone number if the loan number is not known yet. This will be sent as HouseCanary customer_order_id and Clear Capital trackingIds[0].</div>
                 </label>
               </div>
+              <label className="mt-3 flex items-center gap-2 text-xs text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={forceManualHouseCanaryAgile}
+                  onChange={e => setForceManualHouseCanaryAgile(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-slate-900"
+                />
+                <span>Force Agile Insights on manual HouseCanary runs for testing</span>
+              </label>
               {(parsedCity || parsedState || parsedZipcode) ? <div className="mt-3 text-xs text-slate-500">Parsed: {[parsedCity, parsedState, parsedZipcode].filter(Boolean).join(', ')}</div> : null}
               {liveOrderResult ? <div className={`mt-3 rounded-2xl border px-4 py-3 text-sm ${liveOrderResult.cacheHit ? 'border-sky-200 bg-sky-50 text-sky-900' : 'border-emerald-200 bg-emerald-50 text-emerald-900'}`}>{liveOrderResult.message}</div> : null}
               {orderError ? <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{orderError}</div> : null}
@@ -430,7 +442,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">AVM provider chart</h2>
-                  <p className="mt-1 text-sm text-slate-600">Pull Cache loads existing AVMs without placing any order. Run Cascade uses the normal decisioning flow. Manual Run forces a provider-specific rerun for HouseCanary or Clear Capital.</p>
+                  <p className="mt-1 text-sm text-slate-600">Pull Cache loads existing AVMs without placing any order. Run Cascade uses the normal decisioning flow. Manual Run forces a provider-specific rerun for HouseCanary or Clear Capital. The Agile test checkbox only affects manual HouseCanary runs.</p>
                 </div>
                 <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">Cache window: reuse provider results under 90 days old</div>
               </div>
