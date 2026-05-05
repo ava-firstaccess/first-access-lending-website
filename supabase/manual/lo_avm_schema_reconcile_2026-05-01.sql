@@ -74,7 +74,8 @@ ALTER TABLE IF EXISTS loan_officer_avm_orders
   ADD COLUMN IF NOT EXISTS housecanary_free_tier_applied BOOLEAN,
   ADD COLUMN IF NOT EXISTS requested_max_fsd NUMERIC(8,4),
   ADD COLUMN IF NOT EXISTS fsd_threshold_status TEXT,
-  ADD COLUMN IF NOT EXISTS fsd_threshold_passed BOOLEAN;
+  ADD COLUMN IF NOT EXISTS fsd_threshold_passed BOOLEAN,
+  ADD COLUMN IF NOT EXISTS run_source TEXT NOT NULL DEFAULT 'cascade';
 
 ALTER TABLE IF EXISTS loan_officer_avm_orders
   ALTER COLUMN order_run_id SET DEFAULT gen_random_uuid(),
@@ -110,7 +111,8 @@ ALTER TABLE IF EXISTS loan_officer_avm_orders
   DROP CONSTRAINT IF EXISTS loan_officer_avm_orders_state_format,
   DROP CONSTRAINT IF EXISTS loan_officer_avm_orders_pull_run_fk,
   DROP CONSTRAINT IF EXISTS loan_officer_avm_orders_housecanary_product_check,
-  DROP CONSTRAINT IF EXISTS loan_officer_avm_orders_fsd_threshold_status_check;
+  DROP CONSTRAINT IF EXISTS loan_officer_avm_orders_fsd_threshold_status_check,
+  DROP CONSTRAINT IF EXISTS loan_officer_avm_orders_run_source_check;
 
 ALTER TABLE IF EXISTS loan_officer_avm_orders
   ADD CONSTRAINT loan_officer_avm_orders_status_check
@@ -150,6 +152,9 @@ CREATE INDEX IF NOT EXISTS idx_loan_officer_avm_orders_hc_cycle_product
 
 CREATE INDEX IF NOT EXISTS idx_loan_officer_avm_orders_investor_threshold_created_at
   ON loan_officer_avm_orders (investor, requested_max_fsd, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_loan_officer_avm_orders_run_source_created_at
+  ON loan_officer_avm_orders (run_source, created_at DESC);
 
 ALTER TABLE IF EXISTS loan_officer_avm_orders ENABLE ROW LEVEL SECURITY;
 
@@ -199,4 +204,5 @@ COMMENT ON COLUMN loan_officer_avm_orders.housecanary_free_tier_applied IS 'True
 COMMENT ON COLUMN loan_officer_avm_orders.requested_max_fsd IS 'Investor-specific FSD threshold that was in force when this AVM order attempt was made.';
 COMMENT ON COLUMN loan_officer_avm_orders.fsd_threshold_status IS 'Whether the order passed, failed, or is still pending against the requested_max_fsd threshold.';
 COMMENT ON COLUMN loan_officer_avm_orders.fsd_threshold_passed IS 'Boolean mirror of the threshold result when known; null while pending.';
+COMMENT ON COLUMN loan_officer_avm_orders.run_source IS 'Whether this LO AVM vendor order was placed by the normal cascade flow or by a manual provider override.';
 COMMENT ON COLUMN loan_officer_avm_orders.investor IS 'Target investor for this LO AVM order attempt.';

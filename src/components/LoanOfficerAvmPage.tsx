@@ -67,6 +67,7 @@ type ProviderDisplayRow = {
   requestedMaxFsd?: number | null;
   fsdThresholdStatus?: 'pending' | 'passed' | 'failed' | null;
   targetedInvestor?: string | null;
+  runSource?: 'manual' | 'cascade' | null;
 };
 
 type LiveOrderResult = {
@@ -218,9 +219,14 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
     setOrderError('');
   }
 
-  async function handleOrderAvm() {
+  async function handleOrderAvm(runSource: 'manual' | 'cascade' = 'cascade', manualProvider?: AvmProviderName) {
     if (!selectedSidebarInvestor || !address.trim() || !parsedZipcode.trim() || !loanNumber.trim()) {
       setOrderError('Select an investor, a full property address, and a loan number or phone number before ordering the AVM.');
+      return;
+    }
+
+    if (runSource === 'manual' && manualProvider && manualProvider !== 'HouseCanary' && manualProvider !== 'Clear Capital') {
+      setOrderError('Manual run is only available for HouseCanary and Clear Capital right now.');
       return;
     }
 
@@ -241,6 +247,8 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
           engine: scenario?.engine,
           program: selectedSidebarInvestor.program,
           product: selectedSidebarInvestor.product,
+          runSource,
+          manualProvider: runSource === 'manual' ? manualProvider : null,
         }),
       });
 
@@ -343,11 +351,11 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                 </div>
                 <button
                   type="button"
-                  onClick={handleOrderAvm}
-                  disabled={ordering || !selectedSidebarInvestor || !address.trim() || !loanNumber.trim()}
+                  onClick={() => handleOrderAvm('cascade')}
+                  disabled={ordering || !selectedSidebarInvestor || !address.trim() || !parsedZipcode.trim() || !loanNumber.trim()}
                   className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {ordering ? 'Running…' : 'Run AVM'}
+                  {ordering ? 'Running…' : 'Run Cascade'}
                 </button>
               </div>
 
@@ -410,7 +418,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">AVM provider chart</h2>
-                  <p className="mt-1 text-sm text-slate-600">Providers stay visible for every investor, and the system marks a winner only after it has determined one for the selected investor. Cached results from the last 90 days repopulate the grid by provider without re-ordering the AVM.</p>
+                  <p className="mt-1 text-sm text-slate-600">Providers stay visible for every investor, and the system marks a winner only after it has determined one for the selected investor. Use Run Cascade for the normal flow, or Manual Run on HouseCanary / Clear Capital to force a provider-specific rerun.</p>
                 </div>
                 <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">Cache window: reuse provider results under 90 days old</div>
               </div>
@@ -428,7 +436,6 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                 <div className="divide-y divide-slate-200 bg-white">
                   {providerRows.map((row) => {
                     const rowEligible = providerEligibleForInvestor(row);
-                    const checked = row.provider === selectedProvider;
                     const isWinner = liveOrderResult?.winnerProvider === row.provider;
                     return (
                       <div key={row.provider} className={`grid grid-cols-[0.55fr,1.25fr,0.8fr,0.8fr,0.9fr,0.95fr,0.85fr] gap-0 px-4 py-3 text-sm ${row.supported ? 'text-slate-900' : row.value !== null ? 'bg-amber-50 text-amber-900' : 'bg-slate-50 text-slate-400'} ${row.supported && !rowEligible ? 'bg-rose-50' : ''}`}>
@@ -438,15 +445,27 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                         <div>
                           <div className="font-semibold">{getAvmProviderLabel(row.provider)}</div>
                           <div className="mt-1 text-xs text-slate-500">{getProviderRowSubtext(row)}</div>
-                          {row.reportLink ? <a href={row.reportLink} target="_blank" rel="noreferrer" className="mt-1 block text-xs font-medium text-sky-700 hover:text-sky-900">Download Report</a> : null}
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {row.reportLink ? <a href={row.reportLink} target="_blank" rel="noreferrer" className="text-xs font-medium text-sky-700 hover:text-sky-900">Download Report</a> : null}
+                            {(row.provider === 'HouseCanary' || row.provider === 'Clear Capital') ? (
+                              <button
+                                type="button"
+                                onClick={() => handleOrderAvm('manual', row.provider)}
+                                disabled={ordering || !selectedSidebarInvestor || !address.trim() || !parsedZipcode.trim() || !loanNumber.trim() || !row.supported}
+                                className="rounded-full border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                Manual Run
+                              </button>
+                            ) : null}
+                          </div>
                         </div>
                         <div>{row.date || '—'}</div>
                         <div className={row.supported && !rowEligible ? 'font-semibold text-rose-700' : ''}>{row.fsdLabel || (row.fsd !== null ? row.fsd.toFixed(2) : '—')}</div>
                         <div>{row.requestedMaxFsd !== null && row.requestedMaxFsd !== undefined ? row.requestedMaxFsd.toFixed(2) : '—'}</div>
                         <div>{row.value !== null ? currency(row.value) : '—'}</div>
                         <div>
-                          <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${!row.supported && row.value === null ? 'bg-slate-200 text-slate-500' : row.fsdThresholdStatus === 'failed' ? 'bg-rose-100 text-rose-800' : row.fsdThresholdStatus === 'pending' ? 'bg-violet-100 text-violet-800' : !rowEligible && row.supported ? 'bg-amber-100 text-amber-800' : isWinner ? 'bg-sky-100 text-sky-800' : checked ? 'bg-slate-100 text-slate-700' : row.value !== null ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
-                            {!row.supported && row.value === null ? 'Ruled out' : row.fsdThresholdStatus === 'failed' ? 'Threshold failed' : row.fsdThresholdStatus === 'pending' ? 'Threshold pending' : !rowEligible && row.supported ? 'FSD above max' : isWinner ? 'Winner' : checked ? 'Current' : row.value !== null ? (row.source === 'cache' ? 'Cached' : 'Ordered') : 'Allowed'}
+                          <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${!row.supported && row.value === null ? 'bg-slate-200 text-slate-500' : row.fsdThresholdStatus === 'failed' ? 'bg-rose-100 text-rose-800' : row.fsdThresholdStatus === 'pending' ? 'bg-violet-100 text-violet-800' : !rowEligible && row.supported ? 'bg-amber-100 text-amber-800' : isWinner ? 'bg-sky-100 text-sky-800' : row.value !== null ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                            {!row.supported && row.value === null ? 'Ruled out' : row.fsdThresholdStatus === 'failed' ? 'Threshold failed' : row.fsdThresholdStatus === 'pending' ? 'Threshold pending' : !rowEligible && row.supported ? 'FSD above max' : isWinner ? 'Winner' : row.value !== null ? (row.source === 'cache' ? 'Cached' : 'Ordered') : 'Allowed'}
                           </span>
                         </div>
                       </div>
@@ -497,20 +516,21 @@ function getProviderRowSubtext(row: ProviderDisplayRow) {
   const thresholdLabel = row.requestedMaxFsd !== null && row.requestedMaxFsd !== undefined
     ? `Threshold ${row.requestedMaxFsd.toFixed(2)} ${formatThresholdStatus(row.fsdThresholdStatus).toLowerCase()}`
     : null;
+  const runSourceLabel = row.runSource === 'manual' ? 'Manual run' : row.runSource === 'cascade' ? 'Cascade run' : null;
 
   if (!row.supported) {
     const base = row.value !== null
       ? 'AVM result exists, but this investor does not allow that provider.'
       : 'Not allowed for this investor';
-    return [base, sourceLabel].filter(Boolean).join(' • ');
+    return [base, sourceLabel, runSourceLabel].filter(Boolean).join(' • ');
   }
   if ((row.fsd !== null && row.maxFsdAllowed !== null && row.fsd > row.maxFsdAllowed + 0.0001) || row.fsdLabel) {
-    return [`FSD above max for this investor: ${row.fsdLabel || `${row.fsd?.toFixed(2)} > ${row.maxFsdAllowed?.toFixed(2)}`}. A different investor may still allow it.`, sourceLabel, thresholdLabel].filter(Boolean).join(' • ');
+    return [`FSD above max for this investor: ${row.fsdLabel || `${row.fsd?.toFixed(2)} > ${row.maxFsdAllowed?.toFixed(2)}`}. A different investor may still allow it.`, sourceLabel, runSourceLabel, thresholdLabel].filter(Boolean).join(' • ');
   }
   if (row.maxFsdAllowed !== null) {
-    return [`Investor max FSD ${row.maxFsdAllowed.toFixed(2)}`, sourceLabel, thresholdLabel].filter(Boolean).join(' • ');
+    return [`Investor max FSD ${row.maxFsdAllowed.toFixed(2)}`, sourceLabel, runSourceLabel, thresholdLabel].filter(Boolean).join(' • ');
   }
-  return ['Allowed for this investor', sourceLabel, thresholdLabel].filter(Boolean).join(' • ');
+  return ['Allowed for this investor', sourceLabel, runSourceLabel, thresholdLabel].filter(Boolean).join(' • ');
 }
 
 function getProviderInvestorStatusMessage(row: ProviderDisplayRow) {

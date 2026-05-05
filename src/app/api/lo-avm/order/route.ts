@@ -35,6 +35,10 @@ const FSD_THRESHOLD_FIELDS = [
   'fsd_threshold_passed',
 ] as const;
 
+const RUN_SOURCE_FIELDS = [
+  'run_source',
+] as const;
+
 type LoanOfficerAvmRequestBody = {
   address?: string;
   city?: string;
@@ -45,6 +49,8 @@ type LoanOfficerAvmRequestBody = {
   engine?: string;
   program?: string;
   product?: string;
+  runSource?: 'manual' | 'cascade';
+  manualProvider?: 'HouseCanary' | 'Clear Capital' | null;
 };
 
 type HouseCanaryValueResult = {
@@ -71,6 +77,7 @@ type ProviderRow = {
   requestedMaxFsd?: number | null;
   fsdThresholdStatus?: 'pending' | 'passed' | 'failed' | null;
   targetedInvestor?: string | null;
+  runSource?: 'manual' | 'cascade' | null;
 };
 
 type ClearCapitalOrderResult = {
@@ -175,7 +182,11 @@ async function insertLoanOfficerAvmOrder(supabase: ReturnType<typeof getSupabase
     payload,
     omitFields(payload, HOUSECANARY_CYCLE_FIELDS),
     omitFields(payload, FSD_THRESHOLD_FIELDS),
+    omitFields(payload, RUN_SOURCE_FIELDS),
     omitFields(omitFields(payload, HOUSECANARY_CYCLE_FIELDS), FSD_THRESHOLD_FIELDS),
+    omitFields(omitFields(payload, HOUSECANARY_CYCLE_FIELDS), RUN_SOURCE_FIELDS),
+    omitFields(omitFields(payload, FSD_THRESHOLD_FIELDS), RUN_SOURCE_FIELDS),
+    omitFields(omitFields(omitFields(payload, HOUSECANARY_CYCLE_FIELDS), FSD_THRESHOLD_FIELDS), RUN_SOURCE_FIELDS),
   ];
 
   let lastError: any = null;
@@ -191,7 +202,8 @@ async function insertLoanOfficerAvmOrder(supabase: ReturnType<typeof getSupabase
 
     lastError = error;
     const maybeMissingOptionalColumns = isMissingColumnError(error, HOUSECANARY_CYCLE_FIELDS)
-      || isMissingColumnError(error, FSD_THRESHOLD_FIELDS);
+      || isMissingColumnError(error, FSD_THRESHOLD_FIELDS)
+      || isMissingColumnError(error, RUN_SOURCE_FIELDS);
     if (!maybeMissingOptionalColumns) break;
   }
 
@@ -887,6 +899,7 @@ function buildProviderRowsFromOrders(orders: any[], investor: InvestorName | nul
           ? order.response_payload.fsdThresholdStatus
           : null,
       targetedInvestor: order?.investor || null,
+      runSource: order?.run_source === 'manual' ? 'manual' : order?.run_source === 'cascade' ? 'cascade' : null,
     };
   });
 }
@@ -931,6 +944,7 @@ function buildProviderRowsFromAvmCache(cached: any, investor: InvestorName | nul
       requestedMaxFsd: null,
       fsdThresholdStatus: null,
       targetedInvestor: null,
+      runSource: null,
     };
   });
 }
@@ -968,6 +982,7 @@ function mergeProviderRows(...rowSets: ProviderRow[][]) {
       requestedMaxFsd: null,
       fsdThresholdStatus: null,
       targetedInvestor: null,
+      runSource: null,
     };
   });
 }
@@ -1005,6 +1020,8 @@ export async function POST(req: NextRequest) {
     const engine = String(body.engine || '').trim() || null;
     const program = String(body.program || '').trim() || null;
     const product = String(body.product || '').trim() || null;
+    const runSource = body.runSource === 'manual' ? 'manual' : 'cascade';
+    const manualProvider = body.manualProvider === 'HouseCanary' || body.manualProvider === 'Clear Capital' ? body.manualProvider : null;
 
     if (!address || !zipcode || !investorLabel || !loanNumber) {
       return NextResponse.json({ error: 'Address, zipcode, investor, and loan number or phone number are required.' }, { status: 400 });
@@ -1038,7 +1055,7 @@ export async function POST(req: NextRequest) {
     const selectedInvestorSatisfied = availableProviderRows.some((row) => providerRowSatisfiesSelectedInvestor(row));
     const selectedInvestorInFlight = availableProviderRows.some((row) => providerRowIsInFlightForSelectedInvestor(row));
 
-    if (selectedInvestorSatisfied || selectedInvestorInFlight) {
+    if (runSource === 'cascade' && (selectedInvestorSatisfied || selectedInvestorInFlight)) {
       const latestOrderedAt = refreshedCachedOrders[0]?.ordered_at || refreshedCachedOrders[0]?.created_at || cachedAvm?.created_at || null;
       const message = selectedInvestorSatisfied
         ? 'Loaded available cached AVMs. No new vendor order was placed because the selected investor already has a usable result.'
@@ -1061,15 +1078,25 @@ export async function POST(req: NextRequest) {
     const orderedAt = new Date().toISOString();
 
     let insertedOrder: any = null;
+    const forcedProvider = runSource === 'manual' ? manualProvider : null;
+    if (runSource === 'manual' && !forcedProvider) {
+      return NextResponse.json({ error: 'Manual run requires a supported provider selection.' }, { status: 400 });
+    }
+    if (forcedProvider === 'HouseCanary' && !hcRule?.supported) {
+      return NextResponse.json({ error: `${investorLabel} does not currently support a manual HouseCanary run.` }, { status: 400 });
+    }
+    if (forcedProvider === 'Clear Capital' && !ccRule?.supported) {
+      return NextResponse.json({ error: `${investorLabel} does not currently support a manual Clear Capital run.` }, { status: 400 });
+    }
 
-    if (hcRule?.supported) {
+    if (forcedProvider === 'HouseCanary' || (!forcedProvider && hcRule?.supported)) {
       const emptyUsage = { propertyExplorerOrders: 0, agileInsightsOrders: 0 };
       const initialAllocation = chooseHouseCanaryOrderProduct(emptyUsage, new Date(orderedAt));
       const usage = await countHouseCanaryCycleUsage(supabase, initialAllocation.cycle.cycleStart, initialAllocation.cycle.cycleEnd);
       const allocation = chooseHouseCanaryOrderProduct(usage, new Date(orderedAt));
 
       if (allocation.selectedProduct === 'property_explorer') {
-        const requestedMaxFsd = hcRule.maxFsdAllowed ?? null;
+        const requestedMaxFsd = hcRule?.maxFsdAllowed ?? null;
         const baseInsertPayload = {
           order_run_id: orderRunId,
           address_id: addressId,
@@ -1098,7 +1125,8 @@ export async function POST(req: NextRequest) {
             requestedMaxFsd,
           },
           requested_max_fsd: requestedMaxFsd,
-          notes: `Property Explorer order ${allocation.overallSequenceNumber} in ${allocation.cycle.label}`,
+          run_source: runSource,
+          notes: `${runSource === 'manual' ? 'Manual' : 'Cascade'} Property Explorer order ${allocation.overallSequenceNumber} in ${allocation.cycle.label}`,
           housecanary_billing_cycle_start: allocation.cycle.cycleStart,
           housecanary_billing_cycle_end: allocation.cycle.cycleEnd,
           housecanary_order_product: allocation.selectedProduct,
@@ -1125,6 +1153,7 @@ export async function POST(req: NextRequest) {
             },
             fsd_threshold_status: 'pending',
             fsd_threshold_passed: null,
+            run_source: runSource,
           });
           throw providerError;
         }
@@ -1170,7 +1199,7 @@ export async function POST(req: NextRequest) {
           console.error('LO AVM report email failed:', emailError);
         }
       } else {
-        const requestedMaxFsd = hcRule.maxFsdAllowed ?? null;
+        const requestedMaxFsd = hcRule?.maxFsdAllowed ?? null;
         const customerOrderId = loanNumber || orderRunId;
         const customerItemId = randomUUID();
         let agile: any;
@@ -1221,9 +1250,10 @@ export async function POST(req: NextRequest) {
               housecanaryOrderProduct: allocation.selectedProduct,
             },
             requested_max_fsd: requestedMaxFsd,
+            run_source: runSource,
             fsd_threshold_status: 'pending',
             fsd_threshold_passed: null,
-            notes: `Agile Insights order ${allocation.overallSequenceNumber} in ${allocation.cycle.label}`,
+            notes: `${runSource === 'manual' ? 'Manual' : 'Cascade'} Agile Insights order ${allocation.overallSequenceNumber} in ${allocation.cycle.label}`,
             housecanary_billing_cycle_start: allocation.cycle.cycleStart,
             housecanary_billing_cycle_end: allocation.cycle.cycleEnd,
             housecanary_order_product: allocation.selectedProduct,
@@ -1271,9 +1301,10 @@ export async function POST(req: NextRequest) {
             agileInsightsResponse: agile.raw,
           },
           requested_max_fsd: requestedMaxFsd,
+          run_source: runSource,
           fsd_threshold_status: 'pending',
           fsd_threshold_passed: null,
-          notes: `Agile Insights order ${allocation.overallSequenceNumber} in ${allocation.cycle.label}`,
+          notes: `${runSource === 'manual' ? 'Manual' : 'Cascade'} Agile Insights order ${allocation.overallSequenceNumber} in ${allocation.cycle.label}`,
           housecanary_billing_cycle_start: allocation.cycle.cycleStart,
           housecanary_billing_cycle_end: allocation.cycle.cycleEnd,
           housecanary_order_product: allocation.selectedProduct,
@@ -1291,7 +1322,7 @@ export async function POST(req: NextRequest) {
       }
     } else if (ccRule?.supported) {
       if (!city || !state) {
-        return NextResponse.json({ error: 'City and state are required for Clear Capital fallback ordering.' }, { status: 400 });
+        return NextResponse.json({ error: 'City and state are required for Clear Capital ordering.' }, { status: 400 });
       }
 
       const requestedMaxFsd = Number((ccRule.maxFsdAllowed ?? 0.3).toFixed(2));
@@ -1349,9 +1380,10 @@ export async function POST(req: NextRequest) {
             fsdThresholdStatus: 'pending',
           },
           requested_max_fsd: requestedMaxFsd,
+          run_source: runSource,
           fsd_threshold_status: 'pending',
           fsd_threshold_passed: null,
-          notes: `Clear Capital fallback ordered with maxFSD ${requestedMaxFsd.toFixed(2)}`,
+          notes: `${runSource === 'manual' ? 'Manual' : 'Cascade'} Clear Capital order with maxFSD ${requestedMaxFsd.toFixed(2)}`,
         });
         throw providerError;
       }
@@ -1410,11 +1442,12 @@ export async function POST(req: NextRequest) {
           clearCapitalResponse: clearCapital.raw,
         },
         requested_max_fsd: requestedMaxFsd,
+        run_source: runSource,
         fsd_threshold_status: clearCapital.thresholdFailure ? 'failed' : 'passed',
         fsd_threshold_passed: !clearCapital.thresholdFailure,
         notes: clearCapital.thresholdFailure
-          ? `Clear Capital returned threshold failure at maxFSD ${requestedMaxFsd.toFixed(2)}`
-          : `Clear Capital fallback ordered with maxFSD ${requestedMaxFsd.toFixed(2)}`,
+          ? `${runSource === 'manual' ? 'Manual' : 'Cascade'} Clear Capital threshold failure at maxFSD ${requestedMaxFsd.toFixed(2)}`
+          : `${runSource === 'manual' ? 'Manual' : 'Cascade'} Clear Capital order with maxFSD ${requestedMaxFsd.toFixed(2)}`,
       };
 
       try {
@@ -1460,7 +1493,7 @@ export async function POST(req: NextRequest) {
       ? insertedOrder?.order_status === 'completed'
         ? 'Agile Insights order completed and the latest value was captured.'
         : 'Agile Insights order placed. Polling ran, but HouseCanary has not returned a completed result yet.'
-      : 'Vendor order placed successfully.';
+      : runSource === 'manual' ? 'Manual vendor order placed successfully.' : 'Vendor order placed successfully.';
 
     return NextResponse.json({
       cacheHit: false,
