@@ -400,7 +400,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
               {winnerRow?.reportLink ? (
                 <div className="mt-4">
                   <a href={winnerRow.reportLink} target="_blank" rel="noreferrer" className="inline-flex rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700">
-                    Open latest report
+                    Download Report
                   </a>
                 </div>
               ) : null}
@@ -438,7 +438,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                         <div>
                           <div className="font-semibold">{getAvmProviderLabel(row.provider)}</div>
                           <div className="mt-1 text-xs text-slate-500">{getProviderRowSubtext(row)}</div>
-                          {row.reportLink ? <a href={row.reportLink} target="_blank" rel="noreferrer" className="mt-1 block text-xs font-medium text-sky-700 hover:text-sky-900">Open report</a> : null}
+                          {row.reportLink ? <a href={row.reportLink} target="_blank" rel="noreferrer" className="mt-1 block text-xs font-medium text-sky-700 hover:text-sky-900">Download Report</a> : null}
                         </div>
                         <div>{row.date || '—'}</div>
                         <div className={row.supported && !rowEligible ? 'font-semibold text-rose-700' : ''}>{row.fsdLabel || (row.fsd !== null ? row.fsd.toFixed(2) : '—')}</div>

@@ -627,7 +627,7 @@ async function sendLoanOfficerReportEmail({
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'First Access Lending <noreply@firstaccesslending.com>',
+      from: 'First Access Lending <info@firstaccesslending.com>',
       to: [to],
       subject,
       html,
@@ -642,16 +642,102 @@ async function sendLoanOfficerReportEmail({
   return res.json();
 }
 
-function buildHouseCanaryEmailHtml({ address, investor, link }: { address: string; investor: string; link: string }) {
+function escapeHtml(value: string | number | null | undefined) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buildLoanOfficerEmailShell({
+  eyebrow,
+  title,
+  bodyHtml,
+}: {
+  eyebrow: string;
+  title: string;
+  bodyHtml: string;
+}) {
   return `
-    <div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.5;">
-      <h2 style="margin:0 0 12px;">HouseCanary Property Explorer report ready</h2>
-      <p style="margin:0 0 10px;">Your AVM order is ready for <strong>${address}</strong>.</p>
-      <p style="margin:0 0 10px;">Investor: <strong>${investor}</strong></p>
-      <p style="margin:0 0 18px;"><a href="${link}" style="display:inline-block;background:#0f172a;color:#fff;padding:10px 14px;border-radius:8px;text-decoration:none;">Open report</a></p>
-      <p style="margin:0;color:#475569;font-size:12px;">This link was generated from the Loan Officer AVM workspace.</p>
+    <div style="margin:0;padding:24px;background:#f8fbff;font-family:Arial,sans-serif;color:#0f172a;">
+      <div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #dbeafe;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(2,131,219,0.08);">
+        <div style="padding:20px 24px;background:linear-gradient(135deg,#003961 0%,#0283DB 72%,#0EF0F0 100%);color:#ffffff;">
+          <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;opacity:0.9;">${escapeHtml(eyebrow)}</div>
+          <div style="margin-top:8px;font-size:28px;line-height:1.2;font-weight:700;">${escapeHtml(title)}</div>
+          <div style="margin-top:8px;font-size:14px;opacity:0.9;">First Access Lending</div>
+        </div>
+        <div style="padding:24px;line-height:1.6;font-size:15px;">${bodyHtml}</div>
+      </div>
     </div>
   `;
+}
+
+function buildHouseCanaryEmailHtml({ address, investor, link }: { address: string; investor: string; link: string }) {
+  return buildLoanOfficerEmailShell({
+    eyebrow: 'Loan Officer AVM',
+    title: 'HouseCanary report ready',
+    bodyHtml: `
+      <p style="margin:0 0 12px;">Your AVM order is ready for <strong>${escapeHtml(address)}</strong>.</p>
+      <p style="margin:0 0 20px;">Investor: <strong>${escapeHtml(investor)}</strong></p>
+      <p style="margin:0 0 20px;"><a href="${escapeHtml(link)}" style="display:inline-block;background:#0283DB;color:#ffffff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:700;">Download Report</a></p>
+      <p style="margin:0;color:#475569;font-size:12px;">This link was generated from the Loan Officer AVM workspace.</p>
+    `,
+  });
+}
+
+function buildClearCapitalEmailHtml({
+  address,
+  investor,
+  value,
+  fsd,
+  threshold,
+  lowValue,
+  highValue,
+  effectiveDate,
+  confidenceScore,
+  confidenceScoreAlt,
+}: {
+  address: string;
+  investor: string;
+  value: number | null;
+  fsd: number | null;
+  threshold: number | null;
+  lowValue?: number | null;
+  highValue?: number | null;
+  effectiveDate?: string | null;
+  confidenceScore?: string | null;
+  confidenceScoreAlt?: string | null;
+}) {
+  const metric = (label: string, raw: string) => `
+    <div style="padding:14px 16px;border:1px solid #dbeafe;border-radius:14px;background:#f8fbff;">
+      <div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#475569;font-weight:700;">${escapeHtml(label)}</div>
+      <div style="margin-top:6px;font-size:22px;font-weight:700;color:#003961;">${raw}</div>
+    </div>
+  `;
+  return buildLoanOfficerEmailShell({
+    eyebrow: 'Loan Officer AVM',
+    title: 'Clear Capital valuation summary',
+    bodyHtml: `
+      <p style="margin:0 0 12px;">A Clear Capital AVM completed for <strong>${escapeHtml(address)}</strong>.</p>
+      <p style="margin:0 0 20px;">Investor: <strong>${escapeHtml(investor)}</strong></p>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 20px;">
+        ${metric('Estimated Value', escapeHtml(value !== null ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value) : '—'))}
+        ${metric('Returned FSD', escapeHtml(fsd !== null ? fsd.toFixed(2) : '—'))}
+        ${metric('Investor FSD Limit', escapeHtml(threshold !== null ? threshold.toFixed(2) : '—'))}
+        ${metric('Value Range', escapeHtml(lowValue !== null && lowValue !== undefined && highValue !== null && highValue !== undefined ? `${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(lowValue)} to ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(highValue)}` : '—'))}
+      </div>
+      <div style="padding:16px;border-radius:14px;background:#eff6ff;border:1px solid #bfdbfe;margin-bottom:18px;">
+        <div style="font-weight:700;color:#003961;margin-bottom:6px;">Summary</div>
+        <div style="color:#1e293b;">No PDF report is available for this Clear Capital result, so this email is the delivery summary.</div>
+      </div>
+      <div style="font-size:13px;color:#475569;">
+        <div>Effective date: <strong style="color:#0f172a;">${escapeHtml(effectiveDate || '—')}</strong></div>
+        <div>Confidence score: <strong style="color:#0f172a;">${escapeHtml(confidenceScore || confidenceScoreAlt || '—')}</strong></div>
+      </div>
+    `,
+  });
 }
 
 async function loadRecentOrders(supabase: ReturnType<typeof getSupabaseAdmin>, addressId: string) {
@@ -1335,6 +1421,29 @@ export async function POST(req: NextRequest) {
         insertedOrder = await insertLoanOfficerAvmOrder(supabase, insertPayload);
       } catch (error: any) {
         throw new Error(`Failed to save Clear Capital order: ${error?.message || 'unknown error'}`);
+      }
+
+      if (!clearCapital.thresholdFailure) {
+        try {
+          await sendLoanOfficerReportEmail({
+            to: session.email,
+            subject: `Clear Capital valuation summary for ${address}`,
+            html: buildClearCapitalEmailHtml({
+              address,
+              investor: investorLabel,
+              value: clearCapital.value,
+              fsd: clearCapital.fsd,
+              threshold: requestedMaxFsd,
+              lowValue: clearCapital.lowValue,
+              highValue: clearCapital.highValue,
+              effectiveDate: clearCapital.effectiveDate,
+              confidenceScore: clearCapital.confidenceScore,
+              confidenceScoreAlt: clearCapital.confidenceScoreAlt,
+            }),
+          });
+        } catch (emailError) {
+          console.error('LO AVM Clear Capital summary email failed:', emailError);
+        }
       }
     } else {
       return NextResponse.json({ error: `${investorLabel} does not currently support HouseCanary or Clear Capital ordering in the AVM rules.` }, { status: 400 });
