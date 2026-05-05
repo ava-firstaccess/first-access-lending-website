@@ -18,21 +18,38 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Loan Officer portal host required.' }, { status: 403 });
     }
 
+    const sourceUrl = req.nextUrl.searchParams.get('sourceUrl');
     const orderId = req.nextUrl.searchParams.get('orderId');
     const itemId = req.nextUrl.searchParams.get('itemId');
     const pdfType = req.nextUrl.searchParams.get('pdfType');
 
-    if (!orderId || !itemId || !pdfType) {
-      return NextResponse.json({ error: 'orderId, itemId, and pdfType are required.' }, { status: 400 });
+    let upstream: Response;
+    if (sourceUrl) {
+      let parsed: URL;
+      try {
+        parsed = new URL(sourceUrl);
+      } catch {
+        return NextResponse.json({ error: 'Invalid sourceUrl.' }, { status: 400 });
+      }
+      if (!/^https:\/\/(api\.)?housecanary\.com\//i.test(parsed.toString())) {
+        return NextResponse.json({ error: 'Unsupported report source host.' }, { status: 400 });
+      }
+      upstream = await fetch(parsed.toString(), {
+        headers: { Authorization: readHouseCanaryOrderManagerAuth(), Accept: 'application/pdf' },
+        cache: 'no-store',
+      });
+    } else {
+      if (!orderId || !itemId || !pdfType) {
+        return NextResponse.json({ error: 'sourceUrl or orderId, itemId, and pdfType are required.' }, { status: 400 });
+      }
+      upstream = await fetch(`${process.env.HOUSECANARY_ORDER_MANAGER_BASE_URL || HOUSECANARY_ORDER_MANAGER_BASE}/orders/${encodeURIComponent(orderId)}/items/${encodeURIComponent(itemId)}/pdfdownload/${encodeURIComponent(pdfType)}`, {
+        headers: {
+          Authorization: readHouseCanaryOrderManagerAuth(),
+          Accept: 'application/pdf',
+        },
+        cache: 'no-store',
+      });
     }
-
-    const upstream = await fetch(`${process.env.HOUSECANARY_ORDER_MANAGER_BASE_URL || HOUSECANARY_ORDER_MANAGER_BASE}/orders/${encodeURIComponent(orderId)}/items/${encodeURIComponent(itemId)}/pdfdownload/${encodeURIComponent(pdfType)}`, {
-      headers: {
-        Authorization: readHouseCanaryOrderManagerAuth(),
-        Accept: 'application/pdf',
-      },
-      cache: 'no-store',
-    });
 
     if (!upstream.ok) {
       return NextResponse.json({ error: `HouseCanary report download failed (${upstream.status}).` }, { status: upstream.status });

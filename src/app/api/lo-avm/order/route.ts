@@ -374,6 +374,13 @@ function derivePdfTypeFromFilename(filename: string | null | undefined) {
   return match?.[1] || null;
 }
 
+function buildLoanOfficerPropertyExplorerReportLink(sourceUrl: string | null | undefined) {
+  const value = firstString(sourceUrl);
+  if (!value) return null;
+  const params = new URLSearchParams({ sourceUrl: value });
+  return `/api/lo-avm/report?${params.toString()}`;
+}
+
 function buildLoanOfficerAgileReportLink(orderId: string | number | null | undefined, itemId: string | number | null | undefined, pdfType: string | null | undefined) {
   const normalizedPdfType = firstString(pdfType);
   if (!orderId || !itemId || !normalizedPdfType) return null;
@@ -1414,8 +1421,10 @@ export async function POST(req: NextRequest) {
           ? (hcValue.fsd <= requestedMaxFsd + 0.0001 ? 'passed' : 'failed')
           : null;
 
+        const proxiedReportLink = buildLoanOfficerPropertyExplorerReportLink(pexp.link);
         const responsePayload = {
-          reportLink: pexp.link,
+          reportLink: proxiedReportLink,
+          providerReportUrl: pexp.link,
           value: hcValue.value,
           fsd: hcValue.fsd,
           lowValue: hcValue.lowValue,
@@ -1445,7 +1454,7 @@ export async function POST(req: NextRequest) {
           await sendLoanOfficerReportEmail({
             to: session.email,
             subject: `HouseCanary report ready for ${address}`,
-            html: buildHouseCanaryEmailHtml({ address, investor: investorLabel, link: pexp.link }),
+            html: buildHouseCanaryEmailHtml({ address, investor: investorLabel, link: proxiedReportLink || pexp.link }),
           });
         } catch (emailError) {
           console.error('LO AVM report email failed:', emailError);
@@ -1572,6 +1581,17 @@ export async function POST(req: NextRequest) {
           throw new Error(`Failed to save Agile Insights order: ${error?.message || 'unknown error'}`);
         }
         insertedOrder = await pollHouseCanaryAgileInsightsOrder(supabase, insertedOrder);
+        if (insertedOrder?.order_status === 'completed' && typeof insertedOrder?.response_payload?.reportLink === 'string') {
+          try {
+            await sendLoanOfficerReportEmail({
+              to: session.email,
+              subject: `HouseCanary report ready for ${address}`,
+              html: buildHouseCanaryEmailHtml({ address, investor: investorLabel, link: insertedOrder.response_payload.reportLink }),
+            });
+          } catch (emailError) {
+            console.error('LO AVM Agile report email failed:', emailError);
+          }
+        }
       }
     } else if (ccRule?.supported) {
       if (!city || !state) {
