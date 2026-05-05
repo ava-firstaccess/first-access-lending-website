@@ -68,7 +68,6 @@ type ProviderDisplayRow = {
   fsdThresholdStatus?: 'pending' | 'passed' | 'failed' | null;
   targetedInvestor?: string | null;
   runSource?: 'manual' | 'cascade' | null;
-  forceHouseCanaryProduct?: 'agile_insights' | 'property_explorer' | null;
 };
 
 type LiveOrderResult = {
@@ -117,7 +116,6 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
   const [liveOrderResult, setLiveOrderResult] = useState<LiveOrderResult | null>(null);
   const [orderError, setOrderError] = useState('');
   const [ordering, setOrdering] = useState(false);
-  const [forceManualHouseCanaryAgile, setForceManualHouseCanaryAgile] = useState(false);
 
   useEffect(() => {
     try {
@@ -252,7 +250,6 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
           product: selectedSidebarInvestor.product,
           runSource,
           manualProvider: runSource === 'manual' ? manualProvider : null,
-          forceHouseCanaryProduct: runSource === 'manual' && manualProvider === 'HouseCanary' && forceManualHouseCanaryAgile ? 'agile_insights' : null,
           cacheOnly,
         }),
       });
@@ -392,20 +389,6 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                   <div className="mt-1 text-xs text-slate-500">Required. Enter the loan number, or the borrower phone number if the loan number is not known yet. This will be sent as HouseCanary customer_order_id and Clear Capital trackingIds[0].</div>
                 </label>
               </div>
-              <label className="mt-3 flex items-center gap-2 text-xs text-slate-600">
-                <input
-                  type="checkbox"
-                  checked={forceManualHouseCanaryAgile}
-                  onChange={e => setForceManualHouseCanaryAgile(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-slate-900"
-                />
-                <span>Force Agile Insights on manual HouseCanary runs for testing</span>
-              </label>
-              {forceManualHouseCanaryAgile ? (
-                <div className="mt-2 rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-xs text-violet-900">
-                  Agile test mode is on. Click <span className="font-semibold">Run Agile Test</span> on the <span className="font-semibold">HouseCanary</span> row below. The top <span className="font-semibold">Run Cascade</span> button will still use the normal Property Explorer path.
-                </div>
-              ) : null}
               {(parsedCity || parsedState || parsedZipcode) ? <div className="mt-3 text-xs text-slate-500">Parsed: {[parsedCity, parsedState, parsedZipcode].filter(Boolean).join(', ')}</div> : null}
               {liveOrderResult ? <div className={`mt-3 rounded-2xl border px-4 py-3 text-sm ${liveOrderResult.cacheHit ? 'border-sky-200 bg-sky-50 text-sky-900' : 'border-emerald-200 bg-emerald-50 text-emerald-900'}`}>{liveOrderResult.message}</div> : null}
               {orderError ? <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{orderError}</div> : null}
@@ -492,9 +475,9 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                               type="button"
                               onClick={() => handleOrderAvm('manual', row.provider)}
                               disabled={ordering || !selectedSidebarInvestor || !address.trim() || !parsedZipcode.trim() || !loanNumber.trim() || !row.supported}
-                              className={`rounded-full border px-2.5 py-1 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${row.provider === 'HouseCanary' && forceManualHouseCanaryAgile ? 'border-violet-400 bg-violet-600 text-white hover:bg-violet-700' : 'border-slate-300 text-slate-700 hover:border-slate-400'}`}
+                              className="rounded-full border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              {row.provider === 'HouseCanary' && forceManualHouseCanaryAgile ? 'Run Agile Test' : 'Manual Run'}
+                              Manual Run
                             </button>
                           ) : <span className="text-slate-400">—</span>}
                         </div>
