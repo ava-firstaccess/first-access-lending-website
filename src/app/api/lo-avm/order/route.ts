@@ -1,3 +1,4 @@
+import AdmZip from 'adm-zip';
 import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildLoanOfficerPortalUnauthorizedResponse, getLoanOfficerPortalSessionFromRequest } from '@/lib/lo-portal-auth';
@@ -361,6 +362,100 @@ function firstString(...values: unknown[]) {
   return null;
 }
 
+function formatCurrencyRange(low: number | null, high: number | null) {
+  if (low === null || high === null) return null;
+  return `$${Math.round(low).toLocaleString()} - $${Math.round(high).toLocaleString()}`;
+}
+
+function derivePdfTypeFromFilename(filename: string | null | undefined) {
+  const value = firstString(filename);
+  if (!value) return null;
+  const match = value.match(/_([^_/]+)\.pdf$/i);
+  return match?.[1] || null;
+}
+
+function buildLoanOfficerAgileReportLink(orderId: string | number | null | undefined, itemId: string | number | null | undefined, pdfType: string | null | undefined) {
+  const normalizedPdfType = firstString(pdfType);
+  if (!orderId || !itemId || !normalizedPdfType) return null;
+  const params = new URLSearchParams({
+    orderId: String(orderId),
+    itemId: String(itemId),
+    pdfType: normalizedPdfType,
+  });
+  return `/api/lo-avm/report?${params.toString()}`;
+}
+
+function extractHouseCanaryExportZipData(buffer: Buffer) {
+  const zip = new AdmZip(buffer);
+  const entries = zip.getEntries().filter((entry: AdmZip.IZipEntry) => !entry.isDirectory);
+  const entryNames = entries.map((entry: AdmZip.IZipEntry) => entry.entryName);
+  const orderItemEntry = entries.find((entry: AdmZip.IZipEntry) => /_OrderItem\.json$/i.test(entry.entryName)) || null;
+  const detailEntry = entries.find((entry: AdmZip.IZipEntry) => /(?<!_OrderItem)\.json$/i.test(entry.entryName) && !/Order\.json$/i.test(entry.entryName)) || null;
+  const orderEntry = entries.find((entry: AdmZip.IZipEntry) => /(^|\/)Order\.json$/i.test(entry.entryName)) || null;
+  const pdfEntry = entries.find((entry: AdmZip.IZipEntry) => /_AgileInsights\.pdf$/i.test(entry.entryName)) || entries.find((entry: AdmZip.IZipEntry) => /\.pdf$/i.test(entry.entryName)) || null;
+
+  const parseJsonEntry = (entry: AdmZip.IZipEntry | null) => {
+    if (!entry) return null;
+    return JSON.parse(entry.getData().toString('utf8'));
+  };
+
+  const orderItem = parseJsonEntry(orderItemEntry);
+  const detail = parseJsonEntry(detailEntry);
+  const order = parseJsonEntry(orderEntry);
+
+  const propertyValue = orderItem?.property_value || null;
+  const detailAvm = detail?.avm || null;
+  const value = firstNumber(
+    propertyValue?.price_mean,
+    detailAvm?.value,
+    orderItem?.estimated_value,
+    detail?.subject?.current_value,
+  );
+  const fsd = firstNumber(
+    propertyValue?.fsd,
+    detailAvm?.fsd,
+    orderItem?.fsd,
+    orderItem?.forecast_std_dev,
+  );
+  const lowValue = firstNumber(propertyValue?.price_lwr, detailAvm?.min_val);
+  const highValue = firstNumber(propertyValue?.price_upr, detailAvm?.max_val);
+  const valueRange = firstString(orderItem?.value_range, formatCurrencyRange(lowValue, highValue));
+  const pdfFilename = pdfEntry?.entryName?.split('/').pop() || null;
+  const pdfType = derivePdfTypeFromFilename(pdfFilename);
+
+  return {
+    entryNames,
+    orderItem,
+    detail,
+    order,
+    pdfFilename,
+    pdfType,
+    value: value !== null ? Math.round(value) : null,
+    fsd,
+    lowValue: lowValue !== null ? Math.round(lowValue) : null,
+    highValue: highValue !== null ? Math.round(highValue) : null,
+    valueRange,
+    valuationSuitabilityScore: firstNumber(detailAvm?.valuation_suitability_score),
+    valuationSuitabilityLabel: firstString(detailAvm?.valuation_suitability_score_desc),
+    selectedModel: firstString(detail?.metadata?.selected_avm),
+    reportId: firstNumber(detail?.metadata?.report_id),
+    summaryDataUrl: firstString(order?.summary_data),
+    orderStatus: firstString(order?.status),
+    orderCompleted: typeof order?.completed === 'boolean' ? order.completed : null,
+    itemStatus: firstString(orderItem?.status),
+    itemCompleted: typeof orderItem?.completed === 'boolean' ? orderItem.completed : null,
+  };
+}
+
+async function downloadHouseCanaryExportZip(exportedDataUrl: string) {
+  const res = await fetch(exportedDataUrl, { cache: 'no-store' });
+  if (!res.ok) {
+    throw new Error(`HouseCanary Agile Insights export download failed (${res.status})`);
+  }
+  const arrayBuffer = await res.arrayBuffer();
+  return extractHouseCanaryExportZipData(Buffer.from(arrayBuffer));
+}
+
 async function getHouseCanaryOrder(orderId: string) {
   const res = await fetch(`${process.env.HOUSECANARY_ORDER_MANAGER_BASE_URL || HOUSECANARY_ORDER_MANAGER_BASE}/orders/${orderId}/`, {
     headers: {
@@ -463,14 +558,15 @@ function normalizeHouseCanaryExportJob(job: any) {
 }
 
 async function ensureHouseCanaryAgileInsightsExportJob(orderId: string, existingExportJobId?: string | number | null) {
-  if (existingExportJobId !== null && existingExportJobId !== undefined && String(existingExportJobId).trim()) {
-    return normalizeHouseCanaryExportJob(await getHouseCanaryOrderExportJob(orderId, existingExportJobId));
+  const jobs = await listHouseCanaryOrderExportJobs(orderId);
+  const sortedJobs = [...jobs].sort((a: any, b: any) => Number(b?.id || 0) - Number(a?.id || 0));
+  const preferredJob = sortedJobs.find((job: any) => job?.exclude_json === false) || null;
+  if (preferredJob) {
+    return normalizeHouseCanaryExportJob(preferredJob);
   }
 
-  const jobs = await listHouseCanaryOrderExportJobs(orderId);
-  const existingJob = jobs.find((job: any) => job?.exclude_json === false) || jobs[0] || null;
-  if (existingJob) {
-    return normalizeHouseCanaryExportJob(existingJob);
+  if (existingExportJobId !== null && existingExportJobId !== undefined && String(existingExportJobId).trim()) {
+    return normalizeHouseCanaryExportJob(await getHouseCanaryOrderExportJob(orderId, existingExportJobId));
   }
 
   return normalizeHouseCanaryExportJob(await createHouseCanaryOrderExportJob(orderId));
@@ -492,6 +588,7 @@ async function fetchHouseCanaryAgileInsightsSnapshot(orderId: string, externalIt
 
   const selectedItem = items.find((item: any) => String(item?.id || '') === String(externalItemId || '')) || items[0] || null;
   const estimatedValue = firstNumber(
+    selectedItem?.property_value?.price_mean,
     selectedItem?.estimated_value,
     selectedItem?.estimatedValue,
     selectedItem?.result?.estimated_value,
@@ -502,6 +599,7 @@ async function fetchHouseCanaryAgileInsightsSnapshot(orderId: string, externalIt
     order?.result?.estimatedValue,
   );
   const fsd = firstNumber(
+    selectedItem?.property_value?.fsd,
     selectedItem?.fsd,
     selectedItem?.forecast_std_dev,
     selectedItem?.forecastStdDev,
@@ -512,9 +610,14 @@ async function fetchHouseCanaryAgileInsightsSnapshot(orderId: string, externalIt
     order?.forecast_std_dev,
     order?.forecastStdDev,
   );
+  const rangeFromPropertyValue = formatCurrencyRange(
+    firstNumber(selectedItem?.property_value?.price_lwr),
+    firstNumber(selectedItem?.property_value?.price_upr),
+  );
   const valueRange = firstString(
     selectedItem?.value_range,
     selectedItem?.valueRange,
+    rangeFromPropertyValue,
     selectedItem?.result?.value_range,
     selectedItem?.result?.valueRange,
     order?.value_range,
@@ -560,7 +663,7 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
     agileInsightsItemsResponse: snapshot.items,
   };
 
-  if (nextOrderStatus === 'completed' && snapshot.fsd === null) {
+  if (nextOrderStatus === 'completed') {
     try {
       const exportJob = await ensureHouseCanaryAgileInsightsExportJob(
         String(order.external_order_id),
@@ -568,6 +671,28 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
       );
       if (exportJob) {
         nextPayload.agileInsightsExportJob = exportJob;
+
+        if (exportJob.status === 'complete' && exportJob.exportedData) {
+          const parsedExport = await downloadHouseCanaryExportZip(exportJob.exportedData);
+          nextPayload.agileInsightsExportParsed = parsedExport;
+          nextPayload.agileInsightsSummaryDataUrl = parsedExport.summaryDataUrl;
+          nextPayload.agileInsightsPdfFilename = parsedExport.pdfFilename;
+          nextPayload.agileInsightsPdfAvailable = Boolean(parsedExport.pdfFilename);
+          nextPayload.reportLink = buildLoanOfficerAgileReportLink(
+            order.external_order_id,
+            snapshot.externalItemId || order.external_item_id || null,
+            snapshot.pdfType || parsedExport.pdfType,
+          );
+          nextPayload.value = parsedExport.value ?? nextPayload.value;
+          nextPayload.fsd = parsedExport.fsd ?? nextPayload.fsd;
+          nextPayload.lowValue = parsedExport.lowValue ?? nextPayload.lowValue;
+          nextPayload.highValue = parsedExport.highValue ?? nextPayload.highValue;
+          nextPayload.valueRange = parsedExport.valueRange ?? nextPayload.valueRange;
+          nextPayload.valuationSuitabilityScore = parsedExport.valuationSuitabilityScore ?? nextPayload.valuationSuitabilityScore;
+          nextPayload.valuationSuitabilityLabel = parsedExport.valuationSuitabilityLabel ?? nextPayload.valuationSuitabilityLabel;
+          nextPayload.selectedModel = parsedExport.selectedModel ?? nextPayload.selectedModel;
+          nextPayload.reportId = parsedExport.reportId ?? nextPayload.reportId;
+        }
       }
     } catch (exportError: any) {
       nextPayload.agileInsightsExportError = exportError?.message || 'Failed to create or load Agile Insights export job.';

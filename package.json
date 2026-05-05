@@ -17,12 +17,14 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.0",
+    "adm-zip": "^0.5.17",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
     "@types/google.maps": "^3.58.1",
     "@types/node": "^20",
     "@types/react": "^19",
