@@ -15,6 +15,7 @@
     "ratesheets:refresh": "node scripts/refresh-ratesheet-pipeline.mjs",
     "meridianlink:proxy": "node scripts/meridianlink-proxy-server.mjs",
     "avm:backfill-analytics": "node scripts/backfill-lo-avm-run-analytics.mjs",
+    "web-avm:backfill-analytics": "node scripts/backfill-web-avm-analytics.mjs",
     "avm:archive-operational": "node scripts/archive-lo-avm-operational-tables.mjs"
   },
   "dependencies": {

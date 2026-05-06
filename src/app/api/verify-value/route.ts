@@ -9,6 +9,9 @@ const VERIFY_VALUE_SESSION_LIMIT = 10;
 const VERIFY_VALUE_WINDOW_SECONDS = 10 * 60;
 
 const HC_BASE = 'https://api.housecanary.com';
+const AVM_PROVIDER_RUNS_TABLE = 'avm_provider_runs';
+const WEB_AVM_ANALYTICS_RUNS_TABLE = 'web_avm_analytics_runs';
+const WEB_AVM_VENDOR_RESULTS_TABLE = 'web_avm_vendor_results';
 
 type ClearCapitalClearAvmResult = {
   confidenceScore?: string;
@@ -122,6 +125,200 @@ async function saveCachedAvmResult(supabase: any, payload: any) {
   }
 }
 
+function mapWebWinnerProvider(value: string | null | undefined): VerificationAvmProvider | null {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized === 'housecanary' || normalized === 'housecanary_estimate') return 'HouseCanary';
+  if (normalized === 'clearcapital') return 'Clear Capital';
+  if (normalized === 'veros') return 'Veros';
+  if (normalized === 'ca value' || normalized === 'cavalue') return 'CA Value';
+  if (normalized === 'black knight (valusure)' || normalized === 'blackknight') return 'Black Knight (Valusure)';
+  return null;
+}
+
+function getWebWinnerValue(responsePayload: any) {
+  return typeof responsePayload?.hcValue === 'number'
+    ? Math.round(responsePayload.hcValue)
+    : null;
+}
+
+function getWebWinnerFsd(responsePayload: any) {
+  return getFinalAvmFsd(responsePayload);
+}
+
+function getWebWinnerNewMaxLoan(responsePayload: any) {
+  return typeof responsePayload?.newMaxLoan === 'number'
+    ? Math.round(responsePayload.newMaxLoan)
+    : null;
+}
+
+function buildWebAvmVendorResults(responsePayload: any, source: 'cache' | 'fresh') {
+  const winnerProvider = mapWebWinnerProvider(responsePayload?.valuationProvider);
+  const rows: Array<{
+    provider: VerificationAvmProvider;
+    source: 'cache' | 'fresh';
+    vendor_product: string | null;
+    value: number | null;
+    fsd: number | null;
+    is_winner: boolean;
+    failure_message: string | null;
+  }> = [];
+
+  const hasHouseCanaryEvidence = winnerProvider === 'HouseCanary'
+    || typeof responsePayload?.houseCanaryEstimate === 'number'
+    || typeof responsePayload?.houseCanaryValue === 'number'
+    || typeof responsePayload?.houseCanaryFsd === 'number'
+    || typeof responsePayload?.fsd === 'number'
+    || String(responsePayload?.valuationProvider || '').trim().toLowerCase() === 'housecanary_estimate';
+
+  if (hasHouseCanaryEvidence) {
+    const valuationProvider = String(responsePayload?.valuationProvider || '').trim().toLowerCase();
+    const value = winnerProvider === 'HouseCanary' && typeof responsePayload?.hcValue === 'number'
+      ? Math.round(responsePayload.hcValue)
+      : typeof responsePayload?.houseCanaryValue === 'number'
+        ? Math.round(responsePayload.houseCanaryValue)
+        : valuationProvider === 'housecanary_estimate' && typeof responsePayload?.hcValue === 'number'
+          ? Math.round(responsePayload.hcValue)
+          : typeof responsePayload?.houseCanaryEstimate === 'number'
+            ? Math.round(responsePayload.houseCanaryEstimate)
+            : null;
+    const fsd = typeof responsePayload?.fsd === 'number'
+      ? responsePayload.fsd
+      : typeof responsePayload?.houseCanaryFsd === 'number'
+        ? responsePayload.houseCanaryFsd
+        : null;
+
+    rows.push({
+      provider: 'HouseCanary',
+      source,
+      vendor_product: valuationProvider === 'housecanary_estimate' ? 'property_estimated_value' : 'property_value',
+      value,
+      fsd,
+      is_winner: winnerProvider === 'HouseCanary',
+      failure_message: null,
+    });
+  }
+
+  const hasClearCapitalEvidence = winnerProvider === 'Clear Capital'
+    || typeof responsePayload?.clearCapitalForecastStdDev === 'number'
+    || typeof responsePayload?.clearCapitalConfidenceScore === 'string'
+    || typeof responsePayload?.clearCapitalRunDate === 'string'
+    || typeof responsePayload?.clearCapitalEffectiveDate === 'string';
+
+  if (hasClearCapitalEvidence) {
+    rows.push({
+      provider: 'Clear Capital',
+      source,
+      vendor_product: 'property_analytics',
+      value: winnerProvider === 'Clear Capital' && typeof responsePayload?.hcValue === 'number'
+        ? Math.round(responsePayload.hcValue)
+        : null,
+      fsd: typeof responsePayload?.clearCapitalForecastStdDev === 'number'
+        ? responsePayload.clearCapitalForecastStdDev
+        : null,
+      is_winner: winnerProvider === 'Clear Capital',
+      failure_message: null,
+    });
+  }
+
+  return rows.filter((row) => row.value !== null || row.fsd !== null || row.failure_message !== null || row.is_winner);
+}
+
+function isMissingWebAvmAnalyticsError(error: any) {
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes(WEB_AVM_ANALYTICS_RUNS_TABLE)
+    || message.includes(WEB_AVM_VENDOR_RESULTS_TABLE);
+}
+
+async function persistWebAvmAnalytics(supabase: any, {
+  app,
+  applicationId,
+  address,
+  zipcode,
+  city,
+  state,
+  propertyType,
+  maxLtv,
+  cacheHit,
+  responsePayload,
+  createdAt,
+}: {
+  app: Record<string, unknown>;
+  applicationId: string;
+  address: string;
+  zipcode?: string | null;
+  city?: string | null;
+  state?: string | null;
+  propertyType?: string | null;
+  maxLtv: number;
+  cacheHit: boolean;
+  responsePayload: any;
+  createdAt: string;
+}) {
+  try {
+    const runId = randomUUID();
+    const anonymousId = typeof app?.anonymous_id === 'string' ? app.anonymous_id : null;
+    const quotedInvestor = getQuotedInvestorContext(app).quotedInvestor;
+    const winnerProvider = mapWebWinnerProvider(responsePayload?.valuationProvider);
+    const vendorRows = buildWebAvmVendorResults(responsePayload, cacheHit ? 'cache' : 'fresh');
+
+    const runPayload = {
+      run_id: runId,
+      application_id: applicationId,
+      anonymous_id: anonymousId,
+      quoted_investor: quotedInvestor,
+      property_address: address,
+      property_city: city || null,
+      property_state: state || null,
+      property_zipcode: zipcode || null,
+      property_type: propertyType || null,
+      max_ltv: maxLtv,
+      tier: responsePayload?.tier || null,
+      cascade_decision: responsePayload?.cascadeDecision || null,
+      winner_provider: winnerProvider,
+      winner_value: getWebWinnerValue(responsePayload),
+      winner_fsd: getWebWinnerFsd(responsePayload),
+      winner_new_max_loan: getWebWinnerNewMaxLoan(responsePayload),
+      cache_hit: cacheHit,
+      vendor_results_count: vendorRows.length,
+      completed_successfully: responsePayload?.tier !== 'error',
+      needs_human: Boolean(responsePayload?.needsHuman || responsePayload?.needsClearCapital),
+      created_at: createdAt,
+      updated_at: createdAt,
+    };
+
+    const { error: runError } = await supabase
+      .from(WEB_AVM_ANALYTICS_RUNS_TABLE)
+      .insert(runPayload);
+    if (runError) {
+      if (isMissingWebAvmAnalyticsError(runError)) return;
+      throw runError;
+    }
+
+    if (vendorRows.length > 0) {
+      const { error: vendorError } = await supabase
+        .from(WEB_AVM_VENDOR_RESULTS_TABLE)
+        .insert(vendorRows.map((row) => ({
+          run_id: runId,
+          provider: row.provider,
+          source: row.source,
+          vendor_product: row.vendor_product,
+          value: row.value,
+          fsd: row.fsd,
+          is_winner: row.is_winner,
+          failure_message: row.failure_message,
+          created_at: createdAt,
+        })));
+      if (vendorError) {
+        if (isMissingWebAvmAnalyticsError(vendorError)) return;
+        throw vendorError;
+      }
+    }
+  } catch (error) {
+    console.error('Web AVM analytics persistence failed:', error);
+  }
+}
+
 function getFinalAvmFsd(responsePayload: any) {
   if (typeof responsePayload?.finalFsd === 'number' && Number.isFinite(responsePayload.finalFsd)) {
     return responsePayload.finalFsd;
@@ -188,8 +385,6 @@ function getClearCapitalPaaConfig() {
   if (!apiKey) return null;
   return { apiKey, baseUrl };
 }
-
-const AVM_PROVIDER_RUNS_TABLE = 'avm_provider_runs';
 
 async function insertAvmProviderRun(supabase: any, payload: any) {
   try {
@@ -717,7 +912,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const auth = await getApplicationBySessionToken(sessionToken, 'id, session_expires_at, form_data');
+    const auth = await getApplicationBySessionToken(sessionToken, 'id, session_expires_at, form_data, anonymous_id');
     if ('response' in auth) return auth.response;
     const { supabase, app } = auth;
     const applicationId = typeof app?.id === 'string' ? app.id : null;
@@ -795,6 +990,20 @@ export async function POST(req: NextRequest) {
     const cached = await getCachedAvmResult(supabase, addressKey);
     if (cached) {
       console.log('verify-value cache hit:', { tier: cached.tier });
+      const analyticsCreatedAt = new Date().toISOString();
+      await persistWebAvmAnalytics(supabase, {
+        app: app as Record<string, unknown>,
+        applicationId,
+        address,
+        zipcode,
+        city,
+        state,
+        propertyType: String(propertyType || 'Primary'),
+        maxLtv: getMaxLtv(creditScore || 720, propertyType || 'Primary'),
+        cacheHit: true,
+        responsePayload: cached.response_payload,
+        createdAt: analyticsCreatedAt,
+      });
       return NextResponse.json(cached.response_payload);
     }
     console.log('verify-value cache miss');
@@ -883,7 +1092,21 @@ export async function POST(req: NextRequest) {
           maxLtv,
           responsePayload: ccFallback,
         }));
-        return NextResponse.json(ccFallback);
+        const analyticsCreatedAt = new Date().toISOString();
+        await persistWebAvmAnalytics(supabase, {
+          app: app as Record<string, unknown>,
+          applicationId,
+          address,
+          zipcode,
+          city,
+          state,
+          propertyType: String(propertyType || 'Primary'),
+          maxLtv,
+          cacheHit: false,
+          responsePayload: ccFallback,
+          createdAt: analyticsCreatedAt,
+        });
+      return NextResponse.json(ccFallback);
       }
 
       const responsePayload = {
@@ -902,6 +1125,20 @@ export async function POST(req: NextRequest) {
           maxLtv,
           responsePayload: responsePayload,
         }));
+      const analyticsCreatedAt = new Date().toISOString();
+      await persistWebAvmAnalytics(supabase, {
+        app: app as Record<string, unknown>,
+        applicationId,
+        address,
+        zipcode,
+        city,
+        state,
+        propertyType: String(propertyType || 'Primary'),
+        maxLtv,
+        cacheHit: false,
+        responsePayload,
+        createdAt: analyticsCreatedAt,
+      });
       return NextResponse.json(responsePayload);
     }
 
@@ -937,7 +1174,21 @@ export async function POST(req: NextRequest) {
           maxLtv,
           responsePayload: ccFallback,
         }));
-        return NextResponse.json(ccFallback);
+        const analyticsCreatedAt = new Date().toISOString();
+        await persistWebAvmAnalytics(supabase, {
+          app: app as Record<string, unknown>,
+          applicationId,
+          address,
+          zipcode,
+          city,
+          state,
+          propertyType: String(propertyType || 'Primary'),
+          maxLtv,
+          cacheHit: false,
+          responsePayload: ccFallback,
+          createdAt: analyticsCreatedAt,
+        });
+      return NextResponse.json(ccFallback);
       }
 
       const responsePayload = {
@@ -956,6 +1207,20 @@ export async function POST(req: NextRequest) {
           maxLtv,
           responsePayload: responsePayload,
         }));
+      const analyticsCreatedAt = new Date().toISOString();
+      await persistWebAvmAnalytics(supabase, {
+        app: app as Record<string, unknown>,
+        applicationId,
+        address,
+        zipcode,
+        city,
+        state,
+        propertyType: String(propertyType || 'Primary'),
+        maxLtv,
+        cacheHit: false,
+        responsePayload,
+        createdAt: analyticsCreatedAt,
+      });
       return NextResponse.json(responsePayload);
     }
 
@@ -998,6 +1263,20 @@ export async function POST(req: NextRequest) {
           maxLtv,
           responsePayload: responsePayload,
         }));
+      const analyticsCreatedAt = new Date().toISOString();
+      await persistWebAvmAnalytics(supabase, {
+        app: app as Record<string, unknown>,
+        applicationId,
+        address,
+        zipcode,
+        city,
+        state,
+        propertyType: String(propertyType || 'Primary'),
+        maxLtv,
+        cacheHit: false,
+        responsePayload,
+        createdAt: analyticsCreatedAt,
+      });
       return NextResponse.json(responsePayload);
     }
 
@@ -1024,6 +1303,20 @@ export async function POST(req: NextRequest) {
           maxLtv,
           responsePayload: responsePayload,
         }));
+      const analyticsCreatedAt = new Date().toISOString();
+      await persistWebAvmAnalytics(supabase, {
+        app: app as Record<string, unknown>,
+        applicationId,
+        address,
+        zipcode,
+        city,
+        state,
+        propertyType: String(propertyType || 'Primary'),
+        maxLtv,
+        cacheHit: false,
+        responsePayload,
+        createdAt: analyticsCreatedAt,
+      });
       return NextResponse.json(responsePayload);
     }
 
@@ -1085,7 +1378,21 @@ export async function POST(req: NextRequest) {
           maxLtv,
           responsePayload: responsePayload,
         }));
-        return NextResponse.json(responsePayload);
+        const analyticsCreatedAt = new Date().toISOString();
+      await persistWebAvmAnalytics(supabase, {
+        app: app as Record<string, unknown>,
+        applicationId,
+        address,
+        zipcode,
+        city,
+        state,
+        propertyType: String(propertyType || 'Primary'),
+        maxLtv,
+        cacheHit: false,
+        responsePayload,
+        createdAt: analyticsCreatedAt,
+      });
+      return NextResponse.json(responsePayload);
       }
     }
 
@@ -1187,7 +1494,21 @@ export async function POST(req: NextRequest) {
           maxLtv,
           responsePayload: ccFallback,
         }));
-        return NextResponse.json(ccFallback);
+        const analyticsCreatedAt = new Date().toISOString();
+        await persistWebAvmAnalytics(supabase, {
+          app: app as Record<string, unknown>,
+          applicationId,
+          address,
+          zipcode,
+          city,
+          state,
+          propertyType: String(propertyType || 'Primary'),
+          maxLtv,
+          cacheHit: false,
+          responsePayload: ccFallback,
+          createdAt: analyticsCreatedAt,
+        });
+      return NextResponse.json(ccFallback);
       }
 
       const responsePayload = {
@@ -1211,6 +1532,20 @@ export async function POST(req: NextRequest) {
           maxLtv,
           responsePayload: responsePayload,
         }));
+      const analyticsCreatedAt = new Date().toISOString();
+      await persistWebAvmAnalytics(supabase, {
+        app: app as Record<string, unknown>,
+        applicationId,
+        address,
+        zipcode,
+        city,
+        state,
+        propertyType: String(propertyType || 'Primary'),
+        maxLtv,
+        cacheHit: false,
+        responsePayload,
+        createdAt: analyticsCreatedAt,
+      });
       return NextResponse.json(responsePayload);
     }
 
@@ -1292,7 +1627,21 @@ export async function POST(req: NextRequest) {
           maxLtv,
           responsePayload: responsePayload,
         }));
-        return NextResponse.json(responsePayload);
+        const analyticsCreatedAt = new Date().toISOString();
+      await persistWebAvmAnalytics(supabase, {
+        app: app as Record<string, unknown>,
+        applicationId,
+        address,
+        zipcode,
+        city,
+        state,
+        propertyType: String(propertyType || 'Primary'),
+        maxLtv,
+        cacheHit: false,
+        responsePayload,
+        createdAt: analyticsCreatedAt,
+      });
+      return NextResponse.json(responsePayload);
       }
 
       const responsePayload = {
@@ -1323,6 +1672,20 @@ export async function POST(req: NextRequest) {
           maxLtv,
           responsePayload: responsePayload,
         }));
+      const analyticsCreatedAt = new Date().toISOString();
+      await persistWebAvmAnalytics(supabase, {
+        app: app as Record<string, unknown>,
+        applicationId,
+        address,
+        zipcode,
+        city,
+        state,
+        propertyType: String(propertyType || 'Primary'),
+        maxLtv,
+        cacheHit: false,
+        responsePayload,
+        createdAt: analyticsCreatedAt,
+      });
       return NextResponse.json(responsePayload);
     }
 
@@ -1383,6 +1746,20 @@ export async function POST(req: NextRequest) {
           maxLtv,
           responsePayload: ccFallback,
         }));
+      const analyticsCreatedAt = new Date().toISOString();
+      await persistWebAvmAnalytics(supabase, {
+        app: app as Record<string, unknown>,
+        applicationId,
+        address,
+        zipcode,
+        city,
+        state,
+        propertyType: String(propertyType || 'Primary'),
+        maxLtv,
+        cacheHit: false,
+        responsePayload: ccFallback,
+        createdAt: analyticsCreatedAt,
+      });
       return NextResponse.json(ccFallback);
     }
 
