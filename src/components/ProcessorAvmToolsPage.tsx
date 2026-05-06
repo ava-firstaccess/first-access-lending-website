@@ -93,6 +93,7 @@ function statusClasses(value: string | null) {
     case 'assigned':
     case 'inspection_scheduled':
     case 'inspection_completed': return 'border-sky-200 bg-sky-50 text-sky-800';
+    case 'cancel_requested':
     case 'hold_added':
     case 'under_review':
     case 'eta_changed':
@@ -118,6 +119,7 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
   const [pciResult, setPciResult] = useState<PciOrderResult | null>(null);
   const [search, setSearch] = useState('');
   const [reportLoadingOrderId, setReportLoadingOrderId] = useState<string | null>(null);
+  const [cancelLoadingOrderId, setCancelLoadingOrderId] = useState<string | null>(null);
   const [reportError, setReportError] = useState('');
 
   const filteredPciOrders = useMemo(() => {
@@ -232,6 +234,34 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
     setTimeout(() => setRefreshing(false), 800);
   }
 
+  async function handleCancelOrder(orderId: string) {
+    const confirmed = window.confirm('Cancel this PCI order? Clear Capital says cancellation depends on current order state.');
+    if (!confirmed) return;
+
+    setCancelLoadingOrderId(orderId);
+    setReportError('');
+
+    try {
+      const response = await fetch('/api/clear-capital/pci-cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setReportError(data?.error || 'Failed to cancel the PCI order.');
+        return;
+      }
+
+      router.refresh();
+    } catch {
+      setReportError('Failed to cancel the PCI order.');
+    } finally {
+      setCancelLoadingOrderId(null);
+    }
+  }
+
   async function handleDownloadReport(orderId: string) {
     setReportLoadingOrderId(orderId);
     setReportError('');
@@ -299,7 +329,7 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
                   disabled={pdfLoading || pciLoading}
                   className="rounded-xl bg-sky-500 px-5 py-3 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {pdfLoading ? 'Ordering PDF…' : 'Order PDF'}
+                  {pdfLoading ? 'Ordering PDF…' : 'Order CC AVM PDF'}
                 </button>
                 <button
                   type="button"
@@ -421,15 +451,25 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
                         <div className="mt-1">Inspection: <span className="text-slate-900">{formatDateTime(order.inspectionDate)}</span></div>
                       </td>
                       <td className="px-4 py-4 text-slate-700">
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadReport(order.orderId)}
-                          disabled={reportLoadingOrderId === order.orderId || order.status !== 'completed'}
-                          className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {reportLoadingOrderId === order.orderId ? 'Loading…' : 'Download report'}
-                        </button>
-                        <div className="mt-2 text-xs text-slate-500">Fetches a fresh report URL from Clear Capital.</div>
+                        <div className="flex flex-col gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadReport(order.orderId)}
+                            disabled={reportLoadingOrderId === order.orderId || order.status !== 'completed'}
+                            className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {reportLoadingOrderId === order.orderId ? 'Loading…' : 'Download report'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCancelOrder(order.orderId)}
+                            disabled={cancelLoadingOrderId === order.orderId || ['completed', 'canceled', 'declined', 'cancel_requested'].includes(order.status || '')}
+                            className="rounded-xl border border-rose-300 px-3 py-2 text-xs font-semibold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {cancelLoadingOrderId === order.orderId ? 'Canceling…' : 'Cancel order'}
+                          </button>
+                        </div>
+                        <div className="mt-2 text-xs text-slate-500">Download fetches a fresh report URL. Cancel submits a Clear Capital cancellation request.</div>
                       </td>
                       <td className="px-4 py-4 text-slate-700">
                         {order.holdReason ? <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">{order.holdReason}</div> : null}
