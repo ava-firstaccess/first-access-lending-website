@@ -9,7 +9,7 @@ type PortalSession = {
   name?: string;
 };
 
-type OrderResult = {
+type PdfOrderResult = {
   success: boolean;
   orderId: string;
   pdfUrl: string;
@@ -20,9 +20,19 @@ type OrderResult = {
   maxFsd: number;
 };
 
+type PciOrderResult = {
+  success: boolean;
+  orderId: string;
+  address: string;
+  productCode: string;
+  referenceIdentifier: string;
+  orderedByEmail: string;
+};
+
 type PciOrderRow = {
   orderId: string;
   referenceIdentifier: string | null;
+  productCode: string | null;
   status: string | null;
   address: string | null;
   city: string | null;
@@ -37,6 +47,7 @@ type PciOrderRow = {
   lastMessage: string | null;
   lastMessageUrgent: boolean;
   exportUrl: string | null;
+  createdAt: string | null;
   updatedAt: string | null;
 };
 
@@ -68,9 +79,16 @@ function statusLabel(value: string | null) {
   return value.replace(/_/g, ' ');
 }
 
+function eventLabel(value: string | null) {
+  if (!value) return '—';
+  if (value === 'OrderPlaced') return 'Order Placed';
+  return value.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ');
+}
+
 function statusClasses(value: string | null) {
   switch (value) {
     case 'completed': return 'border-emerald-200 bg-emerald-50 text-emerald-800';
+    case 'placed':
     case 'accepted':
     case 'assigned':
     case 'inspection_scheduled':
@@ -92,10 +110,12 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [zipcode, setZipcode] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pciLoading, setPciLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState('');
-  const [result, setResult] = useState<OrderResult | null>(null);
+  const [formError, setFormError] = useState('');
+  const [pdfResult, setPdfResult] = useState<PdfOrderResult | null>(null);
+  const [pciResult, setPciResult] = useState<PciOrderResult | null>(null);
   const [search, setSearch] = useState('');
   const [reportLoadingOrderId, setReportLoadingOrderId] = useState<string | null>(null);
   const [reportError, setReportError] = useState('');
@@ -106,6 +126,7 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
     return initialPciOrders.filter((order) => [
       order.orderId,
       order.referenceIdentifier || '',
+      order.productCode || '',
       order.status || '',
       order.address || '',
       order.city || '',
@@ -123,19 +144,26 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
     setState(nextState || '');
     setZipcode(nextZip || '');
     setCity(nextCity || '');
-    setError('');
-    setResult(null);
+    setFormError('');
+    setPdfResult(null);
+    setPciResult(null);
   }
 
-  async function handleSubmit() {
+  function validateParsedAddress() {
     if (!address.trim() || !city.trim() || !state.trim() || !zipcode.trim()) {
-      setError('Select a full address from autocomplete so city, state, and ZIP are captured.');
-      return;
+      setFormError('Select a full property address from Google autocomplete so city, state, and ZIP are parsed automatically.');
+      return false;
     }
+    return true;
+  }
 
-    setLoading(true);
-    setError('');
-    setResult(null);
+  async function handleOrderPdf() {
+    if (!validateParsedAddress()) return;
+
+    setPdfLoading(true);
+    setFormError('');
+    setPdfResult(null);
+    setPciResult(null);
 
     try {
       const response = await fetch('/api/lo-avm/clear-capital-order-pdf', {
@@ -151,15 +179,50 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setError(data?.error || 'Failed to create Clear Capital PDF order.');
+        setFormError(data?.error || 'Failed to create Clear Capital PDF order.');
         return;
       }
 
-      setResult(data as OrderResult);
+      setPdfResult(data as PdfOrderResult);
     } catch {
-      setError('Failed to create Clear Capital PDF order.');
+      setFormError('Failed to create Clear Capital PDF order.');
     } finally {
-      setLoading(false);
+      setPdfLoading(false);
+    }
+  }
+
+  async function handleOrderPci() {
+    if (!validateParsedAddress()) return;
+
+    setPciLoading(true);
+    setFormError('');
+    setPdfResult(null);
+    setPciResult(null);
+
+    try {
+      const response = await fetch('/api/lo-avm/clear-capital-order-pci', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address: address.trim(),
+          city: city.trim(),
+          state: state.trim(),
+          zipcode: zipcode.trim(),
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setFormError(data?.error || 'Failed to place Clear Capital PCI order.');
+        return;
+      }
+
+      setPciResult(data as PciOrderResult);
+      router.refresh();
+    } catch {
+      setFormError('Failed to place Clear Capital PCI order.');
+    } finally {
+      setPciLoading(false);
     }
   }
 
@@ -208,47 +271,45 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Loan Processor Portal</div>
               <h1 className="mt-2 text-3xl font-bold text-slate-900">AVM Tools</h1>
-              <p className="mt-2 text-sm text-slate-600">Signed in as {session.email}. PDF orders stay one-and-done. PCI orders now have live webhook tracking, email alerts, and a searchable status table below.</p>
+              <p className="mt-2 text-sm text-slate-600">Signed in as {session.email}. Use one Google-parsed property address to place either a one-and-done PDF order or a live PCI order that starts with Order Placed and then updates from webhook events.</p>
             </div>
           </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.15fr,0.85fr]">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Order PDF</h2>
-            <p className="mt-2 text-sm text-slate-600">This uses the Clear Capital Property Analytics API with the proven Postman flow and the current default max FSD.</p>
+            <h2 className="text-lg font-semibold text-slate-900">Order Clear Capital report</h2>
+            <p className="mt-2 text-sm text-slate-600">Use the Google address field only. City, state, and ZIP are parsed automatically from the selected property.</p>
 
             <div className="mt-5 space-y-4">
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">Property address</label>
                 <AddressAutocomplete value={address} onChange={handleAddressChange} placeholder="Start typing a property address" />
+                {(city || state || zipcode) ? (
+                  <div className="mt-2 text-xs text-slate-500">Parsed: {[city, state, zipcode].filter(Boolean).join(', ')}</div>
+                ) : null}
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">City</label>
-                  <input value={city} onChange={(e) => setCity(e.target.value)} className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-500" />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">State</label>
-                  <input value={state} onChange={(e) => setState(e.target.value.toUpperCase())} maxLength={2} className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm uppercase text-slate-900 outline-none focus:border-sky-500" />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">ZIP</label>
-                  <input value={zipcode} onChange={(e) => setZipcode(e.target.value)} className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-500" />
-                </div>
+              {formError ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{formError}</div> : null}
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleOrderPdf}
+                  disabled={pdfLoading || pciLoading}
+                  className="rounded-xl bg-sky-500 px-5 py-3 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {pdfLoading ? 'Ordering PDF…' : 'Order PDF'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOrderPci}
+                  disabled={pciLoading || pdfLoading}
+                  className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {pciLoading ? 'Placing PCI order…' : 'Order PCI'}
+                </button>
               </div>
-
-              {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div> : null}
-
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={loading}
-                className="rounded-xl bg-sky-500 px-5 py-3 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {loading ? 'Ordering PDF…' : 'Order PDF'}
-              </button>
             </div>
           </div>
 
@@ -256,25 +317,39 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-slate-900">PCI tracking</h2>
               <ul className="mt-4 space-y-3 text-sm text-slate-600">
-                <li>• Webhook receiver: live for Clear Capital valuation events</li>
-                <li>• Email alerts: automatic to the stored processor email on each new status event</li>
-                <li>• Searchable order table: below, with latest event, ETA, hold reasons, and export link when provided</li>
+                <li>• Real PCI orders are placed directly from this page using `PCI_EXTERIOR`.</li>
+                <li>• Each order starts as <span className="font-semibold">Order Placed</span>, then waits for Clear Capital webhook updates.</li>
+                <li>• Completion emails and the table both support report retrieval once the order finishes.</li>
               </ul>
             </div>
 
-            {result ? (
+            {pdfResult ? (
               <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm">
                 <h2 className="text-lg font-semibold text-emerald-950">PDF ready</h2>
                 <div className="mt-4 space-y-3 text-sm text-emerald-900">
-                  <div><span className="font-semibold">Address:</span> {result.address}</div>
-                  <div><span className="font-semibold">Order ID:</span> {result.orderId}</div>
-                  <div><span className="font-semibold">Estimated value:</span> {currency(result.value)}</div>
-                  <div><span className="font-semibold">Returned FSD:</span> {result.fsd !== null ? result.fsd.toFixed(2) : '—'}</div>
-                  <div><span className="font-semibold">Emailed to:</span> {result.emailedTo}</div>
+                  <div><span className="font-semibold">Address:</span> {pdfResult.address}</div>
+                  <div><span className="font-semibold">Order ID:</span> {pdfResult.orderId}</div>
+                  <div><span className="font-semibold">Estimated value:</span> {currency(pdfResult.value)}</div>
+                  <div><span className="font-semibold">Returned FSD:</span> {pdfResult.fsd !== null ? pdfResult.fsd.toFixed(2) : '—'}</div>
+                  <div><span className="font-semibold">Emailed to:</span> {pdfResult.emailedTo}</div>
                 </div>
                 <div className="mt-5 flex flex-wrap gap-3">
-                  <a href={result.pdfUrl} target="_blank" rel="noreferrer" className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">Download PDF</a>
+                  <a href={pdfResult.pdfUrl} target="_blank" rel="noreferrer" className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">Download PDF</a>
                 </div>
+              </div>
+            ) : null}
+
+            {pciResult ? (
+              <div className="rounded-3xl border border-sky-200 bg-sky-50 p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-sky-950">PCI order placed</h2>
+                <div className="mt-4 space-y-3 text-sm text-sky-900">
+                  <div><span className="font-semibold">Address:</span> {pciResult.address}</div>
+                  <div><span className="font-semibold">Order ID:</span> {pciResult.orderId}</div>
+                  <div><span className="font-semibold">Product:</span> {pciResult.productCode}</div>
+                  <div><span className="font-semibold">Reference ID:</span> {pciResult.referenceIdentifier}</div>
+                  <div><span className="font-semibold">Processor:</span> {pciResult.orderedByEmail}</div>
+                </div>
+                <p className="mt-4 text-sm text-sky-900">Latest Event is now <span className="font-semibold">Order Placed</span>. The next updates should come from Clear Capital webhook pings.</p>
               </div>
             ) : null}
           </div>
@@ -310,7 +385,8 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
                     <th className="px-4 py-3">Property</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Latest event</th>
-                    <th className="px-4 py-3">Timing</th>
+                    <th className="px-4 py-3">Date ordered</th>
+                    <th className="px-4 py-3">ETA / inspection</th>
                     <th className="px-4 py-3">Report</th>
                     <th className="px-4 py-3">Notes</th>
                   </tr>
@@ -326,6 +402,7 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
                       <td className="px-4 py-4 text-slate-700">
                         <div className="font-medium text-slate-900">{order.address || 'Awaiting order metadata'}</div>
                         <div className="mt-1 text-xs text-slate-500">{[order.city, order.state, order.zip].filter(Boolean).join(', ') || 'No address yet'}</div>
+                        {order.productCode ? <div className="mt-1 text-xs text-slate-500">{order.productCode}</div> : null}
                       </td>
                       <td className="px-4 py-4">
                         <div className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold capitalize ${statusClasses(order.status)}`}>
@@ -333,9 +410,11 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
                         </div>
                       </td>
                       <td className="px-4 py-4 text-slate-700">
-                        <div className="font-medium text-slate-900">{order.lastEventType || '—'}</div>
+                        <div className="font-medium text-slate-900">{eventLabel(order.lastEventType)}</div>
                         <div className="mt-1 text-xs text-slate-500">{formatDateTime(order.lastEventAt || order.updatedAt)}</div>
-                        {order.exportUrl ? <a href={order.exportUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-semibold text-sky-700 hover:text-sky-900">Open export</a> : null}
+                      </td>
+                      <td className="px-4 py-4 text-slate-700">
+                        <div className="text-slate-900">{formatDateTime(order.createdAt)}</div>
                       </td>
                       <td className="px-4 py-4 text-slate-700">
                         <div>ETA: <span className="text-slate-900">{formatDateTime(order.estimatedCompletionDate)}</span></div>
@@ -359,7 +438,7 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">No PCI orders matched this search yet.</td>
+                      <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">No PCI orders matched this search yet.</td>
                     </tr>
                   )}
                 </tbody>

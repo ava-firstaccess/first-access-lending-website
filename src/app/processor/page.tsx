@@ -9,6 +9,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 type PciOrderRow = {
   orderId: string;
   referenceIdentifier: string | null;
+  productCode: string | null;
   status: string | null;
   address: string | null;
   city: string | null;
@@ -23,6 +24,7 @@ type PciOrderRow = {
   lastMessage: string | null;
   lastMessageUrgent: boolean;
   exportUrl: string | null;
+  createdAt: string | null;
   updatedAt: string | null;
 };
 
@@ -31,8 +33,8 @@ async function loadPciOrders(): Promise<PciOrderRow[]> {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from('clear_capital_pci_orders')
-      .select('order_id,reference_identifier,status,address,city,state,zip,ordered_by_email,last_event_type,last_event_at,estimated_completion_date,inspection_date,hold_reason,last_message,last_message_urgent,export_url,updated_at')
-      .order('updated_at', { ascending: false })
+      .select('order_id,reference_identifier,product_code,status,address,city,state,zip,ordered_by_email,last_event_type,last_event_at,estimated_completion_date,inspection_date,hold_reason,last_message,last_message_urgent,export_url,created_at,updated_at')
+      .order('created_at', { ascending: false })
       .limit(200);
 
     if (error) {
@@ -45,6 +47,7 @@ async function loadPciOrders(): Promise<PciOrderRow[]> {
     return (data || []).map((row) => ({
       orderId: String(row.order_id),
       referenceIdentifier: row.reference_identifier || null,
+      productCode: row.product_code || null,
       status: row.status || null,
       address: row.address || null,
       city: row.city || null,
@@ -59,6 +62,7 @@ async function loadPciOrders(): Promise<PciOrderRow[]> {
       lastMessage: row.last_message || null,
       lastMessageUrgent: Boolean(row.last_message_urgent),
       exportUrl: row.export_url || null,
+      createdAt: row.created_at || null,
       updatedAt: row.updated_at || null,
     }));
   } catch (error) {

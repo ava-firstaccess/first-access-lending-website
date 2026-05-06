@@ -421,8 +421,8 @@ export async function POST(req: NextRequest) {
     const bestDeliverable = pickBestDeliverable(message.deliverables);
     const upsertPayload: Record<string, unknown> = {
       order_id: orderId,
-      reference_identifier: String(message.referenceIdentifier || '').trim() || null,
-      tenant_id: String(message.tenantId || '').trim() || null,
+      reference_identifier: String(message.referenceIdentifier || '').trim() || undefined,
+      tenant_id: String(message.tenantId || '').trim() || undefined,
       status,
       hold_reason: eventType === 'HoldAdded' || eventType === 'RevisionRequestDenied' || eventType === 'OrderCanceled' || eventType === 'OrderDeclined'
         ? String(message.reason || '').trim() || null
