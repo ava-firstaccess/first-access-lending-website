@@ -1,17 +1,24 @@
+import { createVerify } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getLoanProcessorPortalHost } from '@/lib/lo-portal-auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 const ORDERS_TABLE = 'clear_capital_pci_orders';
 const EVENTS_TABLE = 'clear_capital_pci_order_events';
+const certCache = new Map<string, string>();
 
 type SnsEnvelope = {
   Type?: string;
   MessageId?: string;
   Message?: string;
+  Subject?: string;
   SubscribeURL?: string;
+  Token?: string;
   Timestamp?: string;
   TopicArn?: string;
+  Signature?: string;
+  SignatureVersion?: string;
+  SigningCertURL?: string;
 };
 
 type PciEventPayload = {
@@ -130,6 +137,25 @@ function buildEmailHtml({
   `;
 }
 
+function buildVolumeAlertEmailHtml({ count, windowMinutes }: { count: number; windowMinutes: number }) {
+  const portalUrl = `https://${getLoanProcessorPortalHost()}/processor`;
+  return `
+    <div style="margin:0;padding:24px;background:#fff7ed;font-family:Arial,sans-serif;color:#7c2d12;">
+      <div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #fdba74;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(194,65,12,0.12);">
+        <div style="padding:20px 24px;background:linear-gradient(135deg,#9a3412 0%,#ea580c 100%);color:#ffffff;">
+          <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;opacity:0.9;">Loan Processor PCI Security</div>
+          <div style="margin-top:8px;font-size:28px;line-height:1.2;font-weight:700;">Unusual webhook volume detected</div>
+        </div>
+        <div style="padding:24px;line-height:1.6;font-size:15px;">
+          <p style="margin:0 0 12px;">The PCI webhook received <strong>${count}</strong> events in the last <strong>${windowMinutes}</strong> minutes.</p>
+          <p style="margin:0 0 20px;">This may be normal burst traffic, but it is also a good time to confirm the events look legitimate.</p>
+          <p style="margin:0;"><a href="${escapeHtml(portalUrl)}" style="display:inline-block;background:#ea580c;color:#ffffff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:700;">Review PCI orders</a></p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 async function sendStatusEmail(to: string, subject: string, html: string) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error('RESEND_API_KEY is not configured.');
@@ -163,6 +189,138 @@ function isAllowedSubscribeUrl(value: string) {
   }
 }
 
+function isAllowedSigningCertUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:'
+      && url.hostname.endsWith('amazonaws.com')
+      && /SimpleNotificationService-[A-Za-z0-9]+\.pem$/.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function buildCanonicalSnsMessage(envelope: SnsEnvelope) {
+  const type = String(envelope.Type || '').trim();
+  const parts: string[] = [];
+  const push = (key: string, value: string | undefined) => {
+    if (typeof value === 'string' && value.length) {
+      parts.push(key, value);
+    }
+  };
+
+  if (type === 'Notification') {
+    push('Message', envelope.Message);
+    push('MessageId', envelope.MessageId);
+    push('Subject', envelope.Subject);
+    push('Timestamp', envelope.Timestamp);
+    push('TopicArn', envelope.TopicArn);
+    push('Type', envelope.Type);
+    return `${parts.join('\n')}\n`;
+  }
+
+  if (type === 'SubscriptionConfirmation' || type === 'UnsubscribeConfirmation') {
+    push('Message', envelope.Message);
+    push('MessageId', envelope.MessageId);
+    push('SubscribeURL', envelope.SubscribeURL);
+    push('Timestamp', envelope.Timestamp);
+    push('Token', envelope.Token);
+    push('TopicArn', envelope.TopicArn);
+    push('Type', envelope.Type);
+    return `${parts.join('\n')}\n`;
+  }
+
+  return null;
+}
+
+async function fetchSigningCertificate(url: string) {
+  const cached = certCache.get(url);
+  if (cached) return cached;
+  const response = await fetch(url, { cache: 'force-cache' });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch signing cert (${response.status})`);
+  }
+  const pem = await response.text();
+  certCache.set(url, pem);
+  return pem;
+}
+
+async function verifySnsEnvelope(envelope: SnsEnvelope) {
+  const signature = String(envelope.Signature || '').trim();
+  const signatureVersion = String(envelope.SignatureVersion || '').trim();
+  const certUrl = String(envelope.SigningCertURL || '').trim();
+  const canonical = buildCanonicalSnsMessage(envelope);
+
+  if (!signature || !signatureVersion || !certUrl || !canonical) {
+    return false;
+  }
+  if (!isAllowedSigningCertUrl(certUrl)) {
+    return false;
+  }
+
+  const algorithm = signatureVersion === '2' ? 'RSA-SHA256' : 'RSA-SHA1';
+  const pem = await fetchSigningCertificate(certUrl);
+  const verifier = createVerify(algorithm);
+  verifier.update(canonical, 'utf8');
+  verifier.end();
+  return verifier.verify(pem, Buffer.from(signature, 'base64'));
+}
+
+async function maybeAlertOnWebhookVolume(supabase: ReturnType<typeof getSupabaseAdmin>) {
+  const threshold = Number(process.env.CLEARCAPITAL_PCI_WEBHOOK_ALERT_THRESHOLD || '25');
+  const windowMinutes = Number(process.env.CLEARCAPITAL_PCI_WEBHOOK_ALERT_WINDOW_MINUTES || '5');
+  if (!Number.isFinite(threshold) || !Number.isFinite(windowMinutes) || threshold <= 0 || windowMinutes <= 0) {
+    return;
+  }
+
+  const now = Date.now();
+  const windowStart = new Date(now - windowMinutes * 60 * 1000).toISOString();
+  const { count, error } = await supabase
+    .from(EVENTS_TABLE)
+    .select('*', { count: 'exact', head: true })
+    .gte('received_at', windowStart)
+    .not('event_type', 'in', '(SubscriptionConfirmation,UnsubscribeConfirmation,VolumeAlert)');
+
+  if (error) {
+    console.error('PCI webhook volume check failed:', error);
+    return;
+  }
+
+  const volume = Number(count || 0);
+  if (volume < threshold) return;
+
+  const bucketMinutes = Math.floor(now / (windowMinutes * 60 * 1000));
+  const dedupeKey = `volume-alert:${bucketMinutes}`;
+  const insertAlert = await supabase.from(EVENTS_TABLE).insert({
+    event_type: 'VolumeAlert',
+    event_timestamp: new Date(now).toISOString(),
+    dedupe_key: dedupeKey,
+    sns_type: 'SecurityAlert',
+    payload: { count: volume, windowMinutes, threshold },
+  }).select('id').single();
+
+  if (insertAlert.error) {
+    if (insertAlert.error.code !== '23505') {
+      console.error('PCI webhook volume alert insert failed:', insertAlert.error);
+    }
+    return;
+  }
+
+  console.warn(`PCI webhook volume alert: ${volume} events in ${windowMinutes} minutes.`);
+  const alertEmail = String(process.env.CLEARCAPITAL_PCI_ALERT_EMAIL || '').trim();
+  if (!alertEmail) return;
+
+  try {
+    await sendStatusEmail(
+      alertEmail,
+      `PCI security alert: ${volume} webhook events in ${windowMinutes} minutes`,
+      buildVolumeAlertEmailHtml({ count: volume, windowMinutes })
+    );
+  } catch (error) {
+    console.error('PCI webhook volume alert email failed:', error);
+  }
+}
+
 export async function POST(req: NextRequest) {
   const raw = await req.text();
   const envelope = parseJson<SnsEnvelope>(raw) || {};
@@ -170,6 +328,12 @@ export async function POST(req: NextRequest) {
   const supabase = getSupabaseAdmin();
 
   try {
+    const verified = await verifySnsEnvelope(envelope);
+    if (!verified) {
+      console.error('Rejected unverified Clear Capital SNS payload.', { snsType, messageId: envelope.MessageId || null });
+      return NextResponse.json({ error: 'Invalid webhook signature.' }, { status: 401 });
+    }
+
     if (snsType === 'SubscriptionConfirmation') {
       const subscribeUrl = String(envelope.SubscribeURL || '').trim();
       let confirmed = false;
@@ -252,6 +416,8 @@ export async function POST(req: NextRequest) {
 
     const { error: upsertError } = await supabase.from(ORDERS_TABLE).upsert(upsertPayload, { onConflict: 'order_id' });
     if (upsertError) throw upsertError;
+
+    await maybeAlertOnWebhookVolume(supabase);
 
     const { data: orderRow } = await supabase
       .from(ORDERS_TABLE)

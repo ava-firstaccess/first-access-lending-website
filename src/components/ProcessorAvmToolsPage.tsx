@@ -40,16 +40,6 @@ type PciOrderRow = {
   updatedAt: string | null;
 };
 
-type SubscribeResult = {
-  success: boolean;
-  webhookUrl: string;
-  baseUrl: string;
-  autoConfirmEnabled: boolean;
-  tenantIdIncluded: boolean;
-  status: number;
-  body: unknown;
-};
-
 function currency(value: number | null) {
   if (value === null) return '—';
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
@@ -96,9 +86,6 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
   const [error, setError] = useState('');
   const [result, setResult] = useState<OrderResult | null>(null);
   const [search, setSearch] = useState('');
-  const [subscribing, setSubscribing] = useState(false);
-  const [subscribeError, setSubscribeError] = useState('');
-  const [subscribeResult, setSubscribeResult] = useState<SubscribeResult | null>(null);
 
   const filteredPciOrders = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -169,31 +156,6 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
     setTimeout(() => setRefreshing(false), 800);
   }
 
-  async function handleSubscribeWebhook() {
-    setSubscribing(true);
-    setSubscribeError('');
-    setSubscribeResult(null);
-
-    try {
-      const response = await fetch('/api/clear-capital/pci-subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setSubscribeError(data?.error || 'Failed to subscribe the PCI webhook.');
-        return;
-      }
-
-      setSubscribeResult(data as SubscribeResult);
-    } catch {
-      setSubscribeError('Failed to subscribe the PCI webhook.');
-    } finally {
-      setSubscribing(false);
-    }
-  }
-
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -248,41 +210,12 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
 
           <div className="space-y-6">
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex flex-col gap-4">
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">PCI tracking</h2>
-                  <ul className="mt-4 space-y-3 text-sm text-slate-600">
-                    <li>• Webhook receiver: live for Clear Capital valuation events</li>
-                    <li>• Email alerts: automatic to the stored processor email on each new status event</li>
-                    <li>• Searchable order table: below, with latest event, ETA, hold reasons, and export link when provided</li>
-                  </ul>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="text-sm font-semibold text-slate-900">Connect live Clear Capital PCI events</div>
-                  <p className="mt-2 text-xs text-slate-600">This registers lp.firstaccesslending.com as the Clear Capital webhook target so PCI status changes start landing in the portal automatically.</p>
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={handleSubscribeWebhook}
-                      disabled={subscribing}
-                      className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {subscribing ? 'Connecting…' : 'Connect PCI Webhooks'}
-                    </button>
-                  </div>
-                  {subscribeError ? <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{subscribeError}</div> : null}
-                  {subscribeResult ? (
-                    <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs text-emerald-900">
-                      <div className="font-semibold">Webhook subscription submitted.</div>
-                      <div className="mt-1">Target: {subscribeResult.webhookUrl}</div>
-                      <div className="mt-1">Clear Capital response: {subscribeResult.status}</div>
-                      <div className="mt-1">Tenant header included: {subscribeResult.tenantIdIncluded ? 'yes' : 'no'}</div>
-                      <div className="mt-1">Auto-confirm enabled: {subscribeResult.autoConfirmEnabled ? 'yes' : 'no'}</div>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
+              <h2 className="text-lg font-semibold text-slate-900">PCI tracking</h2>
+              <ul className="mt-4 space-y-3 text-sm text-slate-600">
+                <li>• Webhook receiver: live for Clear Capital valuation events</li>
+                <li>• Email alerts: automatic to the stored processor email on each new status event</li>
+                <li>• Searchable order table: below, with latest event, ETA, hold reasons, and export link when provided</li>
+              </ul>
             </div>
 
             {result ? (
