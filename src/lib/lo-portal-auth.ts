@@ -9,14 +9,19 @@ export const LO_PORTAL_TRUSTED_BROWSER_COOKIE = 'lo_portal_trusted_browser';
 const DEFAULT_SESSION_TTL_MINUTES = 12 * 60;
 const DEFAULT_TRUSTED_BROWSER_TTL_DAYS = 30;
 const DEFAULT_EMAIL_DOMAIN = 'firstaccesslending.com';
-const LO_PORTAL_USERS_TABLE = 'loan_officer_portal_users';
+const PORTAL_USERS_TABLE = 'portal_users';
+const LEGACY_PORTAL_USERS_TABLE = 'loan_officer_portal_users';
 const TRUSTED_DEVICES_TABLE = 'trusted_devices';
+const TRUSTED_DEVICE_USER_TYPES = ['portal_user', 'loan_officer'] as const;
+
+export type PortalRole = 'loan_officer' | 'loan_processor';
 
 export type LoanOfficerPortalUser = {
   prefix: string;
   email: string;
   phone: string;
   name?: string;
+  role: PortalRole;
 };
 
 export type LoanOfficerPortalSession = {
@@ -24,6 +29,7 @@ export type LoanOfficerPortalSession = {
   email: string;
   phone: string;
   name?: string;
+  role: PortalRole;
   exp: number;
 };
 
@@ -41,6 +47,10 @@ function readPositiveNumber(value: string | undefined, fallback: number) {
 
 function normalizePrefix(value: string) {
   return String(value || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
+}
+
+function normalizePortalRole(value: unknown): PortalRole {
+  return value === 'loan_processor' ? 'loan_processor' : 'loan_officer';
 }
 
 function sessionSecret() {
@@ -90,12 +100,41 @@ export function getLoanOfficerPortalHost() {
   return String(process.env.LO_PORTAL_HOST || 'lo.firstaccesslending.com').trim().toLowerCase();
 }
 
-export function isLoanOfficerPortalHost(host: string) {
+export function getLoanProcessorPortalHost() {
+  return String(process.env.LP_PORTAL_HOST || 'lp.firstaccesslending.com').trim().toLowerCase();
+}
+
+export function getPortalHomePath(role: PortalRole) {
+  return role === 'loan_processor' ? '/processor' : '/pricer';
+}
+
+export function resolvePortalRoleFromHost(host: string): PortalRole | null {
   const normalized = String(host || '').split(':')[0].trim().toLowerCase();
-  if (!normalized) return false;
-  const configured = getLoanOfficerPortalHost();
-  const knownHosts = new Set([configured, 'lo.firstaccesslending.com', 'lo.firstaccessslending.com']);
-  return knownHosts.has(normalized) || normalized.startsWith('lo.localhost') || normalized.startsWith('lo.127.0.0.1');
+  if (!normalized) return null;
+
+  const loanOfficerHosts = new Set([getLoanOfficerPortalHost(), 'lo.firstaccesslending.com', 'lo.firstaccessslending.com']);
+  if (loanOfficerHosts.has(normalized) || normalized.startsWith('lo.localhost') || normalized.startsWith('lo.127.0.0.1')) {
+    return 'loan_officer';
+  }
+
+  const loanProcessorHosts = new Set([getLoanProcessorPortalHost(), 'lp.firstaccesslending.com']);
+  if (loanProcessorHosts.has(normalized) || normalized.startsWith('lp.localhost') || normalized.startsWith('lp.127.0.0.1')) {
+    return 'loan_processor';
+  }
+
+  return null;
+}
+
+export function isInternalPortalHost(host: string) {
+  return Boolean(resolvePortalRoleFromHost(host));
+}
+
+export function isLoanOfficerPortalHost(host: string) {
+  return resolvePortalRoleFromHost(host) === 'loan_officer';
+}
+
+export function isLoanProcessorPortalHost(host: string) {
+  return resolvePortalRoleFromHost(host) === 'loan_processor';
 }
 
 export function getRequestHost(req: NextRequest) {
@@ -108,8 +147,22 @@ function normalizeLoanOfficerPortalUser(record: Record<string, unknown>): LoanOf
   const email = String(record.email || (prefix ? `${prefix}@${emailDomain}` : '')).trim().toLowerCase();
   const phone = String(record.phone || '').trim();
   const name = typeof record.name === 'string' ? record.name.trim() : undefined;
+  const role = normalizePortalRole(record.role);
   if (!prefix || !email || !phone) return null;
-  return { prefix, email, phone, name };
+  return { prefix, email, phone, name, role };
+}
+
+async function findPortalUserInTable(tableName: string, normalized: string, prefix: string) {
+  const supabase = getSupabaseAdmin();
+  const query = supabase
+    .from(tableName)
+    .select('prefix, email, phone, name, role')
+    .eq('active', true)
+    .limit(1);
+
+  return normalized.includes('@')
+    ? query.eq('email', normalized).maybeSingle()
+    : query.eq('prefix', prefix).maybeSingle();
 }
 
 export async function findLoanOfficerPortalUser(identifier: string): Promise<LoanOfficerPortalUser | null> {
@@ -117,19 +170,21 @@ export async function findLoanOfficerPortalUser(identifier: string): Promise<Loa
   const prefix = normalizePrefix(normalized.includes('@') ? normalized.split('@')[0] : normalized);
   if (!prefix && !normalized) return null;
 
-  const supabase = getSupabaseAdmin();
-  const query = supabase
-    .from(LO_PORTAL_USERS_TABLE)
-    .select('prefix, email, phone, name')
-    .eq('active', true)
-    .limit(1);
+  let data: unknown = null;
+  let error: any = null;
 
-  const { data, error } = normalized.includes('@')
-    ? await query.eq('email', normalized).maybeSingle()
-    : await query.eq('prefix', prefix).maybeSingle();
+  const primary = await findPortalUserInTable(PORTAL_USERS_TABLE, normalized, prefix);
+  data = primary.data;
+  error = primary.error;
+
+  if (error?.code === '42P01') {
+    const legacy = await findPortalUserInTable(LEGACY_PORTAL_USERS_TABLE, normalized, prefix);
+    data = legacy.data;
+    error = legacy.error;
+  }
 
   if (error) {
-    console.error('LO portal user lookup error:', error);
+    console.error('Portal user lookup error:', error);
     return null;
   }
 
@@ -144,6 +199,7 @@ export function createLoanOfficerPortalSession(user: LoanOfficerPortalUser): str
     email: user.email,
     phone: user.phone,
     name: user.name,
+    role: user.role,
     exp: Date.now() + ttlMinutes * 60 * 1000,
   };
   const encoded = encodePayload(payload);
@@ -162,7 +218,10 @@ export function parseLoanOfficerPortalSession(token: string | undefined | null):
     const payload = decodePayload(encoded);
     if (!payload?.email || !payload?.prefix || !payload?.phone || typeof payload?.exp !== 'number') return null;
     if (payload.exp <= Date.now()) return null;
-    return payload;
+    return {
+      ...payload,
+      role: normalizePortalRole(payload.role),
+    };
   } catch {
     return null;
   }
@@ -217,7 +276,7 @@ async function resolveTrustedLoanOfficerBrowser(token: string | undefined | null
   const { data, error } = await supabase
     .from(TRUSTED_DEVICES_TABLE)
     .select('id, user_key, expires_at')
-    .eq('user_type', 'loan_officer')
+    .in('user_type', [...TRUSTED_DEVICE_USER_TYPES])
     .eq('token_hash', hashTrustedDeviceToken(token))
     .is('revoked_at', null)
     .gt('expires_at', nowIso)
@@ -225,7 +284,7 @@ async function resolveTrustedLoanOfficerBrowser(token: string | undefined | null
     .maybeSingle();
 
   if (error) {
-    console.error('Trusted LO browser lookup error:', error);
+    console.error('Trusted portal browser lookup error:', error);
     return null;
   }
 
@@ -261,7 +320,7 @@ export async function issueTrustedLoanOfficerBrowser(response: NextResponse, use
   const supabase = getSupabaseAdmin();
 
   const { error } = await supabase.from(TRUSTED_DEVICES_TABLE).insert({
-    user_type: 'loan_officer',
+    user_type: 'portal_user',
     user_key: user.prefix,
     token_hash: hashTrustedDeviceToken(token),
     user_agent: req.headers.get('user-agent')?.slice(0, 1000) || null,
@@ -270,7 +329,7 @@ export async function issueTrustedLoanOfficerBrowser(response: NextResponse, use
   });
 
   if (error) {
-    console.error('Trusted LO browser insert error:', error);
+    console.error('Trusted portal browser insert error:', error);
     return false;
   }
 

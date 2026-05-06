@@ -4,33 +4,35 @@ import {
   clearLoanOfficerPortalSessionCookie,
   clearTrustedLoanOfficerBrowserCookie,
   createLoanOfficerPortalSession,
+  getPortalHomePath,
   getRequestHost,
-  isLoanOfficerPortalHost,
+  isInternalPortalHost,
+  resolvePortalRoleFromHost,
   restoreLoanOfficerPortalSessionFromTrustedBrowser,
   setLoanOfficerPortalSessionCookie,
   setTrustedLoanOfficerBrowserCookie,
 } from '@/lib/lo-portal-auth';
 
-const DEFAULT_NEXT_PATH = '/pricer';
-const ALLOWED_NEXT_PATHS = new Set(['/login', '/pricer', '/avm']);
+const ALLOWED_NEXT_PATHS = new Set(['/login', '/pricer', '/avm', '/processor']);
 
-function normalizeNextPath(nextPath: string | null) {
-  if (!nextPath || !nextPath.startsWith('/')) return DEFAULT_NEXT_PATH;
-  return ALLOWED_NEXT_PATHS.has(nextPath) ? nextPath : DEFAULT_NEXT_PATH;
+function normalizeNextPath(nextPath: string | null, fallbackPath: string) {
+  if (!nextPath || !nextPath.startsWith('/')) return fallbackPath;
+  return ALLOWED_NEXT_PATHS.has(nextPath) ? nextPath : fallbackPath;
 }
 
 export async function GET(req: NextRequest) {
   const trusted = requireTrustedBrowserRequest(req);
   if (trusted) return trusted;
 
-  if (!isLoanOfficerPortalHost(getRequestHost(req))) {
-    return NextResponse.json({ error: 'Loan Officer portal host required.' }, { status: 403 });
+  const portalRole = resolvePortalRoleFromHost(getRequestHost(req));
+  if (!portalRole || !isInternalPortalHost(getRequestHost(req))) {
+    return NextResponse.json({ error: 'Internal portal host required.' }, { status: 403 });
   }
 
-  const nextPath = normalizeNextPath(req.nextUrl.searchParams.get('next'));
+  const nextPath = normalizeNextPath(req.nextUrl.searchParams.get('next'), getPortalHomePath(portalRole));
   const bootstrap = await restoreLoanOfficerPortalSessionFromTrustedBrowser(req);
 
-  if (!bootstrap) {
+  if (!bootstrap || bootstrap.user.role !== portalRole) {
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = '/login';
     loginUrl.search = '';

@@ -1,6 +1,6 @@
 import AdmZip from 'adm-zip';
 import { NextRequest, NextResponse } from 'next/server';
-import { buildLoanOfficerPortalUnauthorizedResponse, getLoanOfficerPortalSessionFromRequest, getRequestHost, isLoanOfficerPortalHost } from '@/lib/lo-portal-auth';
+import { buildLoanOfficerPortalUnauthorizedResponse, getLoanOfficerPortalSessionFromRequest, getRequestHost, isInternalPortalHost } from '@/lib/lo-portal-auth';
 
 const HOUSECANARY_ORDER_MANAGER_BASE = 'https://order-manager-api.housecanary.com/client-api/v1';
 
@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = getLoanOfficerPortalSessionFromRequest(req);
     if (!session) return buildLoanOfficerPortalUnauthorizedResponse();
-    if (!isLoanOfficerPortalHost(getRequestHost(req))) {
+    if (!isInternalPortalHost(getRequestHost(req))) {
       return NextResponse.json({ error: 'Loan Officer portal host required.' }, { status: 403 });
     }
 

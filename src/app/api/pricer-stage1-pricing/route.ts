@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { computeStage1Pricing } from '@/lib/stage1-pricing/server';
 import type { Stage1PricingRequest } from '@/lib/stage1-pricing/types';
-import { getLoanOfficerPortalSessionFromRequest, getRequestHost, isLoanOfficerPortalHost } from '@/lib/lo-portal-auth';
+import { getLoanOfficerPortalSessionFromRequest, getRequestHost, isInternalPortalHost } from '@/lib/lo-portal-auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const isLoanOfficerRequest = isLoanOfficerPortalHost(getRequestHost(request));
-    if (!isLoanOfficerRequest) {
+    const isPortalRequest = isInternalPortalHost(getRequestHost(request));
+    if (!isPortalRequest) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 

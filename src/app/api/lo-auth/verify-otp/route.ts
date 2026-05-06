@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { verifyOtpCode } from '@/lib/otp';
 import { consumeRateLimit, getClientIp } from '@/lib/rate-limit';
-import { createLoanOfficerPortalSession, findLoanOfficerPortalUser, getRequestHost, isLoanOfficerPortalHost, issueTrustedLoanOfficerBrowser, setLoanOfficerPortalSessionCookie } from '@/lib/lo-portal-auth';
+import { createLoanOfficerPortalSession, findLoanOfficerPortalUser, getRequestHost, isInternalPortalHost, issueTrustedLoanOfficerBrowser, resolvePortalRoleFromHost, setLoanOfficerPortalSessionCookie } from '@/lib/lo-portal-auth';
 import { requireTrustedBrowserRequest } from '@/lib/application-session';
 
 const MAX_VERIFY_ATTEMPTS = 5;
@@ -14,14 +14,19 @@ export async function POST(req: NextRequest) {
   try {
     const trusted = requireTrustedBrowserRequest(req);
     if (trusted) return trusted;
-    if (!isLoanOfficerPortalHost(getRequestHost(req))) {
-      return NextResponse.json({ error: 'Loan Officer portal host required.' }, { status: 403 });
+    const portalRole = resolvePortalRoleFromHost(getRequestHost(req));
+    if (!portalRole || !isInternalPortalHost(getRequestHost(req))) {
+      return NextResponse.json({ error: 'Internal portal host required.' }, { status: 403 });
     }
 
     const { identifier, code } = await req.json();
     const user = await findLoanOfficerPortalUser(String(identifier || ''));
     if (!user || !code) {
       return NextResponse.json({ error: 'Login and code required.' }, { status: 400 });
+    }
+
+    if (user.role !== portalRole) {
+      return NextResponse.json({ error: 'This login is not enabled for this portal.' }, { status: 403 });
     }
 
     const email = user.email.trim().toLowerCase();
@@ -79,6 +84,7 @@ export async function POST(req: NextRequest) {
       prefix: user.prefix,
       email: user.email,
       name: user.name || null,
+      role: user.role,
     });
     setLoanOfficerPortalSessionCookie(response, createLoanOfficerPortalSession(user));
     await issueTrustedLoanOfficerBrowser(response, user, req);

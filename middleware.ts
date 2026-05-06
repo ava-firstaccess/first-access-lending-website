@@ -5,6 +5,7 @@ const LO_ALLOWED_PREFIXES = [
   '/login',
   '/pricer',
   '/avm',
+  '/processor',
   '/api/lo-auth',
   '/api/lo-avm',
   '/api/pricer-stage1-pricing',
@@ -30,12 +31,15 @@ function normalizeHost(host: string) {
   return host.split(':')[0].toLowerCase();
 }
 
-function isLoanOfficerHost(host: string) {
+function isInternalPortalHost(host: string) {
   const normalized = normalizeHost(host);
   return normalized === 'lo.firstaccesslending.com'
     || normalized === 'lo.firstaccessslending.com'
+    || normalized === 'lp.firstaccesslending.com'
     || normalized.startsWith('lo.localhost')
-    || normalized.startsWith('lo.127.0.0.1');
+    || normalized.startsWith('lo.127.0.0.1')
+    || normalized.startsWith('lp.localhost')
+    || normalized.startsWith('lp.127.0.0.1');
 }
 
 function isVercelProjectHost(host: string) {
@@ -61,7 +65,7 @@ export function middleware(request: NextRequest) {
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || request.nextUrl.hostname || '';
   const { pathname } = request.nextUrl;
 
-  if (isLoanOfficerHost(host)) {
+  if (isInternalPortalHost(host)) {
     if (pathname === '/') {
       const url = request.nextUrl.clone();
       url.pathname = '/login';

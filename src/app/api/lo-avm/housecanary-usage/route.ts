@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { chooseHouseCanaryOrderProduct, getHouseCanaryBillingCycle } from '@/lib/housecanary-billing';
-import { buildLoanOfficerPortalUnauthorizedResponse, getLoanOfficerPortalSessionFromRequest, getRequestHost, isLoanOfficerPortalHost } from '@/lib/lo-portal-auth';
+import { buildLoanOfficerPortalUnauthorizedResponse, getLoanOfficerPortalSessionFromRequest, getRequestHost, isInternalPortalHost } from '@/lib/lo-portal-auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 const HOUSECANARY_CYCLE_FIELDS = [
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = getLoanOfficerPortalSessionFromRequest(req);
     if (!session) return buildLoanOfficerPortalUnauthorizedResponse();
-    if (!isLoanOfficerPortalHost(getRequestHost(req))) {
+    if (!isInternalPortalHost(getRequestHost(req))) {
       return NextResponse.json({ error: 'Loan Officer portal host required.' }, { status: 403 });
     }
 

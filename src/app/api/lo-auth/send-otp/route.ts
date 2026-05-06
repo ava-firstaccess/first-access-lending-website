@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { hashOtpCode } from '@/lib/otp';
 import { consumeRateLimit, getClientIp } from '@/lib/rate-limit';
-import { findLoanOfficerPortalUser, getRequestHost, isLoanOfficerPortalHost } from '@/lib/lo-portal-auth';
+import { findLoanOfficerPortalUser, getRequestHost, isInternalPortalHost, resolvePortalRoleFromHost } from '@/lib/lo-portal-auth';
 import { requireTrustedBrowserRequest } from '@/lib/application-session';
 
 const SEND_OTP_USER_LIMIT = 3;
@@ -13,14 +13,15 @@ export async function POST(req: NextRequest) {
   try {
     const trusted = requireTrustedBrowserRequest(req);
     if (trusted) return trusted;
-    if (!isLoanOfficerPortalHost(getRequestHost(req))) {
-      return NextResponse.json({ error: 'Loan Officer portal host required.' }, { status: 403 });
+    const portalRole = resolvePortalRoleFromHost(getRequestHost(req));
+    if (!portalRole || !isInternalPortalHost(getRequestHost(req))) {
+      return NextResponse.json({ error: 'Internal portal host required.' }, { status: 403 });
     }
 
     const { identifier } = await req.json();
     const user = await findLoanOfficerPortalUser(String(identifier || ''));
     if (!user) {
-      return NextResponse.json({ error: 'Unknown loan officer login.' }, { status: 404 });
+      return NextResponse.json({ error: 'Unknown portal login.' }, { status: 404 });
     }
 
     const email = user.email.trim().toLowerCase();
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
         from: 'First Access Lending <info@firstaccesslending.com>',
         to: [email],
         subject: 'Your First Access Lending portal verification code',
-        html: `<div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a"><p>Your First Access Lending Loan Officer portal verification code is:</p><p style="font-size:32px;font-weight:700;letter-spacing:4px;margin:16px 0">${code}</p><p>This code expires in 10 minutes.</p></div>`,
+        html: `<div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a"><p>Your First Access Lending ${portalRole === 'loan_processor' ? 'Loan Processor' : 'Loan Officer'} portal verification code is:</p><p style="font-size:32px;font-weight:700;letter-spacing:4px;margin:16px 0">${code}</p><p>This code expires in 10 minutes.</p></div>`,
       }),
     });
 
