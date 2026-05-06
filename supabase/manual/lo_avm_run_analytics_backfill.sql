@@ -101,7 +101,7 @@ winners as (
 run_rollup as (
   select
     r.derived_run_id as run_id,
-    min(r.order_run_id) as order_run_id,
+    min(r.order_run_id::text)::uuid as order_run_id,
     min(r.loan_officer_prefix) as loan_officer_prefix,
     min(r.loan_officer_email) as loan_officer_email,
     min(r.loan_number) as loan_number,
