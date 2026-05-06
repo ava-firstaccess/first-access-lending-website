@@ -3,6 +3,7 @@ import { buildSiteAccessToken, isSiteAccessConfigured, SITE_ACCESS_COOKIE } from
 
 const LO_ALLOWED_PREFIXES = [
   '/login',
+  '/dashboard',
   '/pricer',
   '/avm',
   '/processor',

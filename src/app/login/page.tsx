@@ -12,11 +12,11 @@ export default async function Page() {
     redirect('/pricer');
   }
 
-  const nextPath = getPortalHomePath(portalRole);
+  const nextPath = getPortalHomePath();
   const title = portalRole === 'loan_processor' ? 'Loan Processor Portal' : 'Loan Officer Portal';
   const subtitle = portalRole === 'loan_processor'
-    ? 'Login with your email prefix, then verify the code sent to your work email to access pricing, AVM tools, and processor workflows.'
-    : 'Login with your email prefix, then verify the code sent to your work email.';
+    ? 'Login with your email prefix, then verify the code sent to your work email to access your internal dashboard, pricing, AVM tools, and processor workflows.'
+    : 'Login with your email prefix, then verify the code sent to your work email to access your internal dashboard.';
 
   const session = await getLoanOfficerPortalSession();
   if (session) {

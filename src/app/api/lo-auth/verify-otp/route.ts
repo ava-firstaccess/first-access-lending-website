@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Login and code required.' }, { status: 400 });
     }
 
-    if (user.role !== portalRole) {
+    if (user.position !== portalRole) {
       return NextResponse.json({ error: 'This login is not enabled for this portal.' }, { status: 403 });
     }
 
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
       prefix: user.prefix,
       email: user.email,
       name: user.name || null,
-      role: user.role,
+      position: user.position,
     });
     setLoanOfficerPortalSessionCookie(response, createLoanOfficerPortalSession(user));
     await issueTrustedLoanOfficerBrowser(response, user, req);

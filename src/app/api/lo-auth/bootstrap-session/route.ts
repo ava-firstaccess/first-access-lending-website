@@ -13,7 +13,7 @@ import {
   setTrustedLoanOfficerBrowserCookie,
 } from '@/lib/lo-portal-auth';
 
-const ALLOWED_NEXT_PATHS = new Set(['/login', '/pricer', '/avm', '/processor']);
+const ALLOWED_NEXT_PATHS = new Set(['/login', '/dashboard', '/pricer', '/avm', '/processor']);
 
 function normalizeNextPath(nextPath: string | null, fallbackPath: string) {
   if (!nextPath || !nextPath.startsWith('/')) return fallbackPath;
@@ -29,10 +29,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Internal portal host required.' }, { status: 403 });
   }
 
-  const nextPath = normalizeNextPath(req.nextUrl.searchParams.get('next'), getPortalHomePath(portalRole));
+  const nextPath = normalizeNextPath(req.nextUrl.searchParams.get('next'), getPortalHomePath());
   const bootstrap = await restoreLoanOfficerPortalSessionFromTrustedBrowser(req);
 
-  if (!bootstrap || bootstrap.user.role !== portalRole) {
+  if (!bootstrap || bootstrap.user.position !== portalRole) {
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = '/login';
     loginUrl.search = '';

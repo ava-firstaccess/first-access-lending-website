@@ -21,7 +21,7 @@ export type LoanOfficerPortalUser = {
   email: string;
   phone: string;
   name?: string;
-  role: PortalRole;
+  position: PortalRole;
 };
 
 export type LoanOfficerPortalSession = {
@@ -29,7 +29,7 @@ export type LoanOfficerPortalSession = {
   email: string;
   phone: string;
   name?: string;
-  role: PortalRole;
+  position: PortalRole;
   exp: number;
 };
 
@@ -104,8 +104,8 @@ export function getLoanProcessorPortalHost() {
   return String(process.env.LP_PORTAL_HOST || 'lp.firstaccesslending.com').trim().toLowerCase();
 }
 
-export function getPortalHomePath(role: PortalRole) {
-  return role === 'loan_processor' ? '/processor' : '/pricer';
+export function getPortalHomePath() {
+  return '/dashboard';
 }
 
 export function resolvePortalRoleFromHost(host: string): PortalRole | null {
@@ -147,16 +147,16 @@ function normalizeLoanOfficerPortalUser(record: Record<string, unknown>): LoanOf
   const email = String(record.email || (prefix ? `${prefix}@${emailDomain}` : '')).trim().toLowerCase();
   const phone = String(record.phone || '').trim();
   const name = typeof record.name === 'string' ? record.name.trim() : undefined;
-  const role = normalizePortalRole(record.role);
+  const position = normalizePortalRole(record.position ?? record.role);
   if (!prefix || !email || !phone) return null;
-  return { prefix, email, phone, name, role };
+  return { prefix, email, phone, name, position };
 }
 
 async function findPortalUserInTable(tableName: string, normalized: string, prefix: string) {
   const supabase = getSupabaseAdmin();
   const query = supabase
     .from(tableName)
-    .select('prefix, email, phone, name, role')
+    .select('*')
     .eq('active', true)
     .limit(1);
 
@@ -199,7 +199,7 @@ export function createLoanOfficerPortalSession(user: LoanOfficerPortalUser): str
     email: user.email,
     phone: user.phone,
     name: user.name,
-    role: user.role,
+    position: user.position,
     exp: Date.now() + ttlMinutes * 60 * 1000,
   };
   const encoded = encodePayload(payload);
@@ -220,7 +220,7 @@ export function parseLoanOfficerPortalSession(token: string | undefined | null):
     if (payload.exp <= Date.now()) return null;
     return {
       ...payload,
-      role: normalizePortalRole(payload.role),
+      position: normalizePortalRole((payload as LoanOfficerPortalSession & { role?: PortalRole }).position ?? (payload as LoanOfficerPortalSession & { role?: PortalRole }).role),
     };
   } catch {
     return null;
