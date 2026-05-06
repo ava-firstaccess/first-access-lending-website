@@ -3,8 +3,8 @@
 ## Status
 
 - **Analytics schema/code:** built and committed
-- **Production schema apply:** still needs to be run in Supabase SQL editor
-- **Backfill:** ready to run immediately after schema apply
+- **Production schema apply:** completed in Supabase
+- **Backfill:** completed in production
 - **Raw-data retention/purge:** planned here, not built yet
 
 Commit with the analytics implementation:
@@ -191,18 +191,23 @@ Dry run found:
 
 ## Production apply steps
 
-### Step 1. Apply schema in Supabase SQL editor
+### Completed production rollout
 
-Apply:
+Applied:
 - `supabase/migrations/024_lo_avm_run_analytics.sql`
 
-### Step 2. Run backfill from repo root
-
+Ran:
 ```bash
 npm run avm:backfill-analytics
 ```
 
-### Step 3. Verify row counts
+Observed result:
+- `ordersSeen: 38`
+- `syntheticOrdersSkipped: 23`
+- `runResultsInserted: 15`
+- `providerRowsInserted: 15`
+
+### Verify row counts
 
 ```sql
 select count(*) from loan_officer_avm_run_results;
