@@ -8,8 +8,8 @@ const TABLES = {
     table: 'applications',
     retentionDays: 120,
   },
-  loan_officer_avm_orders: {
-    table: 'loan_officer_avm_orders',
+  loan_officer_avm_order_log: {
+    table: 'loan_officer_avm_order_log',
     retentionDays: 120,
   },
   avm_cache: {

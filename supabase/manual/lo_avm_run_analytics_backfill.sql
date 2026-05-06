@@ -1,7 +1,7 @@
 begin;
 
-delete from loan_officer_avm_run_providers;
-delete from loan_officer_avm_run_results;
+delete from loan_officer_avm_analytics_providers;
+delete from loan_officer_avm_analytics_runs;
 
 with real_orders as (
   select
@@ -32,7 +32,7 @@ with real_orders as (
         then true
       else false
     end as has_report_link
-  from loan_officer_avm_orders o
+  from loan_officer_avm_order_log o
   where not (
     o.request_payload->>'type' = 'housecanary_billing_backfill'
     or coalesce((o.response_payload->>'backfill')::boolean, false) = true
@@ -141,7 +141,7 @@ run_rollup as (
     on w.derived_run_id = r.derived_run_id
   group by r.derived_run_id, w.provider_label, w.provider_product, w.order_run_id, w.order_status, w.parsed_value, w.parsed_fsd
 )
-insert into loan_officer_avm_run_results (
+insert into loan_officer_avm_analytics_runs (
   run_id,
   order_run_id,
   loan_officer_prefix,
@@ -241,7 +241,7 @@ with real_orders as (
         then true
       else false
     end as has_report_link
-  from loan_officer_avm_orders o
+  from loan_officer_avm_order_log o
   where not (
     o.request_payload->>'type' = 'housecanary_billing_backfill'
     or coalesce((o.response_payload->>'backfill')::boolean, false) = true
@@ -291,7 +291,7 @@ winner_candidates as (
     ) as winner_rank
   from latest_per_provider l
 )
-insert into loan_officer_avm_run_providers (
+insert into loan_officer_avm_analytics_providers (
   run_id,
   provider,
   supported,

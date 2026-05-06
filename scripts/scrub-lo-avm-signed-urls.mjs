@@ -36,7 +36,7 @@ function parseArgs(argv) {
   const out = {
     execute: false,
     batchSize: 500,
-    table: 'loan_officer_avm_orders',
+    table: 'loan_officer_avm_order_log',
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -45,7 +45,7 @@ function parseArgs(argv) {
     else if (arg === '--batch-size') out.batchSize = Number(argv[++i] || out.batchSize);
     else if (arg === '--table') out.table = argv[++i] || out.table;
     else if (arg === '--help' || arg === '-h') {
-      console.log(`Usage: node scripts/scrub-lo-avm-signed-urls.mjs [options]\n\nOptions:\n  --execute          Persist scrubbed payloads\n  --table <name>     Table to scrub (default: loan_officer_avm_orders)\n  --batch-size <n>   Fetch/update page size (default: 500)\n\nWithout --execute, the script performs a dry run.`);
+      console.log(`Usage: node scripts/scrub-lo-avm-signed-urls.mjs [options]\n\nOptions:\n  --execute          Persist scrubbed payloads\n  --table <name>     Table to scrub (default: loan_officer_avm_order_log)\n  --batch-size <n>   Fetch/update page size (default: 500)\n\nWithout --execute, the script performs a dry run.`);
       process.exit(0);
     }
   }

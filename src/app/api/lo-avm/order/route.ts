@@ -199,7 +199,7 @@ async function insertLoanOfficerAvmOrder(supabase: ReturnType<typeof getSupabase
     if (attempted.has(signature)) continue;
     attempted.add(signature);
 
-    const { data, error } = await supabase.from('loan_officer_avm_orders').insert(candidate).select('*').single();
+    const { data, error } = await supabase.from('loan_officer_avm_order_log').insert(candidate).select('*').single();
     if (!error) return data;
 
     lastError = error;
@@ -887,7 +887,7 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
     attempted.add(signature);
 
     const { data, error } = await supabase
-      .from('loan_officer_avm_orders')
+      .from('loan_officer_avm_order_log')
       .update(candidate)
       .eq('id', order.id)
       .select('*')
@@ -916,7 +916,7 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
             agileInsightsReportEmailError: null,
           };
           const { data: emailedData, error: emailedError } = await supabase
-            .from('loan_officer_avm_orders')
+            .from('loan_officer_avm_order_log')
             .update({ response_payload: emailedPayload })
             .eq('id', data.id)
             .select('*')
@@ -925,7 +925,7 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
         } catch (emailError: any) {
           console.error('LO AVM Agile report email failed during refresh:', emailError);
           await supabase
-            .from('loan_officer_avm_orders')
+            .from('loan_officer_avm_order_log')
             .update({
               response_payload: {
                 ...(data.response_payload || {}),
@@ -1214,8 +1214,8 @@ function isMissingLoanOfficerAvmRunAnalyticsError(error: any) {
   const message = String(error?.message || '').toLowerCase();
   return code === '42P01'
     || code === '42703'
-    || message.includes('loan_officer_avm_run_results')
-    || message.includes('loan_officer_avm_run_providers');
+    || message.includes('loan_officer_avm_analytics_runs')
+    || message.includes('loan_officer_avm_analytics_providers');
 }
 
 async function persistLoanOfficerAvmRunAnalytics(
@@ -1336,20 +1336,20 @@ async function persistLoanOfficerAvmRunAnalytics(
         created_at: createdAt,
       }));
 
-    const { error: runError } = await supabase.from('loan_officer_avm_run_results').upsert(runPayload, { onConflict: 'run_id' });
+    const { error: runError } = await supabase.from('loan_officer_avm_analytics_runs').upsert(runPayload, { onConflict: 'run_id' });
     if (runError) {
       if (isMissingLoanOfficerAvmRunAnalyticsError(runError)) return;
       throw runError;
     }
 
-    const { error: deleteError } = await supabase.from('loan_officer_avm_run_providers').delete().eq('run_id', runId);
+    const { error: deleteError } = await supabase.from('loan_officer_avm_analytics_providers').delete().eq('run_id', runId);
     if (deleteError) {
       if (isMissingLoanOfficerAvmRunAnalyticsError(deleteError)) return;
       throw deleteError;
     }
 
     if (providerPayloads.length > 0) {
-      const { error: providerError } = await supabase.from('loan_officer_avm_run_providers').insert(providerPayloads);
+      const { error: providerError } = await supabase.from('loan_officer_avm_analytics_providers').insert(providerPayloads);
       if (providerError) {
         if (isMissingLoanOfficerAvmRunAnalyticsError(providerError)) return;
         throw providerError;
@@ -1363,7 +1363,7 @@ async function persistLoanOfficerAvmRunAnalytics(
 async function loadRecentOrders(supabase: ReturnType<typeof getSupabaseAdmin>, addressId: string) {
   const cutoffIso = new Date(Date.now() - LO_AVM_CACHE_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase
-    .from('loan_officer_avm_orders')
+    .from('loan_officer_avm_order_log')
     .select('*')
     .eq('address_id', addressId)
     .gte('created_at', cutoffIso)
@@ -1406,7 +1406,7 @@ async function loadRecentAvmCache(supabase: ReturnType<typeof getSupabaseAdmin>,
 
 async function countHouseCanaryCycleUsage(supabase: ReturnType<typeof getSupabaseAdmin>, cycleStart: string, cycleEnd: string) {
   const { data, error } = await supabase
-    .from('loan_officer_avm_orders')
+    .from('loan_officer_avm_order_log')
     .select('housecanary_order_product')
     .eq('provider', 'housecanary')
     .eq('housecanary_billing_cycle_start', cycleStart)
@@ -2041,7 +2041,7 @@ export async function POST(req: NextRequest) {
               agileInsightsReportEmailError: null,
             };
             const { data: emailedData } = await supabase
-              .from('loan_officer_avm_orders')
+              .from('loan_officer_avm_order_log')
               .update({ response_payload: emailedPayload, updated_at: new Date().toISOString() })
               .eq('id', insertedOrder.id)
               .select('*')
@@ -2050,7 +2050,7 @@ export async function POST(req: NextRequest) {
           } catch (emailError: any) {
             console.error('LO AVM Agile report email failed:', emailError);
             await supabase
-              .from('loan_officer_avm_orders')
+              .from('loan_officer_avm_order_log')
               .update({
                 response_payload: {
                   ...(insertedOrder.response_payload || {}),

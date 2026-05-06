@@ -1,6 +1,6 @@
 # LO AVM analytics queries
 
-Use `loan_officer_avm_run_results` for run-level metrics and `loan_officer_avm_run_providers` for provider-level win/snapshot metrics.
+Use `loan_officer_avm_analytics_runs` for run-level metrics and `loan_officer_avm_analytics_providers` for provider-level win/snapshot metrics.
 
 ## Manual orders by LO
 
@@ -9,7 +9,7 @@ select
   loan_officer_prefix,
   loan_officer_email,
   count(*) as manual_runs
-from loan_officer_avm_run_results
+from loan_officer_avm_analytics_runs
 where run_source = 'manual'
 group by 1, 2
 order by 3 desc;
@@ -22,7 +22,7 @@ select
   run_source,
   count(*) as winning_runs,
   round(100.0 * count(*) / sum(count(*)) over (), 2) as pct_of_winning_runs
-from loan_officer_avm_run_results
+from loan_officer_avm_analytics_runs
 where winner_provider is not null
 group by 1
 order by 2 desc;
@@ -35,7 +35,7 @@ select
   winner_provider,
   count(*) as wins,
   round(100.0 * count(*) / sum(count(*)) over (), 2) as win_pct
-from loan_officer_avm_run_results
+from loan_officer_avm_analytics_runs
 where winner_provider is not null
 group by 1
 order by 2 desc;
@@ -49,7 +49,7 @@ select
   winner_provider,
   count(*) as wins,
   round(100.0 * count(*) / sum(count(*)) over (partition by loan_officer_prefix), 2) as win_pct_for_lo
-from loan_officer_avm_run_results
+from loan_officer_avm_analytics_runs
 where winner_provider is not null
 group by 1, 2
 order by 1, 3 desc;
@@ -63,7 +63,7 @@ select
   count(*) as provider_rows_seen,
   count(*) filter (where p.is_winner) as provider_wins,
   round(100.0 * count(*) filter (where p.is_winner) / nullif(count(*), 0), 2) as win_rate_when_present
-from loan_officer_avm_run_providers p
+from loan_officer_avm_analytics_providers p
 group by 1
 order by 4 desc nulls last, 2 desc;
 ```
@@ -75,7 +75,7 @@ select
   loan_officer_prefix,
   manual_provider_requested,
   count(*) as manual_runs
-from loan_officer_avm_run_results
+from loan_officer_avm_analytics_runs
 where run_source = 'manual'
 group by 1, 2
 order by 1, 3 desc;
@@ -88,7 +88,7 @@ select
   cache_only,
   cache_hit,
   count(*) as runs
-from loan_officer_avm_run_results
+from loan_officer_avm_analytics_runs
 group by 1, 2
 order by 3 desc;
 ```

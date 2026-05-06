@@ -32,7 +32,7 @@ We want to answer questions like:
 
 These are the durable analytics fact tables:
 
-#### 1. `loan_officer_avm_run_results`
+#### 1. `loan_officer_avm_analytics_runs`
 One row per user-triggered LO AVM run.
 
 Stores:
@@ -45,7 +45,7 @@ Stores:
 - winner value / FSD
 - run-level outcome summary
 
-#### 2. `loan_officer_avm_run_providers`
+#### 2. `loan_officer_avm_analytics_providers`
 One row per provider snapshot within a run.
 
 Stores:
@@ -62,7 +62,7 @@ Stores:
 
 These are operational/raw tables, not ideal for indefinite hot retention:
 
-#### 3. `loan_officer_avm_orders`
+#### 3. `loan_officer_avm_order_log`
 Purpose:
 - actual outbound vendor order audit log
 - request/response payloads
@@ -89,7 +89,7 @@ Because the analytics tables are:
 
 ### Supabase is not the best long-term home for raw cache/order blobs
 
-Because `loan_officer_avm_orders` and `avm_cache` contain or may contain:
+Because `loan_officer_avm_order_log` and `avm_cache` contain or may contain:
 - full addresses
 - loan numbers
 - LO emails
@@ -105,7 +105,7 @@ So the right pattern is:
 
 ## Production analytics tables
 
-### `loan_officer_avm_run_results`
+### `loan_officer_avm_analytics_runs`
 
 Grain:
 - one row per LO AVM run
@@ -116,7 +116,7 @@ Examples of what it supports:
 - LO-level usage trends
 - cache-only and cache-hit behavior
 
-### `loan_officer_avm_run_providers`
+### `loan_officer_avm_analytics_providers`
 
 Grain:
 - one row per provider inside a run
@@ -164,7 +164,7 @@ Dry run supported:
 
 ### What the backfill does
 
-- reads historical `loan_officer_avm_orders`
+- reads historical `loan_officer_avm_order_log`
 - groups rows by `order_run_id`
 - builds one run-level analytics row per grouped run
 - builds provider-level analytics rows for the providers present in that run
@@ -211,8 +211,8 @@ Observed result:
 ### Verify row counts
 
 ```sql
-select count(*) from loan_officer_avm_run_results;
-select count(*) from loan_officer_avm_run_providers;
+select count(*) from loan_officer_avm_analytics_runs;
+select count(*) from loan_officer_avm_analytics_providers;
 ```
 
 ### Step 4. Verify synthetic rows were excluded
@@ -225,7 +225,7 @@ Sanity check by LO volume:
 select
   loan_officer_prefix,
   count(*) as runs
-from loan_officer_avm_run_results
+from loan_officer_avm_analytics_runs
 group by 1
 order by 2 desc;
 ```
@@ -271,8 +271,8 @@ Examples already prepared there:
 ### Keep long-term in Supabase
 
 Keep indefinitely for now:
-- `loan_officer_avm_run_results`
-- `loan_officer_avm_run_providers`
+- `loan_officer_avm_analytics_runs`
+- `loan_officer_avm_analytics_providers`
 
 Reason:
 - compact enough for long-term analytics
@@ -282,7 +282,7 @@ Reason:
 ### Keep hot in Supabase for 120 days, then archive to Azure Blob
 
 After **120 days**:
-- `loan_officer_avm_orders`
+- `loan_officer_avm_order_log`
 - `avm_cache`
 
 should be:
@@ -307,7 +307,7 @@ It should **not** replace live analytics querying.
 ### Recommended archive paths
 
 ```text
-website/loan_officer_avm_orders/year=YYYY/month=MM/day=DD/loan_officer_avm_orders_YYYYMMDD_HHMMSS.jsonl
+website/loan_officer_avm_order_log/year=YYYY/month=MM/day=DD/loan_officer_avm_order_log_YYYYMMDD_HHMMSS.jsonl
 website/avm_cache/year=YYYY/month=MM/day=DD/avm_cache_YYYYMMDD_HHMMSS.jsonl
 ```
 
@@ -327,7 +327,7 @@ Implemented artifacts:
 - `npm run avm:archive-operational`
 
 Current script behavior:
-- exports `loan_officer_avm_orders` rows older than 120 days where `archived_at IS NULL`
+- exports `loan_officer_avm_order_log` rows older than 120 days where `archived_at IS NULL`
 - exports `avm_cache` rows older than 120 days where `archived_at IS NULL`
 - writes JSONL to Azure Blob under the configured prefix
 - marks exported rows with `archived_at` and `archive_path`
@@ -350,7 +350,7 @@ npm run avm:archive-operational -- --execute
 
 Optional table-scoped run:
 ```bash
-npm run avm:archive-operational -- --execute --table loan_officer_avm_orders
+npm run avm:archive-operational -- --execute --table loan_officer_avm_order_log
 npm run avm:archive-operational -- --execute --table avm_cache
 ```
 
@@ -417,11 +417,11 @@ That gives the best balance:
 ## Recommendation summary
 
 ### Keep long-term in Supabase
-- `loan_officer_avm_run_results`
-- `loan_officer_avm_run_providers`
+- `loan_officer_avm_analytics_runs`
+- `loan_officer_avm_analytics_providers`
 
 ### Archive then purge after 120 days
-- `loan_officer_avm_orders`
+- `loan_officer_avm_order_log`
 - `avm_cache`
 
 ### Build next

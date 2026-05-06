@@ -140,7 +140,7 @@ function isSyntheticBackfillRow(order) {
 async function main() {
   const dryRun = process.argv.includes('--dry-run');
   const { data: orders, error } = await supabase
-    .from('loan_officer_avm_orders')
+    .from('loan_officer_avm_order_log')
     .select('*')
     .order('created_at', { ascending: true });
 
@@ -232,26 +232,26 @@ async function main() {
 
   if (!dryRun) {
     const { error: deleteProviderError } = await supabase
-      .from('loan_officer_avm_run_providers')
+      .from('loan_officer_avm_analytics_providers')
       .delete()
       .neq('run_id', '00000000-0000-0000-0000-000000000000');
     if (deleteProviderError) throw deleteProviderError;
 
     const { error: deleteRunError } = await supabase
-      .from('loan_officer_avm_run_results')
+      .from('loan_officer_avm_analytics_runs')
       .delete()
       .neq('run_id', '00000000-0000-0000-0000-000000000000');
     if (deleteRunError) throw deleteRunError;
 
     for (let i = 0; i < runResults.length; i += 200) {
       const batch = runResults.slice(i, i + 200);
-      const { error: insertError } = await supabase.from('loan_officer_avm_run_results').insert(batch);
+      const { error: insertError } = await supabase.from('loan_officer_avm_analytics_runs').insert(batch);
       if (insertError) throw insertError;
     }
 
     for (let i = 0; i < providerRowsToInsert.length; i += 500) {
       const batch = providerRowsToInsert.slice(i, i + 500);
-      const { error: insertError } = await supabase.from('loan_officer_avm_run_providers').insert(batch);
+      const { error: insertError } = await supabase.from('loan_officer_avm_analytics_providers').insert(batch);
       if (insertError) throw insertError;
     }
   }

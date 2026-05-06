@@ -19,7 +19,7 @@ function isMissingColumnError(error: any, columns: readonly string[]) {
 
 async function countHouseCanaryCycleUsage(supabase: ReturnType<typeof getSupabaseAdmin>, cycleStart: string, cycleEnd: string) {
   const { data, error } = await supabase
-    .from('loan_officer_avm_orders')
+    .from('loan_officer_avm_order_log')
     .select('housecanary_order_product')
     .eq('provider', 'housecanary')
     .eq('housecanary_billing_cycle_start', cycleStart)

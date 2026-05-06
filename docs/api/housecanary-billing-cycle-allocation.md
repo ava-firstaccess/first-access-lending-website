@@ -61,7 +61,7 @@ Main exports:
 
 ## Persistence
 
-`loan_officer_avm_orders` now has HouseCanary allocation fields:
+`loan_officer_avm_order_log` now has HouseCanary allocation fields:
 
 - `housecanary_billing_cycle_start`
 - `housecanary_billing_cycle_end`
@@ -80,4 +80,4 @@ When we wire real HouseCanary outbound ordering:
 4. submit:
    - Property Explorer if selected product = `property_explorer`
    - Agile Insights if selected product = `agile_insights`
-5. persist the cycle metadata onto `loan_officer_avm_orders`
+5. persist the cycle metadata onto `loan_officer_avm_order_log`
