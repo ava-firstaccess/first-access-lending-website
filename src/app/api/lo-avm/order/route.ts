@@ -945,9 +945,23 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
   throw new Error(`Failed to refresh Agile Insights order: ${lastError?.message || 'unknown error'}`);
 }
 
-async function pollHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof getSupabaseAdmin>, order: any, attempts = 6, delayMs = 2000) {
+async function pollHouseCanaryAgileInsightsOrder(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  order: any,
+  {
+    maxWaitMs = 90000,
+    preCompleteDelayMs = 2000,
+    postCompleteDelayMs = 4000,
+  }: {
+    maxWaitMs?: number;
+    preCompleteDelayMs?: number;
+    postCompleteDelayMs?: number;
+  } = {},
+) {
   let current = order;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt <= maxWaitMs) {
     current = await refreshHouseCanaryAgileInsightsOrder(supabase, current);
     const artifactsReady = agileInsightsArtifactsReady(current?.response_payload);
     if (current?.order_status === 'failed') {
@@ -956,10 +970,17 @@ async function pollHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof get
     if (current?.order_status === 'completed' && artifactsReady) {
       return current;
     }
-    if (attempt < attempts - 1) {
-      await delay(delayMs);
-    }
+
+    const elapsedMs = Date.now() - startedAt;
+    const remainingMs = maxWaitMs - elapsedMs;
+    if (remainingMs <= 0) break;
+
+    const nextDelayMs = current?.order_status === 'completed'
+      ? postCompleteDelayMs
+      : preCompleteDelayMs;
+    await delay(Math.min(nextDelayMs, remainingMs));
   }
+
   return current;
 }
 
@@ -2001,8 +2022,11 @@ export async function POST(req: NextRequest) {
         insertedOrder = await pollHouseCanaryAgileInsightsOrder(
           supabase,
           insertedOrder,
-          6,
-          2000,
+          {
+            maxWaitMs: 90000,
+            preCompleteDelayMs: 2000,
+            postCompleteDelayMs: 4000,
+          },
         );
         if (insertedOrder?.order_status === 'completed' && typeof insertedOrder?.response_payload?.reportLink === 'string') {
           try {
