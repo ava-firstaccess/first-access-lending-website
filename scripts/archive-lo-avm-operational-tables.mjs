@@ -4,12 +4,20 @@ import { BlobServiceClient, StorageSharedKeyCredential } from '@azure/storage-bl
 import { createClient } from '@supabase/supabase-js';
 
 const TABLES = {
+  applications: {
+    table: 'applications',
+    retentionDays: 120,
+  },
   loan_officer_avm_orders: {
     table: 'loan_officer_avm_orders',
     retentionDays: 120,
   },
   avm_cache: {
     table: 'avm_cache',
+    retentionDays: 120,
+  },
+  avm_provider_runs: {
+    table: 'avm_provider_runs',
     retentionDays: 120,
   },
 };

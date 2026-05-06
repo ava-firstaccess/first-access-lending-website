@@ -189,39 +189,23 @@ function getClearCapitalPaaConfig() {
   return { apiKey, baseUrl };
 }
 
-async function insertClearCapitalRun(supabase: any, payload: any) {
+const AVM_PROVIDER_RUNS_TABLE = 'avm_provider_runs';
+
+async function insertAvmProviderRun(supabase: any, payload: any) {
   try {
-    const { error } = await supabase.from('clearcapital_runs').insert(payload);
-    if (error) console.warn('clearcapital_runs insert failed:', error.message);
+    const { error } = await supabase.from(AVM_PROVIDER_RUNS_TABLE).insert(payload);
+    if (error) console.warn('avm_provider_runs insert failed:', error.message);
   } catch {
-    console.warn('clearcapital_runs insert threw');
+    console.warn('avm_provider_runs insert threw');
   }
 }
 
-async function updateClearCapitalRun(supabase: any, runId: string, payload: any) {
+async function updateAvmProviderRun(supabase: any, runId: string, payload: any) {
   try {
-    const { error } = await supabase.from('clearcapital_runs').update(payload).eq('run_id', runId);
-    if (error) console.warn('clearcapital_runs update failed:', error.message);
+    const { error } = await supabase.from(AVM_PROVIDER_RUNS_TABLE).update(payload).eq('run_id', runId);
+    if (error) console.warn('avm_provider_runs update failed:', error.message);
   } catch {
-    console.warn('clearcapital_runs update threw');
-  }
-}
-
-async function insertHouseCanaryRun(supabase: any, payload: any) {
-  try {
-    const { error } = await supabase.from('housecanary_runs').insert(payload);
-    if (error) console.warn('housecanary_runs insert failed:', error.message);
-  } catch {
-    console.warn('housecanary_runs insert threw');
-  }
-}
-
-async function updateHouseCanaryRun(supabase: any, runId: string, payload: any) {
-  try {
-    const { error } = await supabase.from('housecanary_runs').update(payload).eq('run_id', runId);
-    if (error) console.warn('housecanary_runs update failed:', error.message);
-  } catch {
-    console.warn('housecanary_runs update threw');
+    console.warn('avm_provider_runs update threw');
   }
 }
 
@@ -410,13 +394,15 @@ async function runClearCapitalCandidate({
   const clearCapitalConfig = getClearCapitalPaaConfig();
 
   if (!clearCapitalConfig) {
-    await insertClearCapitalRun(supabase, {
+    await insertAvmProviderRun(supabase, {
       run_id: clearCapitalRunId,
       application_id: applicationId,
       address,
       zipcode,
       city: city || null,
       state: state || null,
+      provider: 'clearcapital',
+      product: 'property_analytics',
       endpoint_host: 'not_configured',
       status_code: null,
       status: 'skipped',
@@ -445,6 +431,8 @@ async function runClearCapitalCandidate({
     zipcode,
     city: city || null,
     state: state || null,
+    provider: 'clearcapital',
+    product: 'property_analytics',
     endpoint_host: new URL(clearCapitalConfig.baseUrl).hostname,
     status_code: null,
     status: 'started',
@@ -463,7 +451,7 @@ async function runClearCapitalCandidate({
     vendor_run_date: null,
     notes: `Triggered after ${triggerReason}`,
   };
-  await insertClearCapitalRun(supabase, baseRunPayload);
+  await insertAvmProviderRun(supabase, baseRunPayload);
 
   try {
     const clearCapital = await getClearCapitalClearAvm(address, zipcode, city || '', state || '', clearCapitalTrackingId);
@@ -477,7 +465,7 @@ async function runClearCapitalCandidate({
     const lowValue = belowTarget || belowFloor;
     const eligible = !lowConfidence && !lowValue;
 
-    await updateClearCapitalRun(supabase, clearCapitalRunId, {
+    await updateAvmProviderRun(supabase, clearCapitalRunId, {
       ...baseRunPayload,
       status_code: clearCapital?.statusCode,
       status: 'completed',
@@ -515,7 +503,7 @@ async function runClearCapitalCandidate({
       effectiveDate: clearCapital?.response?.effectiveDate,
     };
   } catch (clearCapitalError: any) {
-    await updateClearCapitalRun(supabase, clearCapitalRunId, {
+    await updateAvmProviderRun(supabase, clearCapitalRunId, {
       ...baseRunPayload,
       status: 'failed',
       error_category: 'request_failed',
@@ -826,6 +814,7 @@ export async function POST(req: NextRequest) {
       zipcode,
       city: city || null,
       state: state || null,
+      endpoint_host: new URL(HC_BASE).hostname,
       endpoint_path: '/v3/property/estimated_value',
       status_code: null,
       status: 'started',
@@ -839,7 +828,7 @@ export async function POST(req: NextRequest) {
       fsd: null,
       notes: 'HouseCanary estimate request started',
     };
-    await insertHouseCanaryRun(supabase, estimateRunBase);
+    await insertAvmProviderRun(supabase, estimateRunBase);
 
     let estimateData: HouseCanaryEstimateResponse | null = null;
     let hcEstimate: number | null = null;
@@ -847,7 +836,7 @@ export async function POST(req: NextRequest) {
     try {
       estimateData = await getPropertyEstimate(address, zipcode, city, state) as HouseCanaryEstimateResponse;
       hcEstimate = typeof estimateData?.estimate === 'number' ? estimateData.estimate : null;
-      await updateHouseCanaryRun(supabase, estimateRunId, {
+      await updateAvmProviderRun(supabase, estimateRunId, {
         ...estimateRunBase,
         status: hcEstimate ? 'completed' : 'no_data',
         success: Boolean(hcEstimate),
@@ -856,7 +845,7 @@ export async function POST(req: NextRequest) {
         notes: hcEstimate ? 'HouseCanary estimate returned a value' : 'HouseCanary estimate returned no estimate value',
       });
     } catch (estimateError: any) {
-      await updateHouseCanaryRun(supabase, estimateRunId, {
+      await updateAvmProviderRun(supabase, estimateRunId, {
         ...estimateRunBase,
         status: 'failed',
         error_category: 'request_failed',
@@ -1110,6 +1099,7 @@ export async function POST(req: NextRequest) {
       zipcode,
       city: city || null,
       state: state || null,
+      endpoint_host: new URL(HC_BASE).hostname,
       endpoint_path: '/v2/property/value',
       status_code: null,
       status: 'started',
@@ -1123,12 +1113,12 @@ export async function POST(req: NextRequest) {
       fsd: null,
       notes: 'HouseCanary full AVM request started',
     };
-    await insertHouseCanaryRun(supabase, valueRunBase);
+    await insertAvmProviderRun(supabase, valueRunBase);
 
     let fsdData: HouseCanaryValueResult;
     try {
       fsdData = await getPropertyValueWithFSD(address, zipcode) as HouseCanaryValueResult;
-      await updateHouseCanaryRun(supabase, valueRunId, {
+      await updateAvmProviderRun(supabase, valueRunId, {
         ...valueRunBase,
         status: 'completed',
         success: true,
@@ -1140,7 +1130,7 @@ export async function POST(req: NextRequest) {
         notes: `HouseCanary full AVM completed with FSD=${fsdData.fsd}`,
       });
     } catch (valueError: any) {
-      await updateHouseCanaryRun(supabase, valueRunId, {
+      await updateAvmProviderRun(supabase, valueRunId, {
         ...valueRunBase,
         status: 'failed',
         error_category: 'request_failed',
