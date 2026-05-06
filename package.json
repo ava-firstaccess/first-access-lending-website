@@ -13,7 +13,8 @@
     "osb:generate": "python3 scripts/generate-osb-ratesheet-data.py",
     "ratesheets:generate": "node scripts/refresh-ratesheet-data.mjs",
     "ratesheets:refresh": "node scripts/refresh-ratesheet-pipeline.mjs",
-    "meridianlink:proxy": "node scripts/meridianlink-proxy-server.mjs"
+    "meridianlink:proxy": "node scripts/meridianlink-proxy-server.mjs",
+    "avm:backfill-analytics": "node scripts/backfill-lo-avm-run-analytics.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.0",

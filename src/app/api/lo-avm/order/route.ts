@@ -1140,6 +1140,157 @@ function buildClearCapitalEmailHtml({
   });
 }
 
+function isMissingLoanOfficerAvmRunAnalyticsError(error: any) {
+  const code = String(error?.code || '').trim();
+  const message = String(error?.message || '').toLowerCase();
+  return code === '42P01'
+    || code === '42703'
+    || message.includes('loan_officer_avm_run_results')
+    || message.includes('loan_officer_avm_run_providers');
+}
+
+async function persistLoanOfficerAvmRunAnalytics(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  {
+    runId,
+    orderRunId,
+    session,
+    loanNumber,
+    investorLabel,
+    engine,
+    program,
+    product,
+    addressId,
+    address,
+    city,
+    state,
+    zipcode,
+    runSource,
+    manualProvider,
+    cacheOnly,
+    cacheHit,
+    selectedInvestorSatisfied,
+    selectedInvestorInFlight,
+    providerRows,
+    winnerProvider,
+    latestOrderedAt,
+    message,
+    completedSuccessfully,
+    ordersPlacedCount,
+    createdAt,
+  }: {
+    runId: string;
+    orderRunId?: string | null;
+    session: { prefix: string; email: string };
+    loanNumber?: string | null;
+    investorLabel: string;
+    engine?: string | null;
+    program?: string | null;
+    product?: string | null;
+    addressId: string;
+    address: string;
+    city?: string | null;
+    state?: string | null;
+    zipcode: string;
+    runSource: 'manual' | 'cascade';
+    manualProvider?: 'HouseCanary' | 'Clear Capital' | null;
+    cacheOnly: boolean;
+    cacheHit: boolean;
+    selectedInvestorSatisfied: boolean | null;
+    selectedInvestorInFlight: boolean | null;
+    providerRows: ProviderRow[];
+    winnerProvider: AvmProviderName | null;
+    latestOrderedAt?: string | null;
+    message: string;
+    completedSuccessfully: boolean;
+    ordersPlacedCount: number;
+    createdAt: string;
+  },
+) {
+  try {
+    const winnerRow = providerRows.find((row) => row.provider === winnerProvider) || null;
+    const runPayload = {
+      run_id: runId,
+      order_run_id: orderRunId || null,
+      loan_officer_prefix: session.prefix,
+      loan_officer_email: session.email,
+      loan_number: loanNumber || null,
+      investor: investorLabel,
+      engine: engine || null,
+      program: program || null,
+      product: product || null,
+      address_id: addressId,
+      address,
+      city: city || null,
+      state: state || null,
+      zipcode,
+      run_source: runSource,
+      manual_provider_requested: runSource === 'manual' ? (manualProvider || null) : null,
+      cache_only: cacheOnly,
+      cache_hit: cacheHit,
+      selected_investor_satisfied: selectedInvestorSatisfied,
+      selected_investor_in_flight: selectedInvestorInFlight,
+      orders_placed_count: ordersPlacedCount,
+      winner_provider: winnerProvider,
+      winner_source: winnerRow?.source || null,
+      winner_provider_product: winnerRow?.providerProduct || null,
+      winner_order_run_id: winnerRow?.orderRunId || null,
+      winner_order_status: winnerRow?.orderStatus || null,
+      winner_value: winnerRow?.value ?? null,
+      winner_fsd: winnerRow?.fsd ?? null,
+      latest_ordered_at: latestOrderedAt || null,
+      completed_successfully: completedSuccessfully,
+      response_message: message,
+      created_at: createdAt,
+      updated_at: createdAt,
+    };
+
+    const providerPayloads = providerRows
+      .filter((row) => providerRowHasData(row) || row.supported)
+      .map((row) => ({
+        run_id: runId,
+        provider: row.provider,
+        supported: row.supported,
+        max_fsd_allowed: row.maxFsdAllowed,
+        source: row.source || null,
+        order_status: row.orderStatus || null,
+        order_run_id: row.orderRunId || null,
+        provider_product: row.providerProduct || null,
+        targeted_investor: row.targetedInvestor || null,
+        requested_max_fsd: row.requestedMaxFsd,
+        fsd_threshold_status: row.fsdThresholdStatus || null,
+        value: row.value,
+        fsd: row.fsd,
+        is_winner: row.provider === winnerProvider,
+        has_report_link: Boolean(row.reportLink),
+        failure_message: row.failureMessage || null,
+        created_at: createdAt,
+      }));
+
+    const { error: runError } = await supabase.from('loan_officer_avm_run_results').upsert(runPayload, { onConflict: 'run_id' });
+    if (runError) {
+      if (isMissingLoanOfficerAvmRunAnalyticsError(runError)) return;
+      throw runError;
+    }
+
+    const { error: deleteError } = await supabase.from('loan_officer_avm_run_providers').delete().eq('run_id', runId);
+    if (deleteError) {
+      if (isMissingLoanOfficerAvmRunAnalyticsError(deleteError)) return;
+      throw deleteError;
+    }
+
+    if (providerPayloads.length > 0) {
+      const { error: providerError } = await supabase.from('loan_officer_avm_run_providers').insert(providerPayloads);
+      if (providerError) {
+        if (isMissingLoanOfficerAvmRunAnalyticsError(providerError)) return;
+        throw providerError;
+      }
+    }
+  } catch (error) {
+    console.error('LO AVM analytics persistence failed:', error);
+  }
+}
+
 async function loadRecentOrders(supabase: ReturnType<typeof getSupabaseAdmin>, addressId: string) {
   const cutoffIso = new Date(Date.now() - LO_AVM_CACHE_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase
@@ -1458,18 +1609,49 @@ export async function POST(req: NextRequest) {
     const availableProviderRows = mergeProviderRows(cachedOrderRows, cachedAvmRows);
     const selectedInvestorSatisfied = availableProviderRows.some((row) => providerRowSatisfiesSelectedInvestor(row));
     const selectedInvestorInFlight = availableProviderRows.some((row) => providerRowIsInFlightForSelectedInvestor(row));
+    const analyticsRunId = randomUUID();
 
     if (cacheOnly) {
       const latestOrderedAt = refreshedCachedOrders[0]?.ordered_at || refreshedCachedOrders[0]?.created_at || cachedAvm?.created_at || null;
+      const winnerProvider = chooseWinnerProvider(availableProviderRows);
+      const message = 'Loaded available cached AVMs only. No vendor order was placed.';
+      await persistLoanOfficerAvmRunAnalytics(supabase, {
+        runId: analyticsRunId,
+        orderRunId: null,
+        session,
+        loanNumber,
+        investorLabel,
+        engine,
+        program,
+        product,
+        addressId,
+        address,
+        city,
+        state,
+        zipcode,
+        runSource,
+        manualProvider,
+        cacheOnly: true,
+        cacheHit: true,
+        selectedInvestorSatisfied,
+        selectedInvestorInFlight,
+        providerRows: availableProviderRows,
+        winnerProvider,
+        latestOrderedAt,
+        message,
+        completedSuccessfully: true,
+        ordersPlacedCount: 0,
+        createdAt: new Date().toISOString(),
+      });
       return NextResponse.json({
         cacheHit: true,
         addressId,
         cacheWindowDays: LO_AVM_CACHE_WINDOW_DAYS,
         investor: investorLabel,
         providerRows: availableProviderRows,
-        winnerProvider: chooseWinnerProvider(availableProviderRows),
+        winnerProvider,
         latestOrderedAt,
-        message: 'Loaded available cached AVMs only. No vendor order was placed.',
+        message,
       });
     }
 
@@ -1478,13 +1660,42 @@ export async function POST(req: NextRequest) {
       const message = selectedInvestorSatisfied
         ? 'Loaded available cached AVMs. No new vendor order was placed because the selected investor already has a usable result.'
         : 'Loaded available cached AVMs. No new vendor order was placed because a supported AVM order is already in progress for the selected investor.';
+      const winnerProvider = chooseWinnerProvider(availableProviderRows);
+      await persistLoanOfficerAvmRunAnalytics(supabase, {
+        runId: analyticsRunId,
+        orderRunId: null,
+        session,
+        loanNumber,
+        investorLabel,
+        engine,
+        program,
+        product,
+        addressId,
+        address,
+        city,
+        state,
+        zipcode,
+        runSource,
+        manualProvider,
+        cacheOnly: false,
+        cacheHit: true,
+        selectedInvestorSatisfied,
+        selectedInvestorInFlight,
+        providerRows: availableProviderRows,
+        winnerProvider,
+        latestOrderedAt,
+        message,
+        completedSuccessfully: true,
+        ordersPlacedCount: 0,
+        createdAt: new Date().toISOString(),
+      });
       return NextResponse.json({
         cacheHit: true,
         addressId,
         cacheWindowDays: LO_AVM_CACHE_WINDOW_DAYS,
         investor: investorLabel,
         providerRows: availableProviderRows,
-        winnerProvider: chooseWinnerProvider(availableProviderRows),
+        winnerProvider,
         latestOrderedAt,
         message,
       });
@@ -1492,7 +1703,7 @@ export async function POST(req: NextRequest) {
 
     const hcRule = getInvestorAvmRule(investor, 'HouseCanary');
     const ccRule = getInvestorAvmRule(investor, 'Clear Capital');
-    const orderRunId = randomUUID();
+    const orderRunId = analyticsRunId;
     const orderedAt = new Date().toISOString();
 
     let insertedOrder: any = null;
@@ -1953,6 +2164,36 @@ export async function POST(req: NextRequest) {
         ? 'Agile Insights order completed and the latest value was captured.'
         : 'Agile Insights order placed. Polling ran, but HouseCanary has not returned a completed result yet.'
       : runSource === 'manual' ? 'Manual vendor order placed successfully.' : 'Vendor order placed successfully.';
+    const winnerProvider = chooseWinnerProvider(providerRows);
+    const latestOrderedAt = insertedOrder?.ordered_at || insertedOrder?.created_at || null;
+    await persistLoanOfficerAvmRunAnalytics(supabase, {
+      runId: analyticsRunId,
+      orderRunId,
+      session,
+      loanNumber,
+      investorLabel,
+      engine,
+      program,
+      product,
+      addressId,
+      address,
+      city,
+      state,
+      zipcode,
+      runSource,
+      manualProvider,
+      cacheOnly: false,
+      cacheHit: false,
+      selectedInvestorSatisfied,
+      selectedInvestorInFlight,
+      providerRows,
+      winnerProvider,
+      latestOrderedAt,
+      message: successMessage,
+      completedSuccessfully: Boolean(insertedOrder),
+      ordersPlacedCount: insertedOrder ? 1 : 0,
+      createdAt: orderedAt,
+    });
 
     return NextResponse.json({
       cacheHit: false,
@@ -1960,8 +2201,8 @@ export async function POST(req: NextRequest) {
       cacheWindowDays: LO_AVM_CACHE_WINDOW_DAYS,
       investor: investorLabel,
       providerRows,
-      winnerProvider: chooseWinnerProvider(providerRows),
-      latestOrderedAt: insertedOrder?.ordered_at || insertedOrder?.created_at || null,
+      winnerProvider,
+      latestOrderedAt,
       message: successMessage,
     });
   } catch (error) {
