@@ -46,7 +46,7 @@ function parseArgs(argv) {
     tables: Object.keys(TABLES),
     batchSize: 1000,
     account: process.env.AZURE_STORAGE_ACCOUNT || 'firstaccessdata',
-    container: process.env.AZURE_STORAGE_CONTAINER || 'powerbi-data',
+    container: process.env.AZURE_STORAGE_CONTAINER || 'operational-archives',
     prefix: process.env.LO_AVM_ARCHIVE_PREFIX || 'website',
   };
 
@@ -60,7 +60,7 @@ function parseArgs(argv) {
     else if (arg === '--container') out.container = argv[++i] || out.container;
     else if (arg === '--prefix') out.prefix = argv[++i] || out.prefix;
     else if (arg === '--help' || arg === '-h') {
-      console.log(`Usage: node scripts/archive-lo-avm-operational-tables.mjs [options]\n\nOptions:\n  --execute              Upload to Azure Blob and mark rows archived\n  --table <name>         Archive a single table\n  --tables a,b           Archive selected tables\n  --batch-size <n>       Supabase fetch/update page size (default: 1000)\n  --account <name>       Azure storage account (default: firstaccessdata)\n  --container <name>     Azure container (default: powerbi-data)\n  --prefix <path>        Blob prefix (default: website)\n\nWithout --execute, the script performs a dry run.`);
+      console.log(`Usage: node scripts/archive-lo-avm-operational-tables.mjs [options]\n\nOptions:\n  --execute              Upload to Azure Blob and mark rows archived\n  --table <name>         Archive a single table\n  --tables a,b           Archive selected tables\n  --batch-size <n>       Supabase fetch/update page size (default: 1000)\n  --account <name>       Azure storage account (default: firstaccessdata)\n  --container <name>     Azure container (default: operational-archives)\n  --prefix <path>        Blob prefix (default: website)\n\nWithout --execute, the script performs a dry run.`);
       process.exit(0);
     }
   }
