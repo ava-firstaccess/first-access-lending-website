@@ -1,0 +1,37 @@
+name: AVM operational archive
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '45 0 * * *'
+
+concurrency:
+  group: avm-operational-archive
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      AZURE_STORAGE_ACCOUNT: firstaccessdata
+      AZURE_STORAGE_ACCOUNT_KEY: ${{ secrets.AZURE_STORAGE_ACCOUNT_KEY }}
+      AZURE_STORAGE_CONTAINER: operational-archives
+      LO_AVM_ARCHIVE_PREFIX: website
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run archive export
+        run: node scripts/archive-lo-avm-operational-tables.mjs --execute --tables applications,loan_officer_avm_order_log,avm_cache,avm_provider_runs
