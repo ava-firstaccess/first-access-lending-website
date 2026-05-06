@@ -5,7 +5,8 @@
 - **Analytics schema/code:** built and committed
 - **Production schema apply:** completed in Supabase
 - **Backfill:** completed in production
-- **Raw-data retention/purge:** planned here, not built yet
+- **Raw-data export/archive:** implementation now exists in repo, not yet rolled out in production
+- **Raw-data retention/purge:** planned here, purge still not built/live yet
 
 Commit with the analytics implementation:
 - `fb5eb9c` - `Add LO AVM run analytics and backfill`
@@ -317,6 +318,48 @@ Potential later optimization:
 - Parquet if reporting volume grows
 
 ---
+
+## Export implementation now in repo
+
+Implemented artifacts:
+- `supabase/migrations/025_lo_avm_operational_archive_tracking.sql`
+- `scripts/archive-lo-avm-operational-tables.mjs`
+- `npm run avm:archive-operational`
+
+Current script behavior:
+- exports `loan_officer_avm_orders` rows older than 120 days where `archived_at IS NULL`
+- exports `avm_cache` rows older than 120 days where `archived_at IS NULL`
+- writes JSONL to Azure Blob under the configured prefix
+- marks exported rows with `archived_at` and `archive_path`
+- defaults to **dry run** unless `--execute` is passed
+
+Default Azure target:
+- storage account: `firstaccessdata`
+- container: `powerbi-data`
+- prefix: `website`
+
+Dry run:
+```bash
+npm run avm:archive-operational
+```
+
+Live run:
+```bash
+npm run avm:archive-operational -- --execute
+```
+
+Optional table-scoped run:
+```bash
+npm run avm:archive-operational -- --execute --table loan_officer_avm_orders
+npm run avm:archive-operational -- --execute --table avm_cache
+```
+
+Before first live run:
+1. apply `supabase/migrations/025_lo_avm_operational_archive_tracking.sql`
+2. run dry run and confirm expected eligible row counts
+3. run one live export
+4. verify `archived_at` and `archive_path` were populated
+5. only then build/enable purge automation
 
 ## Planned purge workflow
 

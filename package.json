@@ -14,9 +14,11 @@
     "ratesheets:generate": "node scripts/refresh-ratesheet-data.mjs",
     "ratesheets:refresh": "node scripts/refresh-ratesheet-pipeline.mjs",
     "meridianlink:proxy": "node scripts/meridianlink-proxy-server.mjs",
-    "avm:backfill-analytics": "node scripts/backfill-lo-avm-run-analytics.mjs"
+    "avm:backfill-analytics": "node scripts/backfill-lo-avm-run-analytics.mjs",
+    "avm:archive-operational": "node scripts/archive-lo-avm-operational-tables.mjs"
   },
   "dependencies": {
+    "@azure/storage-blob": "^12.31.0",
     "@supabase/supabase-js": "^2.100.0",
     "adm-zip": "^0.5.17",
     "next": "16.1.6",
