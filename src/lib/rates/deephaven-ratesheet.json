@@ -18,288 +18,288 @@
         {
           "rate": 7.625,
           "prices": {
-            "15Y Fixed": 103.475,
-            "30Y Fixed": 103.225
+            "15Y Fixed": 103.575,
+            "30Y Fixed": 103.325
           }
         },
         {
           "rate": 7.75,
           "prices": {
-            "15Y Fixed": 104.175,
-            "30Y Fixed": 103.925
+            "15Y Fixed": 104.275,
+            "30Y Fixed": 104.025
           }
         },
         {
           "rate": 7.875,
           "prices": {
-            "15Y Fixed": 104.85,
-            "30Y Fixed": 104.6
+            "15Y Fixed": 104.95,
+            "30Y Fixed": 104.7
           }
         },
         {
           "rate": 8,
           "prices": {
-            "15Y Fixed": 105.525,
-            "30Y Fixed": 105.275
+            "15Y Fixed": 105.625,
+            "30Y Fixed": 105.375
           }
         },
         {
           "rate": 8.125,
           "prices": {
-            "15Y Fixed": 106.2,
-            "30Y Fixed": 105.95
+            "15Y Fixed": 106.3,
+            "30Y Fixed": 106.05
           }
         },
         {
           "rate": 8.25,
           "prices": {
-            "15Y Fixed": 106.825,
-            "30Y Fixed": 106.575
+            "15Y Fixed": 106.925,
+            "30Y Fixed": 106.675
           }
         },
         {
           "rate": 8.375,
           "prices": {
-            "15Y Fixed": 107.375,
-            "30Y Fixed": 107.125
+            "15Y Fixed": 107.475,
+            "30Y Fixed": 107.225
           }
         },
         {
           "rate": 8.5,
           "prices": {
-            "15Y Fixed": 107.925,
-            "30Y Fixed": 107.675
+            "15Y Fixed": 108.025,
+            "30Y Fixed": 107.775
           }
         },
         {
           "rate": 8.625,
           "prices": {
-            "15Y Fixed": 108.462,
-            "30Y Fixed": 108.212
+            "15Y Fixed": 108.562,
+            "30Y Fixed": 108.312
           }
         },
         {
           "rate": 8.75,
           "prices": {
-            "15Y Fixed": 108.962,
-            "30Y Fixed": 108.712
+            "15Y Fixed": 109.062,
+            "30Y Fixed": 108.812
           }
         },
         {
           "rate": 8.875,
           "prices": {
-            "15Y Fixed": 109.462,
-            "30Y Fixed": 109.212
+            "15Y Fixed": 109.562,
+            "30Y Fixed": 109.312
           }
         },
         {
           "rate": 9,
           "prices": {
-            "15Y Fixed": 109.962,
-            "30Y Fixed": 109.712
+            "15Y Fixed": 110.062,
+            "30Y Fixed": 109.812
           }
         },
         {
           "rate": 9.125,
           "prices": {
-            "15Y Fixed": 110.387,
-            "30Y Fixed": 110.137
+            "15Y Fixed": 110.487,
+            "30Y Fixed": 110.237
           }
         },
         {
           "rate": 9.25,
           "prices": {
-            "15Y Fixed": 110.787,
-            "30Y Fixed": 110.537
+            "15Y Fixed": 110.887,
+            "30Y Fixed": 110.637
           }
         },
         {
           "rate": 9.375,
           "prices": {
-            "15Y Fixed": 111.162,
-            "30Y Fixed": 110.912
+            "15Y Fixed": 111.262,
+            "30Y Fixed": 111.012
           }
         },
         {
           "rate": 9.5,
           "prices": {
-            "15Y Fixed": 111.562,
-            "30Y Fixed": 111.312
+            "15Y Fixed": 111.662,
+            "30Y Fixed": 111.412
           }
         },
         {
           "rate": 9.625,
           "prices": {
-            "15Y Fixed": 111.937,
-            "30Y Fixed": 111.687
+            "15Y Fixed": 112.037,
+            "30Y Fixed": 111.787
           }
         },
         {
           "rate": 9.75,
           "prices": {
-            "15Y Fixed": 112.312,
-            "30Y Fixed": 112.062
+            "15Y Fixed": 112.412,
+            "30Y Fixed": 112.162
           }
         },
         {
           "rate": 9.875,
           "prices": {
-            "15Y Fixed": 112.687,
-            "30Y Fixed": 112.437
+            "15Y Fixed": 112.787,
+            "30Y Fixed": 112.537
           }
         },
         {
           "rate": 10,
           "prices": {
-            "15Y Fixed": 112.937,
-            "30Y Fixed": 112.687
+            "15Y Fixed": 113.037,
+            "30Y Fixed": 112.787
           }
         },
         {
           "rate": 10.125,
           "prices": {
-            "15Y Fixed": 113.187,
-            "30Y Fixed": 112.937
+            "15Y Fixed": 113.287,
+            "30Y Fixed": 113.037
           }
         },
         {
           "rate": 10.25,
           "prices": {
-            "15Y Fixed": 113.437,
-            "30Y Fixed": 113.187
+            "15Y Fixed": 113.537,
+            "30Y Fixed": 113.287
           }
         },
         {
           "rate": 10.375,
           "prices": {
-            "15Y Fixed": 113.687,
-            "30Y Fixed": 113.437
+            "15Y Fixed": 113.787,
+            "30Y Fixed": 113.537
           }
         },
         {
           "rate": 10.5,
           "prices": {
-            "15Y Fixed": 113.937,
-            "30Y Fixed": 113.687
+            "15Y Fixed": 114.037,
+            "30Y Fixed": 113.787
           }
         },
         {
           "rate": 10.625,
           "prices": {
-            "15Y Fixed": 114.187,
-            "30Y Fixed": 113.937
+            "15Y Fixed": 114.287,
+            "30Y Fixed": 114.037
           }
         },
         {
           "rate": 10.75,
           "prices": {
-            "15Y Fixed": 114.437,
-            "30Y Fixed": 114.187
+            "15Y Fixed": 114.537,
+            "30Y Fixed": 114.287
           }
         },
         {
           "rate": 10.875,
           "prices": {
-            "15Y Fixed": 114.687,
-            "30Y Fixed": 114.437
+            "15Y Fixed": 114.787,
+            "30Y Fixed": 114.537
           }
         },
         {
           "rate": 11,
           "prices": {
-            "15Y Fixed": 114.937,
-            "30Y Fixed": 114.687
+            "15Y Fixed": 115.037,
+            "30Y Fixed": 114.787
           }
         },
         {
           "rate": 11.125,
           "prices": {
-            "15Y Fixed": 115.087,
-            "30Y Fixed": 114.837
+            "15Y Fixed": 115.187,
+            "30Y Fixed": 114.937
           }
         },
         {
           "rate": 11.25,
           "prices": {
-            "15Y Fixed": 115.337,
-            "30Y Fixed": 115.087
+            "15Y Fixed": 115.437,
+            "30Y Fixed": 115.187
           }
         },
         {
           "rate": 11.375,
           "prices": {
-            "15Y Fixed": 115.487,
-            "30Y Fixed": 115.237
+            "15Y Fixed": 115.587,
+            "30Y Fixed": 115.337
           }
         },
         {
           "rate": 11.5,
           "prices": {
-            "15Y Fixed": 115.737,
-            "30Y Fixed": 115.487
+            "15Y Fixed": 115.837,
+            "30Y Fixed": 115.587
           }
         },
         {
           "rate": 11.625,
           "prices": {
-            "15Y Fixed": 115.887,
-            "30Y Fixed": 115.637
+            "15Y Fixed": 115.987,
+            "30Y Fixed": 115.737
           }
         },
         {
           "rate": 11.75,
           "prices": {
-            "15Y Fixed": 116.137,
-            "30Y Fixed": 115.887
+            "15Y Fixed": 116.237,
+            "30Y Fixed": 115.987
           }
         },
         {
           "rate": 11.875,
           "prices": {
-            "15Y Fixed": 116.287,
-            "30Y Fixed": 116.037
+            "15Y Fixed": 116.387,
+            "30Y Fixed": 116.137
           }
         },
         {
           "rate": 12,
           "prices": {
-            "15Y Fixed": 116.537,
-            "30Y Fixed": 116.287
+            "15Y Fixed": 116.637,
+            "30Y Fixed": 116.387
           }
         },
         {
           "rate": 12.125,
           "prices": {
-            "15Y Fixed": 116.687,
-            "30Y Fixed": 116.437
+            "15Y Fixed": 116.787,
+            "30Y Fixed": 116.537
           }
         },
         {
           "rate": 12.25,
           "prices": {
-            "15Y Fixed": 116.937,
-            "30Y Fixed": 116.687
+            "15Y Fixed": 117.037,
+            "30Y Fixed": 116.787
           }
         },
         {
           "rate": 12.375,
           "prices": {
-            "15Y Fixed": 117.087,
-            "30Y Fixed": 116.837
+            "15Y Fixed": 117.187,
+            "30Y Fixed": 116.937
           }
         },
         {
           "rate": 12.5,
           "prices": {
-            "15Y Fixed": 117.337,
-            "30Y Fixed": 117.087
+            "15Y Fixed": 117.437,
+            "30Y Fixed": 117.187
           }
         },
         {
           "rate": 12.625,
           "prices": {
-            "15Y Fixed": 117.587,
-            "30Y Fixed": 117.337
+            "15Y Fixed": 117.687,
+            "30Y Fixed": 117.437
           }
         }
       ],
@@ -678,246 +678,246 @@
         {
           "rate": 7.25,
           "prices": {
-            "15Y Fixed": 102.13,
-            "30Y Fixed": 101.88
+            "15Y Fixed": 102.23,
+            "30Y Fixed": 101.98
           }
         },
         {
           "rate": 7.375,
           "prices": {
-            "15Y Fixed": 102.88,
-            "30Y Fixed": 102.63
+            "15Y Fixed": 102.98,
+            "30Y Fixed": 102.73
           }
         },
         {
           "rate": 7.5,
           "prices": {
-            "15Y Fixed": 103.63,
-            "30Y Fixed": 103.38
+            "15Y Fixed": 103.73,
+            "30Y Fixed": 103.48
           }
         },
         {
           "rate": 7.625,
           "prices": {
-            "15Y Fixed": 104.38,
-            "30Y Fixed": 104.13
+            "15Y Fixed": 104.48,
+            "30Y Fixed": 104.23
           }
         },
         {
           "rate": 7.75,
           "prices": {
-            "15Y Fixed": 105.055,
-            "30Y Fixed": 104.805
+            "15Y Fixed": 105.155,
+            "30Y Fixed": 104.905
           }
         },
         {
           "rate": 7.875,
           "prices": {
-            "15Y Fixed": 105.73,
-            "30Y Fixed": 105.48
+            "15Y Fixed": 105.83,
+            "30Y Fixed": 105.58
           }
         },
         {
           "rate": 8,
           "prices": {
-            "15Y Fixed": 106.38,
-            "30Y Fixed": 106.13
+            "15Y Fixed": 106.48,
+            "30Y Fixed": 106.23
           }
         },
         {
           "rate": 8.125,
           "prices": {
-            "15Y Fixed": 107.03,
-            "30Y Fixed": 106.78
+            "15Y Fixed": 107.13,
+            "30Y Fixed": 106.88
           }
         },
         {
           "rate": 8.25,
           "prices": {
-            "15Y Fixed": 107.63,
-            "30Y Fixed": 107.38
+            "15Y Fixed": 107.73,
+            "30Y Fixed": 107.48
           }
         },
         {
           "rate": 8.375,
           "prices": {
-            "15Y Fixed": 108.18,
-            "30Y Fixed": 107.93
+            "15Y Fixed": 108.28,
+            "30Y Fixed": 108.03
           }
         },
         {
           "rate": 8.5,
           "prices": {
-            "15Y Fixed": 108.705,
-            "30Y Fixed": 108.455
+            "15Y Fixed": 108.805,
+            "30Y Fixed": 108.555
           }
         },
         {
           "rate": 8.625,
           "prices": {
-            "15Y Fixed": 109.23,
-            "30Y Fixed": 108.98
+            "15Y Fixed": 109.33,
+            "30Y Fixed": 109.08
           }
         },
         {
           "rate": 8.75,
           "prices": {
-            "15Y Fixed": 109.705,
-            "30Y Fixed": 109.455
+            "15Y Fixed": 109.805,
+            "30Y Fixed": 109.555
           }
         },
         {
           "rate": 8.875,
           "prices": {
-            "15Y Fixed": 110.205,
-            "30Y Fixed": 109.955
+            "15Y Fixed": 110.305,
+            "30Y Fixed": 110.055
           }
         },
         {
           "rate": 9,
           "prices": {
-            "15Y Fixed": 110.68,
-            "30Y Fixed": 110.43
+            "15Y Fixed": 110.78,
+            "30Y Fixed": 110.53
           }
         },
         {
           "rate": 9.125,
           "prices": {
-            "15Y Fixed": 111.105,
-            "30Y Fixed": 110.855
+            "15Y Fixed": 111.205,
+            "30Y Fixed": 110.955
           }
         },
         {
           "rate": 9.25,
           "prices": {
-            "15Y Fixed": 111.505,
-            "30Y Fixed": 111.255
+            "15Y Fixed": 111.605,
+            "30Y Fixed": 111.355
           }
         },
         {
           "rate": 9.375,
           "prices": {
-            "15Y Fixed": 111.905,
-            "30Y Fixed": 111.655
+            "15Y Fixed": 112.005,
+            "30Y Fixed": 111.755
           }
         },
         {
           "rate": 9.5,
           "prices": {
-            "15Y Fixed": 112.28,
-            "30Y Fixed": 112.03
+            "15Y Fixed": 112.38,
+            "30Y Fixed": 112.13
           }
         },
         {
           "rate": 9.625,
           "prices": {
-            "15Y Fixed": 112.655,
-            "30Y Fixed": 112.405
+            "15Y Fixed": 112.755,
+            "30Y Fixed": 112.505
           }
         },
         {
           "rate": 9.75,
           "prices": {
-            "15Y Fixed": 113.03,
-            "30Y Fixed": 112.78
+            "15Y Fixed": 113.13,
+            "30Y Fixed": 112.88
           }
         },
         {
           "rate": 9.875,
           "prices": {
-            "15Y Fixed": 113.405,
-            "30Y Fixed": 113.155
+            "15Y Fixed": 113.505,
+            "30Y Fixed": 113.255
           }
         },
         {
           "rate": 10,
           "prices": {
-            "15Y Fixed": 113.655,
-            "30Y Fixed": 113.405
+            "15Y Fixed": 113.755,
+            "30Y Fixed": 113.505
           }
         },
         {
           "rate": 10.125,
           "prices": {
-            "15Y Fixed": 113.905,
-            "30Y Fixed": 113.655
+            "15Y Fixed": 114.005,
+            "30Y Fixed": 113.755
           }
         },
         {
           "rate": 10.25,
           "prices": {
-            "15Y Fixed": 114.155,
-            "30Y Fixed": 113.905
+            "15Y Fixed": 114.255,
+            "30Y Fixed": 114.005
           }
         },
         {
           "rate": 10.375,
           "prices": {
-            "15Y Fixed": 114.405,
-            "30Y Fixed": 114.155
+            "15Y Fixed": 114.505,
+            "30Y Fixed": 114.255
           }
         },
         {
           "rate": 10.5,
           "prices": {
-            "15Y Fixed": 114.655,
-            "30Y Fixed": 114.405
+            "15Y Fixed": 114.755,
+            "30Y Fixed": 114.505
           }
         },
         {
           "rate": 10.625,
           "prices": {
-            "15Y Fixed": 114.905,
-            "30Y Fixed": 114.655
+            "15Y Fixed": 115.005,
+            "30Y Fixed": 114.755
           }
         },
         {
           "rate": 10.75,
           "prices": {
-            "15Y Fixed": 115.055,
-            "30Y Fixed": 114.805
+            "15Y Fixed": 115.155,
+            "30Y Fixed": 114.905
           }
         },
         {
           "rate": 10.875,
           "prices": {
-            "15Y Fixed": 115.305,
-            "30Y Fixed": 115.055
+            "15Y Fixed": 115.405,
+            "30Y Fixed": 115.155
           }
         },
         {
           "rate": 11,
           "prices": {
-            "15Y Fixed": 115.455,
-            "30Y Fixed": 115.205
+            "15Y Fixed": 115.555,
+            "30Y Fixed": 115.305
           }
         },
         {
           "rate": 11.125,
           "prices": {
-            "15Y Fixed": 115.705,
-            "30Y Fixed": 115.455
+            "15Y Fixed": 115.805,
+            "30Y Fixed": 115.555
           }
         },
         {
           "rate": 11.25,
           "prices": {
-            "15Y Fixed": 115.855,
-            "30Y Fixed": 115.605
+            "15Y Fixed": 115.955,
+            "30Y Fixed": 115.705
           }
         },
         {
           "rate": 11.375,
           "prices": {
-            "15Y Fixed": 116.105,
-            "30Y Fixed": 115.855
+            "15Y Fixed": 116.205,
+            "30Y Fixed": 115.955
           }
         },
         {
           "rate": 11.5,
           "prices": {
-            "15Y Fixed": 116.255,
-            "30Y Fixed": 116.005
+            "15Y Fixed": 116.355,
+            "30Y Fixed": 116.105
           }
         }
       ],
