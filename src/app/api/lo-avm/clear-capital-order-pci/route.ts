@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
         latest_event_type: 'DuplicateBlocked',
         completed_successfully: false,
       });
-      return NextResponse.json({ error: 'PCI already in progress on this address.' }, { status: 409 });
+      return NextResponse.json({ error: 'PCI already in progress on this address' }, { status: 409 });
     }
 
     const { apiKey, baseUrl, tenantId, productCode } = getValuationConfig();
