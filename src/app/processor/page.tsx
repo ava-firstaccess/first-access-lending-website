@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { LoanOfficerPortalGate } from '@/components/LoanOfficerPortalGate';
+import { ProcessorAvmToolsPage } from '@/components/ProcessorAvmToolsPage';
 import { getLoanOfficerPortalSession, hasTrustedLoanOfficerBrowser, resolvePortalRoleFromHost } from '@/lib/lo-portal-auth';
 
 export default async function Page() {
@@ -40,45 +41,11 @@ export default async function Page() {
           <p className="mt-3 text-sm text-slate-600">This AVM tools workspace is only enabled for users whose <span className="font-semibold">position</span> is <span className="font-semibold">loan_processor</span>.</p>
           <div className="mt-6 flex justify-center gap-3">
             <Link href="/pricer" className="rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950">Open pricer</Link>
-            <Link href="/avm" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">Open AVM</Link>
           </div>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Loan Processor Portal</div>
-              <h1 className="mt-2 text-3xl font-bold text-slate-900">AVM Tools</h1>
-              <p className="mt-2 text-sm text-slate-600">Signed in as {session.email}. This is the processor-only AVM tools workspace layered on top of the same pricer and AVM access your LO users already have.</p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/pricer" className="rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950">Open pricer</Link>
-              <Link href="/avm" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">Open AVM</Link>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">What is live now</h2>
-            <ul className="mt-4 space-y-3 text-sm text-slate-600">
-              <li>• Shared OTP auth and remembered-browser flow using the same portal user table as loan officers</li>
-              <li>• Processor-only AVM tools route on <span className="font-semibold">/processor</span></li>
-              <li>• Same pricer and AVM access already available to the LO portal</li>
-            </ul>
-          </div>
-          <div className="rounded-3xl border border-dashed border-amber-300 bg-amber-50 p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-amber-950">Next screen details needed</h2>
-            <p className="mt-4 text-sm text-amber-900">The branded dashboard and processor-only gate are live. If you want, next I can turn this placeholder into the actual AVM tools workflow instead of the overview shell.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return <ProcessorAvmToolsPage session={{ email: session.email, name: session.name }} />;
 }
