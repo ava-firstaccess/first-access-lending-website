@@ -178,7 +178,10 @@ function sortResults(results: InvestorSummary[], effectiveManualRateOverride: nu
     if (eligibilityOrder !== 0) return eligibilityOrder;
 
     if (effectiveManualRateOverride !== undefined && a.eligibility.eligible && b.eligibility.eligible) {
-      return b.buyPrice - a.buyPrice || b.quote.purchasePrice - a.quote.purchasePrice || a.investor.localeCompare(b.investor);
+      return a.quote.rate - b.quote.rate
+        || a.discountPoints - b.discountPoints
+        || b.quote.purchasePrice - a.quote.purchasePrice
+        || a.investor.localeCompare(b.investor);
     }
 
     const windowOrder = (a.windowMatched === b.windowMatched ? 0 : a.windowMatched ? -1 : 1);
