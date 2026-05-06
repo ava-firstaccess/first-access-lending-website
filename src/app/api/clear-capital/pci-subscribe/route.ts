@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   buildLoanOfficerPortalUnauthorizedResponse,
+  canAccessProcessorWorkspace,
   getLoanOfficerPortalSessionFromRequest,
   getLoanProcessorPortalHost,
   getRequestHost,
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = getLoanOfficerPortalSessionFromRequest(req);
     if (!session) return buildLoanOfficerPortalUnauthorizedResponse();
-    if (session.position !== 'loan_processor') {
+    if (!canAccessProcessorWorkspace(session.position)) {
       return NextResponse.json({ error: 'Loan processor access required.' }, { status: 403 });
     }
 

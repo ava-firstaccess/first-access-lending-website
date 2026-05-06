@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { LoanOfficerPortalGate } from '@/components/LoanOfficerPortalGate';
-import { getLoanOfficerPortalSession, getPortalHomePath, hasTrustedLoanOfficerBrowser, resolvePortalRoleFromHost } from '@/lib/lo-portal-auth';
+import { canAccessPortalRole, getLoanOfficerPortalSession, getPortalHomePath, hasTrustedLoanOfficerBrowser, resolvePortalRoleFromHost } from '@/lib/lo-portal-auth';
 
 export default async function Page() {
   const headerStore = await headers();
@@ -20,7 +20,7 @@ export default async function Page() {
 
   const session = await getLoanOfficerPortalSession();
   if (session) {
-    if (session.position !== portalRole) {
+    if (!canAccessPortalRole(session.position, portalRole)) {
       redirect(`/api/lo-auth/bootstrap-session?next=${encodeURIComponent(nextPath)}`);
     }
     redirect(nextPath);

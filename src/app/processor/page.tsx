@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { LoanOfficerPortalGate } from '@/components/LoanOfficerPortalGate';
 import { ProcessorAvmToolsPage } from '@/components/ProcessorAvmToolsPage';
-import { getLoanOfficerPortalSession, hasTrustedLoanOfficerBrowser, resolvePortalRoleFromHost } from '@/lib/lo-portal-auth';
+import { canAccessPortalRole, canAccessProcessorWorkspace, getLoanOfficerPortalSession, hasTrustedLoanOfficerBrowser, resolvePortalRoleFromHost } from '@/lib/lo-portal-auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 type PciOrderRow = {
@@ -91,11 +91,11 @@ export default async function Page() {
     return <LoanOfficerPortalGate nextPath="/processor" title="Loan Processor Portal" subtitle="Login with your email prefix, then verify the code sent to your work email to access AVM tools." />;
   }
 
-  if (session.position !== portalRole) {
+  if (!canAccessPortalRole(session.position, portalRole)) {
     redirect('/api/lo-auth/bootstrap-session?next=%2Fprocessor');
   }
 
-  if (session.position !== 'loan_processor') {
+  if (!canAccessProcessorWorkspace(session.position)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
         <div className="max-w-xl rounded-3xl border border-amber-200 bg-white p-8 text-center shadow-sm">

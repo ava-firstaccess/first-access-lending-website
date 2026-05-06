@@ -15,13 +15,14 @@ const TRUSTED_DEVICES_TABLE = 'trusted_devices';
 const TRUSTED_DEVICE_USER_TYPES = ['portal_user', 'loan_officer'] as const;
 
 export type PortalRole = 'loan_officer' | 'loan_processor';
+export type PortalPosition = PortalRole | 'manager';
 
 export type LoanOfficerPortalUser = {
   prefix: string;
   email: string;
   phone?: string;
   name?: string;
-  position: PortalRole;
+  position: PortalPosition;
 };
 
 export type LoanOfficerPortalSession = {
@@ -29,7 +30,7 @@ export type LoanOfficerPortalSession = {
   email: string;
   phone?: string;
   name?: string;
-  position: PortalRole;
+  position: PortalPosition;
   exp: number;
 };
 
@@ -49,7 +50,8 @@ function normalizePrefix(value: string) {
   return String(value || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
 }
 
-function normalizePortalRole(value: unknown): PortalRole {
+function normalizePortalRole(value: unknown): PortalPosition {
+  if (value === 'manager') return 'manager';
   return value === 'loan_processor' ? 'loan_processor' : 'loan_officer';
 }
 
@@ -141,6 +143,14 @@ export function getRequestHost(req: NextRequest) {
   return (req.headers.get('x-forwarded-host') || req.headers.get('host') || '').split(':')[0].toLowerCase();
 }
 
+export function canAccessPortalRole(position: PortalPosition, role: PortalRole) {
+  return position === 'manager' || position === role;
+}
+
+export function canAccessProcessorWorkspace(position: PortalPosition) {
+  return position === 'loan_processor' || position === 'manager';
+}
+
 function normalizeLoanOfficerPortalUser(record: Record<string, unknown>): LoanOfficerPortalUser | null {
   const emailDomain = String(process.env.LO_PORTAL_EMAIL_DOMAIN || DEFAULT_EMAIL_DOMAIN).trim().toLowerCase();
   const prefix = normalizePrefix(String(record.prefix || record.username || record.emailPrefix || ''));
@@ -191,7 +201,7 @@ export async function findLoanOfficerPortalUser(identifier: string, expectedRole
   if (!data) return null;
   const user = normalizeLoanOfficerPortalUser(data as Record<string, unknown>);
   if (!user) return null;
-  if (expectedRole && user.position !== expectedRole) return null;
+  if (expectedRole && !canAccessPortalRole(user.position, expectedRole)) return null;
   return user;
 }
 
@@ -223,7 +233,7 @@ export function parseLoanOfficerPortalSession(token: string | undefined | null):
     if (payload.exp <= Date.now()) return null;
     return {
       ...payload,
-      position: normalizePortalRole((payload as LoanOfficerPortalSession & { role?: PortalRole }).position ?? (payload as LoanOfficerPortalSession & { role?: PortalRole }).role),
+      position: normalizePortalRole((payload as LoanOfficerPortalSession & { role?: PortalPosition }).position ?? (payload as LoanOfficerPortalSession & { role?: PortalPosition }).role),
     };
   } catch {
     return null;

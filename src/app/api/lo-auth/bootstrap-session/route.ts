@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTrustedBrowserRequest } from '@/lib/application-session';
 import {
+  canAccessPortalRole,
   clearLoanOfficerPortalSessionCookie,
   clearTrustedLoanOfficerBrowserCookie,
   createLoanOfficerPortalSession,
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
   const nextPath = normalizeNextPath(req.nextUrl.searchParams.get('next'), getPortalHomePath());
   const bootstrap = await restoreLoanOfficerPortalSessionFromTrustedBrowser(req);
 
-  if (!bootstrap || bootstrap.user.position !== portalRole) {
+  if (!bootstrap || !canAccessPortalRole(bootstrap.user.position, portalRole)) {
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = '/login';
     loginUrl.search = '';

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { LoanOfficerPortalGate } from '@/components/LoanOfficerPortalGate';
-import { getLoanOfficerPortalSession, hasTrustedLoanOfficerBrowser, resolvePortalRoleFromHost } from '@/lib/lo-portal-auth';
+import { canAccessPortalRole, canAccessProcessorWorkspace, getLoanOfficerPortalSession, hasTrustedLoanOfficerBrowser, resolvePortalRoleFromHost } from '@/lib/lo-portal-auth';
 
 export default async function Page() {
   const headerStore = await headers();
@@ -22,11 +22,11 @@ export default async function Page() {
     return <LoanOfficerPortalGate nextPath="/dashboard" title={title} subtitle="Login with your email prefix, then verify the code sent to your work email to access your internal dashboard." />;
   }
 
-  if (session.position !== portalRole) {
+  if (!canAccessPortalRole(session.position, portalRole)) {
     redirect('/api/lo-auth/bootstrap-session?next=%2Fdashboard');
   }
 
-  const isLoanProcessor = session.position === 'loan_processor';
+  const isLoanProcessor = canAccessProcessorWorkspace(session.position);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(249,115,22,0.18),_transparent_30%),linear-gradient(180deg,_#020617_0%,_#0f172a_55%,_#111827_100%)] px-6 py-10 text-white">
@@ -54,7 +54,7 @@ export default async function Page() {
               </div>
               <div className="rounded-2xl bg-sky-400/15 px-3 py-1 text-xs font-semibold text-sky-200">Available</div>
             </div>
-            <p className="mt-4 text-sm leading-6 text-slate-300">Open the pricing workspace and run scenarios. AVMs continue from the pricer flow after BestX is run. This is the shared workspace for both loan officers and loan processors.</p>
+            <p className="mt-4 text-sm leading-6 text-slate-300">Open the pricing workspace and run scenarios. AVMs continue from the pricer flow after BestX is run.</p>
             <div className="mt-6 flex flex-wrap gap-3 text-sm">
               <span className="rounded-full border border-white/10 bg-slate-950/40 px-3 py-1 text-slate-200">Pricing</span>
               <span className="rounded-full border border-white/10 bg-slate-950/40 px-3 py-1 text-slate-200">Scenario handoff</span>
@@ -74,7 +74,7 @@ export default async function Page() {
                 </div>
                 <div className="rounded-2xl bg-amber-400/15 px-3 py-1 text-xs font-semibold text-amber-100">Enabled</div>
               </div>
-              <p className="mt-4 text-sm leading-6 text-slate-300">Open the additional processor workspace. This card appears only when the signed-in user’s Supabase <span className="font-semibold text-white">position</span> is <span className="font-semibold text-white">loan_processor</span>.</p>
+              <p className="mt-4 text-sm leading-6 text-slate-300">Open the additional processor workspace. This card appears only when the signed-in user’s Supabase <span className="font-semibold text-white">position</span> includes processor access.</p>
               <div className="mt-6 flex flex-wrap gap-3 text-sm">
                 <span className="rounded-full border border-white/10 bg-slate-950/40 px-3 py-1 text-slate-200">Processor queue</span>
                 <span className="rounded-full border border-white/10 bg-slate-950/40 px-3 py-1 text-slate-200">AVM tooling</span>

@@ -2,7 +2,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { LoanOfficerAvmPage } from '@/components/LoanOfficerAvmPage';
 import { LoanOfficerPortalGate } from '@/components/LoanOfficerPortalGate';
-import { getLoanOfficerPortalSession, hasTrustedLoanOfficerBrowser, resolvePortalRoleFromHost } from '@/lib/lo-portal-auth';
+import { canAccessPortalRole, getLoanOfficerPortalSession, hasTrustedLoanOfficerBrowser, resolvePortalRoleFromHost } from '@/lib/lo-portal-auth';
 
 export default async function Page() {
   const headerStore = await headers();
@@ -29,7 +29,7 @@ export default async function Page() {
     return <LoanOfficerPortalGate nextPath="/avm" title={title} subtitle="Login with your email prefix and verify the code sent to your work email to access AVM tools." />;
   }
 
-  if (session.position !== portalRole) {
+  if (!canAccessPortalRole(session.position, portalRole)) {
     redirect('/api/lo-auth/bootstrap-session?next=%2Favm');
   }
 
