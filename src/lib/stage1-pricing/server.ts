@@ -6,6 +6,7 @@ import { calculateOsbStage1Quote, evaluateOsbStage1Eligibility, getOsbGuideMaxPr
 import { calculateVerusStage1Quote, evaluateVerusStage1Eligibility, getVerusGuideMaxPrice, solveVerusStage1TargetRate } from '@/lib/rates/verus';
 import { calculateVistaStage1Quote, evaluateVistaStage1Eligibility, getVistaGuideMaxPrice, solveVistaStage1TargetRate } from '@/lib/rates/vista';
 import { evaluateInvestorAvmRule } from '@/lib/rates/investor-confidence-rules';
+import { getStage1RatesheetDateMap } from '@/lib/rates/ratesheet-metadata';
 import { BEST_EX_RATE_SEARCH_PRESETS, BEST_EX_WINDOW, getBestExActualLockPeriodDays, getBestExButtonDocType, getBestExCesProduct, getBestExDeephavenDocType, getBestExDeephavenLockPeriod, getBestExHelocVerusDrawPeriodAllowed, getBestExInvestorRuleName, getBestExNewRezLockPeriod, getBestExOsbDocType, getBestExVerusDocType, getBestExVistaDocType, isAllowedBestExLockPeriod } from './config';
 import type { InvestorPriceLadderRow, InvestorSummary, OsbLockPeriod, PricingViewEngine, Stage1Eligibility, Stage1ExecutionQuote, Stage1PricingEngineResult, Stage1PricingRequest, Stage1PricingResponse, TesterInput, VerusDrawPeriodYears, VerusLockPeriodDays } from './types';
 
@@ -361,5 +362,5 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
   }
 
   sortResults(results, effectiveManualRateOverride);
-  return { defaultBackendTargetPrice, effectiveTargetPrice, activeResult, results };
+  return { defaultBackendTargetPrice, effectiveTargetPrice, activeResult, results, ratesheetDates: getStage1RatesheetDateMap() };
 }
