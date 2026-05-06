@@ -17,7 +17,6 @@ const KNOWN_PROVIDERS: AvmProviderName[] = [
   'CA Value',
   'Black Knight (Valusure)',
   'CoreLogic',
-  'Red Bell',
   'Home Genius',
 ];
 
@@ -1315,7 +1314,7 @@ async function persistLoanOfficerAvmRunAnalytics(
     };
 
     const providerPayloads = providerRows
-      .filter((row) => providerRowHasData(row) || row.supported)
+      .filter((row) => providerRowHasData(row))
       .map((row) => ({
         run_id: runId,
         provider: row.provider,

@@ -8,7 +8,6 @@ const KNOWN_PROVIDERS = [
   'CA Value',
   'Black Knight (Valusure)',
   'CoreLogic',
-  'Red Bell',
   'Home Genius',
 ];
 
