@@ -1,0 +1,132 @@
+{
+  "info": {
+    "name": "Clear Capital Property Valuation PCI",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Test Clear Capital PCI products through the Property Valuation API. This is the separate credential family from Property Analytics. Uses environment variables only. No API keys stored in the collection."
+  },
+  "item": [
+    {
+      "name": "GET Products (PCI filter)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "accept", "value": "application/json" },
+          { "key": "x-api-key", "value": "{{clearCapitalPropertyValuationApiKey}}" },
+          { "key": "x-tenant-id", "value": "{{tenantId}}", "disabled": true }
+        ],
+        "url": {
+          "raw": "{{propertyValuationBaseUrl}}/products?products={{pciProductsFilter}}",
+          "host": ["{{propertyValuationBaseUrl}}"],
+          "path": ["products"],
+          "query": [
+            { "key": "products", "value": "{{pciProductsFilter}}" }
+          ]
+        },
+        "description": "Confirms the Property Valuation credentials can see PCI-related products before we place an order."
+      }
+    },
+    {
+      "name": "POST Create PCI Order",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 202', function () {",
+              "  pm.response.to.have.status(202);",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "const orderId = body.orderId || body.id || body.order?.orderId || null;",
+              "if (orderId) pm.environment.set('propertyValuationOrderId', orderId);",
+              "",
+              "pm.test('order id captured when returned', function () {",
+              "  pm.expect(pm.environment.get('propertyValuationOrderId')).to.exist;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "accept", "value": "application/json" },
+          { "key": "x-api-key", "value": "{{clearCapitalPropertyValuationApiKey}}" },
+          { "key": "x-tenant-id", "value": "{{tenantId}}", "disabled": true },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"product\": \"{{pciProduct}}\",\n  \"purpose\": \"{{purpose}}\",\n  \"address\": {\n    \"street\": \"{{address}}\",\n    \"city\": \"{{city}}\",\n    \"state\": \"{{state}}\",\n    \"zipcode\": \"{{zip}}\"\n  },\n  \"dueDate\": \"{{dueDate}}\",\n  \"paymentMethod\": \"{{paymentMethod}}\",\n  \"loan\": {\n    \"loanNumber\": \"{{loanNumber}}\"\n  },\n  \"trackingIdentifiers\": [\"{{trackingId}}\"]\n}"
+        },
+        "url": {
+          "raw": "{{propertyValuationBaseUrl}}/orders",
+          "host": ["{{propertyValuationBaseUrl}}"],
+          "path": ["orders"]
+        },
+        "description": "Places a PCI order through the Property Valuation API. Default product is PCI_EXTERIOR, but the environment variable can be switched to PCI_INTERIOR, PCI_EXTERIOR_AVM, AUTOMATED_PCR, or POST_DISASTER_INSPECTION if your account supports them."
+      }
+    },
+    {
+      "name": "GET PCI Order By Id",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "accept", "value": "application/json" },
+          { "key": "x-api-key", "value": "{{clearCapitalPropertyValuationApiKey}}" },
+          { "key": "x-tenant-id", "value": "{{tenantId}}", "disabled": true }
+        ],
+        "url": {
+          "raw": "{{propertyValuationBaseUrl}}/orders/{{propertyValuationOrderId}}",
+          "host": ["{{propertyValuationBaseUrl}}"],
+          "path": ["orders", "{{propertyValuationOrderId}}"]
+        },
+        "description": "Retrieves the PCI order after creation. Useful for checking accepted status, order metadata, and later deliverables."
+      }
+    }
+  ],
+  "variable": [
+    { "key": "propertyValuationBaseUrl", "value": "https://api.clearcapital.com/property-valuation-api" },
+    { "key": "clearCapitalPropertyValuationApiKey", "value": "" },
+    { "key": "tenantId", "value": "" },
+    { "key": "pciProductsFilter", "value": "PCI_EXTERIOR,PCI_INTERIOR,PCI_EXTERIOR_AVM,AUTOMATED_PCR,POST_DISASTER_INSPECTION" },
+    { "key": "pciProduct", "value": "PCI_EXTERIOR" },
+    { "key": "purpose", "value": "SERVICING" },
+    { "key": "address", "value": "123 Main St" },
+    { "key": "city", "value": "Springfield" },
+    { "key": "state", "value": "IL" },
+    { "key": "zip", "value": "12345" },
+    { "key": "dueDate", "value": "2026-05-13T17:00:00.000Z" },
+    { "key": "paymentMethod", "value": "INVOICE" },
+    { "key": "loanNumber", "value": "FAL-PCI-001" },
+    { "key": "trackingId", "value": "fal-pci-test-001" },
+    { "key": "propertyValuationOrderId", "value": "" }
+  ]
+}

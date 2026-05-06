@@ -36,7 +36,7 @@ export default async function Page() {
           <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <h1 className="text-4xl font-bold tracking-tight">Portal dashboard</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">Welcome back{session.name ? `, ${session.name}` : ''}. Start from the tools you use most, with the processor-only AVM workspace shown only when your Supabase <span className="font-semibold text-white">position</span> is <span className="font-semibold text-white">loan_processor</span>.</p>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">Welcome back{session.name ? `, ${session.name}` : ''}.</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm text-slate-300">
               <div className="font-semibold text-white">{session.email}</div>
@@ -54,7 +54,7 @@ export default async function Page() {
               </div>
               <div className="rounded-2xl bg-sky-400/15 px-3 py-1 text-xs font-semibold text-sky-200">Available</div>
             </div>
-            <p className="mt-4 text-sm leading-6 text-slate-300">Open the pricing workspace, run scenarios, and jump into the AVM flow. This is the shared workspace for both loan officers and loan processors.</p>
+            <p className="mt-4 text-sm leading-6 text-slate-300">Open the pricing workspace and run scenarios. AVMs continue from the pricer flow after BestX is run. This is the shared workspace for both loan officers and loan processors.</p>
             <div className="mt-6 flex flex-wrap gap-3 text-sm">
               <span className="rounded-full border border-white/10 bg-slate-950/40 px-3 py-1 text-slate-200">Pricing</span>
               <span className="rounded-full border border-white/10 bg-slate-950/40 px-3 py-1 text-slate-200">Scenario handoff</span>
@@ -62,7 +62,6 @@ export default async function Page() {
             </div>
             <div className="mt-7 flex flex-wrap gap-3">
               <Link href="/pricer" className="rounded-xl bg-sky-400 px-4 py-2 text-sm font-semibold text-slate-950">Open pricer</Link>
-              <Link href="/avm" className="rounded-xl border border-white/15 bg-slate-950/40 px-4 py-2 text-sm font-semibold text-slate-100">Open AVM</Link>
             </div>
           </div>
 

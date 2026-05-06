@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import AddressAutocomplete from '@/components/quote/AddressAutocomplete';
 
 type PortalSession = {
@@ -19,19 +20,90 @@ type OrderResult = {
   maxFsd: number;
 };
 
+type PciOrderRow = {
+  orderId: string;
+  referenceIdentifier: string | null;
+  status: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  orderedByEmail: string | null;
+  lastEventType: string | null;
+  lastEventAt: string | null;
+  estimatedCompletionDate: string | null;
+  inspectionDate: string | null;
+  holdReason: string | null;
+  lastMessage: string | null;
+  lastMessageUrgent: boolean;
+  exportUrl: string | null;
+  updatedAt: string | null;
+};
+
 function currency(value: number | null) {
   if (value === null) return '—';
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
 }
 
-export function ProcessorAvmToolsPage({ session }: { session: PortalSession }) {
+function formatDateTime(value: string | null) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+}
+
+function statusLabel(value: string | null) {
+  if (!value) return 'Unknown';
+  return value.replace(/_/g, ' ');
+}
+
+function statusClasses(value: string | null) {
+  switch (value) {
+    case 'completed': return 'border-emerald-200 bg-emerald-50 text-emerald-800';
+    case 'accepted':
+    case 'assigned':
+    case 'inspection_scheduled':
+    case 'inspection_completed': return 'border-sky-200 bg-sky-50 text-sky-800';
+    case 'hold_added':
+    case 'under_review':
+    case 'eta_changed':
+    case 'message_added': return 'border-amber-200 bg-amber-50 text-amber-800';
+    case 'declined':
+    case 'canceled':
+    case 'revision_denied': return 'border-rose-200 bg-rose-50 text-rose-800';
+    default: return 'border-slate-200 bg-slate-50 text-slate-700';
+  }
+}
+
+export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: PortalSession; initialPciOrders: PciOrderRow[] }) {
+  const router = useRouter();
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [zipcode, setZipcode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<OrderResult | null>(null);
+  const [search, setSearch] = useState('');
+
+  const filteredPciOrders = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return initialPciOrders;
+    return initialPciOrders.filter((order) => [
+      order.orderId,
+      order.referenceIdentifier || '',
+      order.status || '',
+      order.address || '',
+      order.city || '',
+      order.state || '',
+      order.zip || '',
+      order.orderedByEmail || '',
+      order.lastEventType || '',
+      order.holdReason || '',
+      order.lastMessage || '',
+    ].some((value) => value.toLowerCase().includes(needle)));
+  }, [initialPciOrders, search]);
 
   function handleAddressChange(nextAddress: string, nextState?: string, nextZip?: string, nextCity?: string) {
     setAddress(nextAddress);
@@ -78,20 +150,26 @@ export function ProcessorAvmToolsPage({ session }: { session: PortalSession }) {
     }
   }
 
+  async function handleRefresh() {
+    setRefreshing(true);
+    router.refresh();
+    setTimeout(() => setRefreshing(false), 800);
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 p-6">
-      <div className="mx-auto max-w-5xl space-y-6">
+      <div className="mx-auto max-w-7xl space-y-6">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Loan Processor Portal</div>
               <h1 className="mt-2 text-3xl font-bold text-slate-900">AVM Tools</h1>
-              <p className="mt-2 text-sm text-slate-600">Signed in as {session.email}. Enter an address to create a Clear Capital order, fetch the PDF, email the link, and present the download here.</p>
+              <p className="mt-2 text-sm text-slate-600">Signed in as {session.email}. PDF orders stay one-and-done. PCI orders now have live webhook tracking, email alerts, and a searchable status table below.</p>
             </div>
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1.2fr,0.8fr]">
+        <div className="grid gap-6 lg:grid-cols-[1.15fr,0.85fr]">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Order PDF</h2>
             <p className="mt-2 text-sm text-slate-600">This uses the Clear Capital Property Analytics API with the proven Postman flow and the current default max FSD.</p>
@@ -132,11 +210,11 @@ export function ProcessorAvmToolsPage({ session }: { session: PortalSession }) {
 
           <div className="space-y-6">
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900">Current defaults</h2>
+              <h2 className="text-lg font-semibold text-slate-900">PCI tracking</h2>
               <ul className="mt-4 space-y-3 text-sm text-slate-600">
-                <li>• Flow: Property Analytics order → order PDF URL</li>
-                <li>• Email delivery: automatic to {session.email}</li>
-                <li>• PDF link: shown in UI after success</li>
+                <li>• Webhook receiver: live for Clear Capital valuation events</li>
+                <li>• Email alerts: automatic to the stored processor email on each new status event</li>
+                <li>• Searchable order table: below, with latest event, ETA, hold reasons, and export link when provided</li>
               </ul>
             </div>
 
@@ -155,6 +233,80 @@ export function ProcessorAvmToolsPage({ session }: { session: PortalSession }) {
                 </div>
               </div>
             ) : null}
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">PCI orders</h2>
+              <p className="mt-1 text-sm text-slate-600">Search by order ID, status, address, reference ID, processor email, hold reason, or webhook message.</p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search PCI orders"
+                className="w-full min-w-[260px] rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-500"
+              />
+              <button type="button" onClick={handleRefresh} className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700">
+                {refreshing ? 'Refreshing…' : 'Refresh'}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50">
+                  <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <th className="px-4 py-3">Order</th>
+                    <th className="px-4 py-3">Property</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Latest event</th>
+                    <th className="px-4 py-3">Timing</th>
+                    <th className="px-4 py-3">Notes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {filteredPciOrders.length ? filteredPciOrders.map((order) => (
+                    <tr key={order.orderId} className="align-top">
+                      <td className="px-4 py-4 text-slate-900">
+                        <div className="font-semibold">{order.orderId}</div>
+                        <div className="mt-1 text-xs text-slate-500">{order.referenceIdentifier || 'No reference ID'}</div>
+                        <div className="mt-1 text-xs text-slate-500">{order.orderedByEmail || 'No processor email stored'}</div>
+                      </td>
+                      <td className="px-4 py-4 text-slate-700">
+                        <div className="font-medium text-slate-900">{order.address || 'Awaiting order metadata'}</div>
+                        <div className="mt-1 text-xs text-slate-500">{[order.city, order.state, order.zip].filter(Boolean).join(', ') || 'No address yet'}</div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold capitalize ${statusClasses(order.status)}`}>
+                          {statusLabel(order.status)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-slate-700">
+                        <div className="font-medium text-slate-900">{order.lastEventType || '—'}</div>
+                        <div className="mt-1 text-xs text-slate-500">{formatDateTime(order.lastEventAt || order.updatedAt)}</div>
+                        {order.exportUrl ? <a href={order.exportUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-semibold text-sky-700 hover:text-sky-900">Open export</a> : null}
+                      </td>
+                      <td className="px-4 py-4 text-slate-700">
+                        <div>ETA: <span className="text-slate-900">{formatDateTime(order.estimatedCompletionDate)}</span></div>
+                        <div className="mt-1">Inspection: <span className="text-slate-900">{formatDateTime(order.inspectionDate)}</span></div>
+                      </td>
+                      <td className="px-4 py-4 text-slate-700">
+                        {order.holdReason ? <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">{order.holdReason}</div> : null}
+                        {order.lastMessage ? <div className={`rounded-xl px-3 py-2 text-xs ${order.lastMessageUrgent ? 'border border-rose-200 bg-rose-50 text-rose-900' : 'border border-slate-200 bg-slate-50 text-slate-700'}`}>{order.lastMessage}</div> : <span className="text-xs text-slate-400">—</span>}
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-500">No PCI orders matched this search yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

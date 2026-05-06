@@ -106,6 +106,7 @@ function getAvmProviderLabel(provider: AvmProviderName) {
 
 export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSession }) {
   const [scenario, setScenario] = useState<StoredScenario | null>(null);
+  const [scenarioLoaded, setScenarioLoaded] = useState(false);
   const [selectedInvestor, setSelectedInvestor] = useState<string>('');
   const [selectedProvider, setSelectedProvider] = useState<AvmProviderName | null>(null);
   const [address, setAddress] = useState('');
@@ -120,32 +121,24 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
   useEffect(() => {
     try {
       const raw = window.sessionStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
+      if (!raw) {
+        setScenarioLoaded(true);
+        return;
+      }
       const parsed = JSON.parse(raw) as StoredScenario;
       setScenario(parsed);
       setSelectedInvestor(parsed.investor || parsed.bestXResults?.[0]?.investor || '');
       setLoanNumber(parsed.loanNumber || '');
     } catch {
       setScenario(null);
+    } finally {
+      setScenarioLoaded(true);
     }
   }, []);
 
   const sidebarInvestors = useMemo(() => {
     if (scenario?.bestXResults?.length) return scenario.bestXResults;
-    if (!scenario) return [];
-    return [{
-      investor: scenario.investor,
-      program: scenario.program,
-      product: scenario.product,
-      eligible: true,
-      reasons: [],
-      rate: Number(scenario.rate || 0),
-      discountPoints: 0,
-      maxAvailable: Number(scenario.maxAvailable || 0),
-      payment: Number(scenario.monthlyPayment || 0),
-      maxLtv: 0,
-      noteRate: Number(scenario.noteRate || 0),
-    }];
+    return [];
   }, [scenario]);
 
   const selectedSidebarInvestor = useMemo(() => {
@@ -274,6 +267,28 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
     } finally {
       setOrdering(false);
     }
+  }
+
+  if (scenarioLoaded && sidebarInvestors.length === 0) {
+    return (
+      <div className="min-h-screen bg-slate-50 px-6 py-8">
+        <div className="mx-auto max-w-3xl space-y-6">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Loan Officer Portal</div>
+            <h1 className="mt-2 text-3xl font-bold text-slate-900">AVM workspace</h1>
+            <p className="mt-2 text-sm text-slate-600">Signed in as {session.email}.</p>
+          </div>
+
+          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+            <h2 className="text-xl font-semibold text-amber-950">Run BestX first</h2>
+            <p className="mt-3 text-sm leading-6 text-amber-900">This AVM workspace only opens after a BestX scenario is run from the pricer. Start in the pricer, run BestX, then continue into AVMs from that flow.</p>
+            <div className="mt-6">
+              <a href="/pricer" className="inline-flex rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950">Open pricer</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

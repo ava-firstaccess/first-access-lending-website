@@ -4,6 +4,68 @@ import { redirect } from 'next/navigation';
 import { LoanOfficerPortalGate } from '@/components/LoanOfficerPortalGate';
 import { ProcessorAvmToolsPage } from '@/components/ProcessorAvmToolsPage';
 import { getLoanOfficerPortalSession, hasTrustedLoanOfficerBrowser, resolvePortalRoleFromHost } from '@/lib/lo-portal-auth';
+import { getSupabaseAdmin } from '@/lib/supabase';
+
+type PciOrderRow = {
+  orderId: string;
+  referenceIdentifier: string | null;
+  status: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  orderedByEmail: string | null;
+  lastEventType: string | null;
+  lastEventAt: string | null;
+  estimatedCompletionDate: string | null;
+  inspectionDate: string | null;
+  holdReason: string | null;
+  lastMessage: string | null;
+  lastMessageUrgent: boolean;
+  exportUrl: string | null;
+  updatedAt: string | null;
+};
+
+async function loadPciOrders(): Promise<PciOrderRow[]> {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from('clear_capital_pci_orders')
+      .select('order_id,reference_identifier,status,address,city,state,zip,ordered_by_email,last_event_type,last_event_at,estimated_completion_date,inspection_date,hold_reason,last_message,last_message_urgent,export_url,updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(200);
+
+    if (error) {
+      if (error.code !== '42P01') {
+        console.error('Failed to load PCI orders:', error);
+      }
+      return [];
+    }
+
+    return (data || []).map((row) => ({
+      orderId: String(row.order_id),
+      referenceIdentifier: row.reference_identifier || null,
+      status: row.status || null,
+      address: row.address || null,
+      city: row.city || null,
+      state: row.state || null,
+      zip: row.zip || null,
+      orderedByEmail: row.ordered_by_email || null,
+      lastEventType: row.last_event_type || null,
+      lastEventAt: row.last_event_at || null,
+      estimatedCompletionDate: row.estimated_completion_date || null,
+      inspectionDate: row.inspection_date || null,
+      holdReason: row.hold_reason || null,
+      lastMessage: row.last_message || null,
+      lastMessageUrgent: Boolean(row.last_message_urgent),
+      exportUrl: row.export_url || null,
+      updatedAt: row.updated_at || null,
+    }));
+  } catch (error) {
+    console.error('Failed to load PCI orders:', error);
+    return [];
+  }
+}
 
 export default async function Page() {
   const headerStore = await headers();
@@ -47,5 +109,7 @@ export default async function Page() {
     );
   }
 
-  return <ProcessorAvmToolsPage session={{ email: session.email, name: session.name }} />;
+  const pciOrders = await loadPciOrders();
+
+  return <ProcessorAvmToolsPage session={{ email: session.email, name: session.name }} initialPciOrders={pciOrders} />;
 }

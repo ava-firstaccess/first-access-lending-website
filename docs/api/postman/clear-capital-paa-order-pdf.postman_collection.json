@@ -1,0 +1,140 @@
+{
+  "info": {
+    "name": "Clear Capital PAA Order PDF",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Create a Clear Capital Property Analytics order with ClearAVM, fetch the order, then fetch the PDF URL using the order PDF endpoint. Uses environment variables only. No API keys stored in the collection."
+  },
+  "item": [
+    {
+      "name": "POST Create ClearAVM Order",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200/201', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "const orderId = body.id || body.orderId || null;",
+              "if (orderId) pm.environment.set('paaOrderId', orderId);",
+              "",
+              "pm.test('order id captured', function () {",
+              "  pm.expect(pm.environment.get('paaOrderId')).to.exist;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "accept", "value": "application/json" },
+          { "key": "x-api-key", "value": "{{clearCapitalPaaApiKey}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"address\": \"{{address}}\",\n  \"city\": \"{{city}}\",\n  \"state\": \"{{state}}\",\n  \"zip\": \"{{zip}}\",\n  \"signResponse\": {{signResponse}},\n  \"trackingIds\": [\"{{trackingId}}\"],\n  \"clearAvm\": {\n    \"include\": true,\n    \"required\": false,\n    \"request\": {\n      \"maxFSD\": {{maxFSD}},\n      \"exactEffectiveDate\": {{exactEffectiveDate}}\n    }\n  }\n}"
+        },
+        "url": {
+          "raw": "{{paaBaseUrl}}/orders",
+          "host": ["{{paaBaseUrl}}"],
+          "path": ["orders"]
+        },
+        "description": "Creates a Property Analytics order with the ClearAVM component so we can later request the order PDF."
+      }
+    },
+    {
+      "name": "GET Order By Id",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "accept", "value": "application/json" },
+          { "key": "x-api-key", "value": "{{clearCapitalPaaApiKey}}" }
+        ],
+        "url": {
+          "raw": "{{paaBaseUrl}}/orders/{{paaOrderId}}",
+          "host": ["{{paaBaseUrl}}"],
+          "path": ["orders", "{{paaOrderId}}"]
+        },
+        "description": "Fetches the created order to inspect returned components and confirm the orderId is valid before requesting the PDF."
+      }
+    },
+    {
+      "name": "GET Order PDF URL",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200 or 302', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200, 302]);",
+              "});",
+              "",
+              "if (pm.response.code === 200) {",
+              "  const body = pm.response.json();",
+              "  const pdfUrl = body.url || body.pdfUrl || body.signedUrl || null;",
+              "  if (pdfUrl) pm.environment.set('paaPdfUrl', pdfUrl);",
+              "  pm.test('pdf url captured when JSON response is returned', function () {",
+              "    pm.expect(pm.environment.get('paaPdfUrl')).to.exist;",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "accept", "value": "application/json" },
+          { "key": "x-api-key", "value": "{{clearCapitalPaaApiKey}}" }
+        ],
+        "url": {
+          "raw": "{{paaBaseUrl}}/orders/{{paaOrderId}}/pdf?returnUrl={{returnUrl}}&regeneratePdf={{regeneratePdf}}&omitStreetView={{omitStreetView}}",
+          "host": ["{{paaBaseUrl}}"],
+          "path": ["orders", "{{paaOrderId}}", "pdf"],
+          "query": [
+            { "key": "returnUrl", "value": "{{returnUrl}}" },
+            { "key": "regeneratePdf", "value": "{{regeneratePdf}}" },
+            { "key": "omitStreetView", "value": "{{omitStreetView}}" }
+          ]
+        },
+        "description": "Uses the Property Analytics order PDF endpoint. With returnUrl=true, Clear Capital should return JSON containing a signed PDF URL instead of issuing a redirect."
+      }
+    }
+  ],
+  "variable": [
+    { "key": "paaBaseUrl", "value": "https://api.integ.clearcapital.com/property-analytics-api" },
+    { "key": "clearCapitalPaaApiKey", "value": "" },
+    { "key": "address", "value": "14333 Davos Dr" },
+    { "key": "city", "value": "Truckee" },
+    { "key": "state", "value": "CA" },
+    { "key": "zip", "value": "96161" },
+    { "key": "trackingId", "value": "fal-test-001" },
+    { "key": "signResponse", "value": "true" },
+    { "key": "maxFSD", "value": "0.3" },
+    { "key": "exactEffectiveDate", "value": "false" },
+    { "key": "returnUrl", "value": "true" },
+    { "key": "regeneratePdf", "value": "false" },
+    { "key": "omitStreetView", "value": "false" },
+    { "key": "paaOrderId", "value": "" },
+    { "key": "paaPdfUrl", "value": "" }
+  ]
+}
