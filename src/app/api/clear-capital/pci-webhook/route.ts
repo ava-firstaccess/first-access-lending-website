@@ -21,6 +21,14 @@ type SnsEnvelope = {
   SigningCertURL?: string;
 };
 
+type PciDeliverable = {
+  documentId?: string;
+  documentType?: string;
+  fileName?: string;
+  url?: string;
+  timestamp?: string;
+};
+
 type PciEventPayload = {
   event?: string;
   orderId?: string;
@@ -35,7 +43,7 @@ type PciEventPayload = {
   isUrgent?: boolean;
   fee?: number;
   exportUrl?: string;
-  deliverables?: unknown[];
+  deliverables?: PciDeliverable[];
   [key: string]: unknown;
 };
 
@@ -82,6 +90,22 @@ function escapeHtml(value: string | number | null | undefined) {
     .replace(/'/g, '&#39;');
 }
 
+function scoreDeliverable(deliverable: PciDeliverable) {
+  const type = String(deliverable.documentType || '').toUpperCase();
+  if (type === 'DELIVERABLE_PDF' || type === 'APPRAISAL_PDF' || type === 'BPO_PDF') return 500;
+  if (type === 'APPRAISAL_MISMO') return 400;
+  if (type === 'APPRAISAL_ZIP' || type === 'IMAGE_ZIP') return 300;
+  if (type === 'AURA_RESULTS_JSON') return 200;
+  return 100;
+}
+
+function pickBestDeliverable(deliverables: PciDeliverable[] | null | undefined) {
+  if (!Array.isArray(deliverables)) return null;
+  return [...deliverables]
+    .filter((deliverable) => typeof deliverable?.url === 'string' && deliverable.url.trim())
+    .sort((a, b) => scoreDeliverable(b) - scoreDeliverable(a))[0] || null;
+}
+
 function buildEmailHtml({
   address,
   orderId,
@@ -91,6 +115,8 @@ function buildEmailHtml({
   message,
   estimatedCompletionDate,
   inspectionDate,
+  reportUrl,
+  reportLabel,
 }: {
   address?: string | null;
   orderId: string;
@@ -100,6 +126,8 @@ function buildEmailHtml({
   message?: string | null;
   estimatedCompletionDate?: string | null;
   inspectionDate?: string | null;
+  reportUrl?: string | null;
+  reportLabel?: string | null;
 }) {
   const portalUrl = `https://${getLoanProcessorPortalHost()}/processor`;
   const prettyStatus = status.replace(/_/g, ' ');
@@ -128,7 +156,8 @@ function buildEmailHtml({
           ${estimatedCompletionDate ? `<p style="margin:0 0 10px;"><strong>Estimated completion:</strong> ${escapeHtml(new Date(estimatedCompletionDate).toLocaleString())}</p>` : ''}
           ${inspectionDate ? `<p style="margin:0 0 10px;"><strong>Inspection date:</strong> ${escapeHtml(new Date(inspectionDate).toLocaleString())}</p>` : ''}
           ${reason ? `<p style="margin:0 0 10px;"><strong>Reason:</strong> ${escapeHtml(reason)}</p>` : ''}
-          ${message ? `<p style="margin:0 0 20px;"><strong>Message:</strong> ${escapeHtml(message)}</p>` : ''}
+          ${message ? `<p style="margin:0 0 14px;"><strong>Message:</strong> ${escapeHtml(message)}</p>` : ''}
+          ${reportUrl ? `<p style="margin:0 0 20px;"><strong>Report:</strong> <a href="${escapeHtml(reportUrl)}" style="color:#0283DB;font-weight:700;">${escapeHtml(reportLabel || 'Download completed PCI report')}</a></p>` : ''}
           <p style="margin:0 0 20px;"><a href="${escapeHtml(portalUrl)}" style="display:inline-block;background:#0283DB;color:#ffffff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:700;">Open PCI orders table</a></p>
           <p style="margin:0;color:#475569;font-size:12px;">This alert was generated from the loan processor portal webhook receiver.</p>
         </div>
@@ -389,6 +418,7 @@ export async function POST(req: NextRequest) {
     }
 
     const status = normalizeEventStatus(eventType);
+    const bestDeliverable = pickBestDeliverable(message.deliverables);
     const upsertPayload: Record<string, unknown> = {
       order_id: orderId,
       reference_identifier: String(message.referenceIdentifier || '').trim() || null,
@@ -421,7 +451,7 @@ export async function POST(req: NextRequest) {
 
     const { data: orderRow } = await supabase
       .from(ORDERS_TABLE)
-      .select('order_id,address,ordered_by_email,status,estimated_completion_date,inspection_date,hold_reason,last_message')
+      .select('order_id,address,ordered_by_email,status,estimated_completion_date,inspection_date,hold_reason,last_message,export_url')
       .eq('order_id', orderId)
       .maybeSingle();
 
@@ -440,6 +470,8 @@ export async function POST(req: NextRequest) {
             message: (orderRow?.last_message as string | null | undefined) || String(message.message || '') || null,
             estimatedCompletionDate: (orderRow?.estimated_completion_date as string | null | undefined) || asIsoOrNull(message.estimatedCompletionDate),
             inspectionDate: (orderRow?.inspection_date as string | null | undefined) || asIsoOrNull(message.inspectionDate),
+            reportUrl: bestDeliverable?.url || (orderRow?.export_url as string | null | undefined) || String(message.exportUrl || '') || null,
+            reportLabel: bestDeliverable?.fileName || bestDeliverable?.documentType || (eventType === 'OrderCompleted' ? 'Download completed PCI report' : null),
           })
         );
       } catch (emailError) {

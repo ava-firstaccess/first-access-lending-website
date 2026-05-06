@@ -59,3 +59,15 @@ Processor clicks **Order PCI** in AVM Tools:
   - exact product default (`PCI_EXTERIOR` vs `PCI_INTERIOR` vs `PCI_EXTERIOR_AVM`)
   - whether `x-tenant-id` is required for this account
   - how completed PCI deliverables are retrieved in practice for this subscription
+
+## Outstanding real-world verification
+
+- The webhook subscription is now live and the webhook receiver has SNS signature verification, auto-confirm protection, and volume alerting.
+- We still need to validate the full lifecycle with the **first real PCI order** placed through this workflow.
+- On that first real PCI request, verify all of the following:
+  - Clear Capital event delivery actually reaches `/api/clear-capital/pci-webhook`
+  - the order appears correctly in `clear_capital_pci_orders`
+  - the LP `/processor` table updates with the real status progression
+  - status alert emails send correctly to `CLEARCAPITAL_PCI_ALERT_EMAIL`
+  - any real deliverable/export links returned on completion behave as expected for this subscription
+- Future-work reference: see `FUTURE_WORK.md` under **AVM Integration**.

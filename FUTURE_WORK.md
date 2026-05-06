@@ -15,7 +15,8 @@
 - HouseCanary vs CoreLogic vs Quantarium (vendor selection pending)
 - Auto-populate property value from AVM, show confidence score
 - Allow override with stated value
-- Agile Insights follow-up: solve for durable FSD logging. Current testing proved `List Order Items` returns `estimated_value` and `value_range`, while the exported Agile Insights PDF contains `FSD`, but export jobs are still coming back with `exclude_json: true`. Future work is to find the best supported way to capture/store Agile FSD without relying on a fragile manual workflow.
+- Agile Insights follow-up: solve for durable FSD logging. Live HouseCanary Order Manager docs captured on 2026-05-05 now explicitly document `POST /client-api/v1/orders/{order_id}/export/zip?exclude_json=false`, with `exclude_json` as an optional query param defaulting to `false`. `GET /orders/{order_id}/items/` still documents `estimated_value` and `value_range` but does not document FSD, so the current best-supported fallback is: place/poll the Agile order, then create an export job with `exclude_json=false`, poll the export request until complete, and only then download/extract the JSON bundle if direct FSD still is not present in live order/item responses. See `docs/api/housecanary-order-manager-export-notes.md` and `docs/api/postman/housecanary-order-manager-agile-insights-export.postman_collection.json`.
+- Clear Capital PCI follow-up: test the full webhook/event lifecycle with the **first real PCI request**. Specifically confirm live event delivery, LP table updates, alert-email delivery, and real completion/export behavior. Documentation: `docs/api/clear-capital-avm-tools-plan.md` under **Outstanding real-world verification**.
 
 ### Credit API
 - Birchwood credit API (docs requested, awaiting response)

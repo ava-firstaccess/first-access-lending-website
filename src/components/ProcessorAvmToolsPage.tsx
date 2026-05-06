@@ -40,6 +40,17 @@ type PciOrderRow = {
   updatedAt: string | null;
 };
 
+type ReportResult = {
+  success: boolean;
+  orderId: string;
+  reportUrl: string | null;
+  reportDocumentId: string | null;
+  reportDocumentType: string | null;
+  reportFileName: string | null;
+  exportUrl: string | null;
+  exportAvailable: boolean;
+};
+
 function currency(value: number | null) {
   if (value === null) return '—';
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
@@ -86,6 +97,8 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
   const [error, setError] = useState('');
   const [result, setResult] = useState<OrderResult | null>(null);
   const [search, setSearch] = useState('');
+  const [reportLoadingOrderId, setReportLoadingOrderId] = useState<string | null>(null);
+  const [reportError, setReportError] = useState('');
 
   const filteredPciOrders = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -154,6 +167,37 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
     setRefreshing(true);
     router.refresh();
     setTimeout(() => setRefreshing(false), 800);
+  }
+
+  async function handleDownloadReport(orderId: string) {
+    setReportLoadingOrderId(orderId);
+    setReportError('');
+
+    try {
+      const response = await fetch(`/api/clear-capital/pci-report?orderId=${encodeURIComponent(orderId)}`, {
+        method: 'GET',
+        cache: 'no-store',
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setReportError(data?.error || 'Failed to retrieve the PCI report.');
+        return;
+      }
+
+      const payload = data as ReportResult;
+      const nextUrl = payload.reportUrl || payload.exportUrl;
+      if (!nextUrl) {
+        setReportError('No PCI report URL is available yet for this order.');
+        return;
+      }
+
+      window.open(nextUrl, '_blank', 'noopener,noreferrer');
+    } catch {
+      setReportError('Failed to retrieve the PCI report.');
+    } finally {
+      setReportLoadingOrderId(null);
+    }
   }
 
   return (
@@ -255,6 +299,8 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
             </div>
           </div>
 
+          {reportError ? <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{reportError}</div> : null}
+
           <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -265,6 +311,7 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Latest event</th>
                     <th className="px-4 py-3">Timing</th>
+                    <th className="px-4 py-3">Report</th>
                     <th className="px-4 py-3">Notes</th>
                   </tr>
                 </thead>
@@ -295,13 +342,24 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
                         <div className="mt-1">Inspection: <span className="text-slate-900">{formatDateTime(order.inspectionDate)}</span></div>
                       </td>
                       <td className="px-4 py-4 text-slate-700">
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadReport(order.orderId)}
+                          disabled={reportLoadingOrderId === order.orderId || order.status !== 'completed'}
+                          className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {reportLoadingOrderId === order.orderId ? 'Loading…' : 'Download report'}
+                        </button>
+                        <div className="mt-2 text-xs text-slate-500">Fetches a fresh report URL from Clear Capital.</div>
+                      </td>
+                      <td className="px-4 py-4 text-slate-700">
                         {order.holdReason ? <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">{order.holdReason}</div> : null}
                         {order.lastMessage ? <div className={`rounded-xl px-3 py-2 text-xs ${order.lastMessageUrgent ? 'border border-rose-200 bg-rose-50 text-rose-900' : 'border border-slate-200 bg-slate-50 text-slate-700'}`}>{order.lastMessage}</div> : <span className="text-xs text-slate-400">—</span>}
                       </td>
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-500">No PCI orders matched this search yet.</td>
+                      <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">No PCI orders matched this search yet.</td>
                     </tr>
                   )}
                 </tbody>
