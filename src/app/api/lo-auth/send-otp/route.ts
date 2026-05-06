@@ -19,9 +19,9 @@ export async function POST(req: NextRequest) {
     }
 
     const { identifier } = await req.json();
-    const user = await findLoanOfficerPortalUser(String(identifier || ''));
+    const user = await findLoanOfficerPortalUser(String(identifier || ''), portalRole);
     if (!user) {
-      return NextResponse.json({ error: 'Unknown portal login.' }, { status: 404 });
+      return NextResponse.json({ error: 'This login is not enabled for this portal.' }, { status: 404 });
     }
 
     const email = user.email.trim().toLowerCase();

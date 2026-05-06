@@ -20,13 +20,9 @@ export async function POST(req: NextRequest) {
     }
 
     const { identifier, code } = await req.json();
-    const user = await findLoanOfficerPortalUser(String(identifier || ''));
+    const user = await findLoanOfficerPortalUser(String(identifier || ''), portalRole);
     if (!user || !code) {
       return NextResponse.json({ error: 'Login and code required.' }, { status: 400 });
-    }
-
-    if (user.position !== portalRole) {
-      return NextResponse.json({ error: 'This login is not enabled for this portal.' }, { status: 403 });
     }
 
     const email = user.email.trim().toLowerCase();

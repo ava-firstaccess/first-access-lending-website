@@ -20,6 +20,9 @@ export default async function Page() {
 
   const session = await getLoanOfficerPortalSession();
   if (session) {
+    if (session.position !== portalRole) {
+      redirect(`/api/lo-auth/bootstrap-session?next=${encodeURIComponent(nextPath)}`);
+    }
     redirect(nextPath);
   }
 

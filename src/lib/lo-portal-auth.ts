@@ -19,7 +19,7 @@ export type PortalRole = 'loan_officer' | 'loan_processor';
 export type LoanOfficerPortalUser = {
   prefix: string;
   email: string;
-  phone: string;
+  phone?: string;
   name?: string;
   position: PortalRole;
 };
@@ -27,7 +27,7 @@ export type LoanOfficerPortalUser = {
 export type LoanOfficerPortalSession = {
   prefix: string;
   email: string;
-  phone: string;
+  phone?: string;
   name?: string;
   position: PortalRole;
   exp: number;
@@ -148,7 +148,7 @@ function normalizeLoanOfficerPortalUser(record: Record<string, unknown>): LoanOf
   const phone = String(record.phone || '').trim();
   const name = typeof record.name === 'string' ? record.name.trim() : undefined;
   const position = normalizePortalRole(record.position ?? record.role);
-  if (!prefix || !email || !phone) return null;
+  if (!prefix || !email) return null;
   return { prefix, email, phone, name, position };
 }
 
@@ -165,7 +165,7 @@ async function findPortalUserInTable(tableName: string, normalized: string, pref
     : query.eq('prefix', prefix).maybeSingle();
 }
 
-export async function findLoanOfficerPortalUser(identifier: string): Promise<LoanOfficerPortalUser | null> {
+export async function findLoanOfficerPortalUser(identifier: string, expectedRole?: PortalRole): Promise<LoanOfficerPortalUser | null> {
   const normalized = String(identifier || '').trim().toLowerCase();
   const prefix = normalizePrefix(normalized.includes('@') ? normalized.split('@')[0] : normalized);
   if (!prefix && !normalized) return null;
@@ -189,7 +189,10 @@ export async function findLoanOfficerPortalUser(identifier: string): Promise<Loa
   }
 
   if (!data) return null;
-  return normalizeLoanOfficerPortalUser(data as Record<string, unknown>);
+  const user = normalizeLoanOfficerPortalUser(data as Record<string, unknown>);
+  if (!user) return null;
+  if (expectedRole && user.position !== expectedRole) return null;
+  return user;
 }
 
 export function createLoanOfficerPortalSession(user: LoanOfficerPortalUser): string {
@@ -216,7 +219,7 @@ export function parseLoanOfficerPortalSession(token: string | undefined | null):
   if (sigBuffer.length !== expectedBuffer.length || !timingSafeEqual(sigBuffer, expectedBuffer)) return null;
   try {
     const payload = decodePayload(encoded);
-    if (!payload?.email || !payload?.prefix || !payload?.phone || typeof payload?.exp !== 'number') return null;
+    if (!payload?.email || !payload?.prefix || typeof payload?.exp !== 'number') return null;
     if (payload.exp <= Date.now()) return null;
     return {
       ...payload,

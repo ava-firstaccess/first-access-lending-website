@@ -90,10 +90,16 @@ COMMENT ON COLUMN public.portal_users.phone IS 'Stored contact number for the po
 COMMENT ON COLUMN public.portal_users.role IS 'Portal role. loan_officer and loan_processor are currently supported.';
 COMMENT ON COLUMN public.portal_users.active IS 'Only active rows are allowed to log in.';
 
-ALTER TABLE public.trusted_devices DROP CONSTRAINT IF EXISTS trusted_devices_user_type_check;
-ALTER TABLE public.trusted_devices
-  ADD CONSTRAINT trusted_devices_user_type_check CHECK (user_type IN ('loan_officer', 'portal_user', 'consumer'));
+DO $$
+BEGIN
+  IF to_regclass('public.trusted_devices') IS NOT NULL THEN
+    ALTER TABLE public.trusted_devices DROP CONSTRAINT IF EXISTS trusted_devices_user_type_check;
+    ALTER TABLE public.trusted_devices
+      ADD CONSTRAINT trusted_devices_user_type_check CHECK (user_type IN ('loan_officer', 'portal_user', 'consumer'));
 
-COMMENT ON TABLE public.trusted_devices IS 'Hashed remembered-browser tokens for portal users and future consumer 2FA flows.';
-COMMENT ON COLUMN public.trusted_devices.user_type IS 'User namespace, for example portal_user, legacy loan_officer, or consumer.';
-COMMENT ON COLUMN public.trusted_devices.user_key IS 'Stable identifier inside the namespace, such as portal prefix or consumer application/user id.';
+    COMMENT ON TABLE public.trusted_devices IS 'Hashed remembered-browser tokens for portal users and future consumer 2FA flows.';
+    COMMENT ON COLUMN public.trusted_devices.user_type IS 'User namespace, for example portal_user, legacy loan_officer, or consumer.';
+    COMMENT ON COLUMN public.trusted_devices.user_key IS 'Stable identifier inside the namespace, such as portal prefix or consumer application/user id.';
+  END IF;
+END
+$$;

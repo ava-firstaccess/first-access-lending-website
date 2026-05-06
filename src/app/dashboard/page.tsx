@@ -22,6 +22,10 @@ export default async function Page() {
     return <LoanOfficerPortalGate nextPath="/dashboard" title={title} subtitle="Login with your email prefix, then verify the code sent to your work email to access your internal dashboard." />;
   }
 
+  if (session.position !== portalRole) {
+    redirect('/api/lo-auth/bootstrap-session?next=%2Fdashboard');
+  }
+
   const isLoanProcessor = session.position === 'loan_processor';
 
   return (

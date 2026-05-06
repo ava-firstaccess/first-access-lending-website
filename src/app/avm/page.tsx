@@ -29,5 +29,9 @@ export default async function Page() {
     return <LoanOfficerPortalGate nextPath="/avm" title={title} subtitle="Login with your email prefix and verify the code sent to your work email to access AVM tools." />;
   }
 
+  if (session.position !== portalRole) {
+    redirect('/api/lo-auth/bootstrap-session?next=%2Favm');
+  }
+
   return <LoanOfficerAvmPage session={session} />;
 }

@@ -28,6 +28,10 @@ export default async function Page() {
     return <LoanOfficerPortalGate nextPath="/processor" title="Loan Processor Portal" subtitle="Login with your email prefix, then verify the code sent to your work email to access AVM tools." />;
   }
 
+  if (session.position !== portalRole) {
+    redirect('/api/lo-auth/bootstrap-session?next=%2Fprocessor');
+  }
+
   if (session.position !== 'loan_processor') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
