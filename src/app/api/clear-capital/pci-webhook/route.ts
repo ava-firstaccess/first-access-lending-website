@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 
 const ORDERS_TABLE = 'clear_capital_pci_orders';
 const EVENTS_TABLE = 'clear_capital_pci_order_events';
+const ANALYTICS_TABLE = 'clear_capital_pci_analytics_runs';
 const certCache = new Map<string, string>();
 
 type SnsEnvelope = {
@@ -451,9 +452,31 @@ export async function POST(req: NextRequest) {
 
     const { data: orderRow } = await supabase
       .from(ORDERS_TABLE)
-      .select('order_id,address,ordered_by_email,status,estimated_completion_date,inspection_date,hold_reason,last_message,export_url')
+      .select('order_id,address,address_key,city,state,zip,ordered_by_email,ordered_by_prefix,product_code,status,estimated_completion_date,inspection_date,hold_reason,last_message,export_url')
       .eq('order_id', orderId)
       .maybeSingle();
+
+    const completedSuccessfully = eventType === 'OrderCompleted'
+      ? true
+      : eventType === 'OrderCanceled' || eventType === 'OrderDeclined' || eventType === 'RevisionRequestDenied'
+        ? false
+        : null;
+
+    const { error: analyticsError } = await supabase.from(ANALYTICS_TABLE).upsert({
+      order_id: orderId,
+      address_key: (orderRow as { address_key?: string | null } | null)?.address_key || null,
+      property_address: orderRow?.address || null,
+      property_city: (orderRow as { city?: string | null } | null)?.city || null,
+      property_state: (orderRow as { state?: string | null } | null)?.state || null,
+      property_zip: (orderRow as { zip?: string | null } | null)?.zip || null,
+      ordered_by_email: orderRow?.ordered_by_email || null,
+      ordered_by_prefix: (orderRow as { ordered_by_prefix?: string | null } | null)?.ordered_by_prefix || null,
+      product_code: (orderRow as { product_code?: string | null } | null)?.product_code || null,
+      latest_status: orderRow?.status || status,
+      latest_event_type: eventType,
+      completed_successfully: completedSuccessfully,
+    }, { onConflict: 'order_id' });
+    if (analyticsError) console.error('PCI analytics webhook upsert failed:', analyticsError);
 
     const orderedByEmail = String(orderRow?.ordered_by_email || process.env.CLEARCAPITAL_PCI_ALERT_EMAIL || '').trim();
     if (orderedByEmail) {

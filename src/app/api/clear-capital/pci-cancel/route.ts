@@ -11,6 +11,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 
 const ORDERS_TABLE = 'clear_capital_pci_orders';
 const EVENTS_TABLE = 'clear_capital_pci_order_events';
+const ANALYTICS_TABLE = 'clear_capital_pci_analytics_runs';
 const DEFAULT_REASON = 'Canceled from LP portal by processor request.';
 
 type CancelBody = {
@@ -103,6 +104,14 @@ export async function POST(req: NextRequest) {
         clearCapitalResponse: responseBody,
       },
     });
+
+    const { error: analyticsError } = await supabase.from(ANALYTICS_TABLE).upsert({
+      order_id: orderId,
+      latest_status: 'cancel_requested',
+      latest_event_type: 'CancelRequested',
+      completed_successfully: null,
+    }, { onConflict: 'order_id' });
+    if (analyticsError) console.error('PCI cancel analytics upsert failed:', analyticsError);
 
     return NextResponse.json({ success: true, orderId, reason });
   } catch (error) {

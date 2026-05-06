@@ -1,6 +1,12 @@
 import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildLoanOfficerPortalUnauthorizedResponse, canAccessProcessorWorkspace, getLoanOfficerPortalSessionFromRequest, getRequestHost, isInternalPortalHost, isLoanProcessorPortalHost } from '@/lib/lo-portal-auth';
+import { getSupabaseAdmin } from '@/lib/supabase';
+
+const PDF_CACHE_TABLE = 'clearcapital_pdf_cache';
+const PDF_ORDER_LOG_TABLE = 'clearcapital_pdf_order_log';
+const PDF_ANALYTICS_TABLE = 'clearcapital_pdf_analytics_runs';
+const CACHE_WINDOW_DAYS = 120;
 
 type OrderBody = {
   address?: string;
@@ -8,6 +14,41 @@ type OrderBody = {
   state?: string;
   zipcode?: string;
 };
+
+function normalizeText(value: string | undefined | null) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeStreetAddress(value: string | undefined | null) {
+  const streetLine = String(value || '').split(',')[0] || '';
+  return normalizeText(streetLine)
+    .replace(/\bstreet\b/g, 'st')
+    .replace(/\bavenue\b/g, 'ave')
+    .replace(/\broad\b/g, 'rd')
+    .replace(/\bdrive\b/g, 'dr')
+    .replace(/\bboulevard\b/g, 'blvd')
+    .replace(/\blane\b/g, 'ln')
+    .replace(/\bcourt\b/g, 'ct')
+    .replace(/\bplace\b/g, 'pl')
+    .replace(/\bterrace\b/g, 'ter')
+    .replace(/\bparkway\b/g, 'pkwy')
+    .replace(/\bhighway\b/g, 'hwy')
+    .replace(/\bnorth\b/g, 'n')
+    .replace(/\bsouth\b/g, 's')
+    .replace(/\beast\b/g, 'e')
+    .replace(/\bwest\b/g, 'w')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildAddressKey(address: string, zipcode: string) {
+  return [normalizeStreetAddress(address), normalizeText(zipcode)].filter(Boolean).join('|');
+}
 
 function escapeHtml(value: string | number | null | undefined) {
   return String(value ?? '')
@@ -89,7 +130,67 @@ function getMaxFsd() {
   return 0.3;
 }
 
+async function fetchPdfUrl(baseUrl: string, apiKey: string, orderId: string) {
+  for (const regeneratePdf of [false, true]) {
+    const pdfRes = await fetch(`${baseUrl}/orders/${encodeURIComponent(orderId)}/pdf?returnUrl=true&regeneratePdf=${String(regeneratePdf)}&omitStreetView=false`, {
+      method: 'GET',
+      headers: {
+        accept: 'application/json',
+        'x-api-key': apiKey,
+      },
+      cache: 'no-store',
+      redirect: 'manual',
+    });
+
+    let pdfUrl = '';
+    if (pdfRes.status === 200) {
+      const pdfData = await pdfRes.json().catch(() => ({}));
+      pdfUrl = String(pdfData?.url || pdfData?.pdfUrl || pdfData?.signedUrl || '').trim();
+    } else if (pdfRes.status === 302 || pdfRes.status === 301) {
+      pdfUrl = String(pdfRes.headers.get('location') || '').trim();
+    }
+
+    if (pdfUrl) return pdfUrl;
+  }
+
+  return '';
+}
+
+async function loadRecentPdfCache(supabase: ReturnType<typeof getSupabaseAdmin>, addressKey: string, requestedMaxFsd: number) {
+  const cutoffIso = new Date(Date.now() - CACHE_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from(PDF_CACHE_TABLE)
+    .select('*')
+    .eq('address_key', addressKey)
+    .eq('requested_max_fsd', Number(requestedMaxFsd.toFixed(2)))
+    .gte('created_at', cutoffIso)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(`PDF cache lookup failed: ${error.message}`);
+  return data || null;
+}
+
+async function insertPdfAnalyticsRun(supabase: ReturnType<typeof getSupabaseAdmin>, payload: Record<string, unknown>) {
+  const { error } = await supabase.from(PDF_ANALYTICS_TABLE).insert(payload);
+  if (error) console.error('PDF analytics insert failed:', error);
+}
+
+async function insertPdfOrderLog(supabase: ReturnType<typeof getSupabaseAdmin>, payload: Record<string, unknown>) {
+  const { error } = await supabase.from(PDF_ORDER_LOG_TABLE).insert(payload);
+  if (error) console.error('PDF order log insert failed:', error);
+}
+
+async function insertPdfCache(supabase: ReturnType<typeof getSupabaseAdmin>, payload: Record<string, unknown>) {
+  const { error } = await supabase.from(PDF_CACHE_TABLE).insert(payload);
+  if (error) console.error('PDF cache insert failed:', error);
+}
+
 export async function POST(req: NextRequest) {
+  const supabase = getSupabaseAdmin();
+  const analyticsRunId = randomUUID();
+
   try {
     const session = getLoanOfficerPortalSessionFromRequest(req);
     if (!session) return buildLoanOfficerPortalUnauthorizedResponse();
@@ -112,9 +213,62 @@ export async function POST(req: NextRequest) {
     }
 
     const { apiKey, baseUrl } = getClearCapitalConfig();
-    const trackingId = `lp-pdf-${randomUUID()}`;
     const maxFsd = getMaxFsd();
+    const addressKey = buildAddressKey(address, zipcode);
 
+    const cached = await loadRecentPdfCache(supabase, addressKey, maxFsd);
+    if (cached?.order_id) {
+      const cachedPdfUrl = await fetchPdfUrl(baseUrl, apiKey, String(cached.order_id));
+      if (cachedPdfUrl) {
+        await insertPdfAnalyticsRun(supabase, {
+          run_id: analyticsRunId,
+          address_key: addressKey,
+          property_address: address,
+          property_city: city,
+          property_state: state,
+          property_zip: zipcode,
+          ordered_by_email: session.email,
+          ordered_by_prefix: session.prefix,
+          requested_max_fsd: Number(maxFsd.toFixed(2)),
+          cache_hit: true,
+          source_order_id: String(cached.order_id),
+          result_order_id: String(cached.order_id),
+          winner_value: cached.value ?? null,
+          winner_fsd: cached.fsd ?? null,
+          completed_successfully: true,
+        });
+
+        try {
+          await sendReportEmail(
+            session.email,
+            `Clear Capital PDF ready for ${address}`,
+            buildEmailHtml({
+              address,
+              link: cachedPdfUrl,
+              orderId: String(cached.order_id),
+              value: typeof cached.value === 'number' ? Math.round(cached.value) : null,
+              fsd: typeof cached.fsd === 'number' ? cached.fsd : null,
+            })
+          );
+        } catch (emailError) {
+          console.error('Processor Clear Capital PDF cache-hit email failed:', emailError);
+        }
+
+        return NextResponse.json({
+          success: true,
+          orderId: String(cached.order_id),
+          pdfUrl: cachedPdfUrl,
+          address,
+          emailedTo: session.email,
+          value: typeof cached.value === 'number' ? Math.round(cached.value) : null,
+          fsd: typeof cached.fsd === 'number' ? cached.fsd : null,
+          maxFsd,
+          cacheHit: true,
+        });
+      }
+    }
+
+    const trackingId = `lp-pdf-${randomUUID()}`;
     const orderPayload = {
       address,
       city,
@@ -145,44 +299,208 @@ export async function POST(req: NextRequest) {
 
     const orderData = await orderRes.json().catch(() => ({}));
     if (!orderRes.ok) {
+      await insertPdfOrderLog(supabase, {
+        address_key: addressKey,
+        address,
+        city,
+        state,
+        zip: zipcode,
+        ordered_by_email: session.email,
+        ordered_by_name: session.name || null,
+        ordered_by_prefix: session.prefix,
+        requested_max_fsd: Number(maxFsd.toFixed(2)),
+        order_status: 'failed',
+        tracking_id: trackingId,
+        request_payload: orderPayload,
+        response_payload: orderData,
+      });
+      await insertPdfAnalyticsRun(supabase, {
+        run_id: analyticsRunId,
+        address_key: addressKey,
+        property_address: address,
+        property_city: city,
+        property_state: state,
+        property_zip: zipcode,
+        ordered_by_email: session.email,
+        ordered_by_prefix: session.prefix,
+        requested_max_fsd: Number(maxFsd.toFixed(2)),
+        cache_hit: false,
+        completed_successfully: false,
+        failure_message: `Clear Capital order failed (${orderRes.status}).`,
+      });
       return NextResponse.json({ error: `Clear Capital order failed (${orderRes.status}).` }, { status: 502 });
     }
 
     const orderId = String(orderData?.id || '').trim();
     if (!orderId) {
+      await insertPdfOrderLog(supabase, {
+        address_key: addressKey,
+        address,
+        city,
+        state,
+        zip: zipcode,
+        ordered_by_email: session.email,
+        ordered_by_name: session.name || null,
+        ordered_by_prefix: session.prefix,
+        requested_max_fsd: Number(maxFsd.toFixed(2)),
+        order_status: 'failed',
+        tracking_id: trackingId,
+        request_payload: orderPayload,
+        response_payload: orderData,
+      });
+      await insertPdfAnalyticsRun(supabase, {
+        run_id: analyticsRunId,
+        address_key: addressKey,
+        property_address: address,
+        property_city: city,
+        property_state: state,
+        property_zip: zipcode,
+        ordered_by_email: session.email,
+        ordered_by_prefix: session.prefix,
+        requested_max_fsd: Number(maxFsd.toFixed(2)),
+        cache_hit: false,
+        completed_successfully: false,
+        failure_message: 'Clear Capital returned no order ID.',
+      });
       return NextResponse.json({ error: 'Clear Capital returned no order ID.' }, { status: 502 });
     }
 
     const avmResult = orderData?.clearAvm?.result || null;
     if (!avmResult?.marketValue) {
       const errorMessage = typeof orderData?.errorMessage === 'string' ? orderData.errorMessage : 'No valuation component was returned for the supplied threshold.';
+      await insertPdfOrderLog(supabase, {
+        address_key: addressKey,
+        address,
+        city,
+        state,
+        zip: zipcode,
+        ordered_by_email: session.email,
+        ordered_by_name: session.name || null,
+        ordered_by_prefix: session.prefix,
+        requested_max_fsd: Number(maxFsd.toFixed(2)),
+        order_status: 'failed',
+        order_id: orderId,
+        tracking_id: trackingId,
+        request_payload: orderPayload,
+        response_payload: orderData,
+      });
+      await insertPdfAnalyticsRun(supabase, {
+        run_id: analyticsRunId,
+        address_key: addressKey,
+        property_address: address,
+        property_city: city,
+        property_state: state,
+        property_zip: zipcode,
+        ordered_by_email: session.email,
+        ordered_by_prefix: session.prefix,
+        requested_max_fsd: Number(maxFsd.toFixed(2)),
+        cache_hit: false,
+        source_order_id: orderId,
+        result_order_id: orderId,
+        completed_successfully: false,
+        failure_message: errorMessage,
+      });
       return NextResponse.json({ error: errorMessage, orderId }, { status: 400 });
     }
 
-    const pdfRes = await fetch(`${baseUrl}/orders/${encodeURIComponent(orderId)}/pdf?returnUrl=true&regeneratePdf=false&omitStreetView=false`, {
-      method: 'GET',
-      headers: {
-        accept: 'application/json',
-        'x-api-key': apiKey,
-      },
-      cache: 'no-store',
-      redirect: 'manual',
-    });
-
-    let pdfUrl = '';
-    if (pdfRes.status === 200) {
-      const pdfData = await pdfRes.json().catch(() => ({}));
-      pdfUrl = String(pdfData?.url || pdfData?.pdfUrl || pdfData?.signedUrl || '').trim();
-    } else if (pdfRes.status === 302 || pdfRes.status === 301) {
-      pdfUrl = String(pdfRes.headers.get('location') || '').trim();
-    }
-
+    const pdfUrl = await fetchPdfUrl(baseUrl, apiKey, orderId);
     if (!pdfUrl) {
+      await insertPdfOrderLog(supabase, {
+        address_key: addressKey,
+        address,
+        city,
+        state,
+        zip: zipcode,
+        ordered_by_email: session.email,
+        ordered_by_name: session.name || null,
+        ordered_by_prefix: session.prefix,
+        requested_max_fsd: Number(maxFsd.toFixed(2)),
+        order_status: 'failed',
+        order_id: orderId,
+        tracking_id: trackingId,
+        request_payload: orderPayload,
+        response_payload: orderData,
+      });
+      await insertPdfAnalyticsRun(supabase, {
+        run_id: analyticsRunId,
+        address_key: addressKey,
+        property_address: address,
+        property_city: city,
+        property_state: state,
+        property_zip: zipcode,
+        ordered_by_email: session.email,
+        ordered_by_prefix: session.prefix,
+        requested_max_fsd: Number(maxFsd.toFixed(2)),
+        cache_hit: false,
+        source_order_id: orderId,
+        result_order_id: orderId,
+        completed_successfully: false,
+        failure_message: 'Clear Capital returned no PDF URL.',
+      });
       return NextResponse.json({ error: 'Clear Capital returned no PDF URL.' }, { status: 502 });
     }
 
     const value = typeof avmResult.marketValue === 'number' ? Math.round(avmResult.marketValue) : null;
     const fsd = typeof avmResult.forecastStdDev === 'number' ? avmResult.forecastStdDev : null;
+
+    await insertPdfOrderLog(supabase, {
+      address_key: addressKey,
+      address,
+      city,
+      state,
+      zip: zipcode,
+      ordered_by_email: session.email,
+      ordered_by_name: session.name || null,
+      ordered_by_prefix: session.prefix,
+      requested_max_fsd: Number(maxFsd.toFixed(2)),
+      order_status: 'completed',
+      order_id: orderId,
+      tracking_id: trackingId,
+      cache_hit: false,
+      value,
+      fsd,
+      request_payload: orderPayload,
+      response_payload: orderData,
+    });
+
+    await insertPdfCache(supabase, {
+      address_key: addressKey,
+      address,
+      city,
+      state,
+      zip: zipcode,
+      requested_max_fsd: Number(maxFsd.toFixed(2)),
+      order_id: orderId,
+      tracking_id: trackingId,
+      value,
+      fsd,
+      effective_date: avmResult.runDate || null,
+      response_snapshot: {
+        orderId,
+        trackingId,
+        value,
+        fsd,
+        runDate: avmResult.runDate || null,
+      },
+    });
+
+    await insertPdfAnalyticsRun(supabase, {
+      run_id: analyticsRunId,
+      address_key: addressKey,
+      property_address: address,
+      property_city: city,
+      property_state: state,
+      property_zip: zipcode,
+      ordered_by_email: session.email,
+      ordered_by_prefix: session.prefix,
+      requested_max_fsd: Number(maxFsd.toFixed(2)),
+      cache_hit: false,
+      source_order_id: orderId,
+      result_order_id: orderId,
+      winner_value: value,
+      winner_fsd: fsd,
+      completed_successfully: true,
+    });
 
     try {
       await sendReportEmail(
@@ -203,6 +521,7 @@ export async function POST(req: NextRequest) {
       value,
       fsd,
       maxFsd,
+      cacheHit: false,
     });
   } catch (error) {
     console.error('Processor Clear Capital PDF error:', error);
