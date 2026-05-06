@@ -384,22 +384,42 @@ function interpolateExecutionAtRate(
     };
   }
 
-  let best = sorted[0];
-  let bestDelta = Math.abs(sorted[0].noteRate - requestedRate);
+  if (requestedRate <= sorted[0].noteRate) {
+    return {
+      ...sorted[0],
+      noteRate: requestedRate,
+    };
+  }
 
-  for (const execution of sorted.slice(1)) {
-    const delta = Math.abs(execution.noteRate - requestedRate);
-    if (delta < bestDelta || (delta === bestDelta && execution.noteRate < best.noteRate)) {
-      best = execution;
-      bestDelta = delta;
+  const last = sorted[sorted.length - 1];
+  if (requestedRate >= last.noteRate) {
+    return {
+      ...last,
+      noteRate: requestedRate,
+    };
+  }
+
+  for (let i = 1; i < sorted.length; i += 1) {
+    const lower = sorted[i - 1];
+    const upper = sorted[i];
+    if (requestedRate <= upper.noteRate) {
+      const span = upper.noteRate - lower.noteRate;
+      const ratio = span === 0 ? 0 : (requestedRate - lower.noteRate) / span;
+      const basePrice = roundToThree(lower.basePrice + (upper.basePrice - lower.basePrice) * ratio);
+      return {
+        noteRate: roundToThree(requestedRate),
+        endSeconds,
+        basePrice,
+        purchasePrice: roundToThree(basePrice + llpaAdjustment),
+        deltaFromTarget: 0,
+        withinTolerance: false,
+      };
     }
   }
 
   return {
-    ...best,
-    noteRate: best.noteRate,
-    endSeconds,
-    purchasePrice: roundToThree(best.basePrice + llpaAdjustment),
+    ...last,
+    noteRate: requestedRate,
   };
 }
 
