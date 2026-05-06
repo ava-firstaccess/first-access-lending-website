@@ -362,6 +362,51 @@ function firstString(...values: unknown[]) {
   return null;
 }
 
+const SIGNED_URL_PARAM_KEYS = [
+  'AWSAccessKeyId',
+  'Signature',
+  'x-amz-security-token',
+  'X-Amz-Security-Token',
+  'X-Amz-Signature',
+  'X-Amz-Credential',
+  'X-Amz-Algorithm',
+  'X-Amz-Date',
+  'X-Amz-Expires',
+  'Expires',
+] as const;
+
+function containsSignedUrlSecret(value: string) {
+  const raw = String(value || '');
+  if (!raw) return false;
+  return SIGNED_URL_PARAM_KEYS.some((key) => raw.includes(`${key}=`) || raw.includes(encodeURIComponent(`${key}=`)));
+}
+
+function stripSensitiveUrlsDeep<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((entry) => stripSensitiveUrlsDeep(entry)) as T;
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, entry]) => [key, stripSensitiveUrlsDeep(entry)]),
+    ) as T;
+  }
+  if (typeof value === 'string' && containsSignedUrlSecret(value)) {
+    return null as T;
+  }
+  return value;
+}
+
+function sanitizeAgileExportJobForStorage(job: any) {
+  if (!job || typeof job !== 'object') return null;
+  return stripSensitiveUrlsDeep({
+    id: job.id ?? null,
+    status: job.status ?? null,
+    completedAt: job.completedAt ?? null,
+    percentComplete: job.percentComplete ?? null,
+    excludeJson: job.excludeJson ?? null,
+  });
+}
+
 function formatCurrencyRange(low: number | null, high: number | null) {
   if (low === null || high === null) return null;
   return `$${Math.round(low).toLocaleString()} - $${Math.round(high).toLocaleString()}`;
@@ -418,11 +463,14 @@ function buildLoanOfficerAgileReportLink(orderId: string | number | null | undef
   return `/api/lo-avm/report?${params.toString()}`;
 }
 
-function buildLoanOfficerAgileExportReportLink(exportedDataUrl: string | null | undefined, pdfFilename: string | null | undefined) {
-  const exportedData = firstString(exportedDataUrl);
+function buildLoanOfficerAgileExportReportLink(orderId: string | number | null | undefined, pdfFilename: string | null | undefined) {
+  if (!orderId) return null;
+  const params = new URLSearchParams({
+    orderId: String(orderId),
+    download: 'agile_export',
+  });
   const filename = firstString(pdfFilename);
-  if (!exportedData || !filename) return null;
-  const params = new URLSearchParams({ exportedDataUrl: exportedData, pdfFilename: filename });
+  if (filename) params.set('pdfFilename', filename);
   return `/api/lo-avm/report?${params.toString()}`;
 }
 
@@ -720,11 +768,12 @@ function agileInsightsArtifactsReady(payload: any) {
 
   const reportLink = typeof payload.reportLink === 'string' ? payload.reportLink.trim() : '';
   const hasExportParsed = Boolean(payload.agileInsightsExportParsed);
-  const hasExportPdfLink = reportLink.includes('exportedDataUrl=') && reportLink.includes('pdfFilename=');
+  const hasStableAgileZipLink = reportLink.includes('download=agile_export') && reportLink.includes('orderId=');
+  const hasLegacyExportPdfLink = reportLink.includes('exportedDataUrl=') && reportLink.includes('pdfFilename=');
   const hasFsd = typeof payload.fsd === 'number' && Number.isFinite(payload.fsd);
 
   if (hasExportParsed) return true;
-  if (hasExportPdfLink && hasFsd) return true;
+  if ((hasStableAgileZipLink || hasLegacyExportPdfLink) && hasFsd) return true;
   return false;
 }
 
@@ -752,8 +801,8 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
     valueRange: snapshot.valueRange,
     pdfType: snapshot.pdfType,
     fsdThresholdEcho: snapshot.fsdThreshold,
-    agileInsightsOrderResponse: snapshot.order,
-    agileInsightsItemsResponse: snapshot.items,
+    agileInsightsOrderResponse: stripSensitiveUrlsDeep(snapshot.order),
+    agileInsightsItemsResponse: stripSensitiveUrlsDeep(snapshot.items),
   };
 
   if (nextOrderStatus === 'completed') {
@@ -773,17 +822,15 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
         nextPayload?.agileInsightsExportJob?.id ?? null,
       );
       if (exportJob) {
-        nextPayload.agileInsightsExportJob = exportJob;
+        nextPayload.agileInsightsExportJob = sanitizeAgileExportJobForStorage(exportJob);
 
         if (exportJob.status === 'complete' && exportJob.exportedData) {
           const parsedExport = await downloadHouseCanaryExportZip(exportJob.exportedData);
-          nextPayload.agileInsightsExportParsed = parsedExport;
-          nextPayload.agileInsightsSummaryDataUrl = parsedExport.summaryDataUrl;
+          nextPayload.agileInsightsExportParsed = stripSensitiveUrlsDeep(parsedExport);
           nextPayload.agileInsightsPdfFilename = parsedExport.pdfFilename;
-          nextPayload.agileInsightsExportedDataUrl = exportJob.exportedData;
           nextPayload.agileInsightsPdfAvailable = Boolean(parsedExport.pdfFilename) || nextPayload.agileInsightsPdfAvailable === true;
           nextPayload.reportLink = buildLoanOfficerAgileExportReportLink(
-            exportJob.exportedData,
+            order.external_order_id,
             parsedExport.pdfFilename,
           ) || buildLoanOfficerAgileReportLink(
             order.external_order_id,
@@ -852,7 +899,7 @@ async function refreshHouseCanaryAgileInsightsOrder(supabase: ReturnType<typeof 
         && !(previousPayload?.agileInsightsReportEmailSentAt)
         && !(data?.response_payload?.agileInsightsReportEmailSentAt)
         && typeof data?.response_payload?.reportLink === 'string'
-        && data.response_payload.reportLink.includes('exportedDataUrl=')
+        && (data.response_payload.reportLink.includes('download=agile_export') || data.response_payload.reportLink.includes('exportedDataUrl='))
         && typeof data?.loan_officer_email === 'string'
         && data.loan_officer_email.trim();
 
@@ -1082,6 +1129,7 @@ function buildHouseCanaryEmailHtml({ address, investor, link }: { address: strin
       <p style="margin:0 0 12px;">Your AVM order is ready for <strong>${escapeHtml(address)}</strong>.</p>
       <p style="margin:0 0 20px;">Investor: <strong>${escapeHtml(investor)}</strong></p>
       <p style="margin:0 0 20px;"><a href="${escapeHtml(link)}" style="display:inline-block;background:#0283DB;color:#ffffff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:700;">Download Report</a></p>
+      <p style="margin:0 0 8px;color:#475569;font-size:12px;">This download link expires in 24 hours.</p>
       <p style="margin:0;color:#475569;font-size:12px;">This link was generated from the Loan Officer AVM workspace.</p>
     `,
   });
@@ -1930,7 +1978,7 @@ export async function POST(req: NextRequest) {
             requestedMaxFsd,
             fsdThresholdStatus: 'pending',
             housecanaryOrderProduct: allocation.selectedProduct,
-              agileInsightsResponse: agile.raw,
+            agileInsightsResponse: stripSensitiveUrlsDeep(agile.raw),
           },
           requested_max_fsd: requestedMaxFsd,
           run_source: runSource,

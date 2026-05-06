@@ -11,6 +11,115 @@ function readHouseCanaryOrderManagerAuth() {
   return `Basic ${Buffer.from(`${key}:${secret}`).toString('base64')}`;
 }
 
+function firstString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+async function readResponseJsonOrText(res: Response) {
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+async function listHouseCanaryOrderExportJobs(orderId: string) {
+  const res = await fetch(`${process.env.HOUSECANARY_ORDER_MANAGER_BASE_URL || HOUSECANARY_ORDER_MANAGER_BASE}/orders/${orderId}/export-requests/`, {
+    headers: {
+      Authorization: readHouseCanaryOrderManagerAuth(),
+      Accept: 'application/json',
+    },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`HouseCanary Agile Insights list export jobs failed (${res.status})`);
+  }
+
+  const body = await readResponseJsonOrText(res);
+  return Array.isArray(body)
+    ? body
+    : Array.isArray((body as any)?.results)
+      ? (body as any).results
+      : [];
+}
+
+async function createHouseCanaryOrderExportJob(orderId: string) {
+  const base = process.env.HOUSECANARY_ORDER_MANAGER_BASE_URL || HOUSECANARY_ORDER_MANAGER_BASE;
+  const attempts = [
+    `${base}/orders/${orderId}/export/zip?exclude_json=False`,
+    `${base}/orders/${orderId}/export/zip?exclude_json=false`,
+  ];
+
+  let lastStatus: number | null = null;
+  for (const url of attempts) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: readHouseCanaryOrderManagerAuth(),
+        Accept: 'application/json',
+      },
+      cache: 'no-store',
+    });
+
+    if (res.ok) {
+      return readResponseJsonOrText(res);
+    }
+    lastStatus = res.status;
+  }
+
+  throw new Error(lastStatus ? `HouseCanary Agile Insights create export job failed (${lastStatus})` : 'HouseCanary Agile Insights create export job failed');
+}
+
+function normalizeHouseCanaryExportJob(job: any) {
+  if (!job) return null;
+  return {
+    id: job.id ?? null,
+    status: firstString(job.status) || null,
+    completedAt: firstString(job.completed_at) || null,
+    percentComplete: typeof job.percent_complete === 'number' ? job.percent_complete : null,
+    exportedData: firstString(job.exported_data) || null,
+    excludeJson: typeof job.exclude_json === 'boolean' ? job.exclude_json : null,
+  };
+}
+
+async function ensureHouseCanaryAgileInsightsExportJob(orderId: string) {
+  const selectPreferredJob = (jobs: any[]) => {
+    const sortedJobs = [...jobs].sort((a: any, b: any) => Number(b?.id || 0) - Number(a?.id || 0));
+    return sortedJobs.find((job: any) => job?.exclude_json === false) || null;
+  };
+
+  const jobs = await listHouseCanaryOrderExportJobs(orderId);
+  const preferredJob = selectPreferredJob(jobs);
+  if (preferredJob) return normalizeHouseCanaryExportJob(preferredJob);
+
+  try {
+    return normalizeHouseCanaryExportJob(await createHouseCanaryOrderExportJob(orderId));
+  } catch (error) {
+    const afterJobs = await listHouseCanaryOrderExportJobs(orderId);
+    const latePreferredJob = selectPreferredJob(afterJobs);
+    if (latePreferredJob) return normalizeHouseCanaryExportJob(latePreferredJob);
+    throw error;
+  }
+}
+
+function findPdfEntry(zip: AdmZip, requestedFilename: string | null) {
+  const entries = zip.getEntries().filter((entry: AdmZip.IZipEntry) => !entry.isDirectory);
+  const normalizedRequested = firstString(requestedFilename);
+  if (normalizedRequested) {
+    const exact = entries.find((entry: AdmZip.IZipEntry) => entry.entryName.split('/').pop() === normalizedRequested);
+    if (exact) return exact;
+  }
+  return entries.find((entry: AdmZip.IZipEntry) => /_AgileInsights\.pdf$/i.test(entry.entryName))
+    || entries.find((entry: AdmZip.IZipEntry) => /\.pdf$/i.test(entry.entryName))
+    || null;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const session = getLoanOfficerPortalSessionFromRequest(req);
@@ -25,6 +134,38 @@ export async function GET(req: NextRequest) {
     const orderId = req.nextUrl.searchParams.get('orderId');
     const itemId = req.nextUrl.searchParams.get('itemId');
     const pdfType = req.nextUrl.searchParams.get('pdfType');
+    const downloadMode = req.nextUrl.searchParams.get('download');
+
+    if (downloadMode === 'agile_export' && orderId) {
+      const exportJob = await ensureHouseCanaryAgileInsightsExportJob(orderId);
+      if (!exportJob?.exportedData) {
+        return NextResponse.json(
+          { error: exportJob?.status === 'complete' ? 'HouseCanary export ZIP URL missing.' : 'HouseCanary export ZIP is not ready yet.' },
+          { status: exportJob?.status === 'complete' ? 502 : 409 },
+        );
+      }
+
+      const zipResponse = await fetch(exportJob.exportedData, { cache: 'no-store' });
+      if (!zipResponse.ok) {
+        return NextResponse.json({ error: `HouseCanary export ZIP download failed (${zipResponse.status}).` }, { status: zipResponse.status });
+      }
+      const zipBuffer = Buffer.from(await zipResponse.arrayBuffer());
+      const zip = new AdmZip(zipBuffer);
+      const pdfEntry = findPdfEntry(zip, pdfFilename);
+      if (!pdfEntry) {
+        return NextResponse.json({ error: 'HouseCanary export ZIP did not contain a PDF report.' }, { status: 404 });
+      }
+      const resolvedFilename = pdfEntry.entryName.split('/').pop() || pdfFilename || 'HouseCanary_AgileInsights.pdf';
+      const pdfBytes = new Uint8Array(pdfEntry.getData());
+      return new NextResponse(pdfBytes, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `inline; filename="${resolvedFilename}"`,
+          'Cache-Control': 'private, no-store, max-age=0',
+        },
+      });
+    }
 
     if (exportedDataUrl && pdfFilename) {
       let parsed: URL;
@@ -43,16 +184,17 @@ export async function GET(req: NextRequest) {
       }
       const zipBuffer = Buffer.from(await zipResponse.arrayBuffer());
       const zip = new AdmZip(zipBuffer);
-      const pdfEntry = zip.getEntries().find((entry: AdmZip.IZipEntry) => !entry.isDirectory && entry.entryName.split('/').pop() === pdfFilename);
+      const pdfEntry = findPdfEntry(zip, pdfFilename);
       if (!pdfEntry) {
         return NextResponse.json({ error: 'HouseCanary export ZIP did not contain the requested PDF.' }, { status: 404 });
       }
+      const resolvedFilename = pdfEntry.entryName.split('/').pop() || pdfFilename;
       const pdfBytes = new Uint8Array(pdfEntry.getData());
       return new NextResponse(pdfBytes, {
         status: 200,
         headers: {
           'Content-Type': 'application/pdf',
-          'Content-Disposition': `inline; filename="${pdfFilename}"`,
+          'Content-Disposition': `inline; filename="${resolvedFilename}"`,
           'Cache-Control': 'private, no-store, max-age=0',
         },
       });
