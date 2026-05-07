@@ -91,7 +91,10 @@ const LOCK_PERIOD_COLUMNS: Record<ArcHomeLockPeriod, keyof PriceRow['prices']> =
 
 export function getArcHomeGuideMaxPrice(product: ArcHomeProduct): number {
   const row = DATA.adjustments.maxPrice.rows.find(entry => entry.term === product);
-  return Number(row?.allElse ?? 0);
+  if (!row || !Number.isFinite(row.withCondition)) {
+    throw new Error(`Arc Home guide max price is missing from arc-home-ratesheet.json for ${product}.`);
+  }
+  return Number(row.withCondition);
 }
 
 const CLTV_BUCKETS = [55, 60, 65, 70, 75, 80] as const;
@@ -134,7 +137,7 @@ export function buildArcHomeStage1PricingInput(stage1: {
     occupancy: normalizeOccupancy(stage1.occupancy),
     structureType: normalizePropertyType(stage1.structureType, Number(stage1.numberOfUnits || 1)),
     unitCount: Number(stage1.numberOfUnits || 1),
-    lockPeriodDays: stage1.arcHomeLockPeriodDays ?? 45,
+    lockPeriodDays: normalizeLockPeriodDays(stage1.arcHomeLockPeriodDays),
   };
 }
 
@@ -157,7 +160,7 @@ export function calculateArcHomeStage1Quote(
   const input = buildArcHomeStage1PricingInput(stage1);
   const maxAvailable = calculateMaxAvailable(input);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? maxAvailable);
-  const targetPrice = clampTargetPrice(options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount));
+  const targetPrice = options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount);
 
   const eligibility = evaluateArcHomeStage1Eligibility(stage1, selectedLoanAmount);
   if (!eligibility.eligible) {
@@ -227,14 +230,8 @@ export function evaluateArcHomeStage1Eligibility(
   if (!DATA.products.includes(input.product)) {
     reasons.push('Arc Home product selection is not supported by the current workbook-backed engine.');
   }
-  if (input.creditScore < 640) {
-    reasons.push('Credit score is below the current supported Arc Home pricing range.');
-  }
   if (input.resultingCltv > getArcHomeMaxLtv()) {
     reasons.push(`Resulting CLTV exceeds the current Arc Home max of ${(getArcHomeMaxLtv() * 100).toFixed(0)}%.`);
-  }
-  if (input.dti !== null && input.dti > 50) {
-    reasons.push('DTI exceeds the current supported Arc Home pricing range.');
   }
   if (requested > maxAvailable) {
     reasons.push('Desired loan amount exceeds the current max available amount.');
@@ -255,11 +252,16 @@ export function evaluateArcHomeStage1Eligibility(
   if (ficoIndex >= 0 && cltvIndex >= 0 && getAdjustmentValue(DATA.adjustments.fico, ficoLabel, cltvIndex) === null) {
     reasons.push('Selected credit / CLTV combination is not available in the Arc Home matrix.');
   }
-  if (cltvIndex >= 0 && getAdjustmentValue(DATA.adjustments.loanAmount, getLoanAmountLabel(selectedLoanAmount ?? input.desiredLoanAmount), cltvIndex) === null) {
+  const loanAmountLabel = getLoanAmountLabel(selectedLoanAmount ?? input.desiredLoanAmount);
+  if (cltvIndex >= 0 && getAdjustmentValue(DATA.adjustments.loanAmount, loanAmountLabel, cltvIndex) === null) {
     reasons.push('Selected loan amount / CLTV combination is not available in the Arc Home matrix.');
   }
   if (cltvIndex >= 0 && getAdjustmentValue(DATA.adjustments.occupancy, normalizeOccupancy(input.occupancy), cltvIndex) === null) {
     reasons.push('Selected occupancy is not available at this CLTV in the Arc Home matrix.');
+  }
+  const dtiLabel = input.dti !== null ? getDtiLabel(input.dti) : null;
+  if (input.dti !== null && cltvIndex >= 0 && getAdjustmentValue(DATA.adjustments.dti, dtiLabel, cltvIndex) === null) {
+    reasons.push('Selected DTI / CLTV combination is not available in the Arc Home matrix.');
   }
   if (cltvIndex >= 0 && getAdjustmentValue(DATA.adjustments.propertyType, normalizePropertyType(input.structureType, input.unitCount), cltvIndex) === null) {
     reasons.push('Selected property type is not available at this CLTV in the Arc Home matrix.');
@@ -291,7 +293,7 @@ export function solveArcHomeStage1TargetRate(
 ): ArcHomeTargetRateQuote {
   const input = buildArcHomeStage1PricingInput(stage1);
   const selectedLoanAmount = Math.max(0, options.selectedLoanAmount ?? input.desiredLoanAmount ?? calculateMaxAvailable(input));
-  const targetPrice = clampTargetPrice(options.targetPrice);
+  const targetPrice = options.targetPrice;
   const quote = calculateArcHomeStage1Quote(stage1, { selectedLoanAmount, targetPrice });
   const tolerance = options.tolerance ?? 0.125;
   const deltaFromTarget = roundToThree(targetPrice - quote.purchasePrice);
@@ -328,27 +330,19 @@ function pickExecutionByRate(input: ArcHomePricingInput, requestedRate: number, 
 function pickExecutionAtOrBelowTarget(input: ArcHomePricingInput, targetPrice: number, llpaAdjustment: number) {
   const rows = getPricingRows();
   let bestUnder: { noteRate: number; basePrice: number; purchasePrice: number } | null = null;
-  let bestClosest: { noteRate: number; basePrice: number; purchasePrice: number } | null = null;
-  let closestDelta = Number.POSITIVE_INFINITY;
 
   for (const row of rows) {
     const basePrice = getBasePrice(row, input.lockPeriodDays);
     if (!Number.isFinite(basePrice) || basePrice <= 0) continue;
     const purchasePrice = roundToThree(basePrice + llpaAdjustment);
-    const delta = targetPrice - purchasePrice;
     if (purchasePrice <= targetPrice + 0.0001) {
       if (!bestUnder || purchasePrice > bestUnder.purchasePrice || (purchasePrice === bestUnder.purchasePrice && row.noteRate > bestUnder.noteRate)) {
         bestUnder = { noteRate: row.noteRate, basePrice, purchasePrice };
       }
     }
-    const absDelta = Math.abs(delta);
-    if (absDelta < closestDelta || (absDelta === closestDelta && row.noteRate > (bestClosest?.noteRate ?? 0))) {
-      bestClosest = { noteRate: row.noteRate, basePrice, purchasePrice };
-      closestDelta = absDelta;
-    }
   }
 
-  return bestUnder ?? bestClosest ?? { noteRate: 0, basePrice: 0, purchasePrice: 0 };
+  return bestUnder ?? { noteRate: 0, basePrice: 0, purchasePrice: 0 };
 }
 
 function buildAdjustmentLines(input: ArcHomePricingInput, selectedLoanAmount: number): Stage1AdjustmentLine[] {
@@ -406,7 +400,10 @@ function getLockPeriodDisplayAdjustment(lockPeriodDays: ArcHomeLockPeriod, noteR
 
 function getMaxPriceCap(product: ArcHomeProduct): number {
   const row = DATA.adjustments.maxPrice.rows.find(entry => entry.term === product);
-  return Number(row?.allElse ?? 0);
+  if (!row || !Number.isFinite(row.withCondition)) {
+    throw new Error(`Arc Home max price cap is missing from arc-home-ratesheet.json for ${product}.`);
+  }
+  return Number(row.withCondition);
 }
 
 function calculateMaxAvailable(input: ArcHomePricingInput): number {
@@ -429,9 +426,6 @@ function roundToNearestDollar(value: number) {
   return Math.round(value);
 }
 
-function clampTargetPrice(targetPrice: number) {
-  return Math.min(targetPrice, Math.max(...DATA.adjustments.maxPrice.rows.map(row => Number(row.allElse ?? 0))));
-}
 
 function getArcHomeMaxLtv(): number {
   const lastBucket = DATA.adjustments.cltvBuckets.at(-1);
@@ -453,7 +447,7 @@ function getFicoBucketIndex(creditScore: number) {
 }
 
 function getFicoLabel(creditScore: number) {
-  return DATA.adjustments.fico.find(row => isScoreInLabel(creditScore, row.label))?.label ?? 'Unknown';
+  return DATA.adjustments.fico.find(row => isScoreInLabel(creditScore, row.label))?.label ?? null;
 }
 
 function getDtiLabel(dti: number) {
@@ -461,18 +455,25 @@ function getDtiLabel(dti: number) {
 }
 
 function getLoanAmountLabel(loanAmount: number) {
-  return DATA.adjustments.loanAmount.find(row => isValueInLabel(loanAmount, row.label))?.label ?? DATA.adjustments.loanAmount.at(-1)?.label ?? 'Unknown';
+  return DATA.adjustments.loanAmount.find(row => isValueInLabel(loanAmount, row.label))?.label ?? null;
 }
 
 function normalizeProduct(product?: ArcHomeProduct) {
-  return (product && DATA.products.includes(product)) ? product : (DATA.products.includes('30 Year Maturity') ? '30 Year Maturity' : DATA.products[0]);
+  if (product && DATA.products.includes(product)) return product;
+  throw new Error(`Unsupported Arc Home product: ${product ?? ''}`);
 }
 
 function normalizeOccupancy(value?: string) {
   const text = String(value || '').trim().toLowerCase();
   if (text.includes('second')) return 'Second Home';
   if (text.includes('invest')) return 'Investment';
-  return 'Primary';
+  if (text.includes('primary') || text.includes('owner')) return 'Primary';
+  throw new Error(`Unsupported Arc Home occupancy: ${value ?? ''}`);
+}
+
+function normalizeLockPeriodDays(lockPeriodDays?: ArcHomeLockPeriod) {
+  if (lockPeriodDays && DATA.lockPeriods.includes(lockPeriodDays)) return lockPeriodDays;
+  throw new Error(`Unsupported Arc Home lock period: ${lockPeriodDays ?? ''}`);
 }
 
 function normalizePropertyType(value?: string, unitCount = 1) {
@@ -490,7 +491,8 @@ function getTermAdjustment(product: ArcHomeProduct) {
 
 function getProductTermYears(product: ArcHomeProduct): number {
   const match = String(product).match(/(\d+)/);
-  return match ? Number(match[1]) : 30;
+  if (match) return Number(match[1]);
+  throw new Error(`Unsupported Arc Home product term: ${product}`);
 }
 
 function getUpperBoundFromLabel(label?: string): number {
@@ -524,7 +526,8 @@ function isValueInLabel(value: number, label?: string): boolean {
   return false;
 }
 
-function getAdjustmentValue(rows: AdjustmentRow[], label: string, cltvIndex: number) {
+function getAdjustmentValue(rows: AdjustmentRow[], label: string | null, cltvIndex: number) {
+  if (!label) return null;
   const row = rows.find(entry => entry.label === label);
   if (!row) return null;
   const value = row.values[cltvIndex];
