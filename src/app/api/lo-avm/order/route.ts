@@ -1386,7 +1386,7 @@ async function loadRecentOrders(supabase: ReturnType<typeof getSupabaseAdmin>, a
     .select('*')
     .eq('address_id', addressId)
     .gte('created_at', cutoffIso)
-    .in('order_status', ['submitted', 'processing', 'completed'])
+    .in('order_status', ['submitted', 'processing', 'completed', 'failed'])
     .order('created_at', { ascending: false });
 
   if (error) throw new Error(`Recent order lookup failed: ${error.message}`);
@@ -1430,7 +1430,7 @@ async function countHouseCanaryCycleUsage(supabase: ReturnType<typeof getSupabas
     .eq('provider', 'housecanary')
     .eq('housecanary_billing_cycle_start', cycleStart)
     .eq('housecanary_billing_cycle_end', cycleEnd)
-    .in('order_status', ['submitted', 'processing', 'completed']);
+    .in('order_status', ['submitted', 'processing', 'completed', 'failed']);
 
   if (error) {
     if (isMissingColumnError(error, HOUSECANARY_CYCLE_FIELDS)) {
@@ -1474,6 +1474,28 @@ function parseOrderLink(order: any) {
   return typeof payload?.reportLink === 'string' ? payload.reportLink : null;
 }
 
+function parseOrderFailureMessage(order: any) {
+  const payload = order?.response_payload || {};
+  if (typeof payload?.clearCapitalResponse?.errorMessage === 'string' && payload.clearCapitalResponse.errorMessage.trim()) {
+    return payload.clearCapitalResponse.errorMessage.trim();
+  }
+  return typeof payload?.errorMessage === 'string' ? payload.errorMessage : null;
+}
+
+function buildManualCacheErrorMessage(row: ProviderRow | null | undefined) {
+  if (!row) return null;
+  if (row.failureMessage) {
+    if (row.provider === 'Clear Capital' && row.failureMessage.toLowerCase().includes('unable to match to a known property')) {
+      return 'Clear Capital could not match this property address. Using the cached vendor response instead of placing a new request.';
+    }
+    return `Using cached ${row.provider} response: ${row.failureMessage}`;
+  }
+  if (row.fsdThresholdStatus === 'failed' || row.fsdLabel) {
+    return `Using cached ${row.provider} response: this result failed the investor FSD threshold.`;
+  }
+  return null;
+}
+
 function mapCachedProviderToRuleProvider(value: string | null | undefined): AvmProviderName | null {
   const normalized = String(value || '').trim().toLowerCase();
   if (!normalized) return null;
@@ -1514,7 +1536,7 @@ function buildProviderRowsFromOrders(orders: any[], investor: InvestorName | nul
       orderRunId: order?.order_run_id || null,
       providerProduct: order?.provider_product || null,
       fsdLabel: order?.response_payload?.fsdLabel || null,
-      failureMessage: order?.response_payload?.errorMessage || null,
+      failureMessage: parseOrderFailureMessage(order),
       requestedMaxFsd: typeof order?.requested_max_fsd === 'number'
         ? order.requested_max_fsd
         : typeof order?.response_payload?.requestedMaxFsd === 'number'
@@ -1743,6 +1765,74 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    const forcedProvider = runSource === 'manual' ? manualProvider : null;
+    if (runSource === 'manual' && !forcedProvider) {
+      return NextResponse.json({ error: 'Manual run requires a supported provider selection.' }, { status: 400 });
+    }
+
+    if (forcedProvider) {
+      const forcedCachedRow = availableProviderRows.find((row) => row.provider === forcedProvider) || null;
+      if (providerRowHasData(forcedCachedRow)) {
+        const latestOrderedAt = refreshedCachedOrders[0]?.ordered_at || refreshedCachedOrders[0]?.created_at || cachedAvm?.created_at || null;
+        const winnerProvider = chooseWinnerProvider(availableProviderRows);
+        const cacheError = buildManualCacheErrorMessage(forcedCachedRow);
+        const message = cacheError
+          ? `Loaded cached ${forcedProvider} response. No new vendor order was placed.`
+          : `Loaded cached ${forcedProvider} result. No new vendor order was placed.`;
+        await persistLoanOfficerAvmRunAnalytics(supabase, {
+          runId: analyticsRunId,
+          orderRunId: null,
+          session,
+          loanNumber,
+          investorLabel,
+          engine,
+          program,
+          product,
+          addressId,
+          address,
+          city,
+          state,
+          zipcode,
+          runSource,
+          manualProvider,
+          cacheOnly: false,
+          cacheHit: true,
+          selectedInvestorSatisfied,
+          selectedInvestorInFlight,
+          providerRows: availableProviderRows,
+          winnerProvider,
+          latestOrderedAt,
+          message,
+          completedSuccessfully: !cacheError,
+          ordersPlacedCount: 0,
+          createdAt: new Date().toISOString(),
+        });
+        if (cacheError) {
+          return NextResponse.json({
+            error: cacheError,
+            cacheHit: true,
+            addressId,
+            cacheWindowDays: LO_AVM_CACHE_WINDOW_DAYS,
+            investor: investorLabel,
+            providerRows: availableProviderRows,
+            winnerProvider,
+            latestOrderedAt,
+            message,
+          }, { status: 409 });
+        }
+        return NextResponse.json({
+          cacheHit: true,
+          addressId,
+          cacheWindowDays: LO_AVM_CACHE_WINDOW_DAYS,
+          investor: investorLabel,
+          providerRows: availableProviderRows,
+          winnerProvider,
+          latestOrderedAt,
+          message,
+        });
+      }
+    }
+
     if (runSource === 'cascade' && (selectedInvestorSatisfied || selectedInvestorInFlight)) {
       const latestOrderedAt = refreshedCachedOrders[0]?.ordered_at || refreshedCachedOrders[0]?.created_at || cachedAvm?.created_at || null;
       const message = selectedInvestorSatisfied
@@ -1795,10 +1885,6 @@ export async function POST(req: NextRequest) {
     const orderedAt = new Date().toISOString();
 
     let insertedOrder: any = null;
-    const forcedProvider = runSource === 'manual' ? manualProvider : null;
-    if (runSource === 'manual' && !forcedProvider) {
-      return NextResponse.json({ error: 'Manual run requires a supported provider selection.' }, { status: 400 });
-    }
     if (forcedProvider === 'HouseCanary' && !hcRule?.supported) {
       return NextResponse.json({ error: `${investorLabel} does not currently support a manual HouseCanary run.` }, { status: 400 });
     }

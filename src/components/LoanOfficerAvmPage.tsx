@@ -256,6 +256,10 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
       }
 
       if (!response.ok) {
+        if (data?.providerRows) {
+          setLiveOrderResult(data as LiveOrderResult);
+          setSelectedProvider((data as LiveOrderResult).winnerProvider || selectedProvider || null);
+        }
         setOrderError(data?.error || rawText || 'Failed to order AVM.');
         return;
       }
