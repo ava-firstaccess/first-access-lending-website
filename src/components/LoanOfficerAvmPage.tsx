@@ -551,7 +551,9 @@ function getDisplayThresholdStatus(row: ProviderDisplayRow) {
 function formatProviderFailureMessage(message: string | null | undefined) {
   const normalized = String(message || '').trim();
   if (!normalized) return null;
-  if (normalized.toLowerCase().includes('unable to match to a known property')) return 'Property not matched';
+  const lower = normalized.toLowerCase();
+  if (lower.includes('unable to match to a known property')) return 'Property not matched';
+  if (lower.includes('value lookup returned no value')) return 'Property not matched';
   return normalized;
 }
 

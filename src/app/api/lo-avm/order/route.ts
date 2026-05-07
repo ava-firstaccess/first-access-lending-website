@@ -1485,7 +1485,11 @@ function parseOrderFailureMessage(order: any) {
 function buildManualCacheErrorMessage(row: ProviderRow | null | undefined) {
   if (!row) return null;
   if (row.failureMessage) {
-    if (row.provider === 'Clear Capital' && row.failureMessage.toLowerCase().includes('unable to match to a known property')) {
+    const lower = row.failureMessage.toLowerCase();
+    if (
+      (row.provider === 'Clear Capital' && lower.includes('unable to match to a known property'))
+      || (row.provider === 'HouseCanary' && lower.includes('value lookup returned no value'))
+    ) {
       return 'Property not matched. Using the cached vendor response instead of placing a new request.';
     }
     return `Using cached ${row.provider} response: ${row.failureMessage}`;
