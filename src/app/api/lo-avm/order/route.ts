@@ -1430,7 +1430,7 @@ async function countHouseCanaryCycleUsage(supabase: ReturnType<typeof getSupabas
     .eq('provider', 'housecanary')
     .eq('housecanary_billing_cycle_start', cycleStart)
     .eq('housecanary_billing_cycle_end', cycleEnd)
-    .in('order_status', ['submitted', 'processing', 'completed', 'failed']);
+    .in('order_status', ['submitted', 'processing', 'completed']);
 
   if (error) {
     if (isMissingColumnError(error, HOUSECANARY_CYCLE_FIELDS)) {
