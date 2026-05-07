@@ -548,6 +548,13 @@ function getDisplayThresholdStatus(row: ProviderDisplayRow) {
   return row.fsdThresholdStatus;
 }
 
+function formatProviderFailureMessage(message: string | null | undefined) {
+  const normalized = String(message || '').trim();
+  if (!normalized) return null;
+  if (normalized.toLowerCase().includes('unable to match to a known property')) return 'Property not matched';
+  return normalized;
+}
+
 function getProviderRowSubtext(row: ProviderDisplayRow) {
   const sourceLabel = row.source === 'cache'
     ? (row.orderRunId ? 'Loan officer cache' : 'Webapp cache')
@@ -567,7 +574,7 @@ function getProviderRowSubtext(row: ProviderDisplayRow) {
     return [base, sourceLabel, runSourceLabel].filter(Boolean).join(' • ');
   }
   if (row.failureMessage) {
-    return [row.failureMessage, sourceLabel, runSourceLabel, thresholdLabel].filter(Boolean).join(' • ');
+    return [formatProviderFailureMessage(row.failureMessage), sourceLabel, runSourceLabel, thresholdLabel].filter(Boolean).join(' • ');
   }
   if ((row.fsd !== null && row.maxFsdAllowed !== null && row.fsd > row.maxFsdAllowed + 0.0001) || row.fsdLabel) {
     return [`FSD above max for this investor: ${row.fsdLabel || `${row.fsd?.toFixed(2)} > ${row.maxFsdAllowed?.toFixed(2)}`}. A different investor may still allow it.`, sourceLabel, runSourceLabel, thresholdLabel].filter(Boolean).join(' • ');
@@ -583,7 +590,7 @@ function getProviderInvestorStatusMessage(row: ProviderDisplayRow) {
     return 'This investor does not allow this AVM provider, even though an AVM result exists.';
   }
   if (row.failureMessage) {
-    return row.failureMessage;
+    return formatProviderFailureMessage(row.failureMessage) || 'Provider request failed.';
   }
   if ((row.fsd !== null && row.maxFsdAllowed !== null && row.fsd > row.maxFsdAllowed + 0.0001) || row.fsdLabel) {
     return `This result is above the current investor max FSD, ${row.maxFsdAllowed?.toFixed(2) ?? 'n/a'}. Keep the AVM visible, but try another investor that allows a higher FSD.`;

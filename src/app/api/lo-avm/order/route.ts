@@ -1486,7 +1486,7 @@ function buildManualCacheErrorMessage(row: ProviderRow | null | undefined) {
   if (!row) return null;
   if (row.failureMessage) {
     if (row.provider === 'Clear Capital' && row.failureMessage.toLowerCase().includes('unable to match to a known property')) {
-      return 'Clear Capital could not match this property address. Using the cached vendor response instead of placing a new request.';
+      return 'Property not matched. Using the cached vendor response instead of placing a new request.';
     }
     return `Using cached ${row.provider} response: ${row.failureMessage}`;
   }
