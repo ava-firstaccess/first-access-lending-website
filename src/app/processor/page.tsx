@@ -28,6 +28,23 @@ type PciOrderRow = {
   updatedAt: string | null;
 };
 
+type PdfOrderRow = {
+  runId: string;
+  orderId: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  orderedByEmail: string | null;
+  requestedMaxFsd: number | null;
+  cacheHit: boolean;
+  value: number | null;
+  fsd: number | null;
+  completedSuccessfully: boolean | null;
+  failureMessage: string | null;
+  createdAt: string | null;
+};
+
 async function loadPciOrders(): Promise<PciOrderRow[]> {
   try {
     const supabase = getSupabaseAdmin();
@@ -67,6 +84,44 @@ async function loadPciOrders(): Promise<PciOrderRow[]> {
     }));
   } catch (error) {
     console.error('Failed to load PCI orders:', error);
+    return [];
+  }
+}
+
+async function loadPdfOrders(): Promise<PdfOrderRow[]> {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from('clearcapital_pdf_analytics_runs')
+      .select('run_id,result_order_id,property_address,property_city,property_state,property_zip,ordered_by_email,requested_max_fsd,cache_hit,winner_value,winner_fsd,completed_successfully,failure_message,created_at')
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (error) {
+      if (error.code !== '42P01') {
+        console.error('Failed to load Clear Capital PDF orders:', error);
+      }
+      return [];
+    }
+
+    return (data || []).map((row) => ({
+      runId: String(row.run_id),
+      orderId: row.result_order_id || null,
+      address: row.property_address || null,
+      city: row.property_city || null,
+      state: row.property_state || null,
+      zip: row.property_zip || null,
+      orderedByEmail: row.ordered_by_email || null,
+      requestedMaxFsd: typeof row.requested_max_fsd === 'number' ? row.requested_max_fsd : row.requested_max_fsd ? Number(row.requested_max_fsd) : null,
+      cacheHit: Boolean(row.cache_hit),
+      value: typeof row.winner_value === 'number' ? row.winner_value : row.winner_value ? Number(row.winner_value) : null,
+      fsd: typeof row.winner_fsd === 'number' ? row.winner_fsd : row.winner_fsd ? Number(row.winner_fsd) : null,
+      completedSuccessfully: typeof row.completed_successfully === 'boolean' ? row.completed_successfully : null,
+      failureMessage: row.failure_message || null,
+      createdAt: row.created_at || null,
+    }));
+  } catch (error) {
+    console.error('Failed to load Clear Capital PDF orders:', error);
     return [];
   }
 }
@@ -113,7 +168,7 @@ export default async function Page() {
     );
   }
 
-  const pciOrders = await loadPciOrders();
+  const [pciOrders, pdfOrders] = await Promise.all([loadPciOrders(), loadPdfOrders()]);
 
-  return <ProcessorAvmToolsPage session={{ email: session.email, name: session.name }} initialPciOrders={pciOrders} />;
+  return <ProcessorAvmToolsPage session={{ email: session.email, name: session.name }} initialPciOrders={pciOrders} initialPdfOrders={pdfOrders} />;
 }

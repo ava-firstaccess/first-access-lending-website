@@ -51,6 +51,23 @@ type PciOrderRow = {
   updatedAt: string | null;
 };
 
+type PdfOrderRow = {
+  runId: string;
+  orderId: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  orderedByEmail: string | null;
+  requestedMaxFsd: number | null;
+  cacheHit: boolean;
+  value: number | null;
+  fsd: number | null;
+  completedSuccessfully: boolean | null;
+  failureMessage: string | null;
+  createdAt: string | null;
+};
+
 type ReportResult = {
   success: boolean;
   orderId: string;
@@ -105,7 +122,7 @@ function statusClasses(value: string | null) {
   }
 }
 
-export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: PortalSession; initialPciOrders: PciOrderRow[] }) {
+export function ProcessorAvmToolsPage({ session, initialPciOrders, initialPdfOrders }: { session: PortalSession; initialPciOrders: PciOrderRow[]; initialPdfOrders: PdfOrderRow[] }) {
   const router = useRouter();
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
@@ -140,6 +157,27 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
       order.lastMessage || '',
     ].some((value) => value.toLowerCase().includes(needle)));
   }, [initialPciOrders, search]);
+
+  const filteredPdfOrders = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return initialPdfOrders;
+    return initialPdfOrders.filter((order) => [
+      order.runId,
+      order.orderId || '',
+      order.address || '',
+      order.city || '',
+      order.state || '',
+      order.zip || '',
+      order.orderedByEmail || '',
+      order.failureMessage || '',
+      order.cacheHit ? 'cache hit' : 'new order',
+      order.completedSuccessfully === true ? 'success' : order.completedSuccessfully === false ? 'failed' : '',
+    ].some((value) => value.toLowerCase().includes(needle)));
+  }, [initialPdfOrders, search]);
+
+  const pdfSuccessCount = filteredPdfOrders.filter((order) => order.completedSuccessfully === true).length;
+  const pdfFailureCount = filteredPdfOrders.filter((order) => order.completedSuccessfully === false).length;
+  const pdfCacheHitCount = filteredPdfOrders.filter((order) => order.cacheHit).length;
 
   function handleAddressChange(nextAddress: string, nextState?: string, nextZip?: string, nextCity?: string) {
     setAddress(nextAddress);
@@ -345,11 +383,11 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
 
           <div className="space-y-6">
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900">PCI tracking</h2>
+              <h2 className="text-lg font-semibold text-slate-900">Reporting visibility</h2>
               <ul className="mt-4 space-y-3 text-sm text-slate-600">
-                <li>• Real PCI orders are placed directly from this page using `PCI_EXTERIOR`.</li>
-                <li>• Each order starts as <span className="font-semibold">Order Placed</span>, then waits for Clear Capital webhook updates.</li>
-                <li>• Completion emails and the table both support report retrieval once the order finishes.</li>
+                <li>• PDF orders and PCI orders both show up below for managers and processors.</li>
+                <li>• Use <span className="font-semibold">Refresh</span> to pull the latest server-side state on demand.</li>
+                <li>• PCI remains webhook-driven underneath, so refresh is just for visibility, not the actual status source.</li>
               </ul>
             </div>
 
@@ -388,14 +426,14 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">PCI orders</h2>
-              <p className="mt-1 text-sm text-slate-600">Search by order ID, status, address, reference ID, processor email, hold reason, or webhook message.</p>
+              <h2 className="text-lg font-semibold text-slate-900">Clear Capital reporting</h2>
+              <p className="mt-1 text-sm text-slate-600">One shared visibility card for PDF AVM orders and PCI orders. Search by order ID, property, status, processor email, or notes.</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search PCI orders"
+                placeholder="Search Clear Capital orders"
                 className="w-full min-w-[260px] rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-500"
               />
               <button type="button" onClick={handleRefresh} className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700">
@@ -404,85 +442,161 @@ export function ProcessorAvmToolsPage({ session, initialPciOrders }: { session: 
             </div>
           </div>
 
+          <div className="mt-6 grid gap-4 md:grid-cols-4">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">PDF orders shown</div>
+              <div className="mt-2 text-2xl font-bold text-slate-900">{filteredPdfOrders.length}</div>
+            </div>
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-emerald-700">PDF successes</div>
+              <div className="mt-2 text-2xl font-bold text-emerald-950">{pdfSuccessCount}</div>
+            </div>
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-amber-700">PDF cache hits</div>
+              <div className="mt-2 text-2xl font-bold text-amber-950">{pdfCacheHitCount}</div>
+            </div>
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-rose-700">PDF failures</div>
+              <div className="mt-2 text-2xl font-bold text-rose-950">{pdfFailureCount}</div>
+            </div>
+          </div>
+
           {reportError ? <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{reportError}</div> : null}
 
-          <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <thead className="bg-slate-50">
-                  <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    <th className="px-4 py-3">Order</th>
-                    <th className="px-4 py-3">Property</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Latest event</th>
-                    <th className="px-4 py-3">Date ordered</th>
-                    <th className="px-4 py-3">ETA / inspection</th>
-                    <th className="px-4 py-3">Report</th>
-                    <th className="px-4 py-3">Notes</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 bg-white">
-                  {filteredPciOrders.length ? filteredPciOrders.map((order) => (
-                    <tr key={order.orderId} className="align-top">
-                      <td className="px-4 py-4 text-slate-900">
-                        <div className="font-semibold">{order.orderId}</div>
-                        <div className="mt-1 text-xs text-slate-500">{order.referenceIdentifier || 'No reference ID'}</div>
-                        <div className="mt-1 text-xs text-slate-500">{order.orderedByEmail || 'No processor email stored'}</div>
-                      </td>
-                      <td className="px-4 py-4 text-slate-700">
-                        <div className="font-medium text-slate-900">{order.address || 'Awaiting order metadata'}</div>
-                        <div className="mt-1 text-xs text-slate-500">{[order.city, order.state, order.zip].filter(Boolean).join(', ') || 'No address yet'}</div>
-                        {order.productCode ? <div className="mt-1 text-xs text-slate-500">{order.productCode}</div> : null}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold capitalize ${statusClasses(order.status)}`}>
-                          {statusLabel(order.status)}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-slate-700">
-                        <div className="font-medium text-slate-900">{eventLabel(order.lastEventType)}</div>
-                        <div className="mt-1 text-xs text-slate-500">{formatDateTime(order.lastEventAt || order.updatedAt)}</div>
-                      </td>
-                      <td className="px-4 py-4 text-slate-700">
-                        <div className="text-slate-900">{formatDateTime(order.createdAt)}</div>
-                      </td>
-                      <td className="px-4 py-4 text-slate-700">
-                        <div>ETA: <span className="text-slate-900">{formatDateTime(order.estimatedCompletionDate)}</span></div>
-                        <div className="mt-1">Inspection: <span className="text-slate-900">{formatDateTime(order.inspectionDate)}</span></div>
-                      </td>
-                      <td className="px-4 py-4 text-slate-700">
-                        <div className="flex flex-col gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleDownloadReport(order.orderId)}
-                            disabled={reportLoadingOrderId === order.orderId || order.status !== 'completed'}
-                            className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {reportLoadingOrderId === order.orderId ? 'Loading…' : 'Download report'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleCancelOrder(order.orderId)}
-                            disabled={cancelLoadingOrderId === order.orderId || ['completed', 'canceled', 'declined', 'cancel_requested'].includes(order.status || '')}
-                            className="rounded-xl border border-rose-300 px-3 py-2 text-xs font-semibold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {cancelLoadingOrderId === order.orderId ? 'Canceling…' : 'Cancel order'}
-                          </button>
-                        </div>
-                        <div className="mt-2 text-xs text-slate-500">Download fetches a fresh report URL. Cancel submits a Clear Capital cancellation request.</div>
-                      </td>
-                      <td className="px-4 py-4 text-slate-700">
-                        {order.holdReason ? <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">{order.holdReason}</div> : null}
-                        {order.lastMessage ? <div className={`rounded-xl px-3 py-2 text-xs ${order.lastMessageUrgent ? 'border border-rose-200 bg-rose-50 text-rose-900' : 'border border-slate-200 bg-slate-50 text-slate-700'}`}>{order.lastMessage}</div> : <span className="text-xs text-slate-400">—</span>}
-                      </td>
+          <div className="mt-6">
+            <h3 className="text-base font-semibold text-slate-900">PDF AVM orders</h3>
+            <p className="mt-1 text-sm text-slate-600">These are the requests sent through the Clear Capital Property Analytics PDF flow, including cache hits and failures.</p>
+            <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead className="bg-slate-50">
+                    <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="px-4 py-3">Order</th>
+                      <th className="px-4 py-3">Property</th>
+                      <th className="px-4 py-3">Processor</th>
+                      <th className="px-4 py-3">Result</th>
+                      <th className="px-4 py-3">Value / FSD</th>
+                      <th className="px-4 py-3">Requested FSD</th>
+                      <th className="px-4 py-3">Ordered</th>
                     </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">No PCI orders matched this search yet.</td>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {filteredPdfOrders.length ? filteredPdfOrders.map((order) => (
+                      <tr key={order.runId} className="align-top">
+                        <td className="px-4 py-4 text-slate-900">
+                          <div className="font-semibold">{order.orderId || 'No vendor order ID'}</div>
+                          <div className="mt-1 text-xs text-slate-500">Run {order.runId.slice(0, 8)}</div>
+                        </td>
+                        <td className="px-4 py-4 text-slate-700">
+                          <div className="font-medium text-slate-900">{order.address || 'No property stored'}</div>
+                          <div className="mt-1 text-xs text-slate-500">{[order.city, order.state, order.zip].filter(Boolean).join(', ') || 'No city/state/zip stored'}</div>
+                        </td>
+                        <td className="px-4 py-4 text-slate-700">{order.orderedByEmail || 'Unknown'}</td>
+                        <td className="px-4 py-4 text-slate-700">
+                          <div className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${order.completedSuccessfully === true ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : order.completedSuccessfully === false ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-slate-200 bg-slate-50 text-slate-700'}`}>
+                            {order.completedSuccessfully === true ? (order.cacheHit ? 'Cache hit' : 'Success') : order.completedSuccessfully === false ? 'Failed' : 'Unknown'}
+                          </div>
+                          {order.failureMessage ? <div className="mt-2 text-xs text-rose-700">{order.failureMessage}</div> : null}
+                        </td>
+                        <td className="px-4 py-4 text-slate-700">
+                          <div>Value: <span className="text-slate-900">{currency(order.value)}</span></div>
+                          <div className="mt-1">FSD: <span className="text-slate-900">{order.fsd !== null ? order.fsd.toFixed(2) : '—'}</span></div>
+                        </td>
+                        <td className="px-4 py-4 text-slate-700">{order.requestedMaxFsd !== null ? order.requestedMaxFsd.toFixed(2) : '—'}</td>
+                        <td className="px-4 py-4 text-slate-700">{formatDateTime(order.createdAt)}</td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">No PDF orders matched this search yet.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8">
+            <h3 className="text-base font-semibold text-slate-900">PCI orders</h3>
+            <p className="mt-1 text-sm text-slate-600">Webhook-backed Property Valuation orders with current status, notes, ETA, and report retrieval.</p>
+            <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead className="bg-slate-50">
+                    <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="px-4 py-3">Order</th>
+                      <th className="px-4 py-3">Property</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Latest event</th>
+                      <th className="px-4 py-3">Date ordered</th>
+                      <th className="px-4 py-3">ETA / inspection</th>
+                      <th className="px-4 py-3">Report</th>
+                      <th className="px-4 py-3">Notes</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {filteredPciOrders.length ? filteredPciOrders.map((order) => (
+                      <tr key={order.orderId} className="align-top">
+                        <td className="px-4 py-4 text-slate-900">
+                          <div className="font-semibold">{order.orderId}</div>
+                          <div className="mt-1 text-xs text-slate-500">{order.referenceIdentifier || 'No reference ID'}</div>
+                          <div className="mt-1 text-xs text-slate-500">{order.orderedByEmail || 'No processor email stored'}</div>
+                        </td>
+                        <td className="px-4 py-4 text-slate-700">
+                          <div className="font-medium text-slate-900">{order.address || 'Awaiting order metadata'}</div>
+                          <div className="mt-1 text-xs text-slate-500">{[order.city, order.state, order.zip].filter(Boolean).join(', ') || 'No address yet'}</div>
+                          {order.productCode ? <div className="mt-1 text-xs text-slate-500">{order.productCode}</div> : null}
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold capitalize ${statusClasses(order.status)}`}>
+                            {statusLabel(order.status)}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-slate-700">
+                          <div className="font-medium text-slate-900">{eventLabel(order.lastEventType)}</div>
+                          <div className="mt-1 text-xs text-slate-500">{formatDateTime(order.lastEventAt || order.updatedAt)}</div>
+                        </td>
+                        <td className="px-4 py-4 text-slate-700">
+                          <div className="text-slate-900">{formatDateTime(order.createdAt)}</div>
+                        </td>
+                        <td className="px-4 py-4 text-slate-700">
+                          <div>ETA: <span className="text-slate-900">{formatDateTime(order.estimatedCompletionDate)}</span></div>
+                          <div className="mt-1">Inspection: <span className="text-slate-900">{formatDateTime(order.inspectionDate)}</span></div>
+                        </td>
+                        <td className="px-4 py-4 text-slate-700">
+                          <div className="flex flex-col gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadReport(order.orderId)}
+                              disabled={reportLoadingOrderId === order.orderId || order.status !== 'completed'}
+                              className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {reportLoadingOrderId === order.orderId ? 'Loading…' : 'Download report'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCancelOrder(order.orderId)}
+                              disabled={cancelLoadingOrderId === order.orderId || ['completed', 'canceled', 'declined', 'cancel_requested'].includes(order.status || '')}
+                              className="rounded-xl border border-rose-300 px-3 py-2 text-xs font-semibold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {cancelLoadingOrderId === order.orderId ? 'Canceling…' : 'Cancel order'}
+                            </button>
+                          </div>
+                          <div className="mt-2 text-xs text-slate-500">Download fetches a fresh report URL. Cancel submits a Clear Capital cancellation request.</div>
+                        </td>
+                        <td className="px-4 py-4 text-slate-700">
+                          {order.holdReason ? <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">{order.holdReason}</div> : null}
+                          {order.lastMessage ? <div className={`rounded-xl px-3 py-2 text-xs ${order.lastMessageUrgent ? 'border border-rose-200 bg-rose-50 text-rose-900' : 'border border-slate-200 bg-slate-50 text-slate-700'}`}>{order.lastMessage}</div> : <span className="text-xs text-slate-400">—</span>}
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">No PCI orders matched this search yet.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
