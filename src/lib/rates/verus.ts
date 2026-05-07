@@ -91,32 +91,34 @@ type VerusData = {
       pricing: { standard: CesRow[]; alt: CesRow[] };
       adjustments: VerusAdjustmentTables;
       guideMaxPrice?: {
-        primarySecondHomes: number;
-        investor?: {
-          noPenalty: number;
-          prepay12Months: number;
-          prepay24Months: number;
-          prepay36Months: number;
-          prepay48Months: number;
-          prepay60Months: number;
-        };
+        default: number | null;
       };
     };
     HELOC: {
       primeRate: number;
       pricing: HelocRow[];
       adjustments: VerusAdjustmentTables & { drawTerm: VerusSecondPriceMatrixTable };
-      guideMaxPrice?: { default: number };
+      guideMaxPrice?: Partial<Record<VerusHelocProduct, number | null>>;
     };
   };
 };
 
 const DATA = ratesheet as VerusData;
 
-export function getVerusGuideMaxPrice(program: VerusProgram, occupancy: string): number {
-  if (program === 'HELOC') return DATA.programs.HELOC.guideMaxPrice?.default ?? 100;
-  if (occupancy === 'Investment') return DATA.programs.CES.guideMaxPrice?.investor?.noPenalty ?? DATA.programs.CES.maxPrice;
-  return DATA.programs.CES.guideMaxPrice?.primarySecondHomes ?? DATA.programs.CES.maxPrice;
+export function getVerusGuideMaxPrice(input: Pick<VerusPricingInput, 'program' | 'product'>): number {
+  if (input.program === 'HELOC') {
+    const maxPrice = DATA.programs.HELOC.guideMaxPrice?.[input.product as VerusHelocProduct];
+    if (!Number.isFinite(maxPrice)) {
+      throw new Error(`Verus HELOC guide max price is missing from verus-ratesheet.json for ${input.product}.`);
+    }
+    return Number(maxPrice);
+  }
+
+  const maxPrice = DATA.programs.CES.guideMaxPrice?.default;
+  if (!Number.isFinite(maxPrice)) {
+    throw new Error('Verus CES guide max price is missing from verus-ratesheet.json.');
+  }
+  return Number(maxPrice);
 }
 
 const VERUS_CES_ADJUSTMENTS = DATA.programs.CES.adjustments;
@@ -166,7 +168,7 @@ export function calculateVerusStage1Quote(
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? calculateMaxAvailable(stage1, input, input.desiredLoanAmount));
   const maxAvailable = calculateMaxAvailable(stage1, input, selectedLoanAmount);
   const maxLtv = calculateMaxLtv(stage1, input, selectedLoanAmount);
-  if ((input.dti ?? 0) > 50 || selectedLoanAmount > maxAvailable || input.resultingCltv > maxLtv) {
+  if (selectedLoanAmount > maxAvailable || input.resultingCltv > maxLtv) {
     return {
       program: input.program,
       product: input.product,
@@ -183,7 +185,7 @@ export function calculateVerusStage1Quote(
     };
   }
   const rawTargetPrice = options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount);
-  const targetPrice = Math.min(rawTargetPrice, getVerusGuideMaxPrice(input.program, input.occupancy));
+  const targetPrice = Math.min(rawTargetPrice, getVerusGuideMaxPrice(input));
   const adjustments = buildAdjustmentLines(stage1, input, selectedLoanAmount);
   const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
 
@@ -211,14 +213,14 @@ export function calculateVerusStage1Quote(
   const selected = options?.rateOverride !== undefined
     ? pickCesExecutionByRate(
         input.product as VerusCesProduct,
-        stage1.verusDocType ?? 'Standard',
+        normalizeDocType(stage1.verusDocType),
         options.rateOverride,
         llpaAdjustment
       )
     : pickCesExecution(
         input.product as VerusCesProduct,
-        stage1.verusDocType ?? 'Standard',
-        clamp(targetPrice, DATA.programs.CES.minPrice, DATA.programs.CES.maxPrice),
+        normalizeDocType(stage1.verusDocType),
+        clamp(targetPrice, DATA.programs.CES.minPrice, getVerusGuideMaxPrice(input)),
         llpaAdjustment
       );
   return {
@@ -251,17 +253,6 @@ export function evaluateVerusStage1Eligibility(
   const requested = Math.max(0, selectedLoanAmount ?? input.desiredLoanAmount ?? 0);
   const reasons: string[] = [];
 
-  if ((input.dti ?? 0) > 50) {
-    return {
-      eligible: false,
-      reasons: ['Verus DTI is only workbook-backed through 50.00%.'],
-      maxAvailable: 0,
-      resultingCltv: input.resultingCltv,
-    };
-  }
-
-  if (input.creditScore < 660) reasons.push('Credit score is below the current supported Verus tester range.');
-
   const maxLtv = calculateMaxLtv(stage1, input, requested);
   const maxAvailable = calculateMaxAvailable(stage1, input, requested);
 
@@ -289,8 +280,8 @@ export function solveVerusStage1TargetRate(
 ): VerusTargetRateQuote {
   const quote = calculateVerusStage1Quote(stage1, { selectedLoanAmount: options.selectedLoanAmount, targetPrice: options.targetPrice });
   const targetPrice = quote.program === 'CES'
-    ? clamp(options.targetPrice, DATA.programs.CES.minPrice, DATA.programs.CES.maxPrice)
-    : Math.min(options.targetPrice, getVerusGuideMaxPrice('HELOC', 'Primary'));
+    ? clamp(options.targetPrice, DATA.programs.CES.minPrice, getVerusGuideMaxPrice(quote))
+    : Math.min(options.targetPrice, getVerusGuideMaxPrice(quote));
   const tolerance = options.tolerance ?? 0.125;
   const deltaFromTarget = roundToThree(targetPrice - quote.purchasePrice);
 
@@ -317,8 +308,7 @@ function calculateMaxLtv(
   input: VerusPricingInput,
   selectedLoanAmount = input.desiredLoanAmount
 ): number {
-  const docType = stage1.verusDocType ?? 'Standard';
-  if ((input.dti ?? 0) > 50) return 0;
+  const docType = normalizeDocType(stage1.verusDocType);
 
   if (input.program === 'CES') {
     const ficoLabel = getMatchingFicoLabel(getVerusCesDocTable(docType).rows, input.creditScore);
@@ -350,7 +340,7 @@ function calculateMaxLtv(
   const occupancyLabel = getVerusOccupancyLabel(input.occupancy);
   const propertyTypeLabel = getVerusPropertyTypeLabel(input);
   const dtiLabel = getMatchingDtiLabel(VERUS_HELOC_ADJUSTMENTS.dti.rows, input.dti);
-  const drawYears = stage1.verusDrawPeriodYears ?? 5;
+  const drawYears = normalizeDrawPeriodYears(stage1.verusDrawPeriodYears);
 
   let maxEligible = 0;
   VERUS_HELOC_ADJUSTMENTS.loanAmount.columns.forEach((columnLabel, index) => {
@@ -462,8 +452,8 @@ function buildAdjustmentLines(
   selectedLoanAmount: number
 ): Stage1AdjustmentLine[] {
   const rows: Stage1AdjustmentLine[] = [];
-  const docType = stage1.verusDocType ?? 'Standard';
-  const lockPeriodDays = stage1.verusLockPeriodDays ?? 45;
+  const docType = normalizeDocType(stage1.verusDocType);
+  const lockPeriodDays = normalizeLockPeriodDays(stage1.verusLockPeriodDays);
 
   if (input.program === 'CES') {
     rows.push({ label: `Doc Type: ${docType}`, value: 0 });
@@ -501,11 +491,11 @@ function buildAdjustmentLines(
       if (stateValue !== null) rows.push({ label: `State: ${input.propertyState}`, value: stateValue });
     }
 
-    rows.push({ label: `Lock Period: ${lockPeriodDays} days`, value: VERUS_CES_ADJUSTMENTS.lockAdjustments[String(lockPeriodDays)] ?? 0 });
+    rows.push({ label: `Lock Period: ${lockPeriodDays} days`, value: getLockAdjustment(VERUS_CES_ADJUSTMENTS.lockAdjustments, lockPeriodDays, 'CES') });
     return rows;
   }
 
-  const drawYears = stage1.verusDrawPeriodYears ?? 5;
+  const drawYears = normalizeDrawPeriodYears(stage1.verusDrawPeriodYears);
   rows.push({ label: 'Prime Rate', value: 0 });
   rows.push({ label: `Doc Type: ${docType}`, value: 0 });
 
@@ -545,7 +535,7 @@ function buildAdjustmentLines(
     if (stateValue !== null) rows.push({ label: `State: ${input.propertyState}`, value: stateValue });
   }
 
-  rows.push({ label: `Lock Period: ${lockPeriodDays} days`, value: VERUS_HELOC_ADJUSTMENTS.lockAdjustments[String(lockPeriodDays)] ?? 0 });
+  rows.push({ label: `Lock Period: ${lockPeriodDays} days`, value: getLockAdjustment(VERUS_HELOC_ADJUSTMENTS.lockAdjustments, lockPeriodDays, 'HELOC') });
   return rows;
 }
 
@@ -624,15 +614,15 @@ function getMatchingLoanAmountLabel(labels: string[], amount: number): string | 
 }
 
 function getMatchingDtiLabel(labels: string[], dti: number | null): string | null {
-  const value = dti ?? 0;
+  if (dti === null || !Number.isFinite(dti)) return null;
   for (const label of labels) {
     const normalized = String(label).trim();
     const maxOnly = normalized.match(/^<=\s*(\d+(?:\.\d+)?)%$/);
-    if (maxOnly && value <= Number(maxOnly[1])) return normalized;
+    if (maxOnly && dti <= Number(maxOnly[1])) return normalized;
     const range = normalized.match(/^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)%$/);
-    if (range && value > Number(range[1]) && value <= Number(range[2])) return normalized;
+    if (range && dti > Number(range[1]) && dti <= Number(range[2])) return normalized;
   }
-  return labels[0] ?? null;
+  return null;
 }
 
 function getMatchingStateLabel(labels: string[], propertyState: string): string | null {
@@ -694,7 +684,9 @@ function isVerusHelocColumnEligible(input: {
 
 function normalizeProgram(program?: string, product?: string): VerusProgram {
   const source = `${program ?? ''} ${product ?? ''}`.toUpperCase();
-  return source.includes('HELOC') ? 'HELOC' : 'CES';
+  if (source.includes('HELOC')) return 'HELOC';
+  if (source.includes('CES') || source.includes('FIX')) return 'CES';
+  throw new Error(`Unsupported Verus program/product combination: ${program ?? ''} ${product ?? ''}`.trim());
 }
 
 function normalizeProduct(program: VerusProgram, product?: string): VerusProduct {
@@ -703,20 +695,48 @@ function normalizeProduct(program: VerusProgram, product?: string): VerusProduct
     if (value.includes('15')) return '15 YR';
     if (value.includes('20')) return '20 YR';
     if (value.includes('25')) return '25 YR';
-    return '30 YR';
+    if (value.includes('30')) return '30 YR';
+    throw new Error(`Unsupported Verus HELOC product: ${product ?? ''}`);
   }
   if (value.includes('10')) return '10 YR FIX';
   if (value.includes('15')) return '15 YR FIX';
   if (value.includes('20')) return '20 YR FIX';
   if (value.includes('25')) return '25 YR FIX';
-  return '30 YR FIX';
+  if (value.includes('30')) return '30 YR FIX';
+  throw new Error(`Unsupported Verus CES product: ${product ?? ''}`);
+}
+
+function normalizeDocType(value?: string): VerusDocType {
+  const text = String(value || '').toLowerCase();
+  if (text.includes('standard') || text.includes('full')) return 'Standard';
+  if (text.includes('alt') || text.includes('bank') || text.includes('1099') || text.includes('wvoe') || text.includes('p&l') || text.includes('p & l') || text.includes('pnl')) return 'Alt Doc';
+  throw new Error(`Unsupported Verus doc type: ${value ?? ''}`);
+}
+
+function normalizeDrawPeriodYears(value?: number): VerusDrawPeriodYears {
+  if (value === 2 || value === 3 || value === 5) return value;
+  throw new Error(`Unsupported Verus draw period: ${value ?? ''}`);
+}
+
+function normalizeLockPeriodDays(value?: number): VerusLockPeriodDays {
+  if (value === 30 || value === 45 || value === 60) return value;
+  throw new Error(`Unsupported Verus lock period: ${value ?? ''}`);
 }
 
 function normalizeOccupancy(value?: string): string {
   const text = String(value || '').toLowerCase();
   if (text.includes('investment')) return 'Investment';
   if (text.includes('second')) return 'Second Home';
-  return 'Primary';
+  if (text.includes('primary') || text.includes('owner')) return 'Primary';
+  throw new Error(`Unsupported Verus occupancy: ${value ?? ''}`);
+}
+
+function getLockAdjustment(lockAdjustments: Record<string, number>, lockPeriodDays: VerusLockPeriodDays, program: VerusProgram): number {
+  const adjustment = lockAdjustments[String(lockPeriodDays)];
+  if (!Number.isFinite(adjustment)) {
+    throw new Error(`Verus ${program} lock adjustment is missing from verus-ratesheet.json for ${lockPeriodDays} days.`);
+  }
+  return adjustment;
 }
 
 function termYearsForVerusCes(product: VerusCesProduct): number {

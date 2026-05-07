@@ -92,7 +92,10 @@ function getLadderMaxBuyPrice(quote: Stage1ExecutionQuote, input: TesterInput, f
       guideMaxBuyPrice = getNewRezGuideMaxPrice();
       break;
     case 'Verus':
-      guideMaxBuyPrice = getVerusGuideMaxPrice(quote.program as Parameters<typeof getVerusGuideMaxPrice>[0], String(input.occupancy ?? 'Owner-Occupied'));
+      guideMaxBuyPrice = getVerusGuideMaxPrice({
+        program: quote.program as Parameters<typeof getVerusGuideMaxPrice>[0]['program'],
+        product: quote.product as Parameters<typeof getVerusGuideMaxPrice>[0]['product'],
+      });
       break;
     case 'Deephaven':
       guideMaxBuyPrice = getDeephavenGuideMaxPrice(quote.program as Parameters<typeof getDeephavenGuideMaxPrice>[0], input.desiredLoanAmount ?? 0);

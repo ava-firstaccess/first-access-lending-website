@@ -363,6 +363,10 @@ function parseVerusLockAdjustments(rows, rowStart, rowEnd, labelCol, valueCol) {
   return out;
 }
 
+function parseVerusHelocGuideMaxPrice(rows, products, row, startCol) {
+  return Object.fromEntries(products.map((product, index) => [product, price(rawCell(rows, row, startCol + index))]));
+}
+
 function generateVerus() {
   const workbookPath = path.join(SOURCE_ROOT, 'getaccess', 'ratesheets', 'latest_verus.xlsx');
   const workbook = XLSX.readFile(workbookPath, { raw: true, cellDates: true });
@@ -378,6 +382,9 @@ function generateVerus() {
         sheet: 'CES',
         minPrice: price(rawCell(cesRows, 55, 2)),
         maxPrice: price(rawCell(cesRows, 56, 2)),
+        guideMaxPrice: {
+          default: price(rawCell(cesRows, 105, 12)),
+        },
         pricing: {
           standard: parseVerusPricing(cesRows, 7, 54, 1, 2, cesProducts),
           alt: parseVerusPricing(cesRows, 7, 54, 8, 9, cesProducts),
@@ -397,6 +404,7 @@ function generateVerus() {
       HELOC: {
         sheet: 'HELOC',
         primeRate: price(rawCell(helocRows, 5, 10)),
+        guideMaxPrice: parseVerusHelocGuideMaxPrice(helocRows, helocProducts, 56, 2),
         pricing: parseVerusPricing(helocRows, 7, 54, 1, 2, helocProducts).map(row => ({ margin: row.rate, prices: row.prices })),
         products: helocProducts,
         drawPeriodsYears: [2, 3, 5],

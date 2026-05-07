@@ -5,6 +5,9 @@
       "sheet": "CES",
       "minPrice": 98,
       "maxPrice": 104,
+      "guideMaxPrice": {
+        "default": 104
+      },
       "pricing": {
         "standard": [
           {
@@ -1408,6 +1411,12 @@
     "HELOC": {
       "sheet": "HELOC",
       "primeRate": 6.75,
+      "guideMaxPrice": {
+        "15 YR": 100,
+        "20 YR": 100,
+        "25 YR": 100,
+        "30 YR": 100
+      },
       "pricing": [
         {
           "margin": 0,
