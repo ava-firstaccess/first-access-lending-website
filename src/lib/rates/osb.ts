@@ -1,6 +1,7 @@
 import ratesheet from './osb-ratesheet.json';
 import { getTargetPurchasePriceForLoanAmount, type ButtonStage1Input } from './button';
 import type { SharedDocType } from '@/lib/stage1-pricing/types';
+import { STAGE1_INVESTOR_OVERLAYS } from '../stage1-pricing/config';
 import {
   calculateAmortizingMonthlyPayment,
   calculateInterestOnlyMonthlyPayment,
@@ -82,6 +83,9 @@ type JsonProgram = {
     maxPrice30Year: number | null;
     maxPriceShorterTerm: number | null;
   };
+  guideMaxPrice?: {
+    default: number | null;
+  };
   cltvBuckets: string[];
   creditMatrix: JsonBucketRow[];
   adjustments: Record<string, JsonBucketRow[]>;
@@ -94,11 +98,15 @@ type JsonProgram = {
 };
 
 const PROGRAMS = (ratesheet as { programs: Record<JsonProgramKey, JsonProgram> }).programs;
+const OSB_OVERLAY = STAGE1_INVESTOR_OVERLAYS.OSB;
 
 export function getOsbGuideMaxPrice(program: OsbProgram, product: OsbProduct): number {
   const source = program === 'HELOC' ? PROGRAMS.heloc : PROGRAMS.secondLiens;
-  const isThirtyYear = product === '30 Year Maturity' || product === 'Fixed 30';
-  return (isThirtyYear ? source.constraints.maxPrice30Year : source.constraints.maxPriceShorterTerm) ?? 0;
+  const value = source.guideMaxPrice?.default;
+  if (value === null || value === undefined) {
+    throw new Error(`OSB guide max price is missing from osb-ratesheet.json for ${program}`);
+  }
+  return value;
 }
 
 export function buildOsbStage1PricingInput(stage1: ButtonStage1Input & {
@@ -117,7 +125,7 @@ export function buildOsbStage1PricingInput(stage1: ButtonStage1Input & {
 
   return {
     program,
-    product: normalizeProduct(program, stage1.osbProduct),
+    product: requireOsbProduct(program, stage1.osbProduct),
     propertyState: String(stage1.propertyState || '').toUpperCase(),
     propertyValue,
     loanBalance,
@@ -131,8 +139,8 @@ export function buildOsbStage1PricingInput(stage1: ButtonStage1Input & {
     unitCount: Number(stage1.numberOfUnits || 1),
     cashOut: Boolean(stage1.cashOut),
     docType: (stage1 as ButtonStage1Input & { osbDocType?: SharedDocType }).osbDocType ?? 'Full Doc',
-    helocDrawTermYears: stage1.helocDrawTermYears ?? 5,
-    lockPeriodDays: stage1.osbLockPeriodDays ?? 45,
+    helocDrawTermYears: requireHelocDrawTermYears(stage1.helocDrawTermYears),
+    lockPeriodDays: requireOsbLockPeriodDays(stage1.osbLockPeriodDays),
   };
 }
 
@@ -178,7 +186,7 @@ export function solveOsbStage1TargetRate(
   const maxAvailable = calculateMaxAvailable(input);
   const selectedLoanAmount = Math.max(0, options.selectedLoanAmount ?? input.desiredLoanAmount ?? maxAvailable);
   const tolerance = options.tolerance ?? 0.125;
-  if (!isOsbDtiSupported(input) || selectedLoanAmount > maxAvailable || input.resultingCltv > calculateMaxLtv(input)) {
+  if (!isOsbScenarioSupported(input, selectedLoanAmount) || selectedLoanAmount > maxAvailable || input.resultingCltv > calculateMaxLtv(input)) {
     return {
       program: input.program,
       product: input.product,
@@ -232,7 +240,7 @@ export function calculateOsbQuote(input: OsbPricingInput, options?: { selectedLo
   const program = getProgramData(input.program);
   const maxAvailable = calculateMaxAvailable(input);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? maxAvailable);
-  if (!isOsbDtiSupported(input) || selectedLoanAmount > maxAvailable || input.resultingCltv > calculateMaxLtv(input)) {
+  if (!isOsbScenarioSupported(input, selectedLoanAmount) || selectedLoanAmount > maxAvailable || input.resultingCltv > calculateMaxLtv(input)) {
     return {
       program: input.program,
       product: input.product,
@@ -283,7 +291,6 @@ export function evaluateOsbEligibility(input: OsbPricingInput, selectedLoanAmoun
   const cltvBucketIndex = findCltvBucketIndex(program.cltvBuckets, input.resultingCltv);
 
   if (!findMatrixRow(program.creditMatrix, input.creditScore)) reasons.push('Credit score is outside the OSB matrix.');
-  if (!isOsbDtiSupported(input)) reasons.push('OSB second-lien DTI is only workbook-backed through 50.00%.');
   if (cltvBucketIndex === null) reasons.push('Resulting CLTV is outside the OSB matrix.');
   if (!program.pricing.products.some(item => item.label === input.product)) reasons.push('Selected OSB product is not available in the workbook.');
   if (input.docType !== 'Full Doc') reasons.push('OSB does not support alt-doc pricing.');
@@ -294,14 +301,14 @@ export function evaluateOsbEligibility(input: OsbPricingInput, selectedLoanAmoun
     else if (cltvBucketIndex !== null && adjustmentBucketValue(draw, cltvBucketIndex) === null) reasons.push('Selected HELOC draw term is not eligible at this CLTV in the workbook.');
   }
 
-  const amount = findAdjustment(program.adjustments.loanAmount, loanAmountLabel(input.program, requested));
+  const amount = findLoanAmountAdjustment(input, requested);
   if (amount === null) reasons.push('Desired loan amount is outside the OSB loan amount grid.');
   else if (cltvBucketIndex !== null && adjustmentBucketValue(amount, cltvBucketIndex) === null) reasons.push('Desired loan amount is not eligible at this CLTV in the workbook.');
 
   const occupancy = findAdjustment(program.adjustments.loanType, occupancyLoanTypeLabel(input));
   if (occupancy && cltvBucketIndex !== null && adjustmentBucketValue(occupancy, cltvBucketIndex) === null) reasons.push(`Loan type ${occupancy.label} is not eligible at this CLTV in the workbook.`);
 
-  const dti = findAdjustment(program.adjustments.loanType, dtiLoanTypeLabel(input));
+  const dti = findDtiAdjustment(input);
   if (dti && cltvBucketIndex !== null && adjustmentBucketValue(dti, cltvBucketIndex) === null) reasons.push(`DTI bucket ${dti.label} is not eligible at this CLTV in the workbook.`);
 
   const property = findAdjustment(program.adjustments.property, propertyLabel(input));
@@ -336,13 +343,13 @@ function buildAdjustmentLines(input: OsbPricingInput, selectedLoanAmount: number
     if (draw) adjustments.push({ label: `Draw Term: ${draw.label}`, value: lookupAdjustmentValue(draw, program.cltvBuckets, input.resultingCltv) });
   }
 
-  const amount = findAdjustment(program.adjustments.loanAmount, loanAmountLabel(input.program, selectedLoanAmount));
+  const amount = findLoanAmountAdjustment(input, selectedLoanAmount);
   if (amount) adjustments.push({ label: `Loan Amount: ${amount.label}`, value: lookupAdjustmentValue(amount, program.cltvBuckets, input.resultingCltv) });
 
   const occupancy = findAdjustment(program.adjustments.loanType, occupancyLoanTypeLabel(input));
   if (occupancy) adjustments.push({ label: `Loan Type: ${occupancy.label}`, value: lookupAdjustmentValue(occupancy, program.cltvBuckets, input.resultingCltv) });
 
-  const dti = findAdjustment(program.adjustments.loanType, dtiLoanTypeLabel(input));
+  const dti = findDtiAdjustment(input);
   if (dti) adjustments.push({ label: `DTI: ${dti.label}`, value: lookupAdjustmentValue(dti, program.cltvBuckets, input.resultingCltv) });
 
   const property = findAdjustment(program.adjustments.property, propertyLabel(input));
@@ -368,7 +375,10 @@ function buildCltvAdjustment(program: JsonProgram, creditScore: number, cltv: nu
 }
 
 function calculateMaxAvailable(input: OsbPricingInput): number {
-  return calculateMaxAvailableFromMaxLtv(input.propertyValue, input.loanBalance, calculateMaxLtv(input));
+  const cltvConstrained = calculateMaxAvailableFromMaxLtv(input.propertyValue, input.loanBalance, calculateMaxLtv(input));
+  const loanAmountCap = getOsbLoanAmountCap(input);
+  if (loanAmountCap === null) return 0;
+  return Math.max(0, Math.min(cltvConstrained, loanAmountCap));
 }
 
 function calculateMaxLtv(input: OsbPricingInput): number {
@@ -446,9 +456,17 @@ function calculateMonthlyPayment(input: OsbPricingInput, loanAmount: number, not
 }
 
 function clampTargetPrice(program: JsonProgram, product: OsbProduct, targetPrice: number): number {
-  const maxPrice = product === '30 Year Maturity' || product === 'Fixed 30' ? program.constraints.maxPrice30Year : program.constraints.maxPriceShorterTerm;
-  const capped = maxPrice ? Math.min(targetPrice, maxPrice) : targetPrice;
+  const guideMaxPrice = getOsbProgramGuideMaxPrice(program);
+  const capped = Math.min(targetPrice, guideMaxPrice);
   return program.constraints.minPrice ? Math.max(capped, program.constraints.minPrice) : capped;
+}
+
+function getOsbProgramGuideMaxPrice(program: JsonProgram): number {
+  const value = program.guideMaxPrice?.default;
+  if (value === null || value === undefined) {
+    throw new Error(`OSB guide max price is missing from osb-ratesheet.json for ${program.sheet}`);
+  }
+  return value;
 }
 
 function getProgramData(program: OsbProgram): JsonProgram {
@@ -482,6 +500,10 @@ function findDocumentationAdjustment(rows: Array<{ label: string; value: number 
   return row ? { label, value: row.value ?? 0 } : null;
 }
 
+function isWorkbookEligibleCell(values: Array<number | null>, index: number | null): boolean {
+  return index !== null && index >= 0 && index < values.length && values[index] !== null;
+}
+
 function getLockAdjustment(rows: Array<{ label: string; value: number | null }>, label: string): { label: string; value: number } {
   const row = rows.find(item => item.label === label);
   return { label, value: row?.value ?? 0 };
@@ -498,9 +520,25 @@ function adjustmentBucketValue(row: JsonBucketRow, bucketIndex: number): number 
   return value == null ? null : value;
 }
 
-function loanAmountLabel(program: OsbProgram, amount: number): string {
-  const labels = getProgramData(program).adjustments.loanAmount.map(row => String(row.label ?? ''));
-  return labels.find(label => amountMatchesLabel(amount, label)) ?? labels.at(-1) ?? '';
+function findLoanAmountAdjustment(input: OsbPricingInput, amount: number): JsonBucketRow | null {
+  const rows = getProgramData(input.program).adjustments.loanAmount;
+  const cltvBucketIndex = findCltvBucketIndex(getProgramData(input.program).cltvBuckets, input.resultingCltv);
+  return rows.find(row => amountMatchesLabel(amount, String(row.label ?? '')) && (input.program === 'HELOC' || isWorkbookEligibleCell(row.values, cltvBucketIndex))) ?? null;
+}
+
+function getOsbLoanAmountCap(input: OsbPricingInput): number | null {
+  if (input.program === 'HELOC') return OSB_OVERLAY.heloc.maxLoanAmount;
+  const rows = getProgramData(input.program).adjustments.loanAmount;
+  const cltvBucketIndex = findCltvBucketIndex(getProgramData(input.program).cltvBuckets, input.resultingCltv);
+  if (cltvBucketIndex === null) return null;
+  let best: number | null = null;
+  for (const row of rows) {
+    if (!isWorkbookEligibleCell(row.values, cltvBucketIndex)) continue;
+    const upper = upperBoundForAmountLabel(String(row.label ?? ''));
+    if (upper === null) continue;
+    best = best === null ? upper : Math.max(best, upper);
+  }
+  return best;
 }
 
 function drawTermLabel(years: 3 | 5 | 10): string {
@@ -514,15 +552,24 @@ function occupancyLoanTypeLabel(input: OsbPricingInput): string {
   return '';
 }
 
-function dtiLoanTypeLabel(input: OsbPricingInput): string {
+function findDtiAdjustment(input: OsbPricingInput): JsonBucketRow | null {
   const dti = input.dti ?? 0;
-  const labels = getProgramData(input.program).adjustments.loanType.map(row => String(row.label ?? ''));
-  if (input.program === 'HELOC') return labels.find(label => label.includes('DTI') && valueMatchesLabel(dti, label)) ?? '';
-  return labels.find(label => label.includes('DTI') && valueMatchesLabel(dti, label)) ?? '';
+  const rows = getProgramData(input.program).adjustments.loanType;
+  return rows.find(row => String(row.label ?? '').includes('DTI') && valueMatchesLabel(dti, String(row.label ?? ''))) ?? null;
 }
 
-function isOsbDtiSupported(input: OsbPricingInput): boolean {
-  return input.program === 'HELOC' || (input.dti ?? 0) <= 50;
+function isOsbScenarioSupported(input: OsbPricingInput, selectedLoanAmount: number): boolean {
+  const program = getProgramData(input.program);
+  const cltvBucketIndex = findCltvBucketIndex(program.cltvBuckets, input.resultingCltv);
+  if (cltvBucketIndex === null) return false;
+
+  const amount = findLoanAmountAdjustment(input, selectedLoanAmount);
+  if (!amount) return false;
+  if (input.program !== 'HELOC' && !isWorkbookEligibleCell(amount.values, cltvBucketIndex)) return false;
+
+  const dti = findDtiAdjustment(input);
+  if (input.program === 'HELOC') return (input.dti ?? 0) <= OSB_OVERLAY.heloc.maxDti && dti !== null;
+  return dti !== null && isWorkbookEligibleCell(dti.values, cltvBucketIndex);
 }
 
 function propertyLabel(input: OsbPricingInput): string {
@@ -540,7 +587,8 @@ function productKey(product: OsbProduct): string {
 function lockPeriodLabel(days: OsbLockPeriod): string {
   const label = PROGRAMS.secondLiens.lockAdjustments.find(item => String(item.label).includes(String(days)))?.label
     ?? PROGRAMS.heloc.lockAdjustments.find(item => String(item.label).includes(String(days)))?.label;
-  return label ?? `${days} day`;
+  if (!label) throw new Error(`OSB lock period label is missing for ${days} days.`);
+  return label;
 }
 
 function normalizeProgram(program?: OsbProgram, product?: string): OsbProgram {
@@ -548,10 +596,10 @@ function normalizeProgram(program?: OsbProgram, product?: string): OsbProgram {
   return String(product || '').toUpperCase().includes('HELOC') ? 'HELOC' : '2nd Liens';
 }
 
-function normalizeProduct(program: OsbProgram, product?: OsbProduct): OsbProduct {
-  if (program === 'HELOC') return product === '20 Year Maturity' ? product : '30 Year Maturity';
-  if (product === 'Fixed 10' || product === 'Fixed 15' || product === 'Fixed 20' || product === 'Fixed 30') return product;
-  return 'Fixed 30';
+function requireOsbProduct(program: OsbProgram, product?: OsbProduct): OsbProduct {
+  if (program === 'HELOC' && (product === '20 Year Maturity' || product === '30 Year Maturity')) return product;
+  if (program === '2nd Liens' && (product === 'Fixed 10' || product === 'Fixed 15' || product === 'Fixed 20' || product === 'Fixed 30')) return product;
+  throw new Error(`OSB product is missing or invalid for ${program}.`);
 }
 
 function normalizeOccupancy(occupancy?: string): string {
@@ -608,9 +656,27 @@ function valueMatchesLabel(value: number, label: string): boolean {
 
 function getFixedTermYears(product: OsbProduct): number {
   const match = String(product).match(/(\d+)/);
-  return match ? Number(match[1]) : 30;
+  if (!match) throw new Error(`OSB fixed term years are missing for ${product}.`);
+  return Number(match[1]);
 }
 
 function roundToThree(value: number): number {
   return Math.round(value * 1000) / 1000;
+}
+
+function upperBoundForAmountLabel(label: string): number | null {
+  const text = label.replace(/,/g, '').replace(/\(UPB\)/gi, '').trim();
+  const rangeMatch = text.match(/^\$?(\d+(?:\.\d+)?)\s*-\s*\$?(\d+(?:\.\d+)?)/);
+  if (rangeMatch) return Number(rangeMatch[2]);
+  return null;
+}
+
+function requireOsbLockPeriodDays(lockPeriodDays?: OsbLockPeriod): OsbLockPeriod {
+  if (lockPeriodDays === 30 || lockPeriodDays === 45 || lockPeriodDays === 60) return lockPeriodDays;
+  throw new Error('OSB lock period is missing or invalid.');
+}
+
+function requireHelocDrawTermYears(years?: 3 | 5 | 10): 3 | 5 | 10 {
+  if (years === 3 || years === 5 || years === 10) return years;
+  throw new Error('OSB HELOC draw term is missing or invalid.');
 }

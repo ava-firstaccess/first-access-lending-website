@@ -16,6 +16,12 @@ export const STAGE1_INVESTOR_OVERLAYS = {
     maxUnitCount: 1,
     maxCltv: 0.9,
   },
+  OSB: {
+    heloc: {
+      maxLoanAmount: 500_000,
+      maxDti: 50,
+    },
+  },
 } as const;
 
 const BEST_EX_DOC_TYPE_MAP = {

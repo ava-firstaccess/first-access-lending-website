@@ -110,8 +110,7 @@ data = {
                 'maxPriceShorterTerm': price(second.cell(79, 5).value),
             },
             'guideMaxPrice': {
-                'maxPrice30Year': price(second.cell(78, 5).value),
-                'maxPriceShorterTerm': price(second.cell(79, 5).value),
+                'default': price(second.cell(78, 5).value),
             },
             'cltvBuckets': [str(second.cell(9, col).value) for col in range(11, 20)],
             'creditMatrix': [
@@ -164,8 +163,7 @@ data = {
                 'maxPriceShorterTerm': price(heloc.cell(31, 21).value),
             },
             'guideMaxPrice': {
-                'maxPrice30Year': price(heloc.cell(30, 21).value),
-                'maxPriceShorterTerm': price(heloc.cell(31, 21).value),
+                'default': price(heloc.cell(30, 21).value),
             },
             'cltvBuckets': [str(heloc.cell(9, col).value) for col in range(9, 18)],
             'creditMatrix': [
