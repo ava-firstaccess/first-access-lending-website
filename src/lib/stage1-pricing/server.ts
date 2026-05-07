@@ -1,6 +1,6 @@
 import { calculateButtonStage1Quote, evaluateButtonStage1Eligibility, getButtonGuideMaxPrice, getTargetPurchasePriceForLoanAmount, solveButtonStage1TargetRate, type ButtonStage1Input } from '@/lib/rates/button';
 import { calculateArcHomeStage1Quote, evaluateArcHomeStage1Eligibility, getArcHomeGuideMaxPrice, solveArcHomeStage1TargetRate } from '@/lib/rates/arc-home';
-import { calculateNewRezStage1Quote, evaluateNewRezStage1Eligibility, getNewRezGuideMaxPrice, getNewRezRateBounds, solveNewRezStage1TargetRate } from '@/lib/rates/newrez';
+import { calculateNewRezStage1Quote, evaluateNewRezStage1Eligibility, getNewRezAvailableRates, getNewRezGuideMaxPrice, solveNewRezStage1TargetRate } from '@/lib/rates/newrez';
 import { calculateDeephavenStage1Quote, evaluateDeephavenStage1Eligibility, getDeephavenGuideMaxPrice, solveDeephavenStage1TargetRate } from '@/lib/rates/deephaven';
 import { calculateOsbStage1Quote, evaluateOsbStage1Eligibility, getOsbGuideMaxPrice, solveOsbStage1TargetRate } from '@/lib/rates/osb';
 import { calculateVerusStage1Quote, evaluateVerusStage1Eligibility, getVerusGuideMaxPrice, solveVerusStage1TargetRate } from '@/lib/rates/verus';
@@ -30,6 +30,9 @@ function getBorrowerFacingPoints(displayPrice: number, parPrice: number): { rawD
 }
 function getBorrowerFacingDisplayPrice(purchasePrice: number, referencePrice: number, displayTargetPrice: number) {
   return roundToThree(displayTargetPrice + (purchasePrice - referencePrice));
+}
+function isOverMaxBuy(purchasePrice: number, maxBuyPrice: number) {
+  return maxBuyPrice > 0 && purchasePrice > maxBuyPrice + 0.0001;
 }
 function buildRequestedRates(min: number, max: number, step = 0.125) { const values: number[] = []; for (let rate = min; rate <= max + 0.0001; rate += step) values.push(roundToThree(rate)); return values; }
 function distanceToBestExWindow(purchasePrice: number, lowerBound: number, upperBound: number) { if (purchasePrice < lowerBound) return roundToThree(lowerBound - purchasePrice); if (purchasePrice > upperBound) return roundToThree(purchasePrice - upperBound); return 0; }
@@ -98,10 +101,24 @@ function getLadderMaxBuyPrice(quote: Stage1ExecutionQuote, input: TesterInput, f
   return guideMaxBuyPrice > 0 ? guideMaxBuyPrice : (fallbackMaxPrice > 0 ? Math.floor(fallbackMaxPrice) : 0);
 }
 
+function buildDisplayCandidatePool<T extends { quote: Stage1ExecutionQuote }>(candidates: T[], parDisplayPrice: number, referencePrice: number, maxBuyPrice: number): T[] {
+  const inCap = candidates.filter(candidate => !isOverMaxBuy(candidate.quote.purchasePrice, maxBuyPrice));
+  const overCap = candidates.filter(candidate => isOverMaxBuy(candidate.quote.purchasePrice, maxBuyPrice));
+  if (overCap.length === 0) return inCap;
+
+  const closestOverCap = [...overCap].sort((a, b) => {
+    const aDisplayPrice = getBorrowerFacingDisplayPrice(a.quote.purchasePrice, referencePrice, parDisplayPrice);
+    const bDisplayPrice = getBorrowerFacingDisplayPrice(b.quote.purchasePrice, referencePrice, parDisplayPrice);
+    const aDelta = Math.abs(roundToThree(parDisplayPrice - aDisplayPrice));
+    const bDelta = Math.abs(roundToThree(parDisplayPrice - bDisplayPrice));
+    return aDelta - bDelta || a.quote.purchasePrice - b.quote.purchasePrice || a.quote.rate - b.quote.rate;
+  })[0];
+
+  return [...inCap, closestOverCap];
+}
+
 function buildTargetPriceLadder(requestedRates: number[], getQuoteForRate: (rateOverride?: number) => Stage1ExecutionQuote, highlightedQuote: Stage1ExecutionQuote, referencePrice: number, anchorDisplayPrice: number, parDisplayPrice: number, maxBuyPrice: number): InvestorPriceLadderRow[] {
   const toRow = (quote: Stage1ExecutionQuote): InvestorPriceLadderRow | null => {
-    if (maxBuyPrice > 0 && quote.purchasePrice > maxBuyPrice + 0.0001) return null;
-
     const displayPrice = getBorrowerFacingDisplayPrice(quote.purchasePrice, referencePrice, anchorDisplayPrice);
     if (displayPrice < 97 || displayPrice > 103) return null;
 
@@ -114,29 +131,22 @@ function buildTargetPriceLadder(requestedRates: number[], getQuoteForRate: (rate
       pointsLabel,
       pointsValue,
       highlighted: Math.abs(quote.rate - highlightedQuote.rate) < 0.0001 && Math.abs(quote.purchasePrice - highlightedQuote.purchasePrice) < 0.0001,
+      aboveMaxBuy: isOverMaxBuy(quote.purchasePrice, maxBuyPrice),
     };
   };
 
   const rows = new Map<string, InvestorPriceLadderRow>();
-  const anchorRow = toRow(highlightedQuote);
-  if (!anchorRow) return [];
-  rows.set(`${anchorRow.rate}|${anchorRow.noteRate}|${anchorRow.purchasePrice}`, anchorRow);
-
-  const requestedRateSet = new Set(requestedRates.map(rate => roundToThree(rate)));
-  const minRequestedRate = requestedRates.length > 0 ? Math.min(...requestedRates) : highlightedQuote.rate;
-  const maxRequestedRate = requestedRates.length > 0 ? Math.max(...requestedRates) : highlightedQuote.rate;
-
-  for (let rate = roundToThree(highlightedQuote.rate - 0.125); rate >= minRequestedRate - 0.0001; rate = roundToThree(rate - 0.125)) {
-    if (!requestedRateSet.has(roundToThree(rate))) break;
-    const row = toRow(getQuoteForRate(rate));
-    if (!row) break;
-    rows.set(`${row.rate}|${row.noteRate}|${row.purchasePrice}`, row);
+  const candidateQuotes = new Map<string, Stage1ExecutionQuote>();
+  candidateQuotes.set(`${highlightedQuote.rate}|${highlightedQuote.purchasePrice}|${highlightedQuote.product}`, highlightedQuote);
+  for (const requestedRate of requestedRates) {
+    const quote = getQuoteForRate(requestedRate);
+    candidateQuotes.set(`${quote.rate}|${quote.purchasePrice}|${quote.product}`, quote);
   }
 
-  for (let rate = roundToThree(highlightedQuote.rate + 0.125); rate <= maxRequestedRate + 0.0001; rate = roundToThree(rate + 0.125)) {
-    if (!requestedRateSet.has(roundToThree(rate))) break;
-    const row = toRow(getQuoteForRate(rate));
-    if (!row) break;
+  const ladderCandidates = buildDisplayCandidatePool([...candidateQuotes.values()].map(quote => ({ quote })), parDisplayPrice, referencePrice, maxBuyPrice);
+  for (const candidate of ladderCandidates) {
+    const row = toRow(candidate.quote);
+    if (!row) continue;
     rows.set(`${row.rate}|${row.noteRate}|${row.purchasePrice}`, row);
   }
 
@@ -214,7 +224,7 @@ function getActiveResult(engine: PricingViewEngine, input: TesterInput, effectiv
   }
   if (engine === 'Arc Home') { const eligibility = evaluateArcHomeStage1Eligibility(input, input.desiredLoanAmount); const baseQuote = calculateArcHomeStage1Quote(input, { selectedLoanAmount: input.desiredLoanAmount, targetPrice: effectiveTargetPrice, rateOverride: effectiveManualRateOverride }); const targetQuote = solveArcHomeStage1TargetRate(input, { targetPrice: effectiveTargetPrice, tolerance, selectedLoanAmount: input.desiredLoanAmount }); const maxPrice = solveArcHomeStage1TargetRate(input, { targetPrice: 999, tolerance, selectedLoanAmount: input.desiredLoanAmount }).purchasePrice; const displayQuote = effectiveManualRateOverride !== undefined ? baseQuote : chooseDisplayQuote('Arc Home', toQuote('Arc Home', baseQuote), buildRequestedRates(BEST_EX_RATE_SEARCH_PRESETS.arcHome.min, BEST_EX_RATE_SEARCH_PRESETS.arcHome.max, BEST_EX_RATE_SEARCH_PRESETS.arcHome.step), rateOverride => toQuote('Arc Home', calculateArcHomeStage1Quote(input, { selectedLoanAmount: input.desiredLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })), effectiveTargetPrice, maxPrice, hasTargetPriceOverride); return withGuide({ eligibility, quote: toQuote('Arc Home', displayQuote), targetQuote: { ...toQuote('Arc Home', targetQuote), targetPrice: targetQuote.targetPrice, tolerance: targetQuote.tolerance, deltaFromTarget: targetQuote.deltaFromTarget, withinTolerance: targetQuote.withinTolerance, withinToleranceAllowOverage: targetQuote.withinToleranceAllowOverage }, maxPrice }); }
   if (engine === 'Vista') { const eligibility = evaluateVistaStage1Eligibility(input, input.desiredLoanAmount); const baseQuote = calculateVistaStage1Quote(input, { selectedLoanAmount: input.desiredLoanAmount, targetPrice: effectiveTargetPrice, rateOverride: effectiveManualRateOverride }); const targetQuote = solveVistaStage1TargetRate(input, { targetPrice: effectiveTargetPrice, tolerance, selectedLoanAmount: input.desiredLoanAmount }); const maxPrice = solveVistaStage1TargetRate(input, { targetPrice: 999, tolerance, selectedLoanAmount: input.desiredLoanAmount }).purchasePrice; const displayQuote = effectiveManualRateOverride !== undefined ? baseQuote : chooseDisplayQuote('Vista', toQuote('Vista', baseQuote), buildRequestedRates(3, 20), rateOverride => toQuote('Vista', calculateVistaStage1Quote(input, { selectedLoanAmount: input.desiredLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })), effectiveTargetPrice, maxPrice, hasTargetPriceOverride); return withGuide({ eligibility, quote: toQuote('Vista', displayQuote), targetQuote: { ...toQuote('Vista', targetQuote), targetPrice: targetQuote.targetPrice, tolerance: targetQuote.tolerance, deltaFromTarget: targetQuote.deltaFromTarget, withinTolerance: targetQuote.withinTolerance, withinToleranceAllowOverage: targetQuote.withinToleranceAllowOverage }, maxPrice }); }
-  if (engine === 'NewRez') { const eligibility = evaluateNewRezStage1Eligibility(input, input.desiredLoanAmount); const baseQuote = calculateNewRezStage1Quote(input, { selectedLoanAmount: input.desiredLoanAmount, targetPrice: effectiveTargetPrice, rateOverride: effectiveManualRateOverride }); const targetQuote = solveNewRezStage1TargetRate(input, { targetPrice: effectiveTargetPrice, tolerance, selectedLoanAmount: input.desiredLoanAmount }); const maxPrice = solveNewRezStage1TargetRate(input, { targetPrice: 999, tolerance, selectedLoanAmount: input.desiredLoanAmount }).purchasePrice; const displayQuote = effectiveManualRateOverride !== undefined ? baseQuote : chooseDisplayQuote('NewRez', toQuote('NewRez', baseQuote), buildRequestedRates(3, 20), rateOverride => toQuote('NewRez', calculateNewRezStage1Quote(input, { selectedLoanAmount: input.desiredLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })), effectiveTargetPrice, maxPrice, hasTargetPriceOverride); return withGuide({ eligibility, quote: toQuote('NewRez', displayQuote), targetQuote: { ...toQuote('NewRez', targetQuote), targetPrice: targetQuote.targetPrice, tolerance: targetQuote.tolerance, deltaFromTarget: targetQuote.deltaFromTarget, withinTolerance: targetQuote.withinTolerance, withinToleranceAllowOverage: targetQuote.withinToleranceAllowOverage }, maxPrice }); }
+  if (engine === 'NewRez') { const eligibility = evaluateNewRezStage1Eligibility(input, input.desiredLoanAmount); const baseQuote = calculateNewRezStage1Quote(input, { selectedLoanAmount: input.desiredLoanAmount, targetPrice: effectiveTargetPrice, rateOverride: effectiveManualRateOverride }); const targetQuote = solveNewRezStage1TargetRate(input, { targetPrice: effectiveTargetPrice, tolerance, selectedLoanAmount: input.desiredLoanAmount }); const maxPrice = solveNewRezStage1TargetRate(input, { targetPrice: 999, tolerance, selectedLoanAmount: input.desiredLoanAmount }).purchasePrice; const newrezRequestedRates = getNewRezAvailableRates(input.newrezProduct ?? '30 Year Fixed', input.newrezLockPeriodDays ?? 30); const displayQuote = effectiveManualRateOverride !== undefined ? baseQuote : chooseDisplayQuote('NewRez', toQuote('NewRez', baseQuote), newrezRequestedRates, rateOverride => toQuote('NewRez', calculateNewRezStage1Quote(input, { selectedLoanAmount: input.desiredLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })), effectiveTargetPrice, maxPrice, hasTargetPriceOverride); return withGuide({ eligibility, quote: toQuote('NewRez', displayQuote), targetQuote: { ...toQuote('NewRez', targetQuote), targetPrice: targetQuote.targetPrice, tolerance: targetQuote.tolerance, deltaFromTarget: targetQuote.deltaFromTarget, withinTolerance: targetQuote.withinTolerance, withinToleranceAllowOverage: targetQuote.withinToleranceAllowOverage }, maxPrice }); }
   if (engine === 'Verus') { const eligibility = evaluateVerusStage1Eligibility(input, input.desiredLoanAmount); const baseQuote = calculateVerusStage1Quote(input, { selectedLoanAmount: input.desiredLoanAmount, targetPrice: effectiveTargetPrice, rateOverride: effectiveManualRateOverride }); const targetQuote = solveVerusStage1TargetRate(input, { targetPrice: effectiveTargetPrice, tolerance, selectedLoanAmount: input.desiredLoanAmount }); const maxPrice = solveVerusStage1TargetRate(input, { targetPrice: 999, tolerance, selectedLoanAmount: input.desiredLoanAmount }).purchasePrice; const displayQuote = effectiveManualRateOverride !== undefined ? baseQuote : chooseDisplayQuote('Verus', toQuote('Verus', baseQuote), buildRequestedRates(3, 20), rateOverride => toQuote('Verus', calculateVerusStage1Quote(input, { selectedLoanAmount: input.desiredLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })), effectiveTargetPrice, maxPrice, hasTargetPriceOverride); return withGuide({ eligibility, quote: toQuote('Verus', displayQuote), targetQuote: { ...toQuote('Verus', targetQuote), targetPrice: targetQuote.targetPrice, tolerance: targetQuote.tolerance, deltaFromTarget: targetQuote.deltaFromTarget, withinTolerance: targetQuote.withinTolerance, withinToleranceAllowOverage: targetQuote.withinToleranceAllowOverage }, maxPrice }); }
   if (engine === 'Deephaven') { const eligibility = evaluateDeephavenStage1Eligibility(input, input.desiredLoanAmount); const baseQuote = calculateDeephavenStage1Quote(input, { selectedLoanAmount: input.desiredLoanAmount, targetPrice: effectiveTargetPrice, rateOverride: effectiveManualRateOverride }); const targetQuote = solveDeephavenStage1TargetRate(input, { targetPrice: effectiveTargetPrice, tolerance, selectedLoanAmount: input.desiredLoanAmount }); const maxPrice = solveDeephavenStage1TargetRate(input, { targetPrice: 999, tolerance, selectedLoanAmount: input.desiredLoanAmount }).purchasePrice; const displayQuote = effectiveManualRateOverride !== undefined ? baseQuote : chooseDisplayQuote('Deephaven', toQuote('Deephaven', baseQuote), buildRequestedRates(3, 20), rateOverride => toQuote('Deephaven', calculateDeephavenStage1Quote(input, { selectedLoanAmount: input.desiredLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })), effectiveTargetPrice, maxPrice, hasTargetPriceOverride); return withGuide({ eligibility, quote: toQuote('Deephaven', displayQuote), targetQuote: { ...toQuote('Deephaven', targetQuote), targetPrice: targetQuote.targetPrice, tolerance: targetQuote.tolerance, deltaFromTarget: targetQuote.deltaFromTarget, withinTolerance: targetQuote.withinTolerance, withinToleranceAllowOverage: targetQuote.withinToleranceAllowOverage }, maxPrice }); }
   const eligibility = evaluateOsbStage1Eligibility(input, input.desiredLoanAmount); const baseQuote = calculateOsbStage1Quote(input, { selectedLoanAmount: input.desiredLoanAmount, targetPrice: effectiveTargetPrice, rateOverride: effectiveManualRateOverride }); const targetQuote = solveOsbStage1TargetRate(input, { targetPrice: effectiveTargetPrice, tolerance, selectedLoanAmount: input.desiredLoanAmount }); const maxPrice = solveOsbStage1TargetRate(input, { targetPrice: 999, tolerance, selectedLoanAmount: input.desiredLoanAmount }).purchasePrice; const displayQuote = effectiveManualRateOverride !== undefined ? baseQuote : chooseDisplayQuote('OSB', toQuote('OSB', baseQuote), input.osbProgram === 'HELOC' ? buildRequestedRates(0.5, 8) : buildRequestedRates(3, 20), rateOverride => toQuote('OSB', calculateOsbStage1Quote(input, { selectedLoanAmount: input.desiredLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })), effectiveTargetPrice, maxPrice, hasTargetPriceOverride); return withGuide({ eligibility, quote: toQuote('OSB', displayQuote), targetQuote: { ...toQuote('OSB', targetQuote), targetPrice: targetQuote.targetPrice, tolerance: targetQuote.tolerance, deltaFromTarget: targetQuote.deltaFromTarget, withinTolerance: targetQuote.withinTolerance, withinToleranceAllowOverage: targetQuote.withinToleranceAllowOverage }, maxPrice });
@@ -249,14 +259,13 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
   const bestExLockPeriodDays = input.bestExLockPeriodDays ?? 30;
   const bestExDocType = input.bestExDocType ?? 'Full Doc';
   const actualLockPeriodDays = getBestExActualLockPeriodDays(bestExLockPeriodDays);
-  const makeSummary = (eligibility: Stage1Eligibility, quote: Stage1ExecutionQuote, maxPrice: number, requestedRates: number[], getQuoteForRate: (rateOverride?: number) => Stage1ExecutionQuote): InvestorSummary => { const overlaidEligibility = applyAvmOverlay(eligibility, quote.engine, input); const selectionTarget = getBestXSelectionTarget(effectiveTargetPrice, maxPrice, hasTargetPriceOverride); const displayPrice = getBorrowerFacingDisplayPrice(quote.purchasePrice, effectiveTargetPrice, displayTargetPrice); const { pointsValue: discountPoints } = getBorrowerFacingPoints(displayPrice, displayTargetPrice); const buyPrice = 0; const deltaFromTarget = roundToThree(quote.purchasePrice - effectiveTargetPrice); const guideMaxPrice = getLadderMaxBuyPrice(quote, input, maxPrice); const respectsMaxPrice = guideMaxPrice <= 0 || quote.purchasePrice <= guideMaxPrice + 0.0001; const windowMatched = overlaidEligibility.eligible && respectsMaxPrice && quote.purchasePrice >= selectionTarget; return { investor: quote.engine, eligibility: overlaidEligibility, quote, discountPoints, buyPrice, windowMatched, deltaFromTarget, targetPrice: displayTargetPrice, maxPrice, guideMaxPrice, priceLadder: buildTargetPriceLadder(requestedRates, getQuoteForRate, quote, quote.purchasePrice, displayPrice, displayTargetPrice, guideMaxPrice), ratesheetInfo: ratesheetDates[quote.engine] ?? null }; };
-  const makeIneligible = (investor: Stage1ExecutionQuote['engine'], program: string, product: string, reason: string, maxPrice = 0): InvestorSummary => ({ investor, eligibility: applyAvmOverlay({ eligible: false, reasons: [reason], maxAvailable: 0, resultingCltv: 0, avmEvaluation: null }, investor, input), quote: { engine: investor, program, product, maxAvailable: 0, rate: 0, noteRate: 0, monthlyPayment: 0, maxLtv: 0, purchasePrice: 0, basePrice: 0, llpaAdjustment: 0, adjustments: [] }, discountPoints: 0, buyPrice: 0, windowMatched: false, deltaFromTarget: 0, targetPrice: defaultBackendTargetPrice, maxPrice, guideMaxPrice: 0, priceLadder: [], ratesheetInfo: ratesheetDates[investor] ?? null });
+  const makeSummary = (eligibility: Stage1Eligibility, quote: Stage1ExecutionQuote, maxPrice: number, requestedRates: number[], getQuoteForRate: (rateOverride?: number) => Stage1ExecutionQuote): InvestorSummary => { const overlaidEligibility = applyAvmOverlay(eligibility, quote.engine, input); const selectionTarget = getBestXSelectionTarget(effectiveTargetPrice, maxPrice, hasTargetPriceOverride); const displayPrice = getBorrowerFacingDisplayPrice(quote.purchasePrice, effectiveTargetPrice, displayTargetPrice); const { pointsValue: discountPoints } = getBorrowerFacingPoints(displayPrice, displayTargetPrice); const buyPrice = 0; const deltaFromTarget = roundToThree(quote.purchasePrice - effectiveTargetPrice); const guideMaxPrice = getLadderMaxBuyPrice(quote, input, maxPrice); const overGuideMaxPrice = isOverMaxBuy(quote.purchasePrice, guideMaxPrice); const windowMatched = overlaidEligibility.eligible && !overGuideMaxPrice && quote.purchasePrice >= selectionTarget; return { investor: quote.engine, eligibility: overlaidEligibility, quote, discountPoints, buyPrice, windowMatched, deltaFromTarget, targetPrice: displayTargetPrice, maxPrice, guideMaxPrice, overGuideMaxPrice, priceLadder: buildTargetPriceLadder(requestedRates, getQuoteForRate, quote, quote.purchasePrice, displayPrice, displayTargetPrice, guideMaxPrice), ratesheetInfo: ratesheetDates[quote.engine] ?? null }; };
+  const makeIneligible = (investor: Stage1ExecutionQuote['engine'], program: string, product: string, reason: string, maxPrice = 0): InvestorSummary => ({ investor, eligibility: applyAvmOverlay({ eligible: false, reasons: [reason], maxAvailable: 0, resultingCltv: 0, avmEvaluation: null }, investor, input), quote: { engine: investor, program, product, maxAvailable: 0, rate: 0, noteRate: 0, monthlyPayment: 0, maxLtv: 0, purchasePrice: 0, basePrice: 0, llpaAdjustment: 0, adjustments: [] }, discountPoints: 0, buyPrice: 0, windowMatched: false, deltaFromTarget: 0, targetPrice: defaultBackendTargetPrice, maxPrice, guideMaxPrice: 0, overGuideMaxPrice: false, priceLadder: [], ratesheetInfo: ratesheetDates[investor] ?? null });
   const chooseBestXSummary = (eligibility: Stage1Eligibility, fallbackQuote: Stage1ExecutionQuote, requestedRates: number[], getQuote: (rateOverride?: number) => Stage1ExecutionQuote, maxPrice: number): InvestorSummary => {
     if (!eligibility.eligible) return makeSummary(eligibility, fallbackQuote, maxPrice, requestedRates, getQuote);
-    const respectsMax = (summary: InvestorSummary) => summary.guideMaxPrice <= 0 || summary.quote.purchasePrice <= summary.guideMaxPrice + 0.0001;
     if (effectiveManualRateOverride !== undefined) {
       const manualSummary = makeSummary(eligibility, getQuote(effectiveManualRateOverride), maxPrice, requestedRates, getQuote);
-      return respectsMax(manualSummary) ? manualSummary : makeSummary(eligibility, fallbackQuote, maxPrice, requestedRates, getQuote);
+      return manualSummary;
     }
     const candidates = new Map<string, InvestorSummary>();
     for (const requestedRate of requestedRates) {
@@ -282,8 +291,7 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
     };
 
     const allCandidates = candidates.size ? [...candidates.values()] : [makeSummary(eligibility, fallbackQuote, maxPrice, requestedRates, getQuote)];
-    const cappedCandidates = allCandidates.filter(respectsMax);
-    const usableCandidates = cappedCandidates.length > 0 ? cappedCandidates : allCandidates;
+    const usableCandidates = buildDisplayCandidatePool(allCandidates, displayTargetPrice, effectiveTargetPrice, allCandidates[0]?.guideMaxPrice ?? 0);
     const windowCandidates = usableCandidates.filter(summary => summary.windowMatched);
     if (windowCandidates.length > 0) {
       return [...windowCandidates].sort((a, b) => compareDisplayedPar(a, b) || a.quote.rate - b.quote.rate || a.discountPoints - b.discountPoints || b.quote.purchasePrice - a.quote.purchasePrice || a.investor.localeCompare(b.investor))[0];
@@ -342,7 +350,7 @@ export function computeStage1Pricing(request: Stage1PricingRequest): Stage1Prici
     const newrezProduct = getBestExCesProduct('NewRez', bestExTermYears);
     if (!newrezProduct) results.push(makeIneligible('NewRez', 'CES', `${bestExTermYears} Year`, `NewRez does not support ${bestExTermYears}-year CES pricing.`));
     else if (bestExDocType !== 'Full Doc') results.push(makeIneligible('NewRez', 'CES', newrezProduct, 'NewRez does not support alt-doc pricing in the Home Equity workbook.'));
-    else { const newrezLockPeriodDays = getBestExNewRezLockPeriod(actualLockPeriodDays); const newrezInput = { ...input, newrezProduct, newrezLockPeriodDays }; const eligibility = evaluateNewRezStage1Eligibility(newrezInput, selectedLoanAmount); const baseQuote = calculateNewRezStage1Quote(newrezInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); const maxPrice = solveNewRezStage1TargetRate(newrezInput, { targetPrice: 999, tolerance, selectedLoanAmount }).purchasePrice; const newrezRateBounds = getNewRezRateBounds(newrezProduct, newrezLockPeriodDays); const newrezRequestedRates = newrezRateBounds ? buildRequestedRates(newrezRateBounds.minRate, newrezRateBounds.maxRate) : standardRequestedRates; results.push(chooseBestXSummary(eligibility, toQuote('NewRez', baseQuote), newrezRequestedRates, rateOverride => toQuote('NewRez', calculateNewRezStage1Quote(newrezInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })), maxPrice)); }
+    else { const newrezLockPeriodDays = getBestExNewRezLockPeriod(actualLockPeriodDays); const newrezInput = { ...input, newrezProduct, newrezLockPeriodDays }; const eligibility = evaluateNewRezStage1Eligibility(newrezInput, selectedLoanAmount); const baseQuote = calculateNewRezStage1Quote(newrezInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice }); const maxPrice = solveNewRezStage1TargetRate(newrezInput, { targetPrice: 999, tolerance, selectedLoanAmount }).purchasePrice; const newrezRequestedRates = getNewRezAvailableRates(newrezProduct, newrezLockPeriodDays); results.push(chooseBestXSummary(eligibility, toQuote('NewRez', baseQuote), newrezRequestedRates, rateOverride => toQuote('NewRez', calculateNewRezStage1Quote(newrezInput, { selectedLoanAmount, targetPrice: effectiveTargetPrice, rateOverride })), maxPrice)); }
     const osbProduct = getBestExCesProduct('OSB', bestExTermYears);
     const osbDocType = getBestExOsbDocType(bestExDocType);
     if (!osbProduct) results.push(makeIneligible('OSB', '2nd Liens', `${bestExTermYears} Year`, `OSB does not support ${bestExTermYears}-year CES pricing.`));

@@ -82,8 +82,8 @@ export type Stage1TargetExecutionQuote = Stage1ExecutionQuote & { targetPrice: n
 export type RatesheetDateInfo = { label: 'Pricing date' | 'Workbook modified' | 'Last collected'; value: string | null; collectedAt: string | null; sourceWorkbook: string; source: 'sheet' | 'workbook-props' | 'file-mtime' | 'unknown' };
 export type Stage1PricingEngineResult = { eligibility: Stage1Eligibility; quote: Stage1ExecutionQuote; targetQuote: Stage1TargetExecutionQuote; maxPrice: number; guideMaxPrice: number; ratesheetInfo?: RatesheetDateInfo | null };
 
-export type InvestorPriceLadderRow = { displayPrice: number; purchasePrice: number; rate: number; noteRate: number; pointsLabel: 'Discount' | 'Rebate'; pointsValue: number; highlighted: boolean; };
-export type InvestorSummary = { investor: string; eligibility: Stage1Eligibility; quote: Stage1ExecutionQuote; discountPoints: number; buyPrice: number; windowMatched: boolean; deltaFromTarget: number; targetPrice: number; maxPrice: number; guideMaxPrice: number; priceLadder: InvestorPriceLadderRow[]; ratesheetInfo?: RatesheetDateInfo | null };
+export type InvestorPriceLadderRow = { displayPrice: number; purchasePrice: number; rate: number; noteRate: number; pointsLabel: 'Discount' | 'Rebate'; pointsValue: number; highlighted: boolean; aboveMaxBuy?: boolean; };
+export type InvestorSummary = { investor: string; eligibility: Stage1Eligibility; quote: Stage1ExecutionQuote; discountPoints: number; buyPrice: number; windowMatched: boolean; deltaFromTarget: number; targetPrice: number; maxPrice: number; guideMaxPrice: number; overGuideMaxPrice?: boolean; priceLadder: InvestorPriceLadderRow[]; ratesheetInfo?: RatesheetDateInfo | null };
 
 export type Stage1PricingRequest = { engine: PricingViewEngine; input: TesterInput; targetPriceOverride?: string; manualRateOverride?: string; tolerance?: number };
 export type Stage1PricingResponse = { defaultBackendTargetPrice: number; effectiveTargetPrice: number; activeResult: Stage1PricingEngineResult | null; results: InvestorSummary[]; ratesheetDates: Partial<Record<Stage1PricingEngine, RatesheetDateInfo>> };
