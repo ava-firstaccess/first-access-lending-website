@@ -8,6 +8,7 @@ import osbRatesheet from './osb-ratesheet.json';
 import newrezRatesheet from './newrez-ratesheet.json';
 import verusRatesheet from './verus-ratesheet.json';
 import deephavenRatesheet from './deephaven-ratesheet.json';
+import { RATESHEET_DATE_FALLBACKS } from './ratesheet-date-fallbacks';
 
 export type RatesheetDateInfo = {
   label: 'Pricing date' | 'Workbook modified' | 'Last collected';
@@ -133,6 +134,10 @@ export function getStage1RatesheetDateMap(): Partial<Record<Stage1PricingEngine,
   for (const engine of Object.keys(CONFIG) as Stage1PricingEngine[]) {
     const config = CONFIG[engine];
     const stats = fs.existsSync(config.sourceWorkbook) ? fs.statSync(config.sourceWorkbook) : null;
+    if (!stats && RATESHEET_DATE_FALLBACKS[engine]) {
+      next[engine] = RATESHEET_DATE_FALLBACKS[engine];
+      continue;
+    }
     try {
       const extracted = config.extract();
       next[engine] = {
@@ -150,7 +155,7 @@ export function getStage1RatesheetDateMap(): Partial<Record<Stage1PricingEngine,
         };
       }
     } catch {
-      next[engine] = {
+      next[engine] = RATESHEET_DATE_FALLBACKS[engine] ?? {
         label: 'Last collected',
         value: stats ? formatDateTime(stats.mtime) : null,
         collectedAt: stats ? formatDateTime(stats.mtime) : null,
