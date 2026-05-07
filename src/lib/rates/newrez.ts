@@ -71,7 +71,7 @@ type JsonRatesheet = {
   additional: JsonMatrix;
   loanAmount: JsonMatrix;
   guideMaxPrice?: {
-    default: number;
+    default: number | null;
     byCltvBucket?: Record<string, number | null>;
   };
 };
@@ -100,11 +100,14 @@ const SUPPORTED_NEWREZ_PRODUCTS = Object.keys(DATA.pricing) as NewRezProduct[];
  * so we enforce it here on purpose. If NewRez guide / workbook support changes,
  * update this constant and the eligibility message together.
  */
-const NEWREZ_MAX_UNIT_COUNT = 1;
-const NEWREZ_MAX_LOAN_AMOUNT = STAGE1_INVESTOR_OVERLAYS.NewRez.maxLoanAmount;
+const NEWREZ_OVERLAY = STAGE1_INVESTOR_OVERLAYS.NewRez;
 
 export function getNewRezGuideMaxPrice(): number {
-  return DATA.guideMaxPrice?.default ?? 107;
+  const value = DATA.guideMaxPrice?.default;
+  if (value === null || value === undefined) {
+    throw new Error('NewRez guide max price is missing from newrez-ratesheet.json');
+  }
+  return value;
 }
 
 export function getNewRezAvailableRates(product: NewRezProduct, lockPeriodDays: 15 | 30 | 45 | 60): number[] {
@@ -168,7 +171,7 @@ export function calculateNewRezQuote(input: NewRezPricingInput, options?: { sele
   const maxLtv = calculateMaxLtv(input);
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? maxAvailable);
 
-  if (selectedLoanAmount > maxAvailable || input.resultingCltv > maxLtv || input.unitCount > NEWREZ_MAX_UNIT_COUNT) {
+  if (selectedLoanAmount > maxAvailable || input.resultingCltv > maxLtv || input.unitCount > NEWREZ_OVERLAY.maxUnitCount) {
     return {
       program: 'NewRez',
       product: input.product,
@@ -221,7 +224,7 @@ export function evaluateNewRezEligibility(input: NewRezPricingInput, selectedLoa
   const requested = Math.max(0, selectedLoanAmount ?? input.desiredLoanAmount ?? 0);
   const matrix = getCltvMatrix(input.product);
 
-  if (input.unitCount > NEWREZ_MAX_UNIT_COUNT) reasons.push('NewRez is currently hard-blocked to 1-unit properties only. If the guide changes, update NEWREZ_MAX_UNIT_COUNT in newrez.ts.');
+  if (input.unitCount > NEWREZ_OVERLAY.maxUnitCount) reasons.push(`NewRez is currently hard-blocked to ${NEWREZ_OVERLAY.maxUnitCount}-unit properties only. Update STAGE1_INVESTOR_OVERLAYS.NewRez.maxUnitCount in stage1-pricing/config.ts if the guide changes.`);
   if (!findCreditRow(matrix, input.creditScore)) reasons.push('Credit score is outside the NewRez matrix.');
   if (findCltvBucketIndex(matrix.cltvBuckets, input.resultingCltv) === null) reasons.push('Resulting CLTV is outside the NewRez matrix.');
   if (findLoanAmountRow(requested) === null) reasons.push('Desired loan amount is outside the NewRez loan amount table.');
@@ -277,11 +280,11 @@ function getCltvMatrix(product: NewRezProduct): JsonMatrix {
 
 function calculateMaxAvailable(input: NewRezPricingInput): number {
   const cltvConstrained = calculateMaxAvailableFromMaxLtv(input.propertyValue, input.loanBalance, calculateMaxLtv(input));
-  return Math.max(0, Math.min(cltvConstrained, NEWREZ_MAX_LOAN_AMOUNT));
+  return Math.max(0, Math.min(cltvConstrained, NEWREZ_OVERLAY.maxLoanAmount));
 }
 
 function calculateMaxLtv(input: NewRezPricingInput): number {
-  if (input.unitCount > NEWREZ_MAX_UNIT_COUNT) return 0;
+  if (input.unitCount > NEWREZ_OVERLAY.maxUnitCount) return 0;
 
   const matrix = getCltvMatrix(input.product);
   const row = findCreditRow(matrix, input.creditScore);
@@ -292,7 +295,7 @@ function calculateMaxLtv(input: NewRezPricingInput): number {
 
   // NewRez guides restrict Home Equity to 90% max CLTV. The workbook/ratesheet
   // uses an open-ended >85% bucket, which should not be interpreted past 90%.
-  return Math.min(0.9, upperBoundForCltvLabel(matrix.cltvBuckets[lastEligibleIndex]) / 100);
+  return Math.min(NEWREZ_OVERLAY.maxCltv, upperBoundForCltvLabel(matrix.cltvBuckets[lastEligibleIndex]) / 100);
 }
 
 function buildAdjustmentLines(input: NewRezPricingInput, selectedLoanAmount: number): NewRezAdjustmentLine[] {

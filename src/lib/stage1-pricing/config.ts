@@ -13,6 +13,8 @@ export { POINTS_AND_FEES_STATE_CAPS } from '../closing-costs';
 export const STAGE1_INVESTOR_OVERLAYS = {
   NewRez: {
     maxLoanAmount: 500_000,
+    maxUnitCount: 1,
+    maxCltv: 0.9,
   },
 } as const;
 

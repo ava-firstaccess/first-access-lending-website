@@ -193,7 +193,7 @@ function attachRatesheetMetadata(filename) {
 function generateNewRez() {
   const workbookPath = path.join(SOURCE_ROOT, 'getaccess', 'ratesheets', 'latest_newrez.xls');
   const workbook = XLSX.readFile(workbookPath, { raw: true, cellDates: true });
-  const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Home Equity'], { header: 1, raw: true, blankrows: false });
+  const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Home Equity'], { header: 1, raw: true, blankrows: true });
   const columns = ['BE15', 'BE30', 'BE45', 'BE60', 'BE75', 'BE90'];
 
   return writeJson('newrez-ratesheet.json', {
@@ -228,6 +228,9 @@ function generateNewRez() {
     loanAmount: {
       cltvBuckets: Array.from({ length: 9 }, (_, index) => String(cell(rows, 135, 5 + index))),
       rows: parseRows(rows, 136, 139, 3, 5, 13),
+    },
+    guideMaxPrice: {
+      default: price(rawCell(rows, 121, 15)),
     },
   });
 }
