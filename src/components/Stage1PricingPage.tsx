@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { ArcHomeLockPeriodDays, ArcHomeProduct, BestExDocType, BestExDrawPeriodYears, BestExLockPeriodDays, BestExProduct, BestExTermYears, ButtonDocType, DeephavenDocType, DeephavenLockPeriodDays, DeephavenProduct, InvestorSummary, NewRezProduct, OsbLockPeriod, OsbProduct, OsbProgram, PricingViewEngine, RatesheetDateInfo, Stage1PricingResponse, TesterInput, VerusDocType, VerusDrawPeriodYears, VerusLockPeriodDays, VerusProduct, VerusProgram, VistaDocType, VistaProduct } from '@/lib/stage1-pricing/types';
 import { getPointsAndFeesStatus } from '@/lib/closing-costs';
 import { defaultInput } from '@/lib/stage1-pricing/types';
+import { getBestExActualLockPeriodDays, getBestExButtonDocType, getBestExCesProduct, getBestExDeephavenDocType, getBestExDeephavenLockPeriod, getBestExHelocVerusDrawPeriodAllowed, getBestExNewRezLockPeriod, getBestExVerusDocType, getBestExVistaDocType } from '@/lib/stage1-pricing/config';
 
 type Mode = 'pricer' | 'tester';
 
@@ -48,6 +49,7 @@ type PointsAndFeesAlert = ReturnType<typeof getPointsAndFeesStatus> & {
 const TESTER_GATE_STORAGE_KEY = 'fal-stage1-tester-unlocked';
 const LO_AVM_SCENARIO_STORAGE_KEY = 'fal-lo-avm-scenario';
 const LO_PRICER_STATE_STORAGE_KEY = 'fal-lo-pricer-last-state';
+const TESTER_STATE_STORAGE_KEY = 'fal-stage1-tester-last-state';
 function roundToThree(value: number) { return Number(value.toFixed(3)); }
 function formatActualConfidence(fsd: number | undefined) {
   if (typeof fsd !== 'number' || !Number.isFinite(fsd)) return null;
@@ -139,6 +141,18 @@ export function Stage1PricingPage({ mode, portalSession }: { mode: Mode; portalS
     if (mode !== 'tester') return;
     const unlocked = window.localStorage.getItem(TESTER_GATE_STORAGE_KEY) === 'true';
     setIsUnlocked(unlocked);
+    try {
+      const raw = window.localStorage.getItem(TESTER_STATE_STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (saved?.engine) setEngine(saved.engine);
+        if (saved?.input) setInput({ ...defaultInput, ...saved.input });
+        if (saved?.draft) setDraft(saved.draft);
+        if (saved?.lastEditedAmount === 'desiredLoanAmount' || saved?.lastEditedAmount === 'combinedLtv') setLastEditedAmount(saved.lastEditedAmount);
+      }
+    } catch (error) {
+      console.error('Failed to restore tester state:', error);
+    }
     setGateChecked(true);
   }, [mode]);
 
@@ -174,6 +188,76 @@ export function Stage1PricingPage({ mode, portalSession }: { mode: Mode; portalS
       console.error('Failed to persist LO pricer state:', error);
     }
   }, [mode, pricerStateLoaded, engine, input, draft, lastEditedAmount]);
+
+  useEffect(() => {
+    if (mode !== 'tester' || !gateChecked) return;
+    try {
+      window.localStorage.setItem(TESTER_STATE_STORAGE_KEY, JSON.stringify({
+        engine,
+        input,
+        draft,
+        lastEditedAmount,
+      }));
+    } catch (error) {
+      console.error('Failed to persist tester state:', error);
+    }
+  }, [mode, gateChecked, engine, input, draft, lastEditedAmount]);
+
+  useEffect(() => {
+    setInput(prev => {
+      const product = prev.bestExProduct ?? 'HELOC';
+      const docType = prev.bestExDocType ?? 'Full Doc';
+      const lock = prev.bestExLockPeriodDays ?? 30;
+      const actualLock = getBestExActualLockPeriodDays(lock);
+      const next = { ...prev };
+
+      if (product === 'HELOC') {
+        next.buttonProduct = 'HELOC';
+        next.helocDrawTermYears = prev.bestExDrawPeriodYears ?? prev.helocDrawTermYears ?? 5;
+        next.buttonDocType = getBestExButtonDocType(docType, 'HELOC') ?? next.buttonDocType;
+        next.osbProgram = 'HELOC';
+        next.verusProgram = 'HELOC';
+        if (getBestExHelocVerusDrawPeriodAllowed(prev.bestExDrawPeriodYears ?? 5)) {
+          next.verusDrawPeriodYears = (prev.bestExDrawPeriodYears ?? next.verusDrawPeriodYears) as VerusDrawPeriodYears;
+        }
+        if (actualLock === 30 || actualLock === 45 || actualLock === 60) {
+          next.osbLockPeriodDays = actualLock;
+          next.verusLockPeriodDays = actualLock;
+          next.vistaLockPeriodDays = actualLock;
+        }
+        next.arcHomeLockPeriodDays = actualLock as ArcHomeLockPeriodDays;
+      } else {
+        const term = prev.bestExTermYears ?? 30;
+        next.buttonProduct = 'CES';
+        next.buttonTermYears = term;
+        next.buttonDocType = getBestExButtonDocType(docType, 'CES') ?? next.buttonDocType;
+        next.arcHomeProduct = (getBestExCesProduct('Arc Home', term) ?? next.arcHomeProduct) as ArcHomeProduct;
+        next.vistaProduct = (getBestExCesProduct('Vista', term) ?? next.vistaProduct) as VistaProduct;
+        next.vistaDocType = getBestExVistaDocType(docType);
+        next.newrezProduct = (getBestExCesProduct('NewRez', term) ?? next.newrezProduct) as NewRezProduct;
+        next.osbProgram = '2nd Liens';
+        next.osbProduct = (getBestExCesProduct('OSB', term) ?? next.osbProduct) as OsbProduct;
+        next.verusProgram = 'CES';
+        next.verusProduct = (getBestExCesProduct('Verus', term) ?? next.verusProduct) as VerusProduct;
+        next.verusDocType = getBestExVerusDocType(docType, 'CES') ?? next.verusDocType;
+        next.deephavenProduct = (getBestExCesProduct('Deephaven', term) ?? next.deephavenProduct) as DeephavenProduct;
+        next.deephavenDocType = getBestExDeephavenDocType(docType) ?? next.deephavenDocType;
+        const newrezLock = getBestExNewRezLockPeriod(actualLock);
+        next.newrezLockPeriodDays = newrezLock;
+        const deephavenLock = getBestExDeephavenLockPeriod(actualLock);
+        if (deephavenLock) next.deephavenLockPeriodDays = deephavenLock;
+        if (actualLock === 30 || actualLock === 45 || actualLock === 60) {
+          next.osbLockPeriodDays = actualLock;
+          next.verusLockPeriodDays = actualLock;
+          next.vistaLockPeriodDays = actualLock;
+        }
+        next.arcHomeLockPeriodDays = actualLock as ArcHomeLockPeriodDays;
+      }
+
+      const changed = JSON.stringify(prev) !== JSON.stringify(next);
+      return changed ? next : prev;
+    });
+  }, [input.bestExProduct, input.bestExDrawPeriodYears, input.bestExTermYears, input.bestExLockPeriodDays, input.bestExDocType]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
