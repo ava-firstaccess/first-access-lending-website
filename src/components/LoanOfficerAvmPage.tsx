@@ -331,7 +331,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                             <div className="text-sm font-semibold text-slate-900">{item.investor}</div>
                             <div className="mt-1 text-xs text-slate-500">{item.program} • {item.product}</div>
                           </div>
-                          <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${item.eligible ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>{item.eligible ? 'Eligible' : 'Ruled out'}</span>
+                          <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${item.eligible ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>{item.eligible ? 'Eligible' : 'Ineligible'}</span>
                         </div>
                         <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
                           <MiniMetric label="BestX rate" value={item.rate ? `${item.rate.toFixed(3)}%` : '—'} />
@@ -484,8 +484,8 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                         <div>{row.requestedMaxFsd !== null && row.requestedMaxFsd !== undefined ? row.requestedMaxFsd.toFixed(2) : '—'}</div>
                         <div>{row.value !== null ? currency(row.value) : '—'}</div>
                         <div>
-                          <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${!row.supported && row.value === null ? 'bg-slate-200 text-slate-500' : row.fsdThresholdStatus === 'failed' ? 'bg-rose-100 text-rose-800' : shouldShowPendingThreshold(row) ? 'bg-violet-100 text-violet-800' : !rowEligible && row.supported ? 'bg-amber-100 text-amber-800' : isWinner ? 'bg-sky-100 text-sky-800' : row.value !== null ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
-                            {!row.supported && row.value === null ? 'Ruled out' : row.fsdThresholdStatus === 'failed' ? 'Threshold failed' : shouldShowPendingThreshold(row) ? 'Threshold pending' : !rowEligible && row.supported ? 'FSD above max' : isWinner ? 'Winner' : row.value !== null ? (row.source === 'cache' ? 'Cached' : 'Ordered') : 'Allowed'}
+                          <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${!row.supported && row.value === null ? 'bg-slate-200 text-slate-500' : row.failureMessage ? 'bg-rose-100 text-rose-800' : row.fsdThresholdStatus === 'failed' ? 'bg-rose-100 text-rose-800' : shouldShowPendingThreshold(row) ? 'bg-violet-100 text-violet-800' : !rowEligible && row.supported ? 'bg-amber-100 text-amber-800' : isWinner ? 'bg-sky-100 text-sky-800' : row.value !== null ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                            {!row.supported && row.value === null ? 'Ineligible' : row.failureMessage ? 'Failed' : row.fsdThresholdStatus === 'failed' ? 'Threshold failed' : shouldShowPendingThreshold(row) ? 'Threshold pending' : !rowEligible && row.supported ? 'FSD above max' : isWinner ? 'Winner' : row.value !== null ? (row.source === 'cache' ? 'Cached' : 'Ordered') : 'Allowed'}
                           </span>
                         </div>
                         <div>
@@ -566,6 +566,9 @@ function getProviderRowSubtext(row: ProviderDisplayRow) {
       : 'Not allowed for this investor';
     return [base, sourceLabel, runSourceLabel].filter(Boolean).join(' • ');
   }
+  if (row.failureMessage) {
+    return [row.failureMessage, sourceLabel, runSourceLabel, thresholdLabel].filter(Boolean).join(' • ');
+  }
   if ((row.fsd !== null && row.maxFsdAllowed !== null && row.fsd > row.maxFsdAllowed + 0.0001) || row.fsdLabel) {
     return [`FSD above max for this investor: ${row.fsdLabel || `${row.fsd?.toFixed(2)} > ${row.maxFsdAllowed?.toFixed(2)}`}. A different investor may still allow it.`, sourceLabel, runSourceLabel, thresholdLabel].filter(Boolean).join(' • ');
   }
@@ -578,6 +581,9 @@ function getProviderRowSubtext(row: ProviderDisplayRow) {
 function getProviderInvestorStatusMessage(row: ProviderDisplayRow) {
   if (!row.supported) {
     return 'This investor does not allow this AVM provider, even though an AVM result exists.';
+  }
+  if (row.failureMessage) {
+    return row.failureMessage;
   }
   if ((row.fsd !== null && row.maxFsdAllowed !== null && row.fsd > row.maxFsdAllowed + 0.0001) || row.fsdLabel) {
     return `This result is above the current investor max FSD, ${row.maxFsdAllowed?.toFixed(2) ?? 'n/a'}. Keep the AVM visible, but try another investor that allows a higher FSD.`;
