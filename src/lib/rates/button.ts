@@ -105,6 +105,7 @@ type CltvTable = {
   altDoc: Matrix;
 };
 type LookupTable = { rows: string[]; columns: Array<string | number | null>; values: Matrix };
+type ButtonWorkbookSupport = { ficoIndex: number; cltvIndex: number; loanAmountBucketLabel: string | null };
 
 const NOTE_RATE_ROWS = ratesheet.noteRates as unknown as RateRow[];
 const CLTV_MATRIX = ratesheet.tables.cltv as CltvTable;
@@ -200,11 +201,26 @@ export function calculateButtonQuote(
   const targetPrice = Math.min(options?.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), getButtonGuideMaxPrice(input.product, selectedLoanAmount));
   const docKey = input.docType === 'Full Doc' ? 'fullDoc' : 'altDoc';
 
-  const ficoIndex = getFicoBucketIndex(docKey, input.creditScore);
-  const cltvIndex = getCltvBucketIndex(docKey, input.resultingCltv);
+  const support = getButtonWorkbookSupport(input, selectedLoanAmount);
+  if (!support) {
+    return {
+      maxAvailable: 0,
+      rate: 0,
+      monthlyPayment: 0,
+      maxLtv: 0,
+      rateType: input.product === 'HELOC' ? 'Variable' : 'Fixed',
+      noteRate: 0,
+      purchasePrice: 0,
+      llpaAdjustment: 0,
+      basePrice: 0,
+      adjustments: [],
+    };
+  }
+
+  const { ficoIndex, cltvIndex } = support;
   const cltvAdj = getMatrixValue(CLTV_MATRIX[docKey], ficoIndex, cltvIndex);
 
-  const adjustments = buildAdjustmentLines(input, cltvIndex, options, cltvAdj);
+  const adjustments = buildAdjustmentLines(input, cltvIndex, options, cltvAdj, support.loanAmountBucketLabel);
   const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
   const selected = options?.rateOverride !== undefined
     ? pickNoteRateClosestToRequested(input.product, docKey, llpaAdjustment, options.rateOverride)
@@ -245,6 +261,7 @@ export function evaluateButtonEligibility(input: ButtonPricingInput, selectedLoa
   const reasons: string[] = [];
   const maxAvailable = calculateMaxAvailable(input);
   const requested = Math.max(0, selectedLoanAmount ?? input.desiredLoanAmount ?? 0);
+  const workbookSupport = getButtonWorkbookSupport(input, requested);
 
   if (input.creditScore < 620) {
     reasons.push('Credit score is below the current supported Button pricing range.');
@@ -260,6 +277,10 @@ export function evaluateButtonEligibility(input: ButtonPricingInput, selectedLoa
 
   if (requested > maxAvailable) {
     reasons.push('Desired loan amount exceeds the current max available amount.');
+  }
+
+  if (!workbookSupport) {
+    reasons.push('Scenario is outside the current Button workbook support.');
   }
 
   if (input.dti !== null && input.dti > 60) {
@@ -319,10 +340,30 @@ export function solveButtonStage1TargetRate(
   const targetPrice = Math.min(options.targetPrice ?? getTargetPurchasePriceForLoanAmount(selectedLoanAmount), getButtonGuideMaxPrice(input.product, selectedLoanAmount));
   const tolerance = options.tolerance ?? 0.125;
 
-  const ficoIndex = getFicoBucketIndex(docKey, input.creditScore);
-  const cltvIndex = getCltvBucketIndex(docKey, input.resultingCltv);
+  const support = getButtonWorkbookSupport(input, selectedLoanAmount);
+  if (!support) {
+    return {
+      maxAvailable: 0,
+      rate: 0,
+      monthlyPayment: 0,
+      maxLtv: 0,
+      rateType: input.product === 'HELOC' ? 'Variable' : 'Fixed',
+      noteRate: 0,
+      purchasePrice: 0,
+      llpaAdjustment: 0,
+      basePrice: 0,
+      adjustments: [],
+      targetPrice,
+      tolerance,
+      deltaFromTarget: targetPrice,
+      withinTolerance: false,
+      withinToleranceAllowOverage: false,
+    };
+  }
+
+  const { ficoIndex, cltvIndex } = support;
   const cltvAdj = getMatrixValue(CLTV_MATRIX[docKey], ficoIndex, cltvIndex);
-  const adjustments = buildAdjustmentLines(input, cltvIndex, options, cltvAdj);
+  const adjustments = buildAdjustmentLines(input, cltvIndex, options, cltvAdj, support.loanAmountBucketLabel);
   const llpaAdjustment = roundToThree(adjustments.reduce((sum, row) => sum + row.value, 0));
 
   const selected = pickNoteRateAtOrBelowTarget(input.product, docKey, llpaAdjustment, targetPrice);
@@ -485,7 +526,8 @@ function buildAdjustmentLines(
     cesTermYears?: number;
     lockPeriodDays?: number;
   },
-  cltvAdj?: number
+  cltvAdj?: number,
+  loanAmountBucketLabel?: string | null
 ): Stage1AdjustmentLine[] {
   const adjustments: Stage1AdjustmentLine[] = [];
   const occupancy = normalizeOccupancy(input.occupancy);
@@ -496,7 +538,8 @@ function buildAdjustmentLines(
   const docKey = input.docType === 'Full Doc' ? 'fullDoc' : 'altDoc';
   adjustments.push({ label: `Doc Type: ${input.docType}`, value: 0 });
   if (cltvAdj !== undefined) {
-    const ficoLabel = getFicoBucketLabels(docKey)[ficoIndexForLabel(docKey, input.creditScore)] ?? 'Unknown FICO';
+    const ficoBucketIndex = ficoIndexForLabel(docKey, input.creditScore);
+    const ficoLabel = ficoBucketIndex === null ? 'Unknown FICO' : (getFicoBucketLabels(docKey)[ficoBucketIndex] ?? 'Unknown FICO');
     const cltvLabel = getCltvBucketLabels(docKey)[cltvIndex] ?? 'Unknown CLTV';
     adjustments.push({
       label: `${input.docType} CLTV: ${ficoLabel} / ${cltvLabel}`,
@@ -536,7 +579,7 @@ function buildAdjustmentLines(
     adjustments.push(termAdjustment);
   }
 
-  const loanAmountAdjustment = getLoanAmountAdjustment(input.product, selectedLoanAmount, cltvIndex);
+  const loanAmountAdjustment = getLoanAmountAdjustment(input.product, selectedLoanAmount, cltvIndex, loanAmountBucketLabel);
   if (loanAmountAdjustment) {
     adjustments.push(loanAmountAdjustment);
   }
@@ -547,9 +590,10 @@ function buildAdjustmentLines(
 function getLoanAmountAdjustment(
   product: ButtonProduct,
   selectedLoanAmount: number,
-  cltvIndex: number
+  cltvIndex: number,
+  bucketLabelOverride?: string | null
 ): Stage1AdjustmentLine | null {
-  const bucketLabel = getButtonLoanAmountBucketLabel(product, selectedLoanAmount);
+  const bucketLabel = bucketLabelOverride ?? getButtonLoanAmountBucketLabel(product, selectedLoanAmount);
   if (!bucketLabel) return null;
 
   const value = getLookupValue(BALANCE_TABLE, bucketLabel, cltvIndex);
@@ -644,25 +688,25 @@ function getTermAdjustment(
   };
 }
 
-function getFicoBucketIndex(docKey: 'fullDoc' | 'altDoc', score: number): number {
+function getFicoBucketIndex(docKey: 'fullDoc' | 'altDoc', score: number): number | null {
   return ficoIndexForLabel(docKey, score);
 }
 
-function ficoIndexForLabel(docKey: 'fullDoc' | 'altDoc', score: number): number {
+function ficoIndexForLabel(docKey: 'fullDoc' | 'altDoc', score: number): number | null {
   const labels = getFicoBucketLabels(docKey);
   for (let i = 0; i < labels.length; i += 1) {
     if (matchesFicoLabel(labels[i], score)) return i;
   }
-  return Math.max(0, labels.length - 1);
+  return null;
 }
 
-function getCltvBucketIndex(docKey: 'fullDoc' | 'altDoc', cltv: number): number {
+function getCltvBucketIndex(docKey: 'fullDoc' | 'altDoc', cltv: number): number | null {
   const labels = getCltvBucketLabels(docKey);
   const cltvPct = cltv * 100;
   for (let i = 0; i < labels.length; i += 1) {
     if (matchesCltvLabel(labels[i], cltvPct)) return i;
   }
-  return Math.max(0, labels.length - 1);
+  return null;
 }
 
 function getFicoBucketLabels(docKey: 'fullDoc' | 'altDoc'): string[] {
@@ -730,11 +774,37 @@ function stripProductPrefix(label: string): string {
   return String(label).replace(/^HELOAN\s+/i, '').replace(/^HELOC\s+/i, '').trim();
 }
 
-function getMatrixValue(matrix: Matrix, rowIndex: number, colIndex: number): number {
+function getButtonWorkbookSupport(input: ButtonPricingInput, selectedLoanAmount: number): ButtonWorkbookSupport | null {
+  const docKey = input.docType === 'Full Doc' ? 'fullDoc' : 'altDoc';
+  const ficoIndex = getFicoBucketIndex(docKey, input.creditScore);
+  const cltvIndex = getCltvBucketIndex(docKey, input.resultingCltv);
+  if (ficoIndex === null || cltvIndex === null) return null;
+
+  const cltvCell = getRawMatrixValue(CLTV_MATRIX[docKey], ficoIndex, cltvIndex);
+  if (cltvCell === null) return null;
+
+  const loanAmountBucketLabel = getButtonLoanAmountBucketLabel(input.product, selectedLoanAmount);
+  if (!loanAmountBucketLabel) return null;
+
+  const loanAmountRowIndex = BALANCE_TABLE.rows.findIndex(row => String(row).trim().toLowerCase() === loanAmountBucketLabel.trim().toLowerCase());
+  if (loanAmountRowIndex === -1) return null;
+  const loanAmountCell = getRawMatrixValue(BALANCE_TABLE.values, loanAmountRowIndex, cltvIndex);
+  if (loanAmountCell === null) return null;
+
+  return { ficoIndex, cltvIndex, loanAmountBucketLabel };
+}
+
+function getRawMatrixValue(matrix: Matrix, rowIndex: number, colIndex: number): number | null {
   const row = matrix[rowIndex] || [];
   const value = row[colIndex];
-  if (value === null || value === undefined || value === 'n/a') return 0;
-  return Number(value) || 0;
+  if (value === null || value === undefined || value === '' || String(value).toLowerCase() === 'n/a') return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function getMatrixValue(matrix: Matrix, rowIndex: number, colIndex: number): number {
+  const raw = getRawMatrixValue(matrix, rowIndex, colIndex);
+  return raw ?? 0;
 }
 
 function normalizeProduct(product?: string): ButtonProduct {
