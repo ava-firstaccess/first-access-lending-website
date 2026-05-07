@@ -155,8 +155,9 @@ export function calculateVistaQuote(
   const selectedLoanAmount = Math.max(0, options?.selectedLoanAmount ?? input.desiredLoanAmount ?? maxAvailable);
   const programDti = findAdjustment(PROGRAMS[getProgramKey(input)], 'dti', dtiLabel(input.dti));
   const dtiBucketIndex = findCltvBucketIndex(program, input.resultingCltv, input.docType);
+  const loanAmountAdjustment = findLoanAmountAdjustment(program, selectedLoanAmount);
 
-  if (selectedLoanAmount > maxAvailable || input.resultingCltv > maxLtv || (input.dti !== null && programDti && programDti.values && !isWorkbookEligibleCell(programDti.values, dtiBucketIndex))) {
+  if (selectedLoanAmount > maxAvailable || input.resultingCltv > maxLtv || !loanAmountAdjustment || (input.dti !== null && programDti && programDti.values && !isWorkbookEligibleCell(programDti.values, dtiBucketIndex))) {
     return {
       program: program.inputName,
       maxAvailable,
@@ -221,7 +222,7 @@ export function evaluateVistaStage1Eligibility(
     reasons.push(`Vista DTI ${input.dti.toFixed(2)}% is not eligible in the current workbook.`);
   }
   if (!findAdjustment(program, 'term', input.product)) reasons.push('Selected term is not available in the Vista ratesheet.');
-  if (!findAdjustment(program, 'loanAmount', loanAmountLabel(requested))) reasons.push('Desired loan amount is outside the Vista loan amount table.');
+  if (!findLoanAmountAdjustment(program, requested)) reasons.push('Desired loan amount is outside the Vista loan amount table.');
   if (requested > maxAvailable) reasons.push('Desired loan amount exceeds the current max available amount.');
 
   return {
@@ -242,6 +243,28 @@ export function solveVistaStage1TargetRate(
   const programDti = findAdjustment(program, 'dti', dtiLabel(input.dti));
   const dtiBucketIndex = findCltvBucketIndex(program, input.resultingCltv, input.docType);
   if (input.dti !== null && programDti && programDti.values && !isWorkbookEligibleCell(programDti.values, dtiBucketIndex)) {
+    return {
+      program: program.inputName,
+      maxAvailable: calculateMaxAvailable(input),
+      maxLtv: calculateMaxLtv(input),
+      rate: 0,
+      noteRate: 0,
+      rateType: 'Fixed',
+      monthlyPayment: 0,
+      basePrice: 0,
+      llpaAdjustment: 0,
+      purchasePrice: 0,
+      adjustments: [],
+      product: input.product,
+      targetPrice: options.targetPrice,
+      tolerance: options.tolerance ?? 0.125,
+      deltaFromTarget: 0,
+      withinTolerance: false,
+      withinToleranceAllowOverage: false,
+    };
+  }
+  const loanAmountAdjustment = findLoanAmountAdjustment(program, selectedLoanAmount);
+  if (!loanAmountAdjustment) {
     return {
       program: program.inputName,
       maxAvailable: calculateMaxAvailable(input),
@@ -295,7 +318,11 @@ function getProgramKey(input: VistaPricingInput): ProgramKey {
 }
 
 function calculateMaxAvailable(input: VistaPricingInput): number {
-  return calculateMaxAvailableFromMaxLtv(input.propertyValue, input.loanBalance, calculateMaxLtv(input));
+  const program = PROGRAMS[getProgramKey(input)];
+  const cltvConstrained = calculateMaxAvailableFromMaxLtv(input.propertyValue, input.loanBalance, calculateMaxLtv(input));
+  const loanAmountCap = getVistaProgramLoanAmountCap(program);
+  if (loanAmountCap === null) return 0;
+  return Math.max(0, Math.min(cltvConstrained, loanAmountCap));
 }
 
 function calculateMaxLtv(input: VistaPricingInput): number {
@@ -331,8 +358,7 @@ function buildAdjustmentLines(input: VistaPricingInput, selectedLoanAmount: numb
   const lockTerm = findAdjustment(program, 'lockTerm', vistaLockPeriodLabel(input.lockPeriodDays));
   if (lockTerm) adjustments.push({ label: `Lock Period: ${lockTerm.label}`, value: lockTerm.value ?? 0 });
 
-  const amountLabel = loanAmountLabel(selectedLoanAmount);
-  const loanAmount = findAdjustment(program, 'loanAmount', amountLabel);
+  const loanAmount = findLoanAmountAdjustment(program, selectedLoanAmount);
   if (loanAmount) adjustments.push({ label: `Loan Amount: ${loanAmount.label}`, value: loanAmount.value ?? 0 });
 
   const occupancyLabel = occupancyAdjustmentLabel(input.occupancy);
@@ -483,9 +509,20 @@ function dtiLabel(dti: number | null): string {
   return labels.find(label => valueMatchesRangeLabel(dti, label)) ?? labels.at(-1) ?? '50.01-55';
 }
 
-function loanAmountLabel(amount: number): string {
-  const labels = Array.from(new Set(Object.values(PROGRAMS).flatMap(program => program.sections.adjustments.loanAmount.items.map(item => item.label))));
-  return labels.find(label => amountMatchesVistaLoanLabel(amount, label)) ?? labels.at(-1) ?? '5,000,001+';
+function findLoanAmountAdjustment(program: JsonProgram, amount: number): JsonAdjustmentItem | null {
+  const items = program.sections.adjustments.loanAmount.items ?? [];
+  return items.find(item => amountMatchesVistaLoanLabel(amount, item.label) && item.value !== null) ?? null;
+}
+
+function getVistaProgramLoanAmountCap(program: JsonProgram): number | null {
+  let best: number | null = null;
+  for (const item of program.sections.adjustments.loanAmount.items ?? []) {
+    if (item.value === null) continue;
+    const upperBound = upperBoundForVistaLoanLabel(item.label);
+    if (upperBound === null) continue;
+    best = best === null ? upperBound : Math.max(best, upperBound);
+  }
+  return best;
 }
 
 function matchesCreditScoreLabel(label: string, creditScore: number): boolean {
@@ -565,6 +602,14 @@ function amountMatchesVistaLoanLabel(amount: number, label: string): boolean {
   const left = scaleVistaAmountToken(range[1], '');
   const right = scaleVistaAmountToken(range[2], range[3] ?? '');
   return amount >= left && amount <= right;
+}
+
+function upperBoundForVistaLoanLabel(label: string): number | null {
+  const normalized = label.toLowerCase().trim();
+  if (normalized.endsWith('+')) return null;
+  const range = normalized.match(/([\d,]+(?:\.\d+)?)\s*-\s*([\d,]+(?:\.\d+)?)([km])?/);
+  if (!range) return null;
+  return scaleVistaAmountToken(range[2], range[3] ?? '');
 }
 
 function scaleVistaAmountToken(token: string, suffix = ''): number {
