@@ -468,6 +468,16 @@
           }
         ]
       },
+      "lockAdjustments": [
+        {
+          "days": 45,
+          "adjustment": -0.15
+        },
+        {
+          "days": 60,
+          "adjustment": -0.3
+        }
+      ],
       "adjustments": {
         "term": [
           {
@@ -1019,6 +1029,16 @@
         "bankStatement": [],
         "pnlOnly": []
       },
+      "lockAdjustments": [
+        {
+          "days": 45,
+          "adjustment": -0.15
+        },
+        {
+          "days": 60,
+          "adjustment": -0.3
+        }
+      ],
       "adjustments": {
         "term": [
           {

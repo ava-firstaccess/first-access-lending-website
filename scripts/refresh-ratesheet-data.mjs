@@ -248,6 +248,17 @@ function parseMatrixRows(rows, rowStart, rowEnd, labelCol, valueStartCol, valueE
   return out;
 }
 
+function parseDeephavenLockAdjustments(rows, startRow, endRow) {
+  const adjustments = [];
+  for (let row = startRow; row <= endRow; row += 1) {
+    const days = Number(rawCell(rows, row, 11));
+    const adjustment = price(rawCell(rows, row, 12));
+    if (!Number.isFinite(days) || adjustment === null) continue;
+    adjustments.push({ days, adjustment });
+  }
+  return adjustments;
+}
+
 function parseDeephavenProgram(rows, sheetLabel, expandedPrime = false) {
   const pricing = [];
   for (let row = 6; row <= rows.length; row += 1) {
@@ -291,6 +302,7 @@ function parseDeephavenProgram(rows, sheetLabel, expandedPrime = false) {
           bankStatement: [],
           pnlOnly: [],
         },
+    lockAdjustments: parseDeephavenLockAdjustments(rows, expandedPrime ? 41 : 35, expandedPrime ? 42 : 36),
     adjustments: {
       term: parseMatrixRows(rows, expandedPrime ? 22 : 18, expandedPrime ? 24 : 20, 8, 10, 17),
       occupancy: parseMatrixRows(rows, expandedPrime ? 25 : 21, expandedPrime ? 26 : 22, 8, 10, 17),

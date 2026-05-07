@@ -1,4 +1,5 @@
 import ratesheet from './deephaven-ratesheet.json';
+import { STAGE1_INVESTOR_OVERLAYS } from '../stage1-pricing/config';
 import { getTargetPurchasePriceForLoanAmount, type ButtonStage1Input } from './button';
 import {
   calculateAmortizingMonthlyPayment,
@@ -67,6 +68,7 @@ type ProgramData = {
   pricing: PricingRow[];
   cltvBuckets: Array<number | null>;
   creditAdjustments: AdjustmentRow[];
+  lockAdjustments: Array<{ days: number; adjustment: number }>;
   documentationAdjustments?: {
     bankStatement: AdjustmentRow[];
     pnlOnly: AdjustmentRow[];
@@ -88,20 +90,18 @@ const DEEPHAVEN_PROGRAM_MAP: Record<DeephavenProgram, 'Expanded Prime' | 'Non-Pr
   'Equity Advantage Elite': 'Non-Prime',
 };
 const DEEPHAVEN_PROGRAMS: DeephavenProgram[] = ['Equity Advantage', 'Equity Advantage Elite'];
+const DEEPHAVEN_OVERLAY = STAGE1_INVESTOR_OVERLAYS.Deephaven;
 
 export function getDeephavenGuideMaxPrice(program: DeephavenProgram | typeof DEEPHAVEN_COMBINED_PROGRAM_LABEL, desiredLoanAmount: number): number {
   if (program === DEEPHAVEN_COMBINED_PROGRAM_LABEL) {
     return Math.max(...DEEPHAVEN_PROGRAMS.map(candidate => getDeephavenGuideMaxPrice(candidate, desiredLoanAmount)));
   }
   const source = DATA.programs[sourceProgram(program)];
-  let maxPrice = source.maxPriceTiers[source.maxPriceTiers.length - 1]?.maxPrice ?? 0;
-  for (const tier of source.maxPriceTiers) {
-    if (desiredLoanAmount <= tier.upToLoanAmount) {
-      maxPrice = tier.maxPrice;
-      break;
-    }
+  const tier = source.maxPriceTiers.find(candidate => desiredLoanAmount <= candidate.upToLoanAmount);
+  if (!tier || !Number.isFinite(tier.maxPrice)) {
+    throw new Error(`Deephaven guide max price is missing from deephaven-ratesheet.json for ${program} at loan amount ${desiredLoanAmount}.`);
   }
-  return maxPrice;
+  return tier.maxPrice;
 }
 
 export function buildDeephavenStage1PricingInput(
@@ -117,7 +117,7 @@ export function buildDeephavenStage1PricingInput(
     program: normalizeProgram(stage1.deephavenProgram),
     product: normalizeProduct(stage1.deephavenProduct),
     docType: normalizeDocType(stage1.deephavenDocType),
-    lockPeriodDays: ((Number(stage1.deephavenLockPeriodDays ?? 30) || 30) + 30) as 45 | 60,
+    lockPeriodDays: normalizeLockPeriodDays(stage1.deephavenLockPeriodDays),
     propertyValue,
     loanBalance,
     desiredLoanAmount,
@@ -309,7 +309,10 @@ function calculateMaxAvailable(input: DeephavenPricingInput): number {
 }
 
 function calculateMaxAvailableForProgram(input: DeephavenPricingInput, program: DeephavenProgram): number {
-  return calculateMaxAvailableFromMaxLtv(input.propertyValue, input.loanBalance, calculateMaxLtvForProgram(input, program));
+  return Math.min(
+    DEEPHAVEN_OVERLAY.maxLoanAmount,
+    calculateMaxAvailableFromMaxLtv(input.propertyValue, input.loanBalance, calculateMaxLtvForProgram(input, program)),
+  );
 }
 
 function calculateMaxLtvForProgram(input: DeephavenPricingInput, program: DeephavenProgram): number {
@@ -337,18 +340,18 @@ function calculateMaxLtvForProgram(input: DeephavenPricingInput, program: Deepha
 }
 
 function minCreditScore(program: DeephavenProgram): number {
-  return program === 'Equity Advantage' ? 660 : 620;
+  const scores = DATA.programs[sourceProgram(program)].creditAdjustments
+    .map(row => parseCreditFloor(row.label))
+    .filter((score): score is number => Number.isFinite(score));
+  if (scores.length === 0) {
+    throw new Error(`Deephaven minimum credit score is missing from deephaven-ratesheet.json for ${program}.`);
+  }
+  return Math.min(...scores);
 }
 
 function clampTargetPrice(input: DeephavenPricingInput, targetPrice: number, selectedLoanAmount: number, program = input.program): number {
   const programData = DATA.programs[sourceProgram(program)];
-  let maxPrice = programData.maxPriceTiers[programData.maxPriceTiers.length - 1]?.maxPrice ?? getDeephavenGuideMaxPrice(program, selectedLoanAmount);
-  for (const tier of programData.maxPriceTiers) {
-    if (selectedLoanAmount <= tier.upToLoanAmount) {
-      maxPrice = tier.maxPrice;
-      break;
-    }
-  }
+  const maxPrice = getDeephavenGuideMaxPrice(program, selectedLoanAmount);
   return roundToThree(Math.min(maxPrice, Math.max(programData.minPrice, targetPrice)));
 }
 
@@ -356,26 +359,37 @@ function normalizeProgram(value?: string): DeephavenProgram {
   return String(value || '').toLowerCase().includes('elite') ? 'Equity Advantage Elite' : 'Equity Advantage';
 }
 
+function normalizeLockPeriodDays(value?: number): 45 | 60 {
+  if (value === 15) return 45;
+  if (value === 30) return 60;
+  throw new Error(`Unsupported Deephaven lock period: ${value ?? ''}`);
+}
+
 function pricingProduct(product: DeephavenProduct): '15Y Fixed' | '30Y Fixed' {
   return product === '15Y Fixed' ? '15Y Fixed' : '30Y Fixed';
 }
 
 function termYears(product: DeephavenProduct): number {
-  return product === '15Y Fixed' ? 15 : product === '20Y Fixed' ? 20 : 30;
+  if (product === '15Y Fixed') return 15;
+  if (product === '20Y Fixed') return 20;
+  if (product === '30Y Fixed') return 30;
+  throw new Error(`Unsupported Deephaven term product: ${product}`);
 }
 
 function normalizeProduct(value?: string): DeephavenProduct {
   const text = String(value || '');
   if (text.includes('15')) return '15Y Fixed';
   if (text.includes('20')) return '20Y Fixed';
-  return '30Y Fixed';
+  if (text.includes('30')) return '30Y Fixed';
+  throw new Error(`Unsupported Deephaven product: ${value ?? ''}`);
 }
 
 function normalizeDocType(value?: string): DeephavenDocType {
   const text = String(value || '').toLowerCase();
+  if (text.includes('full')) return 'Full Doc';
   if (text.includes('bank')) return 'Bank Statement';
   if (text.includes('p&l') || text.includes('p & l') || text.includes('pnl')) return 'P&L Only';
-  return 'Full Doc';
+  throw new Error(`Unsupported Deephaven doc type: ${value ?? ''}`);
 }
 
 function programSupportsDocType(program: DeephavenProgram, docType: DeephavenDocType): boolean {
@@ -409,8 +423,6 @@ function calculateLlpaAdjustment(input: DeephavenPricingInput, selectedLoanAmoun
   return roundToThree(buildAdjustmentLines(input, selectedLoanAmount, program).reduce((sum, line) => sum + line.value, 0));
 }
 
-const DEEPHAVEN_LOCK_ADJUSTMENTS: Record<45 | 60, number> = { 45: -0.15, 60: -0.3 };
-
 function buildAdjustmentLines(input: DeephavenPricingInput, selectedLoanAmount: number, program = input.program): Stage1AdjustmentLine[] {
   const programData = DATA.programs[sourceProgram(program)];
   const cltvIndex = findCltvBucketIndex(programData.cltvBuckets, input.resultingCltv);
@@ -433,7 +445,7 @@ function buildAdjustmentLines(input: DeephavenPricingInput, selectedLoanAmount: 
     pushAdjustment(lines, 'State (FL / TX)', readAdjustmentValue(programData.adjustments.state[0], cltvIndex));
   }
 
-  pushAdjustment(lines, `Lock Period: ${input.lockPeriodDays} Day`, DEEPHAVEN_LOCK_ADJUSTMENTS[input.lockPeriodDays]);
+  pushAdjustment(lines, `Lock Period: ${input.lockPeriodDays} Day`, getLockAdjustment(programData, input.lockPeriodDays));
 
   return lines;
 }
@@ -471,6 +483,13 @@ function findCreditRow(rows: AdjustmentRow[], creditScore: number): AdjustmentRo
   return rows.find(row => matchesCreditBand(row.label, creditScore));
 }
 
+function parseCreditFloor(label: string): number | null {
+  const text = label.replace(/\s+/g, ' ').trim();
+  if (text.endsWith('+')) return Number(text.replace('+', ''));
+  const match = text.match(/(\d+)\s*-\s*(\d+)/);
+  return match ? Number(match[1]) : null;
+}
+
 function matchesCreditBand(label: string, creditScore: number): boolean {
   const text = label.replace(/\s+/g, ' ').trim();
   if (text.endsWith('+')) return creditScore >= Number(text.replace('+', ''));
@@ -489,17 +508,18 @@ function findLoanAmountRow(rows: AdjustmentRow[], selectedLoanAmount: number): A
   return rows.find(row => matchesLoanAmountBand(row.label, selectedLoanAmount));
 }
 
+function parseStrictGreaterThanThreshold(label: string): number {
+  const match = label.match(/^\s*(?:DTI\s*)?>\s*(\d+(?:\.\d+)?)/i);
+  return match ? Number(match[1]) : Number.NaN;
+}
+
 function findMatchingDtiRow(rows: AdjustmentRow[], dti: number | null | undefined): AdjustmentRow | undefined {
   if (!Number.isFinite(dti)) return undefined;
-  const thresholds = rows
-    .map(row => {
-      const match = row.label.match(/(\d+(?:\.\d+)?)/);
-      return match ? { row, threshold: Number(match[1]) } : null;
-    })
-    .filter((value): value is { row: AdjustmentRow; threshold: number } => value !== null)
-    .sort((a, b) => a.threshold - b.threshold);
-  const match = thresholds.filter(item => dti! > item.threshold).pop();
-  return match?.row;
+  return rows
+    .map(row => ({ row, threshold: parseStrictGreaterThanThreshold(row.label) }))
+    .filter((item): item is { row: AdjustmentRow; threshold: number } => Number.isFinite(item.threshold))
+    .sort((a, b) => b.threshold - a.threshold)
+    .find(item => dti! > item.threshold)?.row;
 }
 
 function matchesLoanAmountBand(label: string, selectedLoanAmount: number): boolean {
@@ -507,8 +527,16 @@ function matchesLoanAmountBand(label: string, selectedLoanAmount: number): boole
   const lt = text.match(/^<\s*(\d+(?:\.\d+)?)/);
   if (lt) return selectedLoanAmount < Number(lt[1]);
   const gt = text.match(/^>\s*(\d+(?:\.\d+)?)/);
-  if (gt) return selectedLoanAmount > Number(gt[1]);
+  if (gt) return selectedLoanAmount > Number(gt[1]) && selectedLoanAmount <= DEEPHAVEN_OVERLAY.maxLoanAmount;
   return false;
+}
+
+function getLockAdjustment(programData: ProgramData, lockPeriodDays: 45 | 60): number | null {
+  const row = programData.lockAdjustments.find(candidate => candidate.days === lockPeriodDays);
+  if (!row) {
+    throw new Error(`Deephaven lock adjustment is missing from deephaven-ratesheet.json for ${lockPeriodDays} day lock.`);
+  }
+  return row.adjustment;
 }
 
 function amortizedPayment(balance: number, rate: number, years: number): number {

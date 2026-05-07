@@ -22,6 +22,9 @@ export const STAGE1_INVESTOR_OVERLAYS = {
       maxDti: 50,
     },
   },
+  Deephaven: {
+    maxLoanAmount: 1_000_000,
+  },
 } as const;
 
 const BEST_EX_DOC_TYPE_MAP = {
