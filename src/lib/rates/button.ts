@@ -390,7 +390,27 @@ export function solveButtonStage1TargetRate(
 }
 
 function calculateMaxAvailable(input: ButtonPricingInput): number {
-  return calculateMaxAvailableFromMaxLtv(input.propertyValue, input.loanBalance, calculateMaxLtv(input));
+  const docKey = input.docType === 'Full Doc' ? 'fullDoc' : 'altDoc';
+  const ficoIndex = getFicoBucketIndex(docKey, input.creditScore);
+  if (ficoIndex === null) return 0;
+
+  let best = 0;
+  const cltvLabels = getCltvBucketLabels(docKey);
+  for (let cltvIndex = 0; cltvIndex < cltvLabels.length; cltvIndex += 1) {
+    const cltvCell = getRawMatrixValue(CLTV_MATRIX[docKey], ficoIndex, cltvIndex);
+    if (cltvCell === null) continue;
+
+    const cltvUpperBoundPct = upperBoundForCltvLabel(cltvLabels[cltvIndex]);
+    if (cltvUpperBoundPct === null) continue;
+    const cltvConstrainedAmount = Math.max(0, calculateMaxAvailableFromMaxLtv(input.propertyValue, input.loanBalance, cltvUpperBoundPct / 100));
+
+    const workbookLoanAmountCap = getButtonWorkbookLoanAmountCap(input.product, cltvIndex);
+    if (workbookLoanAmountCap === null) continue;
+
+    best = Math.max(best, Math.min(cltvConstrainedAmount, workbookLoanAmountCap));
+  }
+
+  return roundToThree(best);
 }
 
 function calculateMaxLtv(input: ButtonPricingInput): number {
@@ -761,6 +781,36 @@ function parseBalanceRange(label: string): { minExclusive: number; maxInclusive:
     maxInclusive: normalizeMagnitude(Number(range[3]), range[4] ?? ''),
     maxOnly: false,
   };
+}
+
+function getButtonWorkbookLoanAmountCap(product: ButtonProduct, cltvIndex: number): number | null {
+  const prefix = product === 'CES' ? 'HELOAN' : 'HELOC';
+  let best: number | null = null;
+
+  for (let rowIndex = 0; rowIndex < BALANCE_TABLE.rows.length; rowIndex += 1) {
+    const label = String(BALANCE_TABLE.rows[rowIndex]).trim();
+    const productMatch = label.match(/^(HELOAN|HELOC)\s+/i);
+    if (productMatch && productMatch[1].toUpperCase() !== prefix) continue;
+
+    const range = parseBalanceRange(label);
+    if (!range) continue;
+
+    const value = getRawMatrixValue(BALANCE_TABLE.values, rowIndex, cltvIndex);
+    if (value === null) continue;
+
+    best = best === null ? range.maxInclusive : Math.max(best, range.maxInclusive);
+  }
+
+  return best;
+}
+
+function upperBoundForCltvLabel(label: string): number | null {
+  const normalized = String(label).replace(/\s+/g, ' ').trim();
+  const maxOnly = normalized.match(/^<=\s*(\d+(?:\.\d+)?)%$/);
+  if (maxOnly) return Number(maxOnly[1]);
+  const range = normalized.match(/(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)%$/);
+  if (range) return Number(range[2]);
+  return null;
 }
 
 function normalizeMagnitude(value: number, suffix: string): number {
