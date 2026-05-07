@@ -954,8 +954,8 @@
     "cashOut": {
       "rows": [
         "Cash Out",
-        "43% < DTI \u2264 50%",
-        "50% < DTI \u2264 55%"
+        "43% < DTI ≤ 50%",
+        "50% < DTI ≤ 55%"
       ],
       "columns": [
         null,
@@ -998,9 +998,9 @@
     },
     "dti": {
       "rows": [
-        "43% < DTI \u2264 50%",
-        "50% < DTI \u2264 55%",
-        "55% < DTI \u2264 60%"
+        "43% < DTI ≤ 50%",
+        "50% < DTI ≤ 55%",
+        "55% < DTI ≤ 60%"
       ],
       "columns": [
         "<= 60%",
@@ -1438,5 +1438,12 @@
         ]
       ]
     }
+  },
+  "ratesheetMeta": {
+    "label": "Pricing date",
+    "value": "May 6, 2026, 12:00 AM",
+    "collectedAt": "May 7, 2026, 9:00 AM",
+    "sourceWorkbook": "/Users/ava/Documents/GitHub/first-access-lending/getaccess/ratesheets/latest_button.xlsx",
+    "source": "sheet"
   }
 }

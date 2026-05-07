@@ -514,5 +514,12 @@
         }
       ]
     }
+  },
+  "ratesheetMeta": {
+    "label": "Pricing date",
+    "value": "May 7, 2026, 10:00 AM",
+    "collectedAt": "May 7, 2026, 9:00 AM",
+    "sourceWorkbook": "/Users/ava/Documents/GitHub/first-access-lending/getaccess/ratesheets/latest_arc_home.xlsx",
+    "source": "sheet"
   }
 }

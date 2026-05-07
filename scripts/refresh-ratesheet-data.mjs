@@ -10,6 +10,9 @@ const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, '..');
 const SOURCE_ROOT = '/Users/ava/Documents/GitHub/first-access-lending';
 const RATE_DIR = path.join(ROOT, 'src', 'lib', 'rates');
+const TIME_ZONE = 'America/Los_Angeles';
+const dateFormatter = new Intl.DateTimeFormat('en-US', { timeZone: TIME_ZONE, month: 'short', day: 'numeric', year: 'numeric' });
+const dateTimeFormatter = new Intl.DateTimeFormat('en-US', { timeZone: TIME_ZONE, month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 function assertOk(result, label) {
   if (result.status !== 0) {
@@ -81,6 +84,101 @@ function writeJson(filename, data) {
   const outPath = path.join(RATE_DIR, filename);
   fs.writeFileSync(outPath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
   return outPath;
+}
+
+function asDate(value) {
+  if (value instanceof Date && Number.isFinite(value.getTime())) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = new Date(value);
+    if (Number.isFinite(parsed.getTime())) return parsed;
+  }
+  return null;
+}
+
+function formatDateOnly(value) {
+  return dateFormatter.format(value);
+}
+
+function formatDateTime(value) {
+  return dateTimeFormatter.format(value);
+}
+
+function infoFromDate(dateValue, timeValue) {
+  const date = asDate(dateValue);
+  const time = typeof timeValue === 'string' && timeValue.trim() ? timeValue.trim() : null;
+  if (date) {
+    return {
+      label: 'Pricing date',
+      value: time ? `${formatDateOnly(date)} ${time}` : formatDateTime(date),
+      source: 'sheet',
+    };
+  }
+  return { label: 'Last collected', value: null, source: 'unknown' };
+}
+
+function metadataFromWorkbookProps(workbookPath) {
+  const workbook = XLSX.readFile(workbookPath, { bookProps: true, cellDates: true });
+  const modifiedDate = asDate(workbook.Props?.ModifiedDate);
+  if (modifiedDate) {
+    return { label: 'Workbook modified', value: formatDateTime(modifiedDate), source: 'workbook-props' };
+  }
+  return { label: 'Last collected', value: null, source: 'unknown' };
+}
+
+function rowsFromSheet(workbookPath, sheetName) {
+  const workbook = XLSX.readFile(workbookPath, { raw: true, cellDates: true });
+  return XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, raw: true, blankrows: true });
+}
+
+function readCell(rows, row, col) {
+  return rows[row - 1]?.[col - 1];
+}
+
+function metadataForRatesheet(filename, workbookPath) {
+  if (filename === 'button-ratesheet.json') {
+    const rows = rowsFromSheet(workbookPath, 'Pricing');
+    return infoFromDate(readCell(rows, 7, 2));
+  }
+  if (filename === 'arc-home-ratesheet.json') {
+    const rows = rowsFromSheet(workbookPath, 'Corr - Del Non-Agency');
+    return infoFromDate(readCell(rows, 6, 13));
+  }
+  if (filename === 'vista-ratesheet.json') return metadataFromWorkbookProps(workbookPath);
+  if (filename === 'osb-ratesheet.json') {
+    const rows = rowsFromSheet(workbookPath, 'Expanded Prime Plus');
+    return infoFromDate(readCell(rows, 2, 25), readCell(rows, 3, 25));
+  }
+  if (filename === 'newrez-ratesheet.json') {
+    const rows = rowsFromSheet(workbookPath, 'Home Equity');
+    return infoFromDate(readCell(rows, 3, 13), readCell(rows, 3, 15));
+  }
+  if (filename === 'verus-ratesheet.json') {
+    const rows = rowsFromSheet(workbookPath, 'CES');
+    const timeDate = asDate(readCell(rows, 4, 10));
+    const timeText = timeDate ? timeDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: TIME_ZONE }) : undefined;
+    return infoFromDate(readCell(rows, 3, 10), timeText);
+  }
+  if (filename === 'deephaven-ratesheet.json') {
+    const rows = rowsFromSheet(workbookPath, 'Equity Advantage');
+    return infoFromDate(readCell(rows, 4, 15));
+  }
+  return { label: 'Last collected', value: null, source: 'unknown' };
+}
+
+function attachRatesheetMetadata(filename) {
+  const outPath = path.join(RATE_DIR, filename);
+  const data = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+  const workbookPath = data.sourceWorkbook;
+  const stats = fs.existsSync(workbookPath) ? fs.statSync(workbookPath) : null;
+  const extracted = metadataForRatesheet(filename, workbookPath);
+  data.ratesheetMeta = {
+    label: extracted.label,
+    value: extracted.value,
+    collectedAt: stats ? formatDateTime(stats.mtime) : null,
+    sourceWorkbook: workbookPath,
+    source: extracted.source,
+  };
+  fs.writeFileSync(outPath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
 }
 
 function generateNewRez() {
@@ -338,6 +436,15 @@ function main() {
   run('python3', ['scripts/generate-osb-ratesheet-data.py']);
   run('python3', ['scripts/generate-vista-ratesheet-data.py']);
   const outputs = [generateNewRez(), generateDeephaven(), generateVerus(), generateArcHome()];
+  [
+    'button-ratesheet.json',
+    'osb-ratesheet.json',
+    'vista-ratesheet.json',
+    'newrez-ratesheet.json',
+    'deephaven-ratesheet.json',
+    'verus-ratesheet.json',
+    'arc-home-ratesheet.json',
+  ].forEach(attachRatesheetMetadata);
   console.log(JSON.stringify({ updated: outputs }, null, 2));
 }
 

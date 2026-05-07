@@ -84,7 +84,7 @@ function formatCurrency(value: number) {
 }
 function formatRatesheetDateInline(info?: RatesheetDateInfo | null) {
   if (!info) return null;
-  return info.value || info.collectedAt || null;
+  return info.value || null;
 }
 function toDraftForm(input: TesterInput, targetPriceOverride = '', manualRateOverride = '', tolerance = 0.125): DraftForm {
   const propertyValue = Number(input.propertyValue || 0);
