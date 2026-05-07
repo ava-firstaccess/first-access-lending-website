@@ -1680,6 +1680,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json() as LoanOfficerAvmRequestBody;
     const address = String(body.address || '').trim();
+    const vendorStreetAddress = String(address.split(',')[0] || '').trim();
     const city = String(body.city || '').trim();
     const state = String(body.state || '').trim().toUpperCase();
     const zipcode = String(body.zipcode || '').trim();
@@ -1946,8 +1947,8 @@ export async function POST(req: NextRequest) {
         let hcValue: any;
         try {
           [pexp, hcValue] = await Promise.all([
-            getHouseCanaryPropertyExplorerStaticLink(address, zipcode),
-            getHouseCanaryValueWithFsd(address, zipcode),
+            getHouseCanaryPropertyExplorerStaticLink(vendorStreetAddress, zipcode),
+            getHouseCanaryValueWithFsd(vendorStreetAddress, zipcode),
           ]);
         } catch (providerError: any) {
           await recordFailedLoanOfficerAvmOrder(supabase, {
@@ -2181,7 +2182,7 @@ export async function POST(req: NextRequest) {
       let clearCapital: any;
       try {
         clearCapital = await createClearCapitalOrder({
-          address,
+          address: vendorStreetAddress,
           city,
           state,
           zipcode,
