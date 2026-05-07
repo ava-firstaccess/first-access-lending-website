@@ -225,10 +225,12 @@ async function insertLoanOfficerAvmOrder(supabase: ReturnType<typeof getSupabase
 
 async function recordFailedLoanOfficerAvmOrder(supabase: ReturnType<typeof getSupabaseAdmin>, payload: Record<string, any>) {
   try {
-    return await insertLoanOfficerAvmOrder(supabase, payload);
-  } catch (error) {
+    const data = await insertLoanOfficerAvmOrder(supabase, payload);
+    return { ok: true as const, data, errorMessage: null };
+  } catch (error: any) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown failed-attempt logging error';
     console.error('Failed to record LO AVM failed attempt:', error);
-    return null;
+    return { ok: false as const, data: null, errorMessage };
   }
 }
 
@@ -2097,7 +2099,7 @@ export async function POST(req: NextRequest) {
           maxFsd: requestedMaxFsd,
         });
       } catch (providerError: any) {
-        await recordFailedLoanOfficerAvmOrder(supabase, {
+        const failedAttemptLog = await recordFailedLoanOfficerAvmOrder(supabase, {
           order_run_id: orderRunId,
           address_id: addressId,
           loan_officer_prefix: session.prefix,
@@ -2145,6 +2147,18 @@ export async function POST(req: NextRequest) {
           fsd_threshold_passed: null,
           notes: `${runSource === 'manual' ? 'Manual' : 'Cascade'} Clear Capital order with maxFSD ${requestedMaxFsd.toFixed(2)}`,
         });
+        if (!failedAttemptLog.ok) {
+          console.error('Clear Capital failed attempt was not persisted:', {
+            providerError: providerError instanceof Error ? providerError.message : String(providerError),
+            loggingError: failedAttemptLog.errorMessage,
+            address,
+            city,
+            state,
+            zipcode,
+            trackingId,
+          });
+          throw new Error(`${providerError?.message || 'Clear Capital order failed.'} [failed-attempt logging also failed: ${failedAttemptLog.errorMessage}]`);
+        }
         throw providerError;
       }
 
