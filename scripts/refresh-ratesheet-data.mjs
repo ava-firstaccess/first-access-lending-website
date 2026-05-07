@@ -218,16 +218,16 @@ function generateNewRez() {
       rows: parseRows(rows, 110, 116, 3, 5, 13),
     },
     cltv1520: {
-      cltvBuckets: Array.from({ length: 9 }, (_, index) => String(cell(rows, 118, 5 + index))),
-      rows: parseRows(rows, 119, 125, 3, 5, 13),
+      cltvBuckets: Array.from({ length: 9 }, (_, index) => String(cell(rows, 131, 5 + index))),
+      rows: parseRows(rows, 132, 138, 3, 5, 13),
     },
     additional: {
-      cltvBuckets: Array.from({ length: 9 }, (_, index) => String(cell(rows, 127, 5 + index))),
-      rows: parseRows(rows, 128, 133, 3, 5, 13),
+      cltvBuckets: Array.from({ length: 9 }, (_, index) => String(cell(rows, 141, 5 + index))),
+      rows: parseRows(rows, 142, 147, 3, 5, 13),
     },
     loanAmount: {
-      cltvBuckets: Array.from({ length: 9 }, (_, index) => String(cell(rows, 135, 5 + index))),
-      rows: parseRows(rows, 136, 139, 3, 5, 13),
+      cltvBuckets: Array.from({ length: 9 }, (_, index) => String(cell(rows, 150, 5 + index))),
+      rows: parseRows(rows, 151, 154, 3, 5, 13),
     },
     guideMaxPrice: {
       default: price(rawCell(rows, 121, 15)),
