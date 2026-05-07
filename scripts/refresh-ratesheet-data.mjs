@@ -66,10 +66,19 @@ function parseRows(rows, startRow, endRow, labelCol, firstValueCol, lastValueCol
   return out;
 }
 
+function rateValue(value) {
+  const normalized = normalize(value);
+  if (normalized === null) return null;
+  if (typeof normalized === 'number') return Math.round(normalized * 1000000) / 1000000;
+  const parsed = Number(String(normalized).replace('%', ''));
+  if (!Number.isFinite(parsed)) return null;
+  return String(normalized).includes('%') ? Math.round((parsed / 100) * 1000000) / 1000000 : Math.round(parsed * 1000000) / 1000000;
+}
+
 function parsePricingBlock(rows, startRow, endRow, rateCol, firstPriceCol, columns) {
   const data = [];
   for (let row = startRow; row <= endRow; row += 1) {
-    const noteRate = price(rawCell(rows, row, rateCol));
+    const noteRate = rateValue(rawCell(rows, row, rateCol));
     if (noteRate === null) continue;
     const prices = {};
     columns.forEach((columnName, index) => {

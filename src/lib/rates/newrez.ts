@@ -105,16 +105,24 @@ export function getNewRezGuideMaxPrice(): number {
   return DATA.guideMaxPrice?.default ?? 107;
 }
 
+export function getNewRezAvailableRates(product: NewRezProduct, lockPeriodDays: 15 | 30 | 45 | 60): number[] {
+  const sheet = DATA.pricing[product];
+  const executionColumn = getExecutionColumnForLockPeriod(sheet, normalizeNewRezLockPeriodDays(lockPeriodDays));
+  if (!sheet.columns.includes(executionColumn)) return [];
+
+  return sheet.rows
+    .map(row => ({ noteRate: normalizeDisplayedNoteRate(row.noteRate), basePrice: row.prices[executionColumn] }))
+    .filter(row => row.basePrice !== null)
+    .map(row => row.noteRate)
+    .sort((a, b) => a - b);
+}
+
 export function getNewRezRateBounds(product: NewRezProduct, lockPeriodDays: 15 | 30 | 45 | 60): { minRate: number; maxRate: number } | null {
   const sheet = DATA.pricing[product];
   const executionColumn = getExecutionColumnForLockPeriod(sheet, normalizeNewRezLockPeriodDays(lockPeriodDays));
   if (!sheet.columns.includes(executionColumn)) return null;
 
-  const rates = sheet.rows
-    .map(row => ({ noteRate: normalizeDisplayedNoteRate(row.noteRate), basePrice: row.prices[executionColumn] }))
-    .filter(row => row.basePrice !== null)
-    .map(row => row.noteRate)
-    .sort((a, b) => a - b);
+  const rates = getNewRezAvailableRates(product, lockPeriodDays);
 
   if (rates.length === 0) return null;
   return { minRate: rates[0], maxRate: rates[rates.length - 1] };
@@ -355,7 +363,9 @@ function pickExecution(product: NewRezProduct, lockPeriodDays: 15 | 30 | 45 | 60
   }
 
   if (rateOverride !== undefined) {
-    return interpolateExecutionAtRate(executions, executionColumn, rateOverride, llpaAdjustment);
+    const exact = executions.find(item => Math.abs(item.noteRate - roundToThree(rateOverride)) < 0.0001);
+    if (exact) return exact;
+    return { noteRate: roundToThree(rateOverride), endSeconds: executionColumn, basePrice: 0, purchasePrice: 0, deltaFromTarget: roundToThree(targetPrice), withinTolerance: false };
   }
 
   const belowOrEqual = executions
@@ -364,63 +374,6 @@ function pickExecution(product: NewRezProduct, lockPeriodDays: 15 | 30 | 45 | 60
   if (belowOrEqual.length > 0) return belowOrEqual[0];
 
   return executions.sort((a, b) => Math.abs(a.deltaFromTarget) - Math.abs(b.deltaFromTarget) || (b.purchasePrice - a.purchasePrice) || (a.noteRate - b.noteRate))[0];
-}
-
-function interpolateExecutionAtRate(
-  executions: SelectedExecution[],
-  endSeconds: NewRezEndSeconds,
-  requestedRate: number,
-  llpaAdjustment: number
-): SelectedExecution {
-  const sorted = [...executions].sort((a, b) => a.noteRate - b.noteRate);
-  if (sorted.length === 0) {
-    return {
-      noteRate: requestedRate,
-      endSeconds,
-      basePrice: 0,
-      purchasePrice: roundToThree(llpaAdjustment),
-      deltaFromTarget: 0,
-      withinTolerance: false,
-    };
-  }
-
-  if (requestedRate <= sorted[0].noteRate) {
-    return {
-      ...sorted[0],
-      noteRate: requestedRate,
-    };
-  }
-
-  const last = sorted[sorted.length - 1];
-  if (requestedRate >= last.noteRate) {
-    return {
-      ...last,
-      noteRate: requestedRate,
-    };
-  }
-
-  for (let i = 1; i < sorted.length; i += 1) {
-    const lower = sorted[i - 1];
-    const upper = sorted[i];
-    if (requestedRate <= upper.noteRate) {
-      const span = upper.noteRate - lower.noteRate;
-      const ratio = span === 0 ? 0 : (requestedRate - lower.noteRate) / span;
-      const basePrice = roundToThree(lower.basePrice + (upper.basePrice - lower.basePrice) * ratio);
-      return {
-        noteRate: roundToThree(requestedRate),
-        endSeconds,
-        basePrice,
-        purchasePrice: roundToThree(basePrice + llpaAdjustment),
-        deltaFromTarget: 0,
-        withinTolerance: false,
-      };
-    }
-  }
-
-  return {
-    ...last,
-    noteRate: requestedRate,
-  };
 }
 
 function findCreditRow(matrix: JsonMatrix, creditScore: number): JsonBucketRow | null {
