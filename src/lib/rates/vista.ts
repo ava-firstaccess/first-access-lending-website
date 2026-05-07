@@ -71,6 +71,7 @@ type JsonProgram = {
       rows: number[];
       rowsData: JsonPricingRow[];
       maxPrice: Record<string, number | null>;
+      guideMaxPrice: Record<string, number | null>;
       minPrice: Record<string, number | null>;
     };
     cltvDoc01: {
@@ -107,8 +108,7 @@ const VISTA_PRODUCTS = Array.from(new Set(Object.values(PROGRAMS).flatMap(progra
 
 export function getVistaGuideMaxPrice(occupancy: string): number {
   const program = occupancy === 'Investment' ? PROGRAMS.secondNOO : PROGRAMS.secondOO;
-  const values = Object.values(program.sections.pricing30Day.maxPrice).filter((value): value is number => typeof value === 'number');
-  return values.length ? Math.min(...values) : 105;
+  return getVistaProgramGuideMaxPrice(program);
 }
 
 export function buildVistaStage1PricingInput(stage1: ButtonStage1Input & { vistaProduct?: VistaProduct; vistaDocType?: VistaDocType; vistaLockPeriodDays?: 30 | 45 | 60 }): VistaPricingInput {
@@ -119,9 +119,9 @@ export function buildVistaStage1PricingInput(stage1: ButtonStage1Input & { vista
   const resultingCltv = propertyValue > 0 ? resultingLoanAmount / propertyValue : 0;
 
   return {
-    product: normalizeVistaProduct(stage1.vistaProduct),
+    product: requireVistaProduct(stage1.vistaProduct),
     docType: normalizeVistaDocType(stage1.vistaDocType),
-    lockPeriodDays: normalizeVistaLockPeriodDays(stage1.vistaLockPeriodDays),
+    lockPeriodDays: requireVistaLockPeriodDays(stage1.vistaLockPeriodDays),
     propertyState: String(stage1.propertyState || '').toUpperCase(),
     propertyValue,
     loanBalance,
@@ -434,8 +434,15 @@ function isWorkbookEligibleCell(values: Array<number | null>, index: number | nu
 }
 
 function getMaxPrice(program: JsonProgram): number {
-  const values = Object.values(program.sections.pricing30Day.maxPrice).filter((value): value is number => typeof value === 'number');
-  return values.length ? Math.max(...values) : 105;
+  return getVistaProgramGuideMaxPrice(program);
+}
+
+function getVistaProgramGuideMaxPrice(program: JsonProgram): number {
+  const value = program.sections.pricing30Day.guideMaxPrice.default;
+  if (value === null || value === undefined) {
+    throw new Error(`Vista guide max price is missing from vista-ratesheet.json for ${program.inputName}`);
+  }
+  return value;
 }
 
 function pickRateClosestToRequested(
@@ -483,8 +490,9 @@ function pickRateAtOrBelowTarget(
 }
 
 function calculateMonthlyPayment(product: VistaProduct, noteRate: number, loanAmount: number): number {
-  if (loanAmount <= 0) return 0;
-  return roundToNearestDollar(calculateAmortizingMonthlyPayment(loanAmount, noteRate, termYears(product)));
+  const years = termYears(product);
+  if (loanAmount <= 0 || years === null) return 0;
+  return roundToNearestDollar(calculateAmortizingMonthlyPayment(loanAmount, noteRate, years));
 }
 
 function occupancyAdjustmentLabel(occupancy: string): string {
@@ -540,17 +548,18 @@ function upperBoundForCltvLabel(label: string): number {
   return Number(String(right).replace('%', '').trim());
 }
 
-function normalizeVistaLockPeriodDays(lockPeriodDays?: 30 | 45 | 60): 30 | 45 | 60 {
-  return lockPeriodDays === 30 || lockPeriodDays === 45 || lockPeriodDays === 60 ? lockPeriodDays : 45;
+function requireVistaLockPeriodDays(lockPeriodDays?: 30 | 45 | 60): 30 | 45 | 60 {
+  if (lockPeriodDays === 30 || lockPeriodDays === 45 || lockPeriodDays === 60) return lockPeriodDays;
+  throw new Error('Vista lock period is missing or invalid.');
 }
 
 function vistaLockPeriodLabel(lockPeriodDays: 30 | 45 | 60): string {
   return `${lockPeriodDays} Day`;
 }
 
-function normalizeVistaProduct(product?: string): VistaProduct {
+function requireVistaProduct(product?: string): VistaProduct {
   if (VISTA_PRODUCTS.includes(product as VistaProduct)) return product as VistaProduct;
-  return (VISTA_PRODUCTS.includes('30yr Fixed') ? '30yr Fixed' : VISTA_PRODUCTS[0]) as VistaProduct;
+  throw new Error('Vista product is missing or invalid.');
 }
 
 function normalizeVistaDocType(docType?: string): VistaDocType {
@@ -579,9 +588,9 @@ function normalizeStructureType(structureType?: string): string {
   return 'SFR';
 }
 
-function termYears(product: VistaProduct): number {
+function termYears(product: VistaProduct): number | null {
   const match = String(product).match(/(\d+)/);
-  return match ? Number(match[1]) : 30;
+  return match ? Number(match[1]) : null;
 }
 
 function valueMatchesRangeLabel(value: number, label: string): boolean {

@@ -26,13 +26,13 @@ type RatesheetJson = {
 };
 
 const RATESHEETS: Record<Stage1PricingEngine, RatesheetJson> = {
-  Button: buttonRatesheet,
-  'Arc Home': arcHomeRatesheet,
-  Vista: vistaRatesheet,
-  OSB: osbRatesheet,
-  NewRez: newrezRatesheet,
-  Verus: verusRatesheet,
-  Deephaven: deephavenRatesheet,
+  Button: buttonRatesheet as unknown as RatesheetJson,
+  'Arc Home': arcHomeRatesheet as unknown as RatesheetJson,
+  Vista: vistaRatesheet as unknown as RatesheetJson,
+  OSB: osbRatesheet as unknown as RatesheetJson,
+  NewRez: newrezRatesheet as unknown as RatesheetJson,
+  Verus: verusRatesheet as unknown as RatesheetJson,
+  Deephaven: deephavenRatesheet as unknown as RatesheetJson,
 };
 
 let cache: Partial<Record<Stage1PricingEngine, RatesheetDateInfo>> | null = null;

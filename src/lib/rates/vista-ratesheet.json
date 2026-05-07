@@ -18,14 +18,14 @@
             },
             {
               "noteRate": 12.25,
-              "basePrice": 114
+              "basePrice": 114.0
             },
             {
               "noteRate": 12.125,
               "basePrice": 113.875
             },
             {
-              "noteRate": 12,
+              "noteRate": 12.0,
               "basePrice": 113.75
             },
             {
@@ -50,14 +50,14 @@
             },
             {
               "noteRate": 11.25,
-              "basePrice": 113
+              "basePrice": 113.0
             },
             {
               "noteRate": 11.125,
               "basePrice": 112.875
             },
             {
-              "noteRate": 11,
+              "noteRate": 11.0,
               "basePrice": 112.75
             },
             {
@@ -70,7 +70,7 @@
             },
             {
               "noteRate": 10.625,
-              "basePrice": 112
+              "basePrice": 112.0
             },
             {
               "noteRate": 10.5,
@@ -86,10 +86,10 @@
             },
             {
               "noteRate": 10.125,
-              "basePrice": 111
+              "basePrice": 111.0
             },
             {
-              "noteRate": 10,
+              "noteRate": 10.0,
               "basePrice": 110.625
             },
             {
@@ -118,10 +118,10 @@
             },
             {
               "noteRate": 9.125,
-              "basePrice": 108
+              "basePrice": 108.0
             },
             {
-              "noteRate": 9,
+              "noteRate": 9.0,
               "basePrice": 107.625
             },
             {
@@ -153,7 +153,7 @@
               "basePrice": 104.125
             },
             {
-              "noteRate": 8,
+              "noteRate": 8.0,
               "basePrice": 103.5
             },
             {
@@ -178,13 +178,13 @@
             }
           ],
           "maxPrice": {
-            "default": 105
+            "default": 105.0
           },
           "guideMaxPrice": {
-            "default": 105
+            "default": 105.0
           },
           "minPrice": {
-            "default": 98
+            "default": 98.0
           }
         },
         "cltvDoc01": {
@@ -204,7 +204,7 @@
           ],
           "rows": [
             {
-              "creditScore": "≥ 800",
+              "creditScore": "\u2265 800",
               "values": [
                 2.875,
                 2.875,
@@ -212,7 +212,7 @@
                 2.375,
                 2.125,
                 1.25,
-                0,
+                0.0,
                 -4.25
               ]
             },
@@ -261,7 +261,7 @@
                 0.875,
                 0.875,
                 0.375,
-                0,
+                0.0,
                 -0.25,
                 -1.25,
                 -3.5,
@@ -273,9 +273,9 @@
               "values": [
                 -0.375,
                 -0.375,
-                -1,
+                -1.0,
                 -1.5,
-                -2,
+                -2.0,
                 -2.75,
                 -5.125,
                 -9.25
@@ -299,7 +299,7 @@
               "values": [
                 -4.375,
                 -4.5,
-                -5,
+                -5.0,
                 -5.625,
                 -6.125,
                 -7.375,
@@ -352,10 +352,10 @@
           ],
           "rows": [
             {
-              "creditScore": "≥ 800",
+              "creditScore": "\u2265 800",
               "values": [
-                1,
-                1,
+                1.0,
+                1.0,
                 0.75,
                 0.375,
                 0.125,
@@ -367,14 +367,14 @@
             {
               "creditScore": "780 - 799",
               "values": [
-                1,
-                1,
+                1.0,
+                1.0,
                 0.75,
                 0.375,
                 0.125,
-                -1,
+                -1.0,
                 -1.875,
-                -6
+                -6.0
               ]
             },
             {
@@ -408,11 +408,11 @@
               "values": [
                 -0.5,
                 -0.5,
-                -1,
+                -1.0,
                 -1.5,
                 -1.75,
                 -2.875,
-                -5,
+                -5.0,
                 -9.5
               ]
             },
@@ -436,7 +436,7 @@
                 -4.125,
                 -4.875,
                 -5.375,
-                -6,
+                -6.0,
                 -7.125,
                 -9.875,
                 null
@@ -446,7 +446,7 @@
               "creditScore": "660 - 679",
               "values": [
                 -5.875,
-                -6,
+                -6.0,
                 -6.5,
                 -7.25,
                 -7.75,
@@ -500,7 +500,7 @@
           ],
           "rows": [
             {
-              "creditScore": "≥ 800",
+              "creditScore": "\u2265 800",
               "values": [
                 -0.625,
                 -0.625,
@@ -520,7 +520,7 @@
                 -0.875,
                 -1.5,
                 -1.75,
-                -3,
+                -3.0,
                 -4.125,
                 null
               ]
@@ -531,7 +531,7 @@
                 -1.125,
                 -1.125,
                 -1.375,
-                -2,
+                -2.0,
                 -2.25,
                 -3.625,
                 -4.875,
@@ -559,7 +559,7 @@
                 -2.75,
                 -3.5,
                 -3.75,
-                -5,
+                -5.0,
                 -7.375,
                 null
               ]
@@ -580,11 +580,11 @@
             {
               "creditScore": "680 - 699",
               "values": [
-                -6,
-                -6,
+                -6.0,
+                -6.0,
                 -6.75,
                 -7.375,
-                -8,
+                -8.0,
                 null,
                 null,
                 null
@@ -593,7 +593,7 @@
             {
               "creditScore": "660 - 679",
               "values": [
-                -8,
+                -8.0,
                 -8.125,
                 -8.625,
                 -9.625,
@@ -641,17 +641,17 @@
               {
                 "label": "No Bank Stmt",
                 "lookupKey": "PT_No Bank Stmt",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "12mo Bank Stmt",
                 "lookupKey": "PT_12mo Bank Stmt",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "24mo Bank Stmt",
                 "lookupKey": "PT_24mo Bank Stmt",
-                "value": 0
+                "value": 0.0
               }
             ]
           },
@@ -679,7 +679,7 @@
               {
                 "label": "30yr Fixed",
                 "lookupKey": "PT_30yr Fixed",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "30/15yr Balloon",
@@ -702,7 +702,7 @@
               {
                 "label": "Full Amortization",
                 "lookupKey": "PT_Full Amortization",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Interest-Only",
@@ -735,42 +735,42 @@
               {
                 "label": "100,001-125k",
                 "lookupKey": "PT_100,001-125k",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "125,001-150k",
                 "lookupKey": "PT_125,001-150k",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "150,001-175k",
                 "lookupKey": "PT_150,001-175k",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "175,001-200k",
                 "lookupKey": "PT_175,001-200k",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "200,001-300k",
                 "lookupKey": "PT_200,001-300k",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "300,001-400k",
                 "lookupKey": "PT_300,001-400k",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "400,001-600k",
                 "lookupKey": "PT_400,001-600k",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "600,001-750k",
                 "lookupKey": "PT_600,001-750k",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "750,001-850k",
@@ -833,31 +833,31 @@
               {
                 "label": "00.00-00",
                 "lookupKey": "PT_00.00-00",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
                 ]
               },
               {
                 "label": "00.01-43",
                 "lookupKey": "PT_00.01-43",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
                 ]
               },
               {
@@ -886,7 +886,7 @@
                   -0.75,
                   -0.75,
                   -0.75,
-                  -1,
+                  -1.0,
                   -1.25
                 ]
               },
@@ -916,7 +916,7 @@
               {
                 "label": "DSCR Not Applicable",
                 "lookupKey": "PT_DSCR Not Applicable",
-                "value": 0
+                "value": 0.0
               }
             ]
           },
@@ -929,17 +929,17 @@
               {
                 "label": "Purchase",
                 "lookupKey": "PT_Purchase",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Rate-Term",
                 "lookupKey": "PT_Rate-Term",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Cash-Out",
                 "lookupKey": "PT_Cash-Out",
-                "value": 0
+                "value": 0.0
               }
             ]
           },
@@ -952,7 +952,7 @@
               {
                 "label": "Owner Occupied",
                 "lookupKey": "PT_Owner Occupied",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Second Home",
@@ -970,12 +970,12 @@
               {
                 "label": "Full Appraisal",
                 "lookupKey": "PT_Full Appraisal",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "AVM",
                 "lookupKey": "PT_AVM",
-                "value": 0
+                "value": 0.0
               }
             ]
           },
@@ -988,22 +988,22 @@
               {
                 "label": "CA",
                 "lookupKey": "PT_CA",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "GA",
                 "lookupKey": "PT_GA",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "AL",
                 "lookupKey": "PT_AL",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Other",
                 "lookupKey": "PT_Non-CA",
-                "value": 0
+                "value": 0.0
               }
             ]
           },
@@ -1016,121 +1016,121 @@
               {
                 "label": "SFR",
                 "lookupKey": "PT_SFR",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
                 ]
               },
               {
                 "label": "SFR-Rural",
                 "lookupKey": "PT_SFR-Rural",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
                 ]
               },
               {
                 "label": "PUD-Rural",
                 "lookupKey": "PT_PUD-Rural",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
                 ]
               },
               {
                 "label": "D-PUD",
                 "lookupKey": "PT_D-PUD",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
                 ]
               },
               {
                 "label": "PUD",
                 "lookupKey": "PT_PUD",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
                 ]
               },
               {
                 "label": "Townhouse",
                 "lookupKey": "PT_Townhouse",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
                 ]
               },
               {
                 "label": "Rowhouse",
                 "lookupKey": "PT_Rowhouse",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
                 ]
               },
               {
                 "label": "Site Condo",
                 "lookupKey": "PT_Condo-Site",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
                 ]
               },
               {
@@ -1211,16 +1211,16 @@
               {
                 "label": "Modular",
                 "lookupKey": "PT_Modular",
-                "value": -2,
+                "value": -2.0,
                 "values": [
-                  -2,
-                  -2,
-                  -2,
-                  -2,
-                  -2,
-                  -2,
-                  -2,
-                  -2
+                  -2.0,
+                  -2.0,
+                  -2.0,
+                  -2.0,
+                  -2.0,
+                  -2.0,
+                  -2.0,
+                  -2.0
                 ]
               },
               {
@@ -1249,17 +1249,17 @@
               {
                 "label": "US Citizen",
                 "lookupKey": "PT_US Citizen",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Permanent Resident Alien",
                 "lookupKey": "PT_Permanent Resident Alien",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Non-Perm Resident Alien",
                 "lookupKey": "PT_Non-Permanent Resident Alien",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Foreign National",
@@ -1277,12 +1277,12 @@
               {
                 "label": "Wage-Earner",
                 "lookupKey": "PT_Wage-Earner",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Self-Employed",
                 "lookupKey": "PT_Self-Employed",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Short-Term-Rental",
@@ -1297,7 +1297,7 @@
               {
                 "label": "Other Income",
                 "lookupKey": "PT_Other Income",
-                "value": 0
+                "value": 0.0
               }
             ]
           },
@@ -1310,7 +1310,7 @@
               {
                 "label": "Not FTHB or FTINV",
                 "lookupKey": "PT_Not FTHB or FTINV",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "FTHB and FTINV",
@@ -1320,12 +1320,12 @@
               {
                 "label": "FTHB-HousingHistory",
                 "lookupKey": "PT_FTHB-HousingHistory",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "FTHB-NoHousingHistory",
                 "lookupKey": "PT_FTHB-NoHousingHistory",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "FTINV-MtgHistory",
@@ -1348,12 +1348,12 @@
               {
                 "label": "NoLatesx24",
                 "lookupKey": "PT_NoLatesx24",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "NoLatesx12",
                 "lookupKey": "PT_NoLatesx12",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "1x30x12",
@@ -1386,7 +1386,7 @@
               {
                 "label": "No Events 48+",
                 "lookupKey": "PT_No Events 48mo+",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Events 36-47mo FC/SS/DIL",
@@ -1429,7 +1429,7 @@
               {
                 "label": "No ACH",
                 "lookupKey": "PT_No ACH",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "ACH",
@@ -1452,7 +1452,7 @@
               {
                 "label": "No Escrows (No HPML)",
                 "lookupKey": "PT_No Escrows",
-                "value": 0
+                "value": 0.0
               }
             ]
           },
@@ -1465,7 +1465,7 @@
               {
                 "label": "No Prepay",
                 "lookupKey": "PT_No Prepay",
-                "value": 0
+                "value": 0.0
               }
             ]
           },
@@ -1478,7 +1478,7 @@
               {
                 "label": "30 Day",
                 "lookupKey": "PT_30 Day",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "45 Day",
@@ -1501,12 +1501,12 @@
               {
                 "label": "Mandatory",
                 "lookupKey": "PT_Mandatory",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Best Efforts",
                 "lookupKey": "PT_Best Efforts",
-                "value": 0
+                "value": 0.0
               }
             ]
           }
@@ -1529,14 +1529,14 @@
             },
             {
               "noteRate": 13.25,
-              "basePrice": 114
+              "basePrice": 114.0
             },
             {
               "noteRate": 13.125,
               "basePrice": 113.875
             },
             {
-              "noteRate": 13,
+              "noteRate": 13.0,
               "basePrice": 113.75
             },
             {
@@ -1561,14 +1561,14 @@
             },
             {
               "noteRate": 12.25,
-              "basePrice": 113
+              "basePrice": 113.0
             },
             {
               "noteRate": 12.125,
               "basePrice": 112.875
             },
             {
-              "noteRate": 12,
+              "noteRate": 12.0,
               "basePrice": 112.75
             },
             {
@@ -1589,7 +1589,7 @@
             },
             {
               "noteRate": 11.375,
-              "basePrice": 112
+              "basePrice": 112.0
             },
             {
               "noteRate": 11.25,
@@ -1600,12 +1600,12 @@
               "basePrice": 111.5
             },
             {
-              "noteRate": 11,
+              "noteRate": 11.0,
               "basePrice": 111.25
             },
             {
               "noteRate": 10.875,
-              "basePrice": 111
+              "basePrice": 111.0
             },
             {
               "noteRate": 10.75,
@@ -1621,7 +1621,7 @@
             },
             {
               "noteRate": 10.375,
-              "basePrice": 110
+              "basePrice": 110.0
             },
             {
               "noteRate": 10.25,
@@ -1632,7 +1632,7 @@
               "basePrice": 109.25
             },
             {
-              "noteRate": 10,
+              "noteRate": 10.0,
               "basePrice": 108.875
             },
             {
@@ -1653,7 +1653,7 @@
             },
             {
               "noteRate": 9.375,
-              "basePrice": 107
+              "basePrice": 107.0
             },
             {
               "noteRate": 9.25,
@@ -1661,10 +1661,10 @@
             },
             {
               "noteRate": 9.125,
-              "basePrice": 106
+              "basePrice": 106.0
             },
             {
-              "noteRate": 9,
+              "noteRate": 9.0,
               "basePrice": 105.375
             },
             {
@@ -1689,23 +1689,18 @@
             }
           ],
           "maxPrice": {
-            "No Prepay - Hard": 105,
-            "1yr Prepay - Hard": 105,
-            "2yr Prepay - Hard": 105,
+            "No Prepay - Hard": 105.0,
+            "1yr Prepay - Hard": 105.0,
+            "2yr Prepay - Hard": 105.0,
             "3yr Prepay - Hard": 105.5,
             "4yr Prepay - Hard": 105.5,
             "5yr Prepay - Hard": 105.5
           },
           "guideMaxPrice": {
-            "No Prepay - Hard": 105,
-            "1yr Prepay - Hard": 105,
-            "2yr Prepay - Hard": 105,
-            "3yr Prepay - Hard": 105.5,
-            "4yr Prepay - Hard": 105.5,
-            "5yr Prepay - Hard": 105.5
+            "default": 105.0
           },
           "minPrice": {
-            "default": 98
+            "default": 98.0
           }
         },
         "cltvDoc01": {
@@ -1725,7 +1720,7 @@
           ],
           "rows": [
             {
-              "creditScore": "≥ 800",
+              "creditScore": "\u2265 800",
               "values": [
                 2.875,
                 2.875,
@@ -1733,7 +1728,7 @@
                 2.375,
                 2.125,
                 1.25,
-                0,
+                0.0,
                 null
               ]
             },
@@ -1782,7 +1777,7 @@
                 0.875,
                 0.875,
                 0.375,
-                0,
+                0.0,
                 -0.25,
                 -1.25,
                 -3.5,
@@ -1794,9 +1789,9 @@
               "values": [
                 -0.375,
                 -0.375,
-                -1,
+                -1.0,
                 -1.5,
-                -2,
+                -2.0,
                 -2.75,
                 -5.125,
                 null
@@ -1820,7 +1815,7 @@
               "values": [
                 -4.375,
                 -4.5,
-                -5,
+                -5.0,
                 -5.625,
                 -6.125,
                 null,
@@ -1873,10 +1868,10 @@
           ],
           "rows": [
             {
-              "creditScore": "≥ 800",
+              "creditScore": "\u2265 800",
               "values": [
-                1,
-                1,
+                1.0,
+                1.0,
                 0.75,
                 0.375,
                 0.125,
@@ -1888,12 +1883,12 @@
             {
               "creditScore": "780 - 799",
               "values": [
-                1,
-                1,
+                1.0,
+                1.0,
                 0.75,
                 0.375,
                 0.125,
-                -1,
+                -1.0,
                 -1.875,
                 null
               ]
@@ -1929,11 +1924,11 @@
               "values": [
                 -0.5,
                 -0.5,
-                -1,
+                -1.0,
                 -1.5,
                 -1.75,
                 -2.875,
-                -5,
+                -5.0,
                 null
               ]
             },
@@ -1957,7 +1952,7 @@
                 -4.125,
                 -4.875,
                 -5.375,
-                -6,
+                -6.0,
                 null,
                 null,
                 null
@@ -1967,7 +1962,7 @@
               "creditScore": "660 - 679",
               "values": [
                 -5.875,
-                -6,
+                -6.0,
                 -6.5,
                 null,
                 null,
@@ -2021,7 +2016,7 @@
           ],
           "rows": [
             {
-              "creditScore": "≥ 800",
+              "creditScore": "\u2265 800",
               "values": [
                 -0.5,
                 -0.5,
@@ -2042,15 +2037,15 @@
                 -1.375,
                 -1.625,
                 -2.875,
-                -4,
+                -4.0,
                 null
               ]
             },
             {
               "creditScore": "760 - 779",
               "values": [
-                -1,
-                -1,
+                -1.0,
+                -1.0,
                 -1.25,
                 -1.875,
                 -2.125,
@@ -2068,7 +2063,7 @@
                 -2.375,
                 -2.625,
                 -4.125,
-                -6,
+                -6.0,
                 null
               ]
             },
@@ -2090,7 +2085,7 @@
               "values": [
                 -3.375,
                 -3.375,
-                -4,
+                -4.0,
                 -4.75,
                 -5.25,
                 null,
@@ -2115,7 +2110,7 @@
               "creditScore": "660 - 679",
               "values": [
                 -7.875,
-                -8,
+                -8.0,
                 -8.5,
                 null,
                 null,
@@ -2169,15 +2164,15 @@
           ],
           "rows": [
             {
-              "creditScore": "≥ 800",
+              "creditScore": "\u2265 800",
               "values": [
                 -0.625,
                 -0.625,
                 -0.875,
                 -1.5,
                 -1.75,
-                -3,
-                -4,
+                -3.0,
+                -4.0,
                 null
               ]
             },
@@ -2200,10 +2195,10 @@
                 -1.125,
                 -1.125,
                 -1.375,
-                -2,
+                -2.0,
                 -2.25,
                 -3.75,
-                -5,
+                -5.0,
                 null
               ]
             },
@@ -2239,7 +2234,7 @@
                 -3.625,
                 -3.625,
                 -4.25,
-                -5,
+                -5.0,
                 -5.5,
                 -6.5,
                 null,
@@ -2251,7 +2246,7 @@
               "values": [
                 -6.25,
                 -6.25,
-                -7,
+                -7.0,
                 -7.625,
                 -8.25,
                 null,
@@ -2310,17 +2305,17 @@
               {
                 "label": "No Bank Stmt",
                 "lookupKey": "IT_No Bank Stmt",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "12mo Bank Stmt",
                 "lookupKey": "IT_12mo Bank Stmt",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "24mo Bank Stmt",
                 "lookupKey": "IT_24mo Bank Stmt",
-                "value": 0
+                "value": 0.0
               }
             ]
           },
@@ -2348,7 +2343,7 @@
               {
                 "label": "30yr Fixed",
                 "lookupKey": "IT_30yr Fixed",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "30/15yr Balloon",
@@ -2371,7 +2366,7 @@
               {
                 "label": "Full Amortization",
                 "lookupKey": "IT_Full Amortization",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Interest-Only",
@@ -2404,42 +2399,42 @@
               {
                 "label": "100,001-125k",
                 "lookupKey": "IT_100,001-125k",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "125,001-150k",
                 "lookupKey": "IT_125,001-150k",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "150,001-175k",
                 "lookupKey": "IT_150,001-175k",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "175,001-200k",
                 "lookupKey": "IT_175,001-200k",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "200,001-300k",
                 "lookupKey": "IT_200,001-300k",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "300,001-400k",
                 "lookupKey": "IT_300,001-400k",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "400,001-600k",
                 "lookupKey": "IT_400,001-600k",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "600,001-750k",
                 "lookupKey": "IT_600,001-750k",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "750,001-1.0m",
@@ -2502,30 +2497,30 @@
               {
                 "label": "00.00-00",
                 "lookupKey": "IT_00.00-00",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
                   null
                 ]
               },
               {
                 "label": "00.01-43",
                 "lookupKey": "IT_00.01-43",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
                   null
                 ]
               },
@@ -2555,7 +2550,7 @@
                   -0.75,
                   -0.75,
                   -0.75,
-                  -1,
+                  -1.0,
                   null
                 ]
               },
@@ -2585,10 +2580,10 @@
               {
                 "label": "DSCR Not Applicable",
                 "lookupKey": "IT_DSCR Not Applicable",
-                "value": 0
+                "value": 0.0
               },
               {
-                "label": "DSCR ≥1.50",
+                "label": "DSCR \u22651.50",
                 "lookupKey": "IT_DSCR 1.50+",
                 "value": 0.5
               },
@@ -2600,7 +2595,7 @@
               {
                 "label": "DSCR 1.10-1.24",
                 "lookupKey": "IT_DSCR 1.10-1.24",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "DSCR 1.00-1.09",
@@ -2628,17 +2623,17 @@
               {
                 "label": "Purchase",
                 "lookupKey": "IT_Purchase",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Rate-Term",
                 "lookupKey": "IT_Rate-Term",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Cash-Out",
                 "lookupKey": "IT_Cash-Out",
-                "value": 0
+                "value": 0.0
               }
             ]
           },
@@ -2651,7 +2646,7 @@
               {
                 "label": "Non Owner Occupied",
                 "lookupKey": "IT_Non Owner Occupied",
-                "value": 0
+                "value": 0.0
               }
             ]
           },
@@ -2664,12 +2659,12 @@
               {
                 "label": "Full Appraisal",
                 "lookupKey": "IT_Full Appraisal",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "AVM",
                 "lookupKey": "IT_AVM",
-                "value": 0
+                "value": 0.0
               }
             ]
           },
@@ -2682,22 +2677,22 @@
               {
                 "label": "CA",
                 "lookupKey": "IT_CA",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "GA",
                 "lookupKey": "IT_GA",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "AL",
                 "lookupKey": "IT_AL",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Other",
                 "lookupKey": "IT_Non-CA",
-                "value": 0
+                "value": 0.0
               }
             ]
           },
@@ -2710,120 +2705,120 @@
               {
                 "label": "SFR",
                 "lookupKey": "IT_SFR",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
                   null
                 ]
               },
               {
                 "label": "SFR-Rural",
                 "lookupKey": "IT_SFR-Rural",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
                   null
                 ]
               },
               {
                 "label": "PUD-Rural",
                 "lookupKey": "IT_PUD-Rural",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
                   null
                 ]
               },
               {
                 "label": "D-PUD",
                 "lookupKey": "IT_D-PUD",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
                   null
                 ]
               },
               {
                 "label": "PUD",
                 "lookupKey": "IT_PUD",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
                   null
                 ]
               },
               {
                 "label": "Townhouse",
                 "lookupKey": "IT_Townhouse",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
                   null
                 ]
               },
               {
                 "label": "Rowhouse",
                 "lookupKey": "IT_Rowhouse",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
                   null
                 ]
               },
               {
                 "label": "Site Condo",
                 "lookupKey": "IT_Condo-Site",
-                "value": 0,
+                "value": 0.0,
                 "values": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
                   null
                 ]
               },
@@ -2905,15 +2900,15 @@
               {
                 "label": "Modular",
                 "lookupKey": "IT_Modular",
-                "value": -2,
+                "value": -2.0,
                 "values": [
-                  -2,
-                  -2,
-                  -2,
-                  -2,
-                  -2,
-                  -2,
-                  -2,
+                  -2.0,
+                  -2.0,
+                  -2.0,
+                  -2.0,
+                  -2.0,
+                  -2.0,
+                  -2.0,
                   null
                 ]
               },
@@ -2943,17 +2938,17 @@
               {
                 "label": "US Citizen",
                 "lookupKey": "IT_US Citizen",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Permanent Resident Alien",
                 "lookupKey": "IT_Permanent Resident Alien",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Non-Perm Resident Alien",
                 "lookupKey": "IT_Non-Permanent Resident Alien",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Foreign National",
@@ -2971,27 +2966,27 @@
               {
                 "label": "Wage-Earner",
                 "lookupKey": "IT_Wage-Earner",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Self-Employed",
                 "lookupKey": "IT_Self-Employed",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Short-Term-Rental",
                 "lookupKey": "IT_Short-Term-Rental",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Rental-Not-Short-Term",
                 "lookupKey": "IT_Not-Short-Term-Rental",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Other Income",
                 "lookupKey": "IT_Other Income",
-                "value": 0
+                "value": 0.0
               }
             ]
           },
@@ -3004,32 +2999,32 @@
               {
                 "label": "Not FTHB or FTINV",
                 "lookupKey": "IT_Not FTHB or FTINV",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "FTHB and FTINV",
                 "lookupKey": "IT_FTHB and FTINV",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "FTHB-HousingHistory",
                 "lookupKey": "IT_FTHB-HousingHistory",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "FTHB-NoHousingHistory",
                 "lookupKey": "IT_FTHB-NoHousingHistory",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "FTINV-MtgHistory",
                 "lookupKey": "IT_FTINV-MtgHistory",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "FTINV-NoMtgHistory",
                 "lookupKey": "IT_FTINV-NoMtgHistory",
-                "value": 0
+                "value": 0.0
               }
             ]
           },
@@ -3042,12 +3037,12 @@
               {
                 "label": "NoLatesx24",
                 "lookupKey": "IT_NoLatesx24",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "NoLatesx12",
                 "lookupKey": "IT_NoLatesx12",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "1x30x12",
@@ -3080,7 +3075,7 @@
               {
                 "label": "No Events 48+",
                 "lookupKey": "IT_No Events 48mo+",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "Events 36-47mo FC/SS/DIL",
@@ -3123,7 +3118,7 @@
               {
                 "label": "No ACH",
                 "lookupKey": "IT_No ACH",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "ACH",
@@ -3146,7 +3141,7 @@
               {
                 "label": "No Escrows (No HPML)",
                 "lookupKey": "IT_No Escrows",
-                "value": 0
+                "value": 0.0
               }
             ]
           },
@@ -3159,7 +3154,7 @@
               {
                 "label": "No Prepay",
                 "lookupKey": "IT_No Prepay",
-                "value": 0
+                "value": 0.0
               },
               {
                 "label": "1yr Prepay_Standard",
@@ -3184,7 +3179,7 @@
               {
                 "label": "5yr Prepay_Standard",
                 "lookupKey": "IT_5yr Prepay_Standard",
-                "value": 2
+                "value": 2.0
               },
               {
                 "label": "1yr Prepay_3Pct",
@@ -3209,7 +3204,7 @@
               {
                 "label": "5yr Prepay_3Pct",
                 "lookupKey": "IT_5yr Prepay_3Pct",
-                "value": 2
+                "value": 2.0
               },
               {
                 "label": "1yr Prepay_5Pct",
@@ -3249,7 +3244,7 @@
               {
                 "label": "3yr Prepay_321",
                 "lookupKey": "IT_3yr Prepay_321",
-                "value": 1
+                "value": 1.0
               },
               {
                 "label": "4yr Prepay_4321",
@@ -3307,12 +3302,5 @@
         }
       }
     }
-  },
-  "ratesheetMeta": {
-    "label": "Workbook modified",
-    "value": "May 7, 2026, 7:29 AM",
-    "collectedAt": "May 7, 2026, 11:52 AM",
-    "sourceWorkbook": "/Users/ava/Documents/GitHub/first-access-lending/getaccess/ratesheets/latest_vista.xlsx",
-    "source": "workbook-props"
   }
 }

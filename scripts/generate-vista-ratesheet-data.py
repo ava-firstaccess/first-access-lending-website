@@ -15,6 +15,7 @@ PROGRAMS = {
         'pricingRows': (65, 113),
         'basePriceColumn': 6,
         'maxPriceRows': {'default': 41},
+        'guideMaxPriceRows': {'default': 140},
         'minPriceRows': {'default': 52},
         'cltv': {
             'headerRow': 65,
@@ -65,6 +66,7 @@ PROGRAMS = {
             '4yr Prepay - Hard': 301,
             '5yr Prepay - Hard': 302,
         },
+        'guideMaxPriceRows': {'default': 295},
         'minPriceRows': {'default': 443},
         'cltv': {
             'headerRow': 220,
@@ -221,7 +223,7 @@ def main():
                     'rows': list(spec['pricingRows']),
                     'rowsData': parse_pricing_table(ws, spec['pricingRows'][0], spec['pricingRows'][1], spec['basePriceColumn']),
                     'maxPrice': parse_price_map(ws, spec['maxPriceRows']),
-                    'guideMaxPrice': parse_price_map(ws, spec['maxPriceRows']),
+                    'guideMaxPrice': parse_price_map(ws, spec['guideMaxPriceRows']),
                     'minPrice': parse_price_map(ws, spec['minPriceRows']),
                 },
                 'cltvDoc01': {
