@@ -451,7 +451,7 @@ export function LoanOfficerAvmPage({ session }: { session: LoanOfficerPortalSess
                   <h2 className="text-lg font-semibold text-slate-900">AVM provider chart</h2>
                   <p className="mt-1 text-sm text-slate-600">Pull Cache loads existing AVMs without placing any order. Run Cascade uses the normal decisioning flow. Manual Run forces a provider-specific rerun for HouseCanary or Clear Capital. The Agile test checkbox only affects manual HouseCanary runs.</p>
                 </div>
-                <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">Cache window: reuse provider results under 90 days old</div>
+                <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">Cache window: reuse provider results under 120 days old</div>
               </div>
 
               <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">

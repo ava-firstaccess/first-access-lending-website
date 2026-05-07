@@ -6,7 +6,7 @@ import { chooseHouseCanaryOrderProduct } from '@/lib/housecanary-billing';
 import { getInvestorAvmRule, getInvestorAvmRules, type AvmProviderName, type InvestorName } from '@/lib/rates/investor-confidence-rules';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
-const LO_AVM_CACHE_WINDOW_DAYS = 90;
+const LO_AVM_CACHE_WINDOW_DAYS = 120;
 const HOUSECANARY_API_BASE = 'https://api.housecanary.com';
 const HOUSECANARY_ORDER_MANAGER_BASE = 'https://order-manager-api.housecanary.com/client-api/v1';
 
