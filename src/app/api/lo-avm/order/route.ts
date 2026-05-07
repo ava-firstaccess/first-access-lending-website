@@ -98,6 +98,18 @@ type ClearCapitalOrderResult = {
   errorMessage?: string | null;
 };
 
+class ClearCapitalOrderError extends Error {
+  externalOrderId: string | null;
+  rawResponse: any;
+
+  constructor(message: string, options?: { externalOrderId?: string | null; rawResponse?: any }) {
+    super(message);
+    this.name = 'ClearCapitalOrderError';
+    this.externalOrderId = options?.externalOrderId ?? null;
+    this.rawResponse = options?.rawResponse ?? null;
+  }
+}
+
 function mapInvestorLabelToRuleInvestor(investorLabel: string | null | undefined): InvestorName | null {
   if (!investorLabel) return null;
   if (investorLabel === 'OSB' || investorLabel === 'Onslow') return 'Onslow';
@@ -1030,7 +1042,10 @@ async function createClearCapitalOrder({
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(`Clear Capital Property Analytics failed (${res.status})`);
+    throw new ClearCapitalOrderError(`Clear Capital Property Analytics failed (${res.status})`, {
+      externalOrderId: data?.id || null,
+      rawResponse: data,
+    });
   }
 
   const result = data?.clearAvm?.result;
@@ -1054,7 +1069,10 @@ async function createClearCapitalOrder({
         errorMessage,
       };
     }
-    throw new Error('Clear Capital returned no market value.');
+    throw new ClearCapitalOrderError('Clear Capital returned no market value.', {
+      externalOrderId: data?.id || null,
+      rawResponse: data,
+    });
   }
 
   return {
@@ -2091,7 +2109,7 @@ export async function POST(req: NextRequest) {
           product,
           provider: 'clearcapital',
           provider_product: 'clearavm',
-          external_order_id: null,
+          external_order_id: providerError instanceof ClearCapitalOrderError ? providerError.externalOrderId : null,
           external_item_id: null,
           external_tracking_id: trackingId,
           order_status: 'failed',
@@ -2119,6 +2137,7 @@ export async function POST(req: NextRequest) {
             errorMessage: providerError?.message || 'Clear Capital order failed.',
             requestedMaxFsd,
             fsdThresholdStatus: 'pending',
+            clearCapitalResponse: providerError instanceof ClearCapitalOrderError ? providerError.rawResponse : null,
           },
           requested_max_fsd: requestedMaxFsd,
           run_source: runSource,
