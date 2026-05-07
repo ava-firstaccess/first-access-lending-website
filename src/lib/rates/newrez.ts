@@ -1,5 +1,6 @@
 import ratesheet from './newrez-ratesheet.json';
 import { getTargetPurchasePriceForLoanAmount, type ButtonStage1Input } from './button';
+import { STAGE1_INVESTOR_OVERLAYS } from '../stage1-pricing/config';
 import { calculateAmortizingMonthlyPayment, calculateMaxAvailableFromMaxLtv } from './shared';
 
 export type NewRezProduct = '15 Year Fixed' | '20 Year Fixed' | '30 Year Fixed';
@@ -100,6 +101,7 @@ const SUPPORTED_NEWREZ_PRODUCTS = Object.keys(DATA.pricing) as NewRezProduct[];
  * update this constant and the eligibility message together.
  */
 const NEWREZ_MAX_UNIT_COUNT = 1;
+const NEWREZ_MAX_LOAN_AMOUNT = STAGE1_INVESTOR_OVERLAYS.NewRez.maxLoanAmount;
 
 export function getNewRezGuideMaxPrice(): number {
   return DATA.guideMaxPrice?.default ?? 107;
@@ -274,7 +276,8 @@ function getCltvMatrix(product: NewRezProduct): JsonMatrix {
 }
 
 function calculateMaxAvailable(input: NewRezPricingInput): number {
-  return calculateMaxAvailableFromMaxLtv(input.propertyValue, input.loanBalance, calculateMaxLtv(input));
+  const cltvConstrained = calculateMaxAvailableFromMaxLtv(input.propertyValue, input.loanBalance, calculateMaxLtv(input));
+  return Math.max(0, Math.min(cltvConstrained, NEWREZ_MAX_LOAN_AMOUNT));
 }
 
 function calculateMaxLtv(input: NewRezPricingInput): number {

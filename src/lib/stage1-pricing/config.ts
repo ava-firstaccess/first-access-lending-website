@@ -10,6 +10,12 @@ export const BEST_EX_LOCK_PADDING_DAYS = 30;
 
 export { POINTS_AND_FEES_STATE_CAPS } from '../closing-costs';
 
+export const STAGE1_INVESTOR_OVERLAYS = {
+  NewRez: {
+    maxLoanAmount: 500_000,
+  },
+} as const;
+
 const BEST_EX_DOC_TYPE_MAP = {
   Button: {
     HELOC: {
